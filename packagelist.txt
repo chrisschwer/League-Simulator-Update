@@ -1,0 +1,6 @@
+ggplot2
+httr
+jsonlite
+rsconnect
+xtable
+languageservices
