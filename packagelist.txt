@@ -4,3 +4,4 @@ jsonlite
 rsconnect
 xtable
 languageservices
+tidyverse
