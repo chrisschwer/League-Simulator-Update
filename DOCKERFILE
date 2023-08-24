@@ -19,7 +19,7 @@ RUN while read in; do R -e "install.packages('$in')"; done < packagelist.txt
 COPY RCode/ /RCode/
 
 # Set up a CRON job for every day at 14:45
-RUN echo '45 14 * * * Rscript /RCode/update_all_leagues_loop.R' > /etc/crontabs/root
+RUN echo '45 14 * * * Rscript /RCode/update_all_leagues_loop.R' > /etc/crontab
 
 # The command that starts the cron service
 CMD ["crond", "-f", "-l", "8"]
