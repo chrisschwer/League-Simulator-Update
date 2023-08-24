@@ -1,8 +1,8 @@
 # complete rerun of model, with loops
 
 loops <- 30 # how many iterations do you want to run?
-waittime <- 300 # how many seconds to wait between completed loops
-initial_wait <- 29 * 3600 + 1800 # how long to wait before starting the updating process
+waittime <- 1080 # how many seconds to wait between completed loops
+initial_wait <- 0 # how long to wait before starting the updating process
 n <- 10000
 saison <- "2023"
 TeamList_file <- "~/LeagueSimulator/RCode/TeamList_2023.csv"

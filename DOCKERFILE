@@ -18,11 +18,8 @@ RUN while read in; do R -e "install.packages('$in')"; done < packagelist.txt
 # Copy R scripts into the container
 COPY RCode/ /RCode/
 
-# source all the .R files
-RUN Rscript -e "lapply(list.files('/RCode', pattern='\\.R$', full.names=TRUE), source)"
-
-# Set up a CRON job
-RUN echo '30 */1 * * * Rscript /RCode/update_all.R' > /etc/crontabs/root
+# Set up a CRON job for every day at 14:45
+RUN echo '45 14 * * * Rscript /RCode/update_all_leagues_loop.R' > /etc/crontabs/root
 
 # The command that starts the cron service
 CMD ["crond", "-f", "-l", "8"]
