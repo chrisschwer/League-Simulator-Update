@@ -2,8 +2,8 @@
 # SHINYAPPS_TO_SECRET is the shinyapps secret
 # RAPIDAPI_KEY is the RapidAPI key
 
-# Start from a minimal Linux distribution
-FROM rocker/tidyverse
+# Start from a rocker r distribution distribution
+FROM rocker/tidyverse:4
 
 # Setting environment variables
 # Set the environment variables
