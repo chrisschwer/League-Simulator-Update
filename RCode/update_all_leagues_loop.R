@@ -1,0 +1,108 @@
+# complete rerun of model, with loops
+
+loops <- 30 # how many iterations do you want to run?
+waittime <- 300 # how many seconds to wait between completed loops
+initial_wait <- 29 * 3600 + 1800 # how long to wait before starting the updating process
+n <- 10000
+saison <- "2023"
+TeamList_file <- "~/LeagueSimulator/RCode/TeamList_2023.csv"
+
+# Wait initial_wait before starting
+Sys.sleep(initial_wait)
+
+# Initialize FT Values that will help only recalculating if new games finished
+
+FT_BL <- 0
+FT_BL2 <- 0
+FT_Liga3 <- 0
+
+# source C++ and R Code
+
+Rcpp::sourceCpp("~/LeagueSimulator/RCode/SpielNichtSimulieren.cpp")
+source("~/LeagueSimulator/RCode/leagueSimulatorCPP.R")
+source("~/LeagueSimulator/RCode/prozent.R")
+source("~/LeagueSimulator/RCode/retrieveResults.R")
+source("~/LeagueSimulator/RCode/SaisonSimulierenCPP.R")
+source("~/LeagueSimulator/RCode/simulationsCPP.R")
+source("~/LeagueSimulator/RCode/SpielCPP.R")
+source("~/LeagueSimulator/RCode/Tabelle.R")
+source("~/LeagueSimulator/RCode/transform_data.R")
+source("~/LeagueSimulator/RCode/updateShiny.R")
+
+# Import Team Data
+TeamList <- read.csv(TeamList_file, sep=";")
+
+# Start main loop
+
+for (i in 1:loops) {
+  
+  # reset simulation_executed
+  simulation_executed <- FALSE
+  
+  # get fixtures via API
+  fixturesBL <- retrieveResults(league = "78", season = saison)
+  fixturesBL2 <- retrieveResults(league = "79", season = saison)
+  fixturesLiga3 <- retrieveResults(league = "80", season = saison)
+  
+  # New count of games
+  FT_BL_new <-  sum(fixturesBL$fixture$status$short=="FT")
+  FT_BL2_new <-  sum(fixturesBL2$fixture$status$short=="FT")
+  FT_Liga3_new <-  sum(fixturesLiga3$fixture$status$short=="FT")
+  
+  
+  # transform data
+  BL <- transform_data(fixturesBL, TeamList)
+  BL2 <- transform_data(fixturesBL2, TeamList)
+  Liga3 <- transform_data(fixturesLiga3, TeamList)
+  
+  View(BL)
+  View(BL2)
+  View(Liga3)
+  
+  # Penalize second teams in Liga3, so that they cannot promote
+  
+  adjPoints_Liga3_Aufstieg <- rep(0, dim(Liga3)[2]-4) # initialize to 0
+  
+  for (i in 5:dim(Liga3)[2]) {
+    team_short <- names(Liga3)[i]
+    last_char_team <- substr(team_short, nchar(team_short), nchar(team_short))
+    if (last_char_team == "2") {
+      adjPoints_Liga3_Aufstieg[i-4] <- -50 # if team name ends in "2", penalize
+    }
+  }
+  
+  # Run the models
+  if (FT_BL != FT_BL_new) {
+    Ergebnis <- leagueSimulatorCPP(BL, n = n)
+    View(Ergebnis)
+    FT_BL <- FT_BL_new
+    simulation_executed <- TRUE
+    }
+  
+  if (FT_BL2 != FT_BL2_new) {
+    Ergebnis2 <- leagueSimulatorCPP(BL2, n = n)
+    View(Ergebnis2)
+    FT_BL2 <- FT_BL2_new
+    simulation_executed <- TRUE
+    }
+  
+  if (FT_Liga3 != FT_Liga3_new) {
+    Ergebnis3 <- leagueSimulatorCPP(Liga3, n = n)
+    View(Ergebnis3)
+    Ergebnis3_Aufstieg <- leagueSimulatorCPP(Liga3, n = n, adjPoints = adjPoints_Liga3_Aufstieg)
+    View(Ergebnis3_Aufstieg)
+    FT_Liga3 <- FT_Liga3_new
+    simulation_executed <- TRUE
+    }
+  
+  # update Shiny
+  
+  if (simulation_executed) {
+    updateShiny(Ergebnis, Ergebnis2, Ergebnis3, Ergebnis3_Aufstieg)
+    }
+  
+  Sys.sleep(waittime)
+  
+}
+  
+  

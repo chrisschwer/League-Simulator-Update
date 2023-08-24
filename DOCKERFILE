@@ -3,7 +3,7 @@
 # RAPIDAPI_KEY is the RapidAPI key
 
 # Start from a rocker r distribution distribution
-FROM rocker/tidyverse:4
+FROM rocker/tidyverse:4.3.1
 
 # Setting environment variables
 # Set the environment variables
