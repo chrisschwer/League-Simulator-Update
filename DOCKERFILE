@@ -15,6 +15,9 @@ ENV SHINYAPPS_IO_ACCOUNT=chrisschwer \
 COPY packagelist.txt .
 RUN while read in; do R -e "install.packages('$in')"; done < packagelist.txt
 
+# Install cron
+RUN apt-get update && apt-get install -y cron
+
 # Copy R scripts into the container
 COPY RCode/ /RCode/
 
@@ -22,4 +25,4 @@ COPY RCode/ /RCode/
 RUN echo '45 14 * * * Rscript /RCode/update_all_leagues_loop.R' > /etc/crontab
 
 # The command that starts the cron service
-CMD ["crond", "-f", "-l", "8"]
+CMD ["cron", "-f"]
