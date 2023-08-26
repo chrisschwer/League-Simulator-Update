@@ -18,16 +18,16 @@ FT_Liga3 <- 0
 
 # source C++ and R Code
 
-Rcpp::sourceCpp("~/LeagueSimulator/RCode/SpielNichtSimulieren.cpp")
-source("~/LeagueSimulator/RCode/leagueSimulatorCPP.R")
-source("~/LeagueSimulator/RCode/prozent.R")
-source("~/LeagueSimulator/RCode/retrieveResults.R")
-source("~/LeagueSimulator/RCode/SaisonSimulierenCPP.R")
-source("~/LeagueSimulator/RCode/simulationsCPP.R")
-source("~/LeagueSimulator/RCode/SpielCPP.R")
-source("~/LeagueSimulator/RCode/Tabelle.R")
-source("~/LeagueSimulator/RCode/transform_data.R")
-source("~/LeagueSimulator/RCode/updateShiny.R")
+Rcpp::sourceCpp("/RCode/SpielNichtSimulieren.cpp")
+source("/RCode/leagueSimulatorCPP.R")
+source("/RCode/prozent.R")
+source("/RCode/retrieveResults.R")
+source("/RCode/SaisonSimulierenCPP.R")
+source("/RCode/simulationsCPP.R")
+source("/RCode/SpielCPP.R")
+source("/RCode/Tabelle.R")
+source("/RCode/transform_data.R")
+source("/RCode/updateShiny.R")
 
 # Import Team Data
 TeamList <- read.csv(TeamList_file, sep=";")
