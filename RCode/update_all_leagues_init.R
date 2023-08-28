@@ -70,23 +70,19 @@ for (i in 1:loops) {
   # Run the models
   if (FT_BL != FT_BL_new) {
     Ergebnis <- leagueSimulatorCPP(BL, n = n)
-    View(Ergebnis)
     FT_BL <- FT_BL_new
     simulation_executed <- TRUE
     }
   
   if (FT_BL2 != FT_BL2_new) {
     Ergebnis2 <- leagueSimulatorCPP(BL2, n = n)
-    View(Ergebnis2)
     FT_BL2 <- FT_BL2_new
     simulation_executed <- TRUE
     }
   
   if (FT_Liga3 != FT_Liga3_new) {
     Ergebnis3 <- leagueSimulatorCPP(Liga3, n = n)
-    View(Ergebnis3)
     Ergebnis3_Aufstieg <- leagueSimulatorCPP(Liga3, n = n, adjPoints = adjPoints_Liga3_Aufstieg)
-    View(Ergebnis3_Aufstieg)
     FT_Liga3 <- FT_Liga3_new
     simulation_executed <- TRUE
     }
