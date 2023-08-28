@@ -36,4 +36,4 @@ CMD ["cron", "-f"]
 CMD ["R", "--save", "--verbose", "-f initialize_connection_shiny.R"]
 
 # Initialize the environment an make first update
-CMD ["R",  "--save",  "--verbose", "-f /RCode/update_all_leagues_init.R"]
+CMD ["R",  "--save",  "--verbose", "--restore", "-f /RCode/update_all_leagues_init.R"]
