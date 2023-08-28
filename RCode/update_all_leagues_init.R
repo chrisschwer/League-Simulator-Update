@@ -5,7 +5,7 @@ waittime <- 0 # how many seconds to wait between completed loops
 initial_wait <- 0 # how long to wait before starting the updating process
 n <- 10000
 saison <- "2023"
-TeamList_file <- "~/LeagueSimulator/RCode/TeamList_2023.csv"
+TeamList_file <- "/RCode/TeamList_2023.csv"
 
 # Wait initial_wait before starting
 Sys.sleep(initial_wait)
