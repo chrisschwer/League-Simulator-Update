@@ -24,11 +24,11 @@ COPY RCode/ /RCode/
 # Copy ShinyApp into the container
 COPY ShinyApp/ /ShinyApp/
 
-# Initialize the environment an make first update
-RUN R --save --verbose -f /RCode/update_all_leagues_init.R
-
 # Set up a CRON job for every day at 14:45
 RUN echo '45 14 * * * R --save --restore -f /RCode/update_all_leagues_loop.R' > /etc/crontab
 
 # The command that starts the cron service
 CMD ["cron", "-f"]
+
+## Initialize the environment an make first update
+RUN R --save --verbose -f /RCode/update_all_leagues_init.R
