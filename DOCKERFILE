@@ -32,8 +32,5 @@ RUN echo '45 14 * * * R --save --restore -f /RCode/update_all_leagues_loop.R' > 
 # The command that starts the cron service
 CMD ["cron", "-f"]
 
-# Initialize the ShinyApp connection
-CMD ["R", "--save", "--verbose", "-f initialize_connection_shiny.R"]
-
 # Initialize the environment an make first update
-CMD ["R",  "--save",  "--verbose", "--restore", "-f /RCode/update_all_leagues_init.R"]
+CMD ["R",  "--save",  "--verbose", "-f /RCode/update_all_leagues_init.R"]
