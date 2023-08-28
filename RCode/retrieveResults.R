@@ -4,7 +4,7 @@ retrieveResults <- function (league = "78", season = "2022") {
   require(jsonlite)
 
   # Read the API Key from .REnviron (must exist)
-  call_service(RAPIDAPI_KEY = Sys.getenv("RAPIDAPI_KEY"))
+  RAPIDAPI_KEY <- Sys.getenv("RAPIDAPI_KEY")
 
   # retrieve the complete table of fixtures for league and season
 
