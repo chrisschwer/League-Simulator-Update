@@ -31,4 +31,4 @@ RUN echo '45 14 * * * R --save --restore -f /RCode/update_all_leagues_loop.R' > 
 CMD ["cron", "-f"]
 
 ## Initialize the environment an make first update
-RUN R --save --verbose -f /RCode/update_all_leagues_init.R
+CMD ["R",  "--save",  "--verbose", "-f /RCode/update_all_leagues_init.R"]
