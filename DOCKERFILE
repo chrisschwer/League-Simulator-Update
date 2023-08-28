@@ -10,7 +10,6 @@ FROM rocker/tidyverse:4.3.1
 ENV SHINYAPPS_IO_ACCOUNT=chrisschwer \
     SHINYAPPS_IO_TOKEN=3EBFA2C60C1438DAAA98FE4C0CAEC9AC
 
-
 # Install necessary R packages
 COPY packagelist.txt .
 RUN while read in; do R -e "install.packages('$in')"; done < packagelist.txt
