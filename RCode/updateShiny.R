@@ -5,8 +5,8 @@ updateShiny <- function (Ergebnis, Ergebnis2, Ergebnis3,
   
   library(rsconnect)
   
-  account_name <- Sys.getenv("SHINYAPPS_IO_ACCOUNT")
-  account_token <- Sys.getenv("SHINYAPPS_IO_TOKEN")
+  account_name <- 'chrisschwer'
+  account_token <- '3EBFA2C60C1438DAAA98FE4C0CAEC9AC'
   account_secret <- Sys.getenv("SHINYAPPS_IO_SECRET")
 
   rsconnect::setAccountInfo(name = account_name, token = account_token, secret = account_secret)
