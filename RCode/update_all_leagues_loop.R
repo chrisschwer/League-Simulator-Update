@@ -5,7 +5,7 @@ waittime <- 1080 # how many seconds to wait between completed loops
 initial_wait <- 0 # how long to wait before starting the updating process
 n <- 10000
 saison <- "2023"
-TeamList_file <- "~/LeagueSimulator/RCode/TeamList_2023.csv"
+TeamList_file <- "/RCode/TeamList_2023.csv"
 
 # Wait initial_wait before starting
 Sys.sleep(initial_wait)
@@ -83,7 +83,8 @@ for (i in 1:loops) {
   
   if (FT_Liga3 != FT_Liga3_new) {
     Ergebnis3 <- leagueSimulatorCPP(Liga3, n = n)
-    Ergebnis3_Aufstieg <- leagueSimulatorCPP(Liga3, n = n, adjPoints = adjPoints_Liga3_Aufstieg)
+    Ergebnis3_Aufstieg <- leagueSimulatorCPP(Liga3, n = n, 
+                                             adjPoints = adjPoints_Liga3_Aufstieg)
     FT_Liga3 <- FT_Liga3_new
     simulation_executed <- TRUE
     }

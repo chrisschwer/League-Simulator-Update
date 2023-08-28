@@ -24,8 +24,5 @@ RUN mkdir /ShinyApp/data
 # Set up a CRON job for every day at 14:45
 RUN echo '45 14 * * * R --save --restore -f /RCode/update_all_leagues_loop.R' > /etc/crontab
 
-# Initialize the environment an make first update
-RUN R --save -f /RCode/update_all_leagues_init.R
-
 # The command that starts the cron service
 CMD ["cron", "-f"]
