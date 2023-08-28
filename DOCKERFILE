@@ -21,6 +21,12 @@ RUN apt-get update && apt-get install -y cron
 # Copy R scripts into the container
 COPY RCode/ /RCode/
 
+# Copy ShinyApp into the container
+COPY ShinyApp/ /ShinyApp/
+
+# Initialize the environment an make first update
+RUN Rscript /RCode/update_all_leagues_init.R
+
 # Set up a CRON job for every day at 14:45
 RUN echo '45 14 * * * Rscript /RCode/update_all_leagues_loop.R' > /etc/crontab
 

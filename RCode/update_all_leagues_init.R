@@ -1,7 +1,7 @@
 # complete rerun of model, with loops
 
-loops <- 30 # how many iterations do you want to run?
-waittime <- 1080 # how many seconds to wait between completed loops
+loops <- 1 # how many iterations do you want to run?
+waittime <- 0 # how many seconds to wait between completed loops
 initial_wait <- 0 # how long to wait before starting the updating process
 n <- 10000
 saison <- "2023"
@@ -10,12 +10,11 @@ TeamList_file <- "~/LeagueSimulator/RCode/TeamList_2023.csv"
 # Wait initial_wait before starting
 Sys.sleep(initial_wait)
 
-# FT values help only recalculating if new games finished
-# Initialize if they do not exist
+# Initialize FT Values that will help only recalculating if new games finished
 
-if (!exists("FT_BL")) {FT_BL <- 0}
-if (!exists("FT_BL2")) {FT_BL2 <- 0}
-if (!exists("FT_Liga3")) {FT_Liga3 <- 0}
+FT_BL <- 0
+FT_BL2 <- 0
+FT_Liga3 <- 0
 
 # source C++ and R Code
 
