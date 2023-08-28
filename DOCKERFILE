@@ -1,5 +1,5 @@
 # This docker files needs to environment variables passed with -e at the run command:
-# SHINYAPPS_TO_SECRET is the shinyapps secret
+# SHINYAPPS_IO_SECRET is the shinyapps secret
 # RAPIDAPI_KEY is the RapidAPI key
 
 # Start from a rocker r distribution distribution
@@ -28,4 +28,4 @@ RUN echo '45 14 * * * R --save --restore -f /RCode/update_all_leagues_loop.R' > 
 CMD ["cron", "-f"]
 
 # Initialize the environment an make first update
-CMD ["R",  "--save",  "--verbose", "-f /RCode/update_all_leagues_init.R"]
+CMD ["R",  "--save",  "-f /RCode/update_all_leagues_init.R"]
