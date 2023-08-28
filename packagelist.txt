@@ -4,5 +4,5 @@ jsonlite
 rsconnect
 xtable
 languageservices
+tidyr
 tidyverse
-unnest
