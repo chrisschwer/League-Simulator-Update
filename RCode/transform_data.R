@@ -1,4 +1,5 @@
 library(tidyverse)
+library(unnest)
 
 transform_data <- function(fixtures, teams) {
   
