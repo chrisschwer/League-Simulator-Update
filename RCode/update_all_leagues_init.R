@@ -87,11 +87,6 @@ for (i in 1:loops) {
     simulation_executed <- TRUE
     }
   
-  # update Shiny
-  
-  if (simulation_executed) {
-    updateShiny(Ergebnis, Ergebnis2, Ergebnis3, Ergebnis3_Aufstieg)
-    }
   
   Sys.sleep(waittime)
   
