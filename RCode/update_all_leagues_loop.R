@@ -56,10 +56,6 @@ for (i in 1:loops) {
   BL2 <- transform_data(fixturesBL2, TeamList)
   Liga3 <- transform_data(fixturesLiga3, TeamList)
   
-  View(BL)
-  View(BL2)
-  View(Liga3)
-  
   # Penalize second teams in Liga3, so that they cannot promote
   
   adjPoints_Liga3_Aufstieg <- rep(0, dim(Liga3)[2]-4) # initialize to 0
