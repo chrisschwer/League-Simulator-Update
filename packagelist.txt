@@ -1,7 +1,9 @@
 ggplot2
 httr
 jsonlite
+reshape2
 rsconnect
+shiny
 xtable
 languageservices
 tidyr
