@@ -10,7 +10,14 @@ COPY packagelist.txt .
 RUN while read in; do R -e "install.packages('$in')"; done < packagelist.txt
 
 # Install cron
-RUN apt-get update && apt-get install -y cron
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install -y cron \
+    # Remove package lists for smaller image sizes
+    && rm -rf /var/lib/apt/lists/* \
+    && which cron \
+    && rm -rf /etc/cron.*/*
+
+COPY entrypoint.sh /entrypoint.sh
 
 # Copy R scripts into the container
 COPY RCode/ /RCode/
@@ -25,7 +32,10 @@ RUN mkdir /ShinyApp/data
 ENV TZ="Europe/Berlin"
 
 # Set up a CRON job for every day at 14:45
-RUN echo '45 14 * * * R --save --restore -f /RCode/update_all_leagues_loop.R' > /etc/crontab
+RUN echo '45 14 * * * root R --save --restore -f /RCode/update_all_leagues_loop.R' > /etc/crontab
+
+# Entrypoingt
+ENTRYPOINT ["/entrypoint.sh"]
 
 # The command that starts the cron service
-CMD ["cron", "-f"]
+CMD ["cron","-f", "-L", "2"]
