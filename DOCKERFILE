@@ -34,8 +34,7 @@ RUN mkdir /ShinyApp/data
 # Set Timezone
 ENV TZ="Europe/Berlin"
 
-# Set up a CRON job for every day at 14:45
-RUN echo '45 14 * * * root R --save --restore -f /RCode/update_all_leagues_loop.R' > /etc/crontab
+COPY crontab /etc/crontab
 
 # Entrypoingt
 ENTRYPOINT ["/entrypoint.sh"]
