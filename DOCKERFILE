@@ -40,4 +40,4 @@ COPY crontab /etc/crontab
 ENTRYPOINT ["/entrypoint.sh"]
 
 # The command that starts the cron service
-CMD ["cron","-f", "-L", "2"]
+CMD crontab /etc/crontab && cron -f -L 2
