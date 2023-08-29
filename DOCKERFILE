@@ -19,6 +19,9 @@ RUN apt-get update \
 
 COPY entrypoint.sh /entrypoint.sh
 
+# Set execute permission for entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 # Copy R scripts into the container
 COPY RCode/ /RCode/
 
