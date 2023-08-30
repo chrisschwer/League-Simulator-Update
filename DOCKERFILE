@@ -1,6 +1,7 @@
 # This docker files needs to environment variables passed with -e at the run command:
 # SHINYAPPS_IO_SECRET is the shinyapps secret
 # RAPIDAPI_KEY is the RapidAPI key
+# DURATION is the duration of the loop in minutes
 
 # Start from a rocker r distribution distribution
 FROM rocker/tidyverse:4.3.1
@@ -34,10 +35,4 @@ RUN mkdir /ShinyApp/data
 # Set Timezone
 ENV TZ="Europe/Berlin"
 
-COPY crontab /etc/crontab
-
-# Entrypoingt
-ENTRYPOINT ["/entrypoint.sh"]
-
-# The command that starts the cron service
-CMD crontab /etc/crontab && cron -f -L 2
+CMD R --save --restore -f /RCode/update_all_leagues_loop.R

@@ -1,3 +1,0 @@
-45 14 * * * root R --save --restore -f /RCode/update_all_leagues_loop.R
-
-# start the loop of updates every day at 2:45 pm as root.

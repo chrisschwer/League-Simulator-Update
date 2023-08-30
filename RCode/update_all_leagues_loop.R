@@ -1,7 +1,10 @@
 # complete rerun of model, with loops
 
+duration <- Sys.getenv("DURATION") # DURATION in minutes
+                                   # must be provided to container
 loops <- 30 # how many iterations do you want to run?
-waittime <- 1080 # how many seconds to wait between completed loops
+waittime <- duration * 60 / 31 # calculatiog (in seconds)
+                               # wait between completed loops
 initial_wait <- 0 # how long to wait before starting the updating process
 n <- 10000
 saison <- "2023"
