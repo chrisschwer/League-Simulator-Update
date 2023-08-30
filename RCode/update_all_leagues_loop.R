@@ -1,7 +1,7 @@
 # complete rerun of model, with loops
 
-duration <- Sys.getenv("DURATION") # DURATION in minutes
-                                   # must be provided to container
+duration <- strtoi(Sys.getenv("DURATION")) # DURATION in minutes
+                                           # must be provided to container
 loops <- 30 # how many iterations do you want to run?
 waittime <- duration * 60 / 31 # calculatiog (in seconds)
                                # wait between completed loops
