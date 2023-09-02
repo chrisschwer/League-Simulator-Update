@@ -1,14 +1,13 @@
 # complete rerun of model, with loops
 
-duration <- strtoi(Sys.getenv("DURATION")) # DURATION in minutes
-                                           # must be provided to container
-loops <- 30 # how many iterations do you want to run?
-waittime <- duration * 60 / 31 # calculatiog (in seconds)
+update_all_leagues_loop <- function (duration, loops = 31, initial_wait = 0,
+                                     n = 10000, saison = "2923", 
+                                     TeamList_file = "/RCode/TeamList_2023.csv")
+
+                                     {
+
+waittime <- duration * 60 / (loops - 1) # calculatiog (in seconds)
                                # wait between completed loops
-initial_wait <- 0 # how long to wait before starting the updating process
-n <- 10000
-saison <- "2023"
-TeamList_file <- "/RCode/TeamList_2023.csv"
 
 # Wait initial_wait before starting
 Sys.sleep(initial_wait)
@@ -102,4 +101,4 @@ for (i in 1:loops) {
   
 }
   
-  
+  }

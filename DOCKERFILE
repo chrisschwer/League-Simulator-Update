@@ -22,4 +22,4 @@ RUN mkdir /ShinyApp/data
 # Set Timezone
 ENV TZ="Europe/Berlin"
 
-CMD R --save --restore -f /RCode/update_all_leagues_loop.R
+CMD R --save --restore -f /RCode/updateScheduler.R
