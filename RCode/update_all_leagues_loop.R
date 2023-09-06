@@ -1,10 +1,10 @@
 # complete rerun of model, with loops
 
-update_all_leagues_loop <- function (duration, loops = 31, initial_wait = 0,
+update_all_leagues_loop <- function (duration = 480, loops = 31, initial_wait = 0,
                                      n = 10000, saison = "2923", 
                                      TeamList_file = "/RCode/TeamList_2023.csv")
 
-                                     {
+{
 
 waittime <- duration * 60 / (loops - 1) # calculatiog (in seconds)
                                # wait between completed loops
