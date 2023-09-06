@@ -10,9 +10,6 @@ FROM rocker/tidyverse:4.3.1
 COPY packagelist.txt .
 RUN while read in; do R -e "install.packages('$in')"; done < packagelist.txt
 
-# Copy R scripts into the container
-COPY RCode/ /RCode/
-
 # Copy ShinyApp into the container
 COPY ShinyApp/ /ShinyApp/
 
@@ -21,5 +18,8 @@ RUN mkdir /ShinyApp/data
 
 # Set Timezone
 ENV TZ="Europe/Berlin"
+
+# Copy R scripts into the container
+COPY RCode/ /RCode/
 
 CMD R --save --restore -f /RCode/updateScheduler.R
