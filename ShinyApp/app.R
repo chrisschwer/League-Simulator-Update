@@ -127,7 +127,7 @@ ui <- shinyUI(fluidPage(
        helpText("Alle Prognosen als Wahrscheinlichkeiten in Prozent angegeben. Nähere Infos unter ",
                 a ("30punkte.wordpress.com", href = "http://30punkte.wordpress.com", target = "blank_"),
                 paste("Letztes Update: ", 
-                      format(updatetime, "%d.%m.%Y %H:%M %Z"),
+                      format(updatetime, "%d.%m.%Y %H:%M %Z", tz="Europe/Berlin"),
                       sep="")
        )
        
