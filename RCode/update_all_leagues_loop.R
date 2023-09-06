@@ -1,7 +1,7 @@
 # complete rerun of model, with loops
 
 update_all_leagues_loop <- function (duration = 480, loops = 31, initial_wait = 0,
-                                     n = 10000, saison = "2923", 
+                                     n = 10000, saison = "2023", 
                                      TeamList_file = "/RCode/TeamList_2023.csv")
 
 {
