@@ -22,7 +22,9 @@ repeat {
     current_time <- Sys.time()
     target_time <- as.POSIXct(paste(format(current_time, "%Y-%m-%d"), 
                                     "23:30:30"), tz = "Europe/Berlin")
-    time_diff <- difftime(target_time, current_time, units = "secs")
+    time_diff <- as.double(difftime(target_time, 
+                                    current_time, 
+                                    units = "secs"))
 
     # Calculate the maximum duration
     max_duration <- min(time_diff / 60, 480)
@@ -32,7 +34,9 @@ repeat {
     current_time <- Sys.time()
     target_time <- as.POSIXct(paste(format(current_time, "%Y-%m-%d"), 
                                     "14:45:00"), tz = "Europe/Berlin")
-    time_diff <- difftime(target_time, current_time, units = "secs")
+    time_diff <- as.double(difftime(target_time, 
+                                    current_time, 
+                                    units = "secs"))
 
     initial_wait <- max(time_diff, 0)
 
