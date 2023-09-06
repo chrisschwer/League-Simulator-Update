@@ -17,10 +17,11 @@ source("/RCode/update_all_leagues_loop.R")
 
 while TRUE {
     
-    # Calculate the time until midnight in seconds
+    # Calculate the time until 11:30 p.m. in seconds
 
     current_time <- Sys.time()
-    target_time <- as.POSIXct(paste(format(current_time, "%Y-%m-%d"), "23:59:59"))
+    target_time <- as.POSIXct(paste(format(current_time, "%Y-%m-%d"), 
+                                    "23:30:30"), tz = "Europe/Berlin")
     time_diff <- difftime(target_time, current_time, units = "secs")
 
     # Calculate the maximum duration
@@ -29,16 +30,18 @@ while TRUE {
     # Calculate the time until 14:45 in seconds
 
     current_time <- Sys.time()
-    target_time <- as.POSIXct(paste(format(current_time, "%Y-%m-%d"), "14:45:00"))
+    target_time <- as.POSIXct(paste(format(current_time, "%Y-%m-%d"), 
+                                    "14:45:00"), tz = "Europe/Berlin")
     time_diff <- difftime(target_time, current_time, units = "secs")
 
     initial_wait <- max(time_diff, 0)
 
-    update_all_leagues_loop(duration = max_duration, initial_wait = initial_wait)
+    update_all_leagues_loop(duration = max_duration, 
+                            initial_wait = initial_wait, loops = 31)
 
     # Wait for another 12 hours
 
-    Sys.sleep (43400)
+    Sys.sleep (43200)
 
 }
 
