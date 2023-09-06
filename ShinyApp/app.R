@@ -15,8 +15,7 @@ library(ggplot2)
 
 
 load ("data/Ergebnis.Rds")
-updatetime <- as.POSIXct(file.mtime("data/Ergebnis.Rds", 
-                         tz="Europe/Berlin"))
+updatetime <- as.POSIXlt(file.mtime("data/Ergebnis.Rds"), tz = "")
 
 display_result <- function (result, colour = "grey", 
                             low = "white", high = "steelblue",
@@ -128,8 +127,7 @@ ui <- shinyUI(fluidPage(
        helpText("Alle Prognosen als Wahrscheinlichkeiten in Prozent angegeben. Nähere Infos unter ",
                 a ("30punkte.wordpress.com", href = "http://30punkte.wordpress.com", target = "blank_"),
                 paste("Letztes Update: ", 
-                      format(updatetime, "%d.%m.%Y %H:%M %Z", 
-                            tz="Europe/Berlin"),
+                      format(updatetime, "%d.%m.%Y %H:%M %Z"),
                       sep="")
        )
        
