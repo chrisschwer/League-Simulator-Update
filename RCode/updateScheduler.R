@@ -15,7 +15,7 @@ source("/RCode/updateShiny.R")
 source("/RCode/update_all_leagues_loop.R")
 
 
-while TRUE {
+repeat {
     
     # Calculate the time until 11:30 p.m. in seconds
 
