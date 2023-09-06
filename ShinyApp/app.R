@@ -15,7 +15,7 @@ library(ggplot2)
 
 
 load ("data/Ergebnis.Rds")
-updatetime <- as.POSIXlt(file.mtime("data/Ergebnis.Rds"), tz = "")
+updatetime <- as.POSIXlt(file.mtime("data/Ergebnis.Rds"))
 
 display_result <- function (result, colour = "grey", 
                             low = "white", high = "steelblue",
