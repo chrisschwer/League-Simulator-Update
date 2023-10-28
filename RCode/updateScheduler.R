@@ -14,6 +14,15 @@ source("/RCode/transform_data.R")
 source("/RCode/updateShiny.R")
 source("/RCode/update_all_leagues_loop.R")
 
+# Initialize loops to low number in case of restart
+# and regular_loops to normal value
+
+loops <- 3
+regular_loops <- 31
+
+# Initialize skip to false
+skip <- FALSE
+
 
 repeat {
     
@@ -28,6 +37,11 @@ repeat {
 
     # Calculate the maximum duration
     max_duration <- min(time_diff / 60, 480)
+
+    # If time is later than 22:30, skip the update
+    if (time_diff < 0) {
+        skip <- TRUE
+    }
   
     # Calculate the time until 14:45 in seconds
 
@@ -40,12 +54,26 @@ repeat {
 
     initial_wait <- max(time_diff, 0)
 
-    update_all_leagues_loop(duration = max_duration, 
-                            initial_wait = initial_wait, loops = 31)
+    # If time is before 14:45, set loops to regular_loops
+
+    if (time_diff > 0) {
+        loops <- regular_loops
+    }
+
+    # Run updates unless skip is TRUE
+
+    if (!skip) {
+        update_all_leagues_loop(duration = max_duration, 
+                                initial_wait = initial_wait, loops = loops)
+    }
 
     # Wait for another 12 hours
 
     Sys.sleep(43200)
+
+    # Reset skip to false
+
+    skip <- FALSE
 
 }
 
