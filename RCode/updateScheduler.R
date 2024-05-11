@@ -30,9 +30,10 @@ repeat {
 
     current_time <- Sys.time()
     target_time <- as.POSIXct(paste(format(current_time, "%Y-%m-%d"), 
-                                    "23:30:30"), tz = "Europe/Berlin")
+                                    "23:30:00"), tz = "Europe/Berlin")
     time_diff <- as.double(difftime(target_time, 
                                     current_time, 
+                                    tz = "Europe/Berlin"
                                     units = "secs"))
 
     # Calculate the maximum duration
@@ -49,7 +50,8 @@ repeat {
     target_time <- as.POSIXct(paste(format(current_time, "%Y-%m-%d"), 
                                     "14:45:00"), tz = "Europe/Berlin")
     time_diff <- as.double(difftime(target_time, 
-                                    current_time, 
+                                    current_time,
+                                    tz = "Europe/Berlin" 
                                     units = "secs"))
 
     initial_wait <- max(time_diff, 0)
@@ -64,12 +66,14 @@ repeat {
 
     if (!skip) {
         update_all_leagues_loop(duration = max_duration, 
-                                initial_wait = initial_wait, loops = loops)
+                                initial_wait = initial_wait, loops = loops,
+                                n = 10000, saison = "2023", 
+                                TeamList_file = "/RCode/TeamList_2023.csv")
     }
 
-    # Wait for another 12 hours
+    # Wait for 3 hours
 
-    Sys.sleep(43200)
+    Sys.sleep(10800)
 
     # Reset skip to false
 
