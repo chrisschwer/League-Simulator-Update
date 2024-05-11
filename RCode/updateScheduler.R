@@ -33,7 +33,7 @@ repeat {
                                     "23:30:00"), tz = "Europe/Berlin")
     time_diff <- as.double(difftime(target_time, 
                                     current_time, 
-                                    tz = "Europe/Berlin"
+                                    tz = "Europe/Berlin",
                                     units = "secs"))
 
     # Calculate the maximum duration
@@ -51,7 +51,7 @@ repeat {
                                     "14:45:00"), tz = "Europe/Berlin")
     time_diff <- as.double(difftime(target_time, 
                                     current_time,
-                                    tz = "Europe/Berlin" 
+                                    tz = "Europe/Berlin", 
                                     units = "secs"))
 
     initial_wait <- max(time_diff, 0)
