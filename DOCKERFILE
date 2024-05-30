@@ -2,6 +2,7 @@
 # SHINYAPPS_IO_SECRET is the shinyapps secret
 # RAPIDAPI_KEY is the RapidAPI key
 # DURATION is the duration of the loop in minutes
+# SEASON is the season to be analyzed, by year it starts
 
 # Start from a rocker r distribution distribution
 FROM rocker/tidyverse:4.3.1

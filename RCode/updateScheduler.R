@@ -19,6 +19,9 @@ source("/RCode/update_all_leagues_loop.R")
 
 loops <- 3
 regular_loops <- 31
+duration <- as.integer(Sys.getenv("DURATION"))
+season <- Sys.getenv("SEASON")
+filename <- "/RCode/TeamList_" + season + ".csv"
 
 # Initialize skip to false
 skip <- FALSE
@@ -37,7 +40,7 @@ repeat {
                                     units = "secs"))
 
     # Calculate the maximum duration
-    max_duration <- min(time_diff / 60, 480)
+    max_duration <- min(time_diff / 60, duration)
 
     # If time is later than 22:30, skip the update
     if (time_diff < 0) {
@@ -67,8 +70,8 @@ repeat {
     if (!skip) {
         update_all_leagues_loop(duration = max_duration, 
                                 initial_wait = initial_wait, loops = loops,
-                                n = 10000, saison = "2023", 
-                                TeamList_file = "/RCode/TeamList_2023.csv")
+                                n = 10000, saison = season, 
+                                TeamList_file = filename)
     }
 
     # Wait for 3 hours
