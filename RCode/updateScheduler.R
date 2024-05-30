@@ -28,7 +28,7 @@ skip <- FALSE
 
 
 repeat {
-    
+
     # Calculate the time until 11:30 p.m. in seconds
 
     current_time <- Sys.time()
