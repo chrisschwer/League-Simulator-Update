@@ -17,11 +17,13 @@ source("/RCode/update_all_leagues_loop.R")
 # Initialize loops to low number in case of restart
 # and regular_loops to normal value
 
-loops <- 3
-regular_loops <- 31
 duration <- as.integer(Sys.getenv("DURATION"))
 season <- Sys.getenv("SEASON")
 filename <- "/RCode/TeamList_" + season + ".csv"
+
+remaining_requests <- retrieveCredits()
+
+loops <- remainning_requests %/% 3 # Divide by three and round down to maximize the numnber of loops within the remaining requests
 
 # Initialize skip to false
 skip <- FALSE
