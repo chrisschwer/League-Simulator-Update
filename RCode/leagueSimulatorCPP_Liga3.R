@@ -47,7 +47,7 @@ leagueSimulatorCPP_Liga3 <- function (season, n = 10000,
   
   results <- simulationsCPP (season = schedule, ELOValue = ELOValues,
                                         numberTeams = numberTeams, numberGames = numberGames,
-                                        modFactor = 20, homeAdvantage = 65, 
+                                        modFactor = modFactor, homeAdvantage = homeAdvantage,
                                         iterations = n,
                                         AdjPoints = adjPoints,
                                         AdjGoals = adjGoals,
