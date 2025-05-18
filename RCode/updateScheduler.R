@@ -14,79 +14,63 @@ source("/RCode/transform_data.R")
 source("/RCode/updateShiny.R")
 source("/RCode/update_all_leagues_loop.R")
 
-# Initialize loops to low number in case of restart
-# and regular_loops to normal value
-
-duration <- as.integer(Sys.getenv("DURATION"))
 season <- Sys.getenv("SEASON")
-regular_loops <- as.integer(Sys.getenv("REGULAR_LOOPS"))
-if (is.na(regular_loops) || regular_loops <= 0) {
-    regular_loops <- 31
-}
 filename <- paste0("/RCode/TeamList_", season, ".csv")
-
-remaining_requests <- retrieveCredits()
-
-loops <- remaining_requests %/% 3 # Divide by three and round down to maximize the numnber of loops within the remaining requests
 
 # Initialize skip to false
 skip <- FALSE
 
-
 repeat {
 
-    # Calculate the time until 11:30 p.m. in seconds
+  # Current time in Berlin
+  now <- Sys.time()
+  tz <- "Europe/Berlin"
 
-    current_time <- Sys.time()
-    target_time <- as.POSIXct(paste(format(current_time, "%Y-%m-%d"), 
-                                    "23:30:00"), tz = "Europe/Berlin")
-    time_diff <- as.double(difftime(target_time, 
-                                    current_time, 
-                                    tz = "Europe/Berlin",
-                                    units = "secs"))
+  # Helper to create POSIXct for today in Berlin
+  today_str <- format(now, "%Y-%m-%d")
+  make_time <- function(hm) {
+    as.POSIXct(paste(today_str, hm), tz = tz)
+  }
 
-    # Calculate the maximum duration
-    max_duration <- min(time_diff / 60, duration)
+  # Define key times
+  start_1445 <- make_time("14:45:00")
+  end_2300 <- make_time("23:00:00")
 
-    # If time is later than 22:30, skip the update
-    if (time_diff < 0) {
-        skip <- TRUE
-    }
-  
-    # Calculate the time until 14:45 in seconds
+  # Skip updates completely if past the last run of the day
+  if (now > end_2300) {
+    skip <- TRUE
+  }
 
-    current_time <- Sys.time()
-    target_time <- as.POSIXct(paste(format(current_time, "%Y-%m-%d"), 
-                                    "14:45:00"), tz = "Europe/Berlin")
-    time_diff <- as.double(difftime(target_time, 
-                                    current_time,
-                                    tz = "Europe/Berlin", 
-                                    units = "secs"))
-
-    initial_wait <- max(time_diff, 0)
-
-    # If time is before 14:45, set loops to regular_loops
-
-    if (time_diff > 0) {
-        loops <- regular_loops
-    }
-
-    # Run updates unless skip is TRUE
-
+  if (now < start_1445) {
+    loops <- 30
+    initial_wait <- as.double(difftime(start_1445, now, units = "secs"))
+    duration <- as.double(difftime(end_2300, start_1445, units = "mins"))
     if (!skip) {
-        update_all_leagues_loop(duration = max_duration, 
-                                initial_wait = initial_wait, loops = loops,
-                                n = 10000, saison = season, 
-                                TeamList_file = filename)
+      update_all_leagues_loop(duration = duration, initial_wait = initial_wait,
+                              loops = loops, n = 10000, saison = season,
+                              TeamList_file = filename)
     }
+  } else {
+    sched_times <- c("15:00:00", "15:30:00", "16:00:00",
+                     "17:30:00", "18:00:00", "21:00:00", "23:00:00")
+    for (t in sched_times) {
+      run_time <- make_time(t)
+      if (run_time > now) {
+        wait <- as.double(difftime(run_time, Sys.time(), units = "secs"))
+        if (wait > 0) Sys.sleep(wait)
+        if (!skip) {
+          update_all_leagues_loop(duration = 0, initial_wait = 0, loops = 1,
+                                  n = 10000, saison = season,
+                                  TeamList_file = filename)
+        }
+      }
+    }
+  }
 
-    # Wait for 3 hours
+  # Wait for 3 hours
+  Sys.sleep(10800)
 
-    Sys.sleep(10800)
-
-    # Reset skip to false
-
-    skip <- FALSE
-
+  # Reset skip to false
+  skip <- FALSE
 }
 

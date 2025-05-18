@@ -6,8 +6,11 @@ update_all_leagues_loop <- function (duration = 480, loops = 31, initial_wait = 
 
 {
 
-waittime <- duration * 60 / (loops - 1) # calculatiog (in seconds)
-                               # wait between completed loops
+if (loops > 1) {
+  waittime <- duration * 60 / (loops - 1) # time between loops
+} else {
+  waittime <- 0
+}
 
 # Wait initial_wait before starting
 Sys.sleep(initial_wait)
