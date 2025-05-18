@@ -11,3 +11,4 @@ test_that("prozent handles edge cases", {
   expect_equal(prozent(0.00999), "<1")
   expect_equal(prozent(0.99001), ">99")
 })
+
