@@ -19,11 +19,15 @@ source("/RCode/update_all_leagues_loop.R")
 
 duration <- as.integer(Sys.getenv("DURATION"))
 season <- Sys.getenv("SEASON")
-filename <- "/RCode/TeamList_" + season + ".csv"
+regular_loops <- as.integer(Sys.getenv("REGULAR_LOOPS"))
+if (is.na(regular_loops) || regular_loops <= 0) {
+    regular_loops <- 31
+}
+filename <- paste0("/RCode/TeamList_", season, ".csv")
 
 remaining_requests <- retrieveCredits()
 
-loops <- remainning_requests %/% 3 # Divide by three and round down to maximize the numnber of loops within the remaining requests
+loops <- remaining_requests %/% 3 # Divide by three and round down to maximize the numnber of loops within the remaining requests
 
 # Initialize skip to false
 skip <- FALSE
