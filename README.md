@@ -4,7 +4,6 @@ This repository contains R scripts and a Shiny application for simulating footba
 
 ## Scripts
 
-- `retrieveCredits.R`: checks remaining API requests.
 - `retrieveResults.R`: downloads results from the football API.
 - `updateScheduler.R`: runs regular update loops inside the container.
 - `updateShiny.R`: deploys the Shiny App via rsconnect.
