@@ -14,16 +14,21 @@ source("/RCode/transform_data.R")
 source("/RCode/updateShiny.R")
 source("/RCode/update_all_leagues_loop.R")
 
-# Initialize loops to low number in case of restart
-# and regular_loops to normal value
+# Initialize loops to a low number in case of restart
+# and regular_loops to the normal value used during the day
 
 duration <- as.integer(Sys.getenv("DURATION"))
 season <- Sys.getenv("SEASON")
-filename <- "/RCode/TeamList_" + season + ".csv"
+filename <- paste0("/RCode/TeamList_", season, ".csv")
+
+regular_loops <- 31
 
 remaining_requests <- retrieveCredits()
 
-loops <- remainning_requests %/% 3 # Divide by three and round down to maximize the numnber of loops within the remaining requests
+loops <- remaining_requests %/% 3 # Divide by three and round down to maximize the number of loops within the remaining requests
+if (loops < 1) {
+    loops <- 1
+}
 
 # Initialize skip to false
 skip <- FALSE
