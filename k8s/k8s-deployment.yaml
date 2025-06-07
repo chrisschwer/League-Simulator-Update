@@ -1,0 +1,204 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: league-simulator
+---
+# Persistent Volume for sharing results between containers
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: league-results-pv
+  namespace: league-simulator
+spec:
+  capacity:
+    storage: 2Gi  # Increased for both league results and shiny data
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: manual
+  hostPath:
+    path: "/mnt/league-simulator"  # More descriptive path
+---
+# Persistent Volume Claim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: league-results-pvc
+  namespace: league-simulator
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 2Gi
+---
+# ConfigMap for common environment variables
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: league-simulator-config
+  namespace: league-simulator
+data:
+  SEASON: "2024"
+  MAX_DAILY_CALLS: "30"
+  UPDATE_INTERVAL: "300"  # 5 minutes
+---
+# Secret for API keys (create this manually with actual keys)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: league-simulator-secrets
+  namespace: league-simulator
+type: Opaque
+stringData:
+  RAPIDAPI_KEY: "your-rapidapi-key-here"
+  SHINYAPPS_IO_SECRET: "your-shinyapps-secret-here"
+---
+# Deployment for Bundesliga updater
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: league-updater-bl
+  namespace: league-simulator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: league-updater
+      league: bl
+  template:
+    metadata:
+      labels:
+        app: league-updater
+        league: bl
+    spec:
+      containers:
+      - name: league-updater
+        image: league-simulator:league
+        env:
+        - name: LEAGUE
+          value: "BL"
+        envFrom:
+        - configMapRef:
+            name: league-simulator-config
+        - secretRef:
+            name: league-simulator-secrets
+        volumeMounts:
+        - name: league-results
+          mountPath: /RCode/league_results
+      volumes:
+      - name: league-results
+        persistentVolumeClaim:
+          claimName: league-results-pvc
+---
+# Deployment for 2. Bundesliga updater
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: league-updater-bl2
+  namespace: league-simulator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: league-updater
+      league: bl2
+  template:
+    metadata:
+      labels:
+        app: league-updater
+        league: bl2
+    spec:
+      containers:
+      - name: league-updater
+        image: league-simulator:league
+        env:
+        - name: LEAGUE
+          value: "BL2"
+        envFrom:
+        - configMapRef:
+            name: league-simulator-config
+        - secretRef:
+            name: league-simulator-secrets
+        volumeMounts:
+        - name: league-results
+          mountPath: /RCode/league_results
+      volumes:
+      - name: league-results
+        persistentVolumeClaim:
+          claimName: league-results-pvc
+---
+# Deployment for 3. Liga updater
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: league-updater-liga3
+  namespace: league-simulator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: league-updater
+      league: liga3
+  template:
+    metadata:
+      labels:
+        app: league-updater
+        league: liga3
+    spec:
+      containers:
+      - name: league-updater
+        image: league-simulator:league
+        env:
+        - name: LEAGUE
+          value: "Liga3"
+        envFrom:
+        - configMapRef:
+            name: league-simulator-config
+        - secretRef:
+            name: league-simulator-secrets
+        volumeMounts:
+        - name: league-results
+          mountPath: /RCode/league_results
+      volumes:
+      - name: league-results
+        persistentVolumeClaim:
+          claimName: league-results-pvc
+---
+# Deployment for Shiny app updater
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shiny-updater
+  namespace: league-simulator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: shiny-updater
+  template:
+    metadata:
+      labels:
+        app: shiny-updater
+    spec:
+      containers:
+      - name: shiny-updater
+        image: league-simulator:shiny
+        envFrom:
+        - configMapRef:
+            name: league-simulator-config
+        - secretRef:
+            name: league-simulator-secrets
+        volumeMounts:
+        - name: league-results
+          mountPath: /RCode/league_results
+          readOnly: true
+        - name: league-results
+          mountPath: /ShinyApp/data
+          subPath: shiny-data
+      volumes:
+      - name: league-results
+        persistentVolumeClaim:
+          claimName: league-results-pvc

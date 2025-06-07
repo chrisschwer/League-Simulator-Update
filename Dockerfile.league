@@ -1,0 +1,47 @@
+# Dockerfile for single league update container
+# This docker file needs environment variables passed with -e at the run command:
+# RAPIDAPI_KEY is the RapidAPI key
+# DURATION is the duration of the loop in minutes
+# SEASON is the season to be analyzed, by year it starts
+# LEAGUE is the league to process ("BL", "BL2", or "Liga3")
+# LOOPS is the number of update loops (default: 31)
+# INITIAL_WAIT is the initial wait time in seconds (default: 0)
+
+# Start from a rocker r distribution
+FROM rocker/tidyverse:4.3.1
+
+# Install necessary R packages
+COPY packagelist.txt .
+RUN while read in; do R -e "install.packages('$in')"; done < packagelist.txt
+
+# Set Timezone
+ENV TZ="Europe/Berlin"
+
+# Copy R scripts into the container
+COPY RCode/ /RCode/
+
+# Create results directory
+RUN mkdir -p /RCode/league_results
+
+# Create startup script that runs league_scheduler.R with parameters
+RUN echo '#!/usr/bin/env Rscript\n\
+source("/RCode/league_scheduler.R")\n\
+\n\
+# Get environment variables\n\
+league <- Sys.getenv("LEAGUE", "BL")\n\
+season <- Sys.getenv("SEASON", "2024")\n\
+max_daily_calls <- as.numeric(Sys.getenv("MAX_DAILY_CALLS", "30"))\n\
+\n\
+# Run the scheduler for the specified league\n\
+league_scheduler(league = league,\n\
+                saison = season,\n\
+                TeamList_file = paste0("/RCode/TeamList_", season, ".csv"),\n\
+                output_dir = "/RCode/league_results/",\n\
+                max_daily_calls = max_daily_calls)\n' > /RCode/run_league_update.R
+
+RUN chmod +x /RCode/run_league_update.R
+
+# Volume for sharing results
+VOLUME ["/RCode/league_results"]
+
+CMD ["Rscript", "/RCode/run_league_update.R"]
