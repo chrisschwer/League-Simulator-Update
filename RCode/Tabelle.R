@@ -49,17 +49,41 @@ Tabelle <- function (season,
   points <- c (pointsHome, pointsAway)
   
   # aggregating the data
-  points <- tapply (points, team, sum) + AdjPoints
-  goals <- tapply (goals, team, sum) + AdjGoals
-  goalsAgainst <- tapply (goalsAgainst, team, sum) + AdjGoalsAgainst
-  goalDiff <- tapply (goalDiff, team, sum) + AdjGoalDiff
+  # Initialize vectors for all teams with adjustments
+  points_all <- AdjPoints
+  goals_all <- AdjGoals
+  goalsAgainst_all <- AdjGoalsAgainst
+  goalDiff_all <- AdjGoalDiff
+  
+  # Add game results for teams that played
+  if (numberGames > 0) {
+    points_played <- tapply(points, team, sum)
+    goals_played <- tapply(goals, team, sum)
+    goalsAgainst_played <- tapply(goalsAgainst, team, sum)
+    goalDiff_played <- tapply(goalDiff, team, sum)
+    
+    # Update only the teams that played
+    played_teams <- as.integer(names(points_played))
+    points_all[played_teams] <- points_all[played_teams] + points_played
+    goals_all[played_teams] <- goals_all[played_teams] + goals_played
+    goalsAgainst_all[played_teams] <- goalsAgainst_all[played_teams] + goalsAgainst_played
+    goalDiff_all[played_teams] <- goalDiff_all[played_teams] + goalDiff_played
+  }
+  
+  # Use the complete vectors
+  points <- points_all
+  goals <- goals_all
+  goalsAgainst <- goalsAgainst_all
+  goalDiff <- goalDiff_all
   
   # calculating a rankscore
   rankScore <- 10000 * points + 100 * goalDiff + goals
   
   # putting it all together
+  # Create team numbers (1 to numberTeams)
+  team_numbers <- 1:numberTeams
   
-  returnTabelle <- matrix (c (as.integer(names(points)),
+  returnTabelle <- matrix (c (team_numbers,
                               rankScore, goals, goalsAgainst,
                               goalDiff, points),
                            numberTeams, 6)
