@@ -34,11 +34,14 @@ install.packages(packages[!packages %in% installed.packages()[,"Package"]])
 
 # Run Shiny app locally
 shiny::runApp("ShinyApp/app.R")
+
+# Run automated season transition script
+Rscript scripts/season_transition.R 2023 2024
 ```
 
 ## Architecture
 
-This is a football league simulation system with three main components:
+This is a football league simulation system with four main components:
 
 1. **Simulation Engine (Rcpp)**: Core logic in `RCode/` that uses ELO ratings to simulate match outcomes. Key files:
    - `simulationsCPP.R`: Main simulation orchestrator that runs Monte Carlo simulations
@@ -50,7 +53,14 @@ This is a football league simulation system with three main components:
    - `update_all_leagues_loop.R`: Processes all three leagues (Bundesliga, 2. Bundesliga, 3. Liga)
    - Active window: 14:45-23:00, then sleeps for 3 hours
 
-3. **Web Interface**: Shiny app in `ShinyApp/app.R` that:
+3. **Season Transition System**: Automated season transition script that:
+   - Validates season completion and creates team lists for new seasons
+   - Calculates final ELO ratings and Liga3 relegation baselines
+   - Fetches team data from API with interactive prompts for new teams
+   - Generates properly formatted `TeamList_YYYY.csv` files
+   - Main script: `scripts/season_transition.R` with 13 supporting modules
+
+4. **Web Interface**: Shiny app in `ShinyApp/app.R` that:
    - Displays probability heatmaps for final league standings
    - Shows last update timestamp
    - Reads simulation results from `/ShinyApp/data/Ergebnis.Rds`
