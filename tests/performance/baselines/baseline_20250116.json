@@ -1,0 +1,88 @@
+{
+  "iteration_scaling": {
+    "10": {
+      "iterations": 10,
+      "median_ms": 23.2,
+      "description": "Baseline for minimal iterations"
+    },
+    "100": {
+      "iterations": 100,
+      "median_ms": 234.1,
+      "description": "Small simulation run"
+    },
+    "1000": {
+      "iterations": 1000,
+      "median_ms": 2329.4,
+      "description": "Medium simulation run"
+    },
+    "5000": {
+      "iterations": 5000,
+      "median_ms": 13906.9,
+      "description": "Large simulation run"
+    },
+    "10000": {
+      "iterations": 10000,
+      "median_ms": 34497.6,
+      "description": "Production default"
+    }
+  },
+  "game_scaling": {
+    "0.0": {
+      "completion_pct": 0.0,
+      "games_to_simulate": 306,
+      "median_ms": 4400.6,
+      "description": "Full season simulation (Bundesliga)"
+    },
+    "0.25": {
+      "completion_pct": 0.25,
+      "games_to_simulate": 230,
+      "median_ms": 3405.8
+    },
+    "0.5": {
+      "completion_pct": 0.5,
+      "games_to_simulate": 153,
+      "median_ms": 2399.9
+    },
+    "0.75": {
+      "completion_pct": 0.75,
+      "games_to_simulate": 77,
+      "median_ms": 1334.5
+    },
+    "0.9": {
+      "completion_pct": 0.9,
+      "games_to_simulate": 31,
+      "median_ms": 767.3
+    }
+  },
+  "league_comparison": {
+    "bundesliga": {
+      "n_teams": 18,
+      "total_games": 306,
+      "games_to_simulate_50pct": 153,
+      "median_ms": 2272.8
+    },
+    "dritte_liga": {
+      "n_teams": 20,
+      "total_games": 380,
+      "games_to_simulate_50pct": 190,
+      "median_ms": 2973.6
+    }
+  },
+  "component_performance": {
+    "elo_calculation_ns": 1025.0,
+    "description": "Single ELO calculation performance"
+  },
+  "scaling_analysis": {
+    "scaling_100_to_1000": 9.95,
+    "scaling_1000_to_10000": 14.8,
+    "expected_scaling": 10,
+    "game_scaling_factor": 5.73,
+    "notes": "Scaling is approximately linear for iterations. Performance scales well with game count."
+  },
+  "system_info": {
+    "platform": "darwin",
+    "cpu_cores": 8,
+    "r_version": "4.4.0",
+    "timestamp": "2025-01-16T21:52:00Z"
+  }
+}

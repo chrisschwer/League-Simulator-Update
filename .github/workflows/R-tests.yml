@@ -1,0 +1,133 @@
+name: R Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        r-version: ['4.2.0', '4.3.0', '4.4.0']
+        exclude:
+          # Reduce matrix size - only test latest R on macOS
+          - os: macos-latest
+            r-version: '4.2.0'
+          - os: macos-latest
+            r-version: '4.3.0'
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up R ${{ matrix.r-version }}
+      uses: r-lib/actions/setup-r@v2
+      with:
+        r-version: ${{ matrix.r-version }}
+        
+    - name: Install system dependencies (Ubuntu)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev
+        
+    - name: Cache R packages
+      uses: actions/cache@v3
+      with:
+        path: ${{ env.R_LIBS_USER }}
+        key: ${{ runner.os }}-r-${{ matrix.r-version }}-${{ hashFiles('**/packagelist.txt', '**/test_packagelist.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-r-${{ matrix.r-version }}-
+          
+    - name: Install production dependencies
+      run: |
+        packages <- readLines("packagelist.txt")
+        packages <- packages[!grepl("^#", packages) & nchar(trimws(packages)) > 0]
+        packages <- trimws(packages)
+        install.packages(packages, repos = "https://cloud.r-project.org")
+      shell: Rscript {0}
+      
+    - name: Install test dependencies
+      run: |
+        packages <- readLines("test_packagelist.txt")
+        packages <- packages[!grepl("^#", packages) & nchar(trimws(packages)) > 0]
+        packages <- trimws(packages)
+        install.packages(packages, repos = "https://cloud.r-project.org")
+      shell: Rscript {0}
+      
+    - name: Compile C++ code
+      run: |
+        library(Rcpp)
+        sourceCpp("RCode/SpielNichtSimulieren.cpp")
+      shell: Rscript {0}
+      
+    - name: Run tests
+      run: |
+        library(testthat)
+        test_results <- test_local(reporter = "summary")
+        if (!all(test_results$passed)) {
+          stop("Tests failed")
+        }
+      shell: Rscript {0}
+      
+    - name: Run performance tests (Ubuntu latest R only)
+      if: matrix.os == 'ubuntu-latest' && matrix.r-version == '4.4.0'
+      env:
+        RUN_PERFORMANCE_TESTS: true
+      run: |
+        library(testthat)
+        test_file("tests/testthat/test-performance-scaling.R")
+        test_file("tests/testthat/test-performance-matrix.R")
+      shell: Rscript {0}
+      
+    - name: Generate coverage report (Ubuntu latest R only)
+      if: matrix.os == 'ubuntu-latest' && matrix.r-version == '4.4.0'
+      run: |
+        library(covr)
+        cov <- package_coverage()
+        print(cov)
+        
+        # Save coverage report
+        coverage_pct <- percent_coverage(cov)
+        cat(sprintf("Coverage: %.1f%%\n", coverage_pct))
+        
+        # Fail if coverage is too low
+        if (coverage_pct < 60) {
+          stop("Coverage too low (< 60%)")
+        }
+      shell: Rscript {0}
+      
+    - name: Upload coverage to Codecov
+      if: matrix.os == 'ubuntu-latest' && matrix.r-version == '4.4.0'
+      uses: codecov/codecov-action@v3
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - uses: r-lib/actions/setup-r@v2
+      with:
+        r-version: '4.4.0'
+        
+    - name: Install lintr
+      run: |
+        install.packages("lintr", repos = "https://cloud.r-project.org")
+      shell: Rscript {0}
+      
+    - name: Run linter
+      run: |
+        library(lintr)
+        lints <- lint_dir("RCode")
+        if (length(lints) > 0) {
+          print(lints)
+          warning("Linting issues found")
+        }
+      shell: Rscript {0}

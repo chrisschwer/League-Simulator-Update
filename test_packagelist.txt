@@ -1,0 +1,9 @@
+# Development and testing dependencies
+# These packages are NOT included in production Docker images
+# Only install these for development and CI/CD environments
+microbenchmark
+covr
+shinytest2
+mockery
+lintr
+testthat
