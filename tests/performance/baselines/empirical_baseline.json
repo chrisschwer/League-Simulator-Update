@@ -1,0 +1,61 @@
+{
+  "iteration_scaling": {
+    "10": 22.3,
+    "100": 209.3,
+    "1000": 2289.7,
+    "10000": 32880.8
+  },
+  "scaling_factors": {
+    "scale_10_100": 9.4,
+    "scale_100_1000": 10.9,
+    "scale_1000_10000": 14.4,
+    "analysis": "Scaling is approximately linear for small iterations (10x), but degrades slightly at 10k iterations (14.4x vs expected 10x)"
+  },
+  "game_impact": {
+    "0": {
+      "games": 306,
+      "time_ms": 4503.4
+    },
+    "0.25": {
+      "games": 230,
+      "time_ms": 3297.9
+    },
+    "0.5": {
+      "games": 153,
+      "time_ms": 2519.8
+    },
+    "0.75": {
+      "games": 77,
+      "time_ms": 1365.8
+    },
+    "0.9": {
+      "games": 31,
+      "time_ms": 775.9
+    },
+    "analysis": "Performance scales linearly with games to simulate. Each game adds ~15.7ms to 1000-iteration simulation"
+  },
+  "league_comparison": {
+    "bundesliga_ms": 2321.1,
+    "liga3_ms": 2886.1,
+    "ratio": 1.24,
+    "analysis": "3. Liga (20 teams, 380 games) is 24% slower than Bundesliga (18 teams, 306 games)"
+  },
+  "component_performance": {
+    "elo_calculation_ns": 1025,
+    "match_simulation_us": 3.7,
+    "analysis": "ELO calculation is very fast (~1µs). Full match simulation including random numbers takes ~3.7µs"
+  },
+  "performance_characteristics": {
+    "time_per_iteration_per_game_ms": 0.0157,
+    "base_overhead_ms": 20,
+    "formula": "time_ms ≈ base_overhead + (iterations * games_to_simulate * 0.0157)",
+    "example_10k_full_season": "10000 * 306 * 0.0157 + 20 ≈ 48,062ms (48 seconds)"
+  },
+  "system_info": {
+    "platform": "darwin",
+    "r_version": "4.4.0",
+    "timestamp": "2025-01-16T22:00:00Z",
+    "cpu_info": "Apple Silicon (M-series)",
+    "test_methodology": "Median of multiple runs using microbenchmark"
+  }
+}
