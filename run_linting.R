@@ -2,7 +2,7 @@
 library(lintr)
 
 # Lint all implemented modules
-lint_files <- list.files('RCode', pattern = '(season_|api_|interactive_|input_|csv_|file_|league_|error_|logging|team_config_loader)\\.R$', full.names = TRUE)
+lint_files <- list.files('RCode', pattern = '(season_|api_|interactive_|input_|csv_|file_|league_|error_|logging|team_config_loader|team_data_carryover)\\.R$', full.names = TRUE)
 lint_files <- c(lint_files, 'scripts/season_transition.R')
 
 total_issues <- 0

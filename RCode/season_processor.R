@@ -1,6 +1,9 @@
 # Season Processing Pipeline
 # Main processing logic for season transitions
 
+# Source team data carryover module
+source("RCode/team_data_carryover.R")
+
 process_season_transition <- function(source_season, target_season) {
   # Main processing pipeline
   # Coordinates all phases of transition
@@ -89,6 +92,16 @@ process_single_season <- function(season, previous_season) {
   tryCatch({
     cat("\n=== Processing Season", season, "===\n")
     
+    # Validate previous season is complete before processing
+    cat("Validating previous season completion\n")
+    if (!validate_season_completion(previous_season)) {
+      stop(sprintf("Season %s not finished, no season transition possible.", previous_season))
+    }
+    
+    # Load previous season team list for carryover
+    cat("Loading previous season team data\n")
+    previous_team_list <- load_previous_team_list(previous_season)
+    
     # Get final ELOs from previous season
     cat("Calculating final ELOs for season", previous_season, "\n")
     final_elos <- calculate_final_elos(previous_season)
@@ -128,7 +141,8 @@ process_single_season <- function(season, previous_season) {
         league_id, 
         season, 
         final_elos,
-        liga3_baseline
+        liga3_baseline,
+        previous_team_list
       )
       
       if (is.null(processed_teams)) {
@@ -175,9 +189,9 @@ process_single_season <- function(season, previous_season) {
   })
 }
 
-process_league_teams <- function(teams, league_id, season, final_elos, liga3_baseline) {
+process_league_teams <- function(teams, league_id, season, final_elos, liga3_baseline, previous_team_list = NULL) {
   # Process teams for a specific league
-  # Handles ELO assignment and user prompts
+  # Handles ELO assignment and user prompts with carryover from previous seasons
   
   tryCatch({
     processed_teams <- list()
@@ -196,8 +210,8 @@ process_league_teams <- function(teams, league_id, season, final_elos, liga3_bas
         cat("Team Name:", team$name, "\n")
         cat("League:", get_league_name(league_id), "\n")
         
-        # Get team information interactively
-        team_info <- prompt_for_team_info(team$name, league_id, existing_short_names)
+        # Get team information interactively, pass baseline for Liga3
+        team_info <- prompt_for_team_info(team$name, league_id, existing_short_names, liga3_baseline)
         
         # Apply second team conversion if needed
         final_short_name <- convert_second_team_short_name(
@@ -217,17 +231,29 @@ process_league_teams <- function(teams, league_id, season, final_elos, liga3_bas
         existing_short_names <- c(existing_short_names, final_short_name)
         
       } else {
-        # Existing team - use final ELO from previous season
-        # Generate short name if not available
-        short_name <- get_team_short_name(team$name)
-        
-        # Ensure uniqueness
-        if (short_name %in% existing_short_names) {
-          short_name <- generate_unique_short_name(short_name, existing_short_names)
+        # Existing team - use data from previous season if available
+        previous_data <- NULL
+        if (!is.null(previous_team_list)) {
+          previous_data <- get_existing_team_data(team$id, previous_team_list)
         }
         
-        # Determine promotion value
-        promotion_value <- ifelse(team$is_second_team, -50, 0)
+        if (!is.null(previous_data)) {
+          # Use carryover data from previous season
+          short_name <- previous_data$short_name
+          promotion_value <- previous_data$promotion_value
+        } else {
+          # Fallback: generate new data if not found in previous season
+          warning(paste("Team", team$id, "-", team$name, "not found in previous season, generating new data"))
+          short_name <- get_team_short_name(team$name)
+          
+          # Ensure uniqueness
+          if (short_name %in% existing_short_names) {
+            short_name <- generate_unique_short_name(short_name, existing_short_names)
+          }
+          
+          # Determine promotion value
+          promotion_value <- ifelse(team$is_second_team, -50, 0)
+        }
         
         # Apply second team conversion if needed
         final_short_name <- convert_second_team_short_name(

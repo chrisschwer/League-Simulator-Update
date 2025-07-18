@@ -35,7 +35,10 @@ convert_second_team_short_name <- function(short_name, is_second, promotion_valu
   }
 }
 
-get_initial_elo_for_new_team <- function(league) {
+get_initial_elo_for_new_team <- function(league, baseline = NULL) {
+  if (league == "80" && !is.null(baseline)) {
+    return(baseline)
+  }
   switch(league,
     "78" = 1300,
     "79" = 1150,
@@ -226,6 +229,55 @@ test_that("get_initial_elo_interactive validates range", {
       result <- get_initial_elo_interactive("78")
       expect_equal(result, 1200)
       expect_equal(attempts, 4)
+    }
+  )
+})
+
+test_that("get_initial_elo_interactive uses baseline for Liga3", {
+  # Test with baseline
+  with_mock(
+    check_interactive_mode = function() FALSE,
+    {
+      elo <- get_initial_elo_interactive("80", baseline = 1234)
+      expect_equal(elo, 1234)
+    }
+  )
+  
+  # Test without baseline (should use default)
+  with_mock(
+    check_interactive_mode = function() FALSE,
+    {
+      elo <- get_initial_elo_interactive("80", baseline = NULL)
+      expect_equal(elo, 1046)
+    }
+  )
+  
+  # Test other leagues ignore baseline
+  with_mock(
+    check_interactive_mode = function() FALSE,
+    {
+      elo <- get_initial_elo_interactive("78", baseline = 1234)
+      expect_equal(elo, 1300)  # Should use default for Bundesliga, not baseline
+    }
+  )
+})
+
+test_that("prompt_for_team_info passes baseline through", {
+  # Mock all dependencies
+  with_mock(
+    get_team_short_name_interactive = function(...) "FCE",
+    get_initial_elo_interactive = function(league, baseline = NULL) {
+      if (!is.null(baseline) && league == "80") return(baseline)
+      return(1046)
+    },
+    get_promotion_value_interactive = function(...) 0,
+    can_accept_input = function() FALSE,  # Skip confirmation
+    {
+      # Test with baseline
+      result <- prompt_for_team_info("Energie Cottbus", "80", NULL, baseline = 1150)
+      
+      expect_equal(result$initial_elo, 1150)
+      expect_equal(result$short_name, "FCE")
     }
   )
 })
