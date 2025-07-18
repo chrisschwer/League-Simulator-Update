@@ -146,10 +146,19 @@ process_single_season <- function(season, previous_season) {
     }
     
     # Merge all leagues into single team list
+    cat("Merging all leagues into single team list\n")
     merged_file <- merge_league_files(files_created, season)
     
     if (!is.null(merged_file)) {
       files_created <- c(files_created, merged_file)
+      
+      # Validate team count
+      team_count_validation <- validate_team_count(merged_file)
+      if (!team_count_validation$valid) {
+        warning(team_count_validation$message)
+      }
+    } else {
+      warning("Failed to merge league files")
     }
     
     return(list(
@@ -190,15 +199,22 @@ process_league_teams <- function(teams, league_id, season, final_elos, liga3_bas
         # Get team information interactively
         team_info <- prompt_for_team_info(team$name, league_id, existing_short_names)
         
+        # Apply second team conversion if needed
+        final_short_name <- convert_second_team_short_name(
+          team_info$short_name,
+          team$is_second_team,
+          team_info$promotion_value
+        )
+        
         processed_team <- list(
           id = team$id,
           name = team$name,
-          short_name = team_info$short_name,
+          short_name = final_short_name,
           initial_elo = team_info$initial_elo,
           promotion_value = team_info$promotion_value
         )
         
-        existing_short_names <- c(existing_short_names, team_info$short_name)
+        existing_short_names <- c(existing_short_names, final_short_name)
         
       } else {
         # Existing team - use final ELO from previous season
@@ -210,15 +226,25 @@ process_league_teams <- function(teams, league_id, season, final_elos, liga3_bas
           short_name <- generate_unique_short_name(short_name, existing_short_names)
         }
         
+        # Determine promotion value
+        promotion_value <- ifelse(team$is_second_team, -50, 0)
+        
+        # Apply second team conversion if needed
+        final_short_name <- convert_second_team_short_name(
+          short_name,
+          team$is_second_team,
+          promotion_value
+        )
+        
         processed_team <- list(
           id = team$id,
           name = team$name,
-          short_name = short_name,
+          short_name = final_short_name,
           initial_elo = team_elo[1],
-          promotion_value = ifelse(team$is_second_team, -50, 0)
+          promotion_value = promotion_value
         )
         
-        existing_short_names <- c(existing_short_names, short_name)
+        existing_short_names <- c(existing_short_names, final_short_name)
       }
       
       processed_teams[[i]] <- processed_team
@@ -250,11 +276,14 @@ generate_league_csv <- function(teams, league_id, season) {
       stringsAsFactors = FALSE
     )
     
-    # Generate temporary file name
-    temp_file <- file.path("RCode", paste0("TeamList_", season, "_", get_league_name(league_id), ".csv"))
+    # Generate temporary file name with unique league identifier
+    temp_filename <- paste0("TeamList_", season, "_League", league_id, "_temp.csv")
+    temp_file <- file.path("RCode", temp_filename)
     
-    # Generate CSV
-    file_path <- generate_team_list_csv(team_data, season, dirname(temp_file))
+    # Write CSV directly with league-specific name
+    write.table(team_data, temp_file, sep = ";", row.names = FALSE, quote = FALSE)
+    
+    file_path <- temp_file
     
     return(file_path)
     
@@ -273,22 +302,36 @@ merge_league_files <- function(league_files, season) {
       return(NULL)
     }
     
+    # Filter only temp league files
+    temp_league_files <- league_files[grepl("_League[0-9]+_temp\\.csv$", league_files)]
+    
+    if (length(temp_league_files) == 0) {
+      warning("No temporary league files found to merge")
+      return(NULL)
+    }
+    
+    cat("Merging", length(temp_league_files), "league files\n")
+    
     # Read all league files
     all_teams <- data.frame()
     
-    for (file in league_files) {
+    for (file in temp_league_files) {
       if (file.exists(file)) {
-        league_data <- safe_file_read(file)
+        cat("Reading:", basename(file), "\n")
+        league_data <- read.csv(file, sep = ";", stringsAsFactors = FALSE)
         
-        if (!is.null(league_data)) {
+        if (!is.null(league_data) && nrow(league_data) > 0) {
           all_teams <- rbind(all_teams, league_data)
         }
       }
     }
     
     if (nrow(all_teams) == 0) {
+      warning("No team data found in league files")
       return(NULL)
     }
+    
+    cat("Total teams to merge:", nrow(all_teams), "\n")
     
     # Sort by TeamID
     all_teams <- all_teams[order(all_teams$TeamID), ]
@@ -297,9 +340,10 @@ merge_league_files <- function(league_files, season) {
     merged_file <- generate_team_list_csv(all_teams, season)
     
     # Clean up temporary league files
-    for (file in league_files) {
-      if (file.exists(file) && file != merged_file) {
+    for (file in temp_league_files) {
+      if (file.exists(file)) {
         file.remove(file)
+        cat("Removed temp file:", basename(file), "\n")
       }
     }
     

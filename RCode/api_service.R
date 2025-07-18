@@ -293,6 +293,31 @@ get_team_short_name <- function(team_name) {
   return(toupper(substr(team_name, 1, 3)))
 }
 
+convert_second_team_short_name <- function(short_name, is_second_team, promotion_value = 0) {
+  # Convert short name for second teams
+  # Ensures XXX2 format for teams with -50 promotion
+  
+  if (is.null(short_name) || is.na(short_name)) {
+    return(short_name)
+  }
+  
+  # Check if conversion is needed
+  if (is_second_team || promotion_value == -50) {
+    # Ensure 3 character format
+    if (nchar(short_name) == 3) {
+      # Convert to XX2 format
+      converted <- paste0(substr(short_name, 1, 2), "2")
+      return(converted)
+    } else if (nchar(short_name) > 3) {
+      # Truncate and add 2
+      converted <- paste0(substr(short_name, 1, 2), "2")
+      return(converted)
+    }
+  }
+  
+  return(short_name)
+}
+
 check_api_rate_limit <- function() {
   # Check API rate limit status
   # Returns rate limit information

@@ -1,6 +1,35 @@
 # Interactive User Interface
 # Handles user prompts, input validation, and progress display
 
+# Check if we should use interactive mode
+check_interactive_mode <- function() {
+  # Check if explicitly non-interactive
+  if (getOption("season_transition.non_interactive", FALSE)) {
+    return(FALSE)
+  }
+  
+  # If not explicitly non-interactive, we require interactive mode
+  # This makes interactive the default
+  return(TRUE)
+}
+
+# Require interactive mode or fail
+require_interactive_mode <- function() {
+  if (!check_interactive_mode()) {
+    return(FALSE)  # Non-interactive mode explicitly enabled
+  }
+  
+  # Check if we can actually be interactive
+  if (!interactive()) {
+    # Check for terminal
+    if (!isatty(stdin())) {
+      stop("Terminal required for interactive mode. Use --non-interactive flag for automated runs.")
+    }
+  }
+  
+  return(TRUE)
+}
+
 prompt_for_team_info <- function(team_name, league, existing_short_names = NULL) {
   # Interactive prompt for new team information
   # Validates input and provides defaults
@@ -25,12 +54,17 @@ prompt_for_team_info <- function(team_name, league, existing_short_names = NULL)
   cat("Initial ELO:", initial_elo, "\n")
   cat("Promotion Value:", promotion_value, "\n")
   
-  if (interactive()) {
+  if (check_interactive_mode()) {
     confirm <- readline("Is this information correct? (y/n): ")
     if (tolower(trimws(confirm)) != "y") {
       cat("Please re-enter team information.\n")
       return(prompt_for_team_info(team_name, league, existing_short_names))
     }
+  }
+  
+  # Apply second team conversion if needed
+  if (promotion_value == -50) {
+    short_name <- convert_second_team_short_name(short_name, TRUE, promotion_value)
   }
   
   return(list(
@@ -49,7 +83,7 @@ get_team_short_name_interactive <- function(team_name, existing_short_names = NU
   suggested_short <- get_team_short_name(team_name)
   
   while (TRUE) {
-    if (interactive()) {
+    if (check_interactive_mode()) {
       cat("Enter 3-character short name for", team_name, "\n")
       cat("Suggested:", suggested_short, "\n")
       
@@ -61,13 +95,21 @@ get_team_short_name_interactive <- function(team_name, existing_short_names = NU
     } else {
       # Non-interactive mode, use suggestion
       short_name <- suggested_short
+      
+      # Log the automatic decision
+      log_file <- getOption("season_transition.log_file", NULL)
+      if (!is.null(log_file)) {
+        log_non_interactive_action(log_file, 
+          paste("Auto-generated short name for", team_name),
+          paste("Short name:", short_name))
+      }
     }
     
     # Validate short name
     validation <- validate_team_short_name(short_name)
     if (!validation$valid) {
       cat("Invalid short name:", validation$message, "\n")
-      if (!interactive()) {
+      if (!check_interactive_mode()) {
         # In non-interactive mode, generate a valid alternative
         short_name <- generate_valid_short_name(team_name, existing_short_names)
         break
@@ -78,7 +120,7 @@ get_team_short_name_interactive <- function(team_name, existing_short_names = NU
     # Check uniqueness
     if (!is.null(existing_short_names) && short_name %in% existing_short_names) {
       cat("Short name already exists. Please choose a different one.\n")
-      if (!interactive()) {
+      if (!check_interactive_mode()) {
         # Generate unique alternative
         short_name <- generate_unique_short_name(short_name, existing_short_names)
         break
@@ -99,7 +141,7 @@ get_initial_elo_interactive <- function(league) {
   default_elo <- get_initial_elo_for_new_team(league)
   
   while (TRUE) {
-    if (interactive()) {
+    if (check_interactive_mode()) {
       cat("Enter initial ELO rating for", get_league_name(league), "\n")
       cat("Default:", default_elo, "\n")
       
@@ -112,6 +154,13 @@ get_initial_elo_interactive <- function(league) {
       elo_value <- as.numeric(elo_input)
     } else {
       # Non-interactive mode, use default
+      # Log the automatic decision
+      log_file <- getOption("season_transition.log_file", NULL)
+      if (!is.null(log_file)) {
+        log_non_interactive_action(log_file, 
+          paste("Auto-assigned default ELO for", get_league_name(league)),
+          paste("ELO:", default_elo))
+      }
       return(default_elo)
     }
     
@@ -137,8 +186,26 @@ get_promotion_value_interactive <- function(team_name, league) {
   
   # Check if it's a second team
   if (detect_second_teams(team_name)) {
-    cat("Second team detected. Setting promotion value to -50.\n")
-    return(-50)
+    if (check_interactive_mode()) {
+      cat("Second team detected:", team_name, "\n")
+      response <- readline("Confirm this is a second team? (y/n): ")
+      if (tolower(trimws(response)) %in% c("y", "yes")) {
+        cat("Setting promotion value to -50.\n")
+        return(-50)
+      }
+    } else {
+      cat("Second team detected. Setting promotion value to -50.\n")
+      
+      # Log the automatic decision
+      log_file <- getOption("season_transition.log_file", NULL)
+      if (!is.null(log_file)) {
+        log_non_interactive_action(log_file, 
+          paste("Auto-detected second team:", team_name),
+          "Promotion value: -50")
+      }
+      
+      return(-50)
+    }
   }
   
   # For Liga3 first teams, promotion value is 0
@@ -151,7 +218,7 @@ confirm_overwrite <- function(file_path) {
   
   cat("\nFile already exists:", file_path, "\n")
   
-  if (interactive()) {
+  if (check_interactive_mode()) {
     response <- readline("Overwrite existing file? (y/n): ")
     return(tolower(trimws(response)) %in% c("y", "yes"))
   } else {
@@ -202,7 +269,7 @@ prompt_for_continuation <- function(message) {
   
   cat(message, "\n")
   
-  if (interactive()) {
+  if (check_interactive_mode()) {
     response <- readline("Continue? (y/n): ")
     return(tolower(trimws(response)) %in% c("y", "yes"))
   } else {
@@ -222,7 +289,7 @@ display_error_recovery_options <- function(error_msg, context = NULL) {
     cat("Context:", context, "\n")
   }
   
-  if (interactive()) {
+  if (check_interactive_mode()) {
     cat("\nRecovery Options:\n")
     cat("1. Retry operation\n")
     cat("2. Skip and continue\n")

@@ -1,6 +1,51 @@
 # Input Validation Functions
 # Validates and sanitizes user input for security and correctness
 
+validate_team_count <- function(file_path) {
+  # Validate that the team count is within expected range
+  # Returns validation result
+  
+  tryCatch({
+    if (!file.exists(file_path)) {
+      return(list(
+        valid = FALSE,
+        message = "File does not exist"
+      ))
+    }
+    
+    # Read the CSV file
+    team_data <- read.csv(file_path, sep = ";", stringsAsFactors = FALSE)
+    team_count <- nrow(team_data)
+    
+    # Expected range: 56-62 teams (3 leagues)
+    if (team_count < 56) {
+      return(list(
+        valid = FALSE,
+        message = paste("Too few teams:", team_count, "- expected at least 56")
+      ))
+    }
+    
+    if (team_count > 62) {
+      return(list(
+        valid = FALSE,
+        message = paste("Too many teams:", team_count, "- expected at most 62")
+      ))
+    }
+    
+    return(list(
+      valid = TRUE,
+      message = paste("Team count valid:", team_count, "teams"),
+      team_count = team_count
+    ))
+    
+  }, error = function(e) {
+    return(list(
+      valid = FALSE,
+      message = paste("Error reading file:", e$message)
+    ))
+  })
+}
+
 validate_team_short_name <- function(short_name) {
   # Validate team short name format
   # 3-character uppercase requirement
