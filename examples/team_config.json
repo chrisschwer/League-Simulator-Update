@@ -1,0 +1,22 @@
+{
+  "new_teams": {
+    "Energie Cottbus": {
+      "short_name": "ENE",
+      "initial_elo": 1046,
+      "promotion_value": 0,
+      "league": "3. Liga"
+    },
+    "Alemannia Aachen": {
+      "short_name": "AAC",
+      "initial_elo": 1050,
+      "promotion_value": 0,
+      "league": "3. Liga"
+    },
+    "Bayern Munich II": {
+      "short_name": "FC2",
+      "initial_elo": 1040,
+      "promotion_value": -50,
+      "league": "3. Liga"
+    }
+  }
+}
