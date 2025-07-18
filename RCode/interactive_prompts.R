@@ -67,9 +67,9 @@ require_interactive_mode <- function() {
   return(TRUE)
 }
 
-prompt_for_team_info <- function(team_name, league, existing_short_names = NULL, retry_count = 0) {
+prompt_for_team_info <- function(team_name, league, existing_short_names = NULL, baseline = NULL, retry_count = 0) {
   # Interactive prompt for new team information
-  # Validates input and provides defaults
+  # Validates input and provides defaults with optional baseline for Liga3
   
   # Maximum retry limit to prevent infinite loops
   MAX_RETRIES <- 10
@@ -84,8 +84,8 @@ prompt_for_team_info <- function(team_name, league, existing_short_names = NULL,
   # Get short name
   short_name <- get_team_short_name_interactive(team_name, existing_short_names)
   
-  # Get initial ELO
-  initial_elo <- get_initial_elo_interactive(league)
+  # Get initial ELO (pass baseline for Liga3)
+  initial_elo <- get_initial_elo_interactive(league, baseline)
   
   # Get promotion value (only for Liga3)
   promotion_value <- get_promotion_value_interactive(team_name, league)
@@ -101,7 +101,7 @@ prompt_for_team_info <- function(team_name, league, existing_short_names = NULL,
     confirmed <- confirm_action("Is this information correct? (y/n): ", default = "y")
     if (!confirmed) {
       cat("Please re-enter team information.\n")
-      return(prompt_for_team_info(team_name, league, existing_short_names, retry_count + 1))
+      return(prompt_for_team_info(team_name, league, existing_short_names, baseline, retry_count + 1))
     }
   }
   
@@ -177,11 +177,11 @@ get_team_short_name_interactive <- function(team_name, existing_short_names = NU
   return(toupper(short_name))
 }
 
-get_initial_elo_interactive <- function(league) {
+get_initial_elo_interactive <- function(league, baseline = NULL) {
   # Interactive prompt for initial ELO
-  # Provides league-appropriate defaults
+  # Provides league-appropriate defaults with optional baseline
   
-  default_elo <- get_initial_elo_for_new_team(league)
+  default_elo <- get_initial_elo_for_new_team(league, baseline)
   
   while (TRUE) {
     if (check_interactive_mode()) {

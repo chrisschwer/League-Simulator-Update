@@ -2,42 +2,67 @@
 # Validates season completion and ranges for automated season transition
 
 validate_season_completion <- function(season) {
-  # Check if season data exists and is complete
-  # Returns TRUE if season is complete, FALSE otherwise
+  # Check if season is complete by verifying all matches are finished
+  # Throws error if season is not complete
   
   tryCatch({
-    # Check if TeamList file exists
-    team_list_file <- paste0("RCode/TeamList_", season, ".csv")
-    if (!file.exists(team_list_file)) {
-      return(FALSE)
-    }
+    cat("Checking if season", season, "is complete...\n")
     
-    # Check if we have results data for all three leagues
+    # Check all three leagues
     leagues <- c("78", "79", "80")  # Bundesliga, 2. Bundesliga, 3. Liga
+    total_unfinished <- 0
     
     for (league in leagues) {
-      # Try to retrieve results to check if season is complete
-      results <- tryCatch({
-        # Use existing retrieveResults function if available
-        if (exists("retrieveResults")) {
-          retrieveResults(league, season)
-        } else {
-          # Basic API call fallback
-          check_league_completion(league, season)
-        }
-      }, error = function(e) {
-        warning(paste("Could not check league", league, "for season", season, ":", e$message))
-        return(NULL)
-      })
+      # Fetch all matches for this league and season
+      url <- "https://api-football-v1.p.rapidapi.com/v3/fixtures"
       
-      if (is.null(results)) {
-        return(FALSE)
+      response <- httr::GET(
+        url,
+        query = list(
+          league = league,
+          season = season
+        ),
+        httr::add_headers(
+          'X-RapidAPI-Key' = Sys.getenv("RAPIDAPI_KEY"),
+          'X-RapidAPI-Host' = 'api-football-v1.p.rapidapi.com'
+        )
+      )
+      
+      if (httr::status_code(response) != 200) {
+        warning(paste("Failed to fetch matches for league", league))
+        next
       }
+      
+      content <- httr::content(response, "parsed")
+      
+      if (is.null(content$response) || length(content$response) == 0) {
+        warning(paste("No matches found for league", league, "season", season))
+        next
+      }
+      
+      # Count unfinished matches
+      for (match in content$response) {
+        if (!is.null(match$fixture) && !is.null(match$fixture$status)) {
+          status <- match$fixture$status$short
+          
+          # Check if match is not finished
+          if (!status %in% c("FT", "AET", "PEN")) {
+            total_unfinished <- total_unfinished + 1
+          }
+        }
+      }
+    }
+    
+    if (total_unfinished > 0) {
+      stop(sprintf("Season %s not finished, no season transition possible.", season))
     }
     
     return(TRUE)
     
   }, error = function(e) {
+    if (grepl("not finished", e$message)) {
+      stop(e$message)  # Re-throw the specific error
+    }
     warning(paste("Error validating season", season, ":", e$message))
     return(FALSE)
   })
