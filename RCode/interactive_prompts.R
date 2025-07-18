@@ -1,6 +1,43 @@
 # Interactive User Interface
 # Handles user prompts, input validation, and progress display
 
+# Source the input handler module
+# Define null coalesce operator
+`%||%` <- function(a, b) if (is.null(a)) b else a
+
+# Try to source input handler from multiple possible locations
+input_handler_sourced <- FALSE
+
+# Try relative to current file
+if (!input_handler_sourced && file.exists("input_handler.R")) {
+  source("input_handler.R")
+  input_handler_sourced <- TRUE
+}
+
+# Try in RCode directory
+if (!input_handler_sourced) {
+  rcode_path <- file.path("RCode", "input_handler.R")
+  if (file.exists(rcode_path)) {
+    source(rcode_path)
+    input_handler_sourced <- TRUE
+  }
+}
+
+# Try relative to script location
+if (!input_handler_sourced) {
+  script_dir <- tryCatch({
+    dirname(sys.frame(1)$ofile)
+  }, error = function(e) NULL)
+  
+  if (!is.null(script_dir)) {
+    handler_path <- file.path(script_dir, "input_handler.R")
+    if (file.exists(handler_path)) {
+      source(handler_path)
+      input_handler_sourced <- TRUE
+    }
+  }
+}
+
 # Check if we should use interactive mode
 check_interactive_mode <- function() {
   # Check if explicitly non-interactive
@@ -30,9 +67,15 @@ require_interactive_mode <- function() {
   return(TRUE)
 }
 
-prompt_for_team_info <- function(team_name, league, existing_short_names = NULL) {
+prompt_for_team_info <- function(team_name, league, existing_short_names = NULL, retry_count = 0) {
   # Interactive prompt for new team information
   # Validates input and provides defaults
+  
+  # Maximum retry limit to prevent infinite loops
+  MAX_RETRIES <- 10
+  if (retry_count >= MAX_RETRIES) {
+    stop("Maximum retry limit reached for team information input")
+  }
   
   cat("\n=== New Team Information Required ===\n")
   cat("Team Name:", team_name, "\n")
@@ -54,11 +97,11 @@ prompt_for_team_info <- function(team_name, league, existing_short_names = NULL)
   cat("Initial ELO:", initial_elo, "\n")
   cat("Promotion Value:", promotion_value, "\n")
   
-  if (check_interactive_mode()) {
-    confirm <- readline("Is this information correct? (y/n): ")
-    if (tolower(trimws(confirm)) != "y") {
+  if (can_accept_input()) {
+    confirmed <- confirm_action("Is this information correct? (y/n): ", default = "y")
+    if (!confirmed) {
       cat("Please re-enter team information.\n")
-      return(prompt_for_team_info(team_name, league, existing_short_names))
+      return(prompt_for_team_info(team_name, league, existing_short_names, retry_count + 1))
     }
   }
   
@@ -87,7 +130,7 @@ get_team_short_name_interactive <- function(team_name, existing_short_names = NU
       cat("Enter 3-character short name for", team_name, "\n")
       cat("Suggested:", suggested_short, "\n")
       
-      short_name <- readline("Short name (press Enter for suggestion): ")
+      short_name <- get_user_input("Short name (press Enter for suggestion): ", default = suggested_short)
       
       if (trimws(short_name) == "") {
         short_name <- suggested_short
@@ -145,7 +188,7 @@ get_initial_elo_interactive <- function(league) {
       cat("Enter initial ELO rating for", get_league_name(league), "\n")
       cat("Default:", default_elo, "\n")
       
-      elo_input <- readline("Initial ELO (press Enter for default): ")
+      elo_input <- get_user_input("Initial ELO (press Enter for default): ", default = as.character(default_elo))
       
       if (trimws(elo_input) == "") {
         return(default_elo)
@@ -188,7 +231,7 @@ get_promotion_value_interactive <- function(team_name, league) {
   if (detect_second_teams(team_name)) {
     if (check_interactive_mode()) {
       cat("Second team detected:", team_name, "\n")
-      response <- readline("Confirm this is a second team? (y/n): ")
+      response <- get_user_input("Confirm this is a second team? (y/n): ", default = "y")
       if (tolower(trimws(response)) %in% c("y", "yes")) {
         cat("Setting promotion value to -50.\n")
         return(-50)
@@ -219,7 +262,7 @@ confirm_overwrite <- function(file_path) {
   cat("\nFile already exists:", file_path, "\n")
   
   if (check_interactive_mode()) {
-    response <- readline("Overwrite existing file? (y/n): ")
+    response <- get_user_input("Overwrite existing file? (y/n): ", default = "n")
     return(tolower(trimws(response)) %in% c("y", "yes"))
   } else {
     cat("Running in non-interactive mode. Skipping overwrite.\n")
@@ -270,7 +313,7 @@ prompt_for_continuation <- function(message) {
   cat(message, "\n")
   
   if (check_interactive_mode()) {
-    response <- readline("Continue? (y/n): ")
+    response <- get_user_input("Continue? (y/n): ", default = "y")
     return(tolower(trimws(response)) %in% c("y", "yes"))
   } else {
     cat("Running in non-interactive mode. Continuing automatically.\n")
@@ -295,7 +338,7 @@ display_error_recovery_options <- function(error_msg, context = NULL) {
     cat("2. Skip and continue\n")
     cat("3. Abort processing\n")
     
-    choice <- readline("Choose option (1-3): ")
+    choice <- get_user_input("Choose option (1-3): ", default = "3")
     
     return(switch(trimws(choice),
       "1" = "retry",

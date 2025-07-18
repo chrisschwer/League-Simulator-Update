@@ -15,6 +15,8 @@ implemented_files <- c(
   "RCode/league_processor.R",
   "RCode/error_handling.R",
   "RCode/logging.R",
+  "RCode/input_handler.R",
+  "RCode/team_config_loader.R",
   "scripts/season_transition.R"
 )
 

@@ -165,8 +165,11 @@ prompt_overwrite_confirmation <- function(file_path) {
   
   cat("File already exists:", file_path, "\n")
   
-  # Check if running in interactive mode
-  if (interactive()) {
+  # Use the input handler if available, otherwise fall back to readline
+  if (exists("get_user_input") && is.function(get_user_input)) {
+    response <- get_user_input("Overwrite existing file? (y/n): ", default = "n")
+    return(tolower(trimws(response)) %in% c("y", "yes"))
+  } else if (interactive()) {
     response <- readline("Overwrite existing file? (y/n): ")
     return(tolower(trimws(response)) %in% c("y", "yes"))
   } else {
