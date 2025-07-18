@@ -53,7 +53,7 @@ calculate_final_elos <- function(season) {
       matches <- get_league_matches(league, season)
       
       if (is.null(matches) || nrow(matches) == 0) {
-        warning(paste("No matches found for league", league, "season", season))
+        cat("No matches found for league", league, "season", season, "- ELO values will remain unchanged\n")
         next
       }
       
@@ -76,6 +76,23 @@ calculate_final_elos <- function(season) {
       FinalELO = current_elos$CurrentELO,
       stringsAsFactors = FALSE
     )
+    
+    # Debug: Show ELO changes
+    initial_sum <- sum(team_list$InitialELO)
+    final_sum <- sum(final_elos$FinalELO)
+    cat("ELO Summary - Initial total:", initial_sum, "Final total:", final_sum, "\n")
+    
+    # Show some specific changes for key teams
+    key_teams <- c(168, 1320, 4259)  # B04, Cottbus, Aachen
+    for (team_id in key_teams) {
+      initial_idx <- which(team_list$TeamID == team_id)
+      final_idx <- which(final_elos$TeamID == team_id)
+      if (length(initial_idx) > 0 && length(final_idx) > 0) {
+        initial_elo <- team_list$InitialELO[initial_idx[1]]
+        final_elo <- final_elos$FinalELO[final_idx[1]]
+        cat("Team", team_id, "ELO change:", initial_elo, "->", final_elo, "(", final_elo - initial_elo, ")\n")
+      }
+    }
     
     return(final_elos)
     

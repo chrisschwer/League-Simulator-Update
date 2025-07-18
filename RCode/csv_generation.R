@@ -84,8 +84,8 @@ format_team_data <- function(team_data) {
   # Apply promotion penalties for second teams
   formatted_data <- apply_promotion_penalties(formatted_data)
   
-  # Sort by TeamID for consistency
-  formatted_data <- formatted_data[order(formatted_data$TeamID), ]
+  # Sort by TeamID for consistency (numeric order but keep as character)
+  formatted_data <- formatted_data[order(as.numeric(formatted_data$TeamID)), ]
   
   # Select only required columns in correct order
   formatted_data <- formatted_data[, required_columns]
@@ -142,6 +142,27 @@ apply_promotion_penalties <- function(team_data) {
   }
   
   return(team_data)
+}
+
+detect_second_teams <- function(team_name) {
+  # Detect if a team is a second team based on short name
+  # Returns TRUE for second teams
+  
+  # Common patterns for second teams
+  second_team_patterns <- c(
+    ".*II$",       # Ends with II
+    ".*2$",        # Ends with 2  
+    ".*[0-9]$",    # Ends with any number
+    "^[A-Z0-9]{3}2$" # 4-character codes ending with 2 (new pattern)
+  )
+  
+  for (pattern in second_team_patterns) {
+    if (grepl(pattern, team_name)) {
+      return(TRUE)
+    }
+  }
+  
+  return(FALSE)
 }
 
 validate_csv_data <- function(data) {
@@ -223,8 +244,26 @@ validate_csv_data <- function(data) {
     ))
   }
   
-  # Check ShortText format
-  invalid_short_texts <- data$ShortText[!grepl("^[A-Z0-9]{3}$", data$ShortText)]
+  # Check ShortText format - allow 2-3 chars for regular teams, 4 chars for second teams ending in "2"
+  valid_patterns <- c(
+    "^[A-Z0-9]{2,3}$",     # 2-3 characters for regular teams
+    "^[A-Z0-9]{3}2$"       # 4 characters for second teams (3 chars + "2")
+  )
+  
+  invalid_short_texts <- c()
+  for (short_text in data$ShortText) {
+    is_valid <- FALSE
+    for (pattern in valid_patterns) {
+      if (grepl(pattern, short_text)) {
+        is_valid <- TRUE
+        break
+      }
+    }
+    if (!is_valid) {
+      invalid_short_texts <- c(invalid_short_texts, short_text)
+    }
+  }
+  
   if (length(invalid_short_texts) > 0) {
     return(list(
       valid = FALSE,

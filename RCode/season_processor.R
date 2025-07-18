@@ -386,6 +386,14 @@ merge_league_files <- function(league_files, season) {
     
     cat("Total teams to merge:", nrow(all_teams), "\n")
     
+    # Remove duplicate TeamIDs (keep first occurrence)
+    if (any(duplicated(all_teams$TeamID))) {
+      duplicate_ids <- all_teams$TeamID[duplicated(all_teams$TeamID)]
+      cat("Warning: Removing duplicate TeamIDs:", paste(unique(duplicate_ids), collapse = ", "), "\n")
+      all_teams <- all_teams[!duplicated(all_teams$TeamID), ]
+      cat("Teams after deduplication:", nrow(all_teams), "\n")
+    }
+    
     # Sort by TeamID
     all_teams <- all_teams[order(all_teams$TeamID), ]
     
