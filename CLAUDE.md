@@ -37,6 +37,12 @@ shiny::runApp("ShinyApp/app.R")
 
 # Run automated season transition script
 Rscript scripts/season_transition.R 2023 2024
+
+# Run season transition with configuration (recommended)
+Rscript scripts/season_transition.R 2024 2025 --config examples/team_config.json
+
+# Run season transition non-interactively
+Rscript scripts/season_transition.R 2024 2025 --non-interactive
 ```
 
 ## Architecture
@@ -155,3 +161,20 @@ Create these labels in your GitHub repository:
 - Approval labels: `tests:approved`, `plan:approved`, `needs:revision`
 - Priority labels: `priority:critical`, `priority:high`, `priority:medium`, `priority:low`
 - Type labels: `type:feature`, `type:bug`, `type:enhancement`, `type:documentation`
+
+## Known Issues & Solutions
+
+### Interactive Prompts in Season Transition (Fixed in PR #22)
+**Issue**: Season transition script gets stuck in infinite loop when running via `Rscript`
+**Root Cause**: `readline()` returns empty strings in non-interactive mode
+**Solution**: Use universal input handler in `RCode/input_handler.R`
+
+```r
+# New approach that works in all contexts
+get_user_input("Enter value: ", default = "default")
+```
+
+**Usage Options**:
+- Interactive: `Rscript scripts/season_transition.R 2024 2025`
+- Non-interactive: `Rscript scripts/season_transition.R 2024 2025 --non-interactive`
+- Config file: `Rscript scripts/season_transition.R 2024 2025 --config examples/team_config.json`
