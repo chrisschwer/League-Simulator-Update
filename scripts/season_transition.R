@@ -60,7 +60,8 @@ required_modules <- c(
   "error_handling.R",
   "logging.R",
   "input_handler.R",
-  "team_config_loader.R"
+  "team_config_loader.R",
+  "team_data_carryover.R"
 )
 
 # Source existing modules that we'll use
