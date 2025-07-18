@@ -81,16 +81,76 @@ for (module in existing_modules) {
   }
 }
 
+parse_arguments <- function(args) {
+  # Parse command line arguments
+  parsed <- list(
+    from_season = NULL,
+    to_season = NULL,
+    non_interactive = FALSE,
+    interactive_mode = TRUE
+  )
+  
+  # Extract seasons and flags
+  season_args <- character()
+  for (arg in args) {
+    if (arg %in% c("--non-interactive", "-n")) {
+      parsed$non_interactive <- TRUE
+      parsed$interactive_mode <- FALSE
+    } else {
+      season_args <- c(season_args, arg)
+    }
+  }
+  
+  # Validate season arguments
+  if (length(season_args) != 2) {
+    return(list(valid = FALSE, error = "Two season arguments required"))
+  }
+  
+  parsed$from_season <- season_args[1]
+  parsed$to_season <- season_args[2]
+  parsed$valid <- TRUE
+  
+  return(parsed)
+}
+
 main <- function(args) {
-  # Validate command line arguments
-  if (length(args) != 2) {
-    cat("Usage: Rscript season_transition.R <source_season> <target_season>\n")
+  # Parse command line arguments
+  parsed_args <- parse_arguments(args)
+  
+  if (!parsed_args$valid) {
+    cat("Usage: Rscript season_transition.R <source_season> <target_season> [--non-interactive|-n]\n")
     cat("Example: Rscript season_transition.R 2023 2024\n")
+    cat("Example: Rscript season_transition.R 2023 2024 --non-interactive\n")
+    cat("\nOptions:\n")
+    cat("  --non-interactive, -n   Run without user prompts (uses defaults)\n")
     quit(status = 1)
   }
   
-  source_season <- args[1]
-  target_season <- args[2]
+  source_season <- parsed_args$from_season
+  target_season <- parsed_args$to_season
+  
+  # Set global option for non-interactive mode
+  options(season_transition.non_interactive = parsed_args$non_interactive)
+  
+  # Check if we're in a non-interactive environment without the flag
+  if (!parsed_args$non_interactive && !interactive()) {
+    # Check if stdin is available (terminal attached)
+    if (!isatty(stdin())) {
+      cat("Error: Interactive mode required but no terminal available.\n")
+      cat("Use --non-interactive flag for automated runs.\n")
+      quit(status = 1)
+    }
+  }
+  
+  # Log mode and create non-interactive log file
+  if (parsed_args$non_interactive) {
+    cat("Running in non-interactive mode. Using default values for all prompts.\n\n")
+    
+    # Create detailed log file
+    non_interactive_log <- create_non_interactive_log(source_season, target_season)
+    options(season_transition.log_file = non_interactive_log)
+    cat("Detailed log file:", non_interactive_log, "\n\n")
+  }
   
   # Basic validation
   if (!grepl("^[0-9]{4}$", source_season) || !grepl("^[0-9]{4}$", target_season)) {
@@ -153,3 +213,4 @@ main <- function(args) {
 if (!interactive()) {
   main(commandArgs(trailingOnly = TRUE))
 }
+

@@ -1,6 +1,48 @@
 # Logging Functionality
 # Structured logging for debugging and monitoring
 
+create_non_interactive_log <- function(from_season, to_season) {
+  # Create detailed log file for non-interactive runs
+  # Returns log file path
+
+  timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+  log_filename <- paste0("season_transition_", from_season, "_",
+                         to_season, "_", timestamp, ".log")
+  log_filepath <- file.path("logs", log_filename)
+
+  # Create logs directory if it doesn't exist
+  if (!dir.exists("logs")) {
+    dir.create("logs")
+  }
+
+  # Initialize log file
+  cat("=== Season Transition Log ===\n", file = log_filepath)
+  cat("Mode: Non-Interactive\n", file = log_filepath, append = TRUE)
+  cat("From Season:", from_season, "\n", file = log_filepath, append = TRUE)
+  cat("To Season:", to_season, "\n", file = log_filepath, append = TRUE)
+  cat("Started:", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n",
+      file = log_filepath, append = TRUE)
+
+  return(log_filepath)
+}
+
+log_non_interactive_action <- function(log_file, action, details = NULL) {
+  # Log actions taken in non-interactive mode
+
+  if (!file.exists(log_file)) {
+    return()
+  }
+
+  timestamp <- format(Sys.time(), "%H:%M:%S")
+  log_entry <- paste0("[", timestamp, "] ", action)
+
+  if (!is.null(details)) {
+    log_entry <- paste0(log_entry, "\n  Details: ", details)
+  }
+
+  cat(log_entry, "\n", file = log_file, append = TRUE)
+}
+
 # Global logging configuration
 .LOG_CONFIG <- list(
   level = "INFO",
@@ -465,3 +507,4 @@ log_error <- function(message, context = NULL) {
 log_fatal <- function(message, context = NULL) {
   log_message("FATAL", message, context)
 }
+
