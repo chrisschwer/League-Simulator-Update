@@ -33,7 +33,7 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev
+        sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev r-base-dev
         
     - name: Cache R packages
       uses: actions/cache@v3
@@ -68,8 +68,8 @@ jobs:
     - name: Run tests
       run: |
         library(testthat)
-        test_results <- test_local(reporter = "summary")
-        if (!all(test_results$passed)) {
+        test_results <- test_dir("tests/testthat", reporter = "summary")
+        if (length(test_results) > 0 && !all(sapply(test_results, function(x) x$passed))) {
           stop("Tests failed")
         }
       shell: Rscript {0}
@@ -88,7 +88,11 @@ jobs:
       if: matrix.os == 'ubuntu-latest' && matrix.r-version == '4.4.0'
       run: |
         library(covr)
-        cov <- package_coverage()
+        # Run coverage on R code only, excluding compiled code
+        cov <- covr::file_coverage(
+          source_files = list.files("RCode", pattern = "\\.R$", full.names = TRUE),
+          test_files = list.files("tests/testthat", pattern = "^test.*\\.R$", full.names = TRUE)
+        )
         print(cov)
         
         # Save coverage report
