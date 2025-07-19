@@ -106,13 +106,9 @@ get_league_matches <- function(league, season) {
   # Returns data frame with match information
   
   tryCatch({
-    # Use existing retrieveResults function if available
-    if (exists("retrieveResults")) {
-      results <- retrieveResults(league, season)
-    } else {
-      # Fallback to direct API call
-      results <- fetch_league_results(league, season)
-    }
+    # Always use fetch_league_results for ELO calculations
+    # retrieveResults doesn't return the required data structure
+    results <- fetch_league_results(league, season)
     
     if (is.null(results)) {
       return(NULL)

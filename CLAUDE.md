@@ -11,6 +11,21 @@ source("tests/testthat.R")
 
 # Run specific test file
 testthat::test_file("tests/testthat/test-prozent.R")
+
+# Test API connection
+Rscript test_api_connection.R
+
+# Test ELO calculation
+Rscript test_elo_fix.R
+```
+
+### Running Updates
+```bash
+# Single update for initial prognoses
+Rscript run_single_update_2025.R
+
+# Continuous update loop (production)
+Rscript RCode/updateScheduler.R
 ```
 
 ### Docker Operations
@@ -161,6 +176,25 @@ Create these labels in your GitHub repository:
 - Approval labels: `tests:approved`, `plan:approved`, `needs:revision`
 - Priority labels: `priority:critical`, `priority:high`, `priority:medium`, `priority:low`
 - Type labels: `type:feature`, `type:bug`, `type:enhancement`, `type:documentation`
+
+## Environment Variables & Security
+
+### Required Variables (.Renviron)
+```bash
+# API-Football access via RapidAPI
+RAPIDAPI_KEY=your_rapidapi_key_here
+
+# ShinyApps.io deployment (optional)
+SHINYAPPS_IO_NAME=your_username
+SHINYAPPS_IO_TOKEN=your_token
+SHINYAPPS_IO_SECRET=your_secret
+```
+
+### Security Best Practices
+- Never commit `.Renviron` files (already in .gitignore)
+- Rotate API keys regularly
+- Use environment-specific keys (dev/prod)
+- Never share credentials in chat/issues/logs
 
 ## Known Issues & Solutions
 

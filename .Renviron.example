@@ -1,0 +1,12 @@
+# Example .Renviron file for League Simulator
+# Copy this file to .Renviron and add your actual API key
+
+# API-Football access via RapidAPI
+RAPIDAPI_KEY=your_actual_api_key_here
+
+# Optional: ShinyApps.io deployment credentials
+SHINYAPPS_IO_SECRET=your_shinyapps_secret_here
+
+# Optional: Other environment variables
+DURATION=480
+SEASON=2024
