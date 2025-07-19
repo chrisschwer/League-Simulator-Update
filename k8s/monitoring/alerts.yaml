@@ -1,0 +1,109 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: pod-lifecycle-alerts
+  namespace: league-simulator
+  labels:
+    app.kubernetes.io/name: pod-lifecycle-manager
+    app.kubernetes.io/component: alerting
+    app.kubernetes.io/part-of: league-simulator
+  annotations:
+    description: "Alert rules for CronJob-based pod lifecycle management"
+spec:
+  groups:
+  - name: pod-lifecycle-alerts
+    interval: 30s
+    rules:
+    - alert: CronJobExecutionFailed
+      expr: |
+        kube_job_status_failed{namespace="league-simulator",job_name=~".*pod-lifecycle.*"} > 0
+      for: 5m
+      labels:
+        severity: critical
+        component: pod-lifecycle
+      annotations:
+        summary: "CronJob execution failed"
+        description: "CronJob {{ $labels.job_name }} in namespace {{ $labels.namespace }} has failed"
+        runbook_url: "https://github.com/your-org/league-simulator/wiki/Runbooks#cronjob-failures"
+
+    - alert: PodLifecycleMissing
+      expr: |
+        (time() - kube_cronjob_status_last_schedule_time{namespace="league-simulator"}) > 7200
+        and kube_cronjob_spec_suspend{namespace="league-simulator"} == 0
+      for: 10m
+      labels:
+        severity: warning
+        component: pod-lifecycle
+      annotations:
+        summary: "CronJob hasn't executed in over 2 hours"
+        description: "CronJob {{ $labels.cronjob }} hasn't executed in over 2 hours, may indicate schedule drift"
+        runbook_url: "https://github.com/your-org/league-simulator/wiki/Runbooks#schedule-drift"
+
+    - alert: ScheduleDrift
+      expr: |
+        (time() - kube_cronjob_status_last_schedule_time{namespace="league-simulator"}) > 3600
+        and kube_cronjob_spec_suspend{namespace="league-simulator"} == 0
+      for: 15m
+      labels:
+        severity: warning
+        component: pod-lifecycle
+      annotations:
+        summary: "CronJob schedule drift detected"
+        description: "CronJob {{ $labels.cronjob }} hasn't executed in over 1 hour during expected active time"
+        runbook_url: "https://github.com/your-org/league-simulator/wiki/Runbooks#schedule-drift"
+
+    - alert: DeploymentStuckScaledDown
+      expr: |
+        kube_deployment_spec_replicas{namespace="league-simulator",deployment=~"league-updater-.*|shiny-updater"} == 0
+        and (time() - kube_deployment_status_observed_generation{namespace="league-simulator"}) > 1800
+      for: 30m
+      labels:
+        severity: warning
+        component: pod-lifecycle
+      annotations:
+        summary: "Deployment may be stuck in scaled-down state"
+        description: "Deployment {{ $labels.deployment }} has been scaled to 0 for over 30 minutes, may need investigation"
+        runbook_url: "https://github.com/your-org/league-simulator/wiki/Runbooks#stuck-deployments"
+
+    - alert: TooManyFailedJobs
+      expr: |
+        kube_cronjob_status_failed_jobs{namespace="league-simulator"} > 3
+      for: 5m
+      labels:
+        severity: critical
+        component: pod-lifecycle
+      annotations:
+        summary: "Too many failed CronJob executions"
+        description: "CronJob {{ $labels.cronjob }} has {{ $value }} failed jobs, indicating persistent issues"
+        runbook_url: "https://github.com/your-org/league-simulator/wiki/Runbooks#persistent-failures"
+
+  - name: resource-efficiency-alerts
+    interval: 60s
+    rules:
+    - alert: ResourceSavingsNotAchieved
+      expr: |
+        avg_over_time(kube_deployment_status_replicas{namespace="league-simulator"}[24h]) > 0.4
+      for: 1h
+      labels:
+        severity: warning
+        component: resource-optimization
+      annotations:
+        summary: "Pod lifecycle resource savings below target"
+        description: "Average deployment replicas over 24h is {{ $value }}, should be ~0.3 for 70% savings"
+        runbook_url: "https://github.com/your-org/league-simulator/wiki/Runbooks#resource-optimization"
+
+  - name: timezone-alerts
+    interval: 60s
+    rules:
+    - alert: DSTTransitionAnomaly
+      expr: |
+        abs(time() - on(cronjob) kube_cronjob_status_last_schedule_time{namespace="league-simulator"}) > 7200
+        and day_of_year() in (90, 300)  # Approximate DST transition days
+      for: 30m
+      labels:
+        severity: warning
+        component: timezone
+      annotations:
+        summary: "Possible DST transition issue detected"
+        description: "CronJob {{ $labels.cronjob }} may be affected by DST transition, verify Berlin time alignment"
+        runbook_url: "https://github.com/your-org/league-simulator/wiki/Runbooks#dst-transitions"
