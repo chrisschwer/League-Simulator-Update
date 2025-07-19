@@ -1,0 +1,41 @@
+# Multi-stage Dockerfile for testing
+FROM r-base:4.3.1 AS test-base
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    libcurl4-openssl-dev \
+    libssl-dev \
+    libxml2-dev \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd -r appuser && useradd -r -g appuser -u 1000 appuser
+
+# Set working directory
+WORKDIR /RCode
+
+# Copy package list and install R packages
+COPY packagelist.txt .
+RUN Rscript -e "packages <- readLines('packagelist.txt'); install.packages(packages[!packages %in% installed.packages()[,'Package']])"
+
+# Copy source code
+COPY RCode/ ./
+COPY tests/ /tests/
+COPY ShinyApp/ /ShinyApp/
+
+# Create results directory
+RUN mkdir -p league_results && chown -R appuser:appuser /RCode /ShinyApp
+
+# Switch to non-root user
+USER appuser
+
+# Set timezone
+ENV TZ=Europe/Berlin
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD Rscript -e "cat('Health check passed')" || exit 1
+
+# Default command for testing
+CMD ["Rscript", "-e", "source('tests/testthat.R')"]

@@ -1,0 +1,443 @@
+name: Build, Test, and Deploy
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY_DOCKERHUB: docker.io
+  REGISTRY_GHCR: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up R
+      uses: r-lib/actions/setup-r@v2
+      with:
+        r-version: '4.3.1'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev
+    
+    - name: Cache R packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.R/library
+        key: ${{ runner.os }}-r-${{ hashFiles('packagelist.txt') }}
+        restore-keys: ${{ runner.os }}-r-
+    
+    - name: Install R dependencies
+      run: |
+        packages <- readLines("packagelist.txt")
+        install.packages(packages[!packages %in% installed.packages()[,"Package"]])
+      shell: Rscript {0}
+    
+    - name: Run R tests
+      run: |
+        source("tests/testthat.R")
+      shell: Rscript {0}
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: tests/testthat/test-results/
+
+  build:
+    name: Build and Test Images
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [league, shiny]
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Log in to Docker Hub
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY_DOCKERHUB }}
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+    
+    - name: Log in to GitHub Container Registry
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY_GHCR }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: |
+          ${{ env.REGISTRY_DOCKERHUB }}/${{ secrets.DOCKERHUB_USERNAME }}/league-simulator-${{ matrix.service }}
+          ${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}-${{ matrix.service }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=raw,value=latest,enable={{is_default_branch}}
+    
+    - name: Build test image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile.${{ matrix.service }}
+        load: true
+        tags: test-image-${{ matrix.service }}:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Install container-structure-test
+      run: |
+        curl -LO https://storage.googleapis.com/container-structure-test/latest/container-structure-test-linux-amd64
+        chmod +x container-structure-test-linux-amd64
+        sudo mv container-structure-test-linux-amd64 /usr/local/bin/container-structure-test
+    
+    - name: Run container structure tests
+      run: |
+        container-structure-test test --image test-image-${{ matrix.service }}:latest --config tests/container-${{ matrix.service }}.yaml
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: test-image-${{ matrix.service }}:latest
+        format: 'sarif'
+        output: 'trivy-results-${{ matrix.service }}.sarif'
+        exit-code: '1'
+        severity: 'CRITICAL,HIGH'
+    
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results-${{ matrix.service }}.sarif'
+    
+    - name: Build and push Docker images
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile.${{ matrix.service }}
+        platforms: linux/amd64,linux/arm64
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  integration-tests:
+    name: Integration Tests
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build images for integration testing
+      run: |
+        docker build -f Dockerfile.league -t league-simulator:league .
+        docker build -f Dockerfile.shiny -t league-simulator:shiny .
+    
+    - name: Create test environment
+      run: |
+        mkdir -p test-data
+        echo "SEASON=2024" > test-data/.env
+        echo "RAPIDAPI_KEY=test-key" >> test-data/.env
+    
+    - name: Run integration tests
+      run: |
+        # Test league updater
+        docker run --rm \
+          --env-file test-data/.env \
+          -v $(pwd)/test-data:/RCode/league_results \
+          league-simulator:league \
+          Rscript -e "cat('League container running successfully')"
+        
+        # Test shiny app
+        docker run --rm \
+          --env-file test-data/.env \
+          -v $(pwd)/test-data:/ShinyApp/data \
+          league-simulator:shiny \
+          Rscript -e "cat('Shiny container running successfully')"
+
+  deploy-bundle:
+    name: Create Deployment Bundle
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Extract version
+      id: version
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+    
+    - name: Generate deployment manifests
+      run: |
+        VERSION=${{ steps.version.outputs.version }}
+        DOCKERHUB_USER=${{ secrets.DOCKERHUB_USERNAME }}
+        
+        # Update Kubernetes manifests with correct image tags
+        sed -i "s|image: league-simulator:league|image: $DOCKERHUB_USER/league-simulator-league:$VERSION|g" k8s/*.yaml
+        sed -i "s|image: league-simulator:shiny|image: $DOCKERHUB_USER/league-simulator-shiny:$VERSION|g" k8s/*.yaml
+        
+        # Update ConfigMap with current season
+        sed -i "s|SEASON: \"2024\"|SEASON: \"$(date +%Y)\"|g" k8s/k8s-deployment.yaml
+    
+    - name: Create deployment scripts
+      run: |
+        VERSION=${{ steps.version.outputs.version }}
+        
+        # Create deployment directory
+        mkdir -p deployment-bundle/scripts
+        
+        # Copy Kubernetes manifests
+        cp -r k8s/ deployment-bundle/
+        
+        # Create main deployment script
+        cat > deployment-bundle/scripts/deploy.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        VERSION=$(cat VERSION)
+        echo "Deploying League Simulator $VERSION"
+        
+        # Check if kubectl is available
+        if ! command -v kubectl &> /dev/null; then
+            echo "Error: kubectl is not installed"
+            exit 1
+        fi
+        
+        # Check if cluster is accessible
+        if ! kubectl cluster-info &> /dev/null; then
+            echo "Error: Cannot connect to Kubernetes cluster"
+            exit 1
+        fi
+        
+        # Apply Kubernetes manifests
+        echo "Applying Kubernetes manifests..."
+        kubectl apply -f k8s/
+        
+        # Wait for deployments to be ready
+        echo "Waiting for deployments to be ready..."
+        kubectl -n league-simulator wait --for=condition=ready pod -l app=league-updater --timeout=300s
+        kubectl -n league-simulator wait --for=condition=ready pod -l app=shiny-updater --timeout=300s
+        
+        echo "✅ Deployment complete!"
+        echo "📊 Check status with: kubectl -n league-simulator get pods"
+        EOF
+        
+        chmod +x deployment-bundle/scripts/deploy.sh
+        
+        # Create rollback script
+        cat > deployment-bundle/scripts/rollback.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        PREVIOUS_VERSION=${1:-"Please specify previous version"}
+        
+        if [ "$PREVIOUS_VERSION" = "Please specify previous version" ]; then
+            echo "Usage: $0 <previous-version>"
+            echo "Example: $0 v1.2.0"
+            exit 1
+        fi
+        
+        echo "Rolling back to version $PREVIOUS_VERSION"
+        
+        # Update image tags to previous version
+        DOCKERHUB_USER=$(kubectl -n league-simulator get deployment league-updater-bl -o jsonpath='{.spec.template.spec.containers[0].image}' | cut -d'/' -f1)
+        
+        kubectl -n league-simulator set image deployment/league-updater-bl league-updater=$DOCKERHUB_USER/league-simulator-league:$PREVIOUS_VERSION
+        kubectl -n league-simulator set image deployment/league-updater-bl2 league-updater=$DOCKERHUB_USER/league-simulator-league:$PREVIOUS_VERSION
+        kubectl -n league-simulator set image deployment/league-updater-liga3 league-updater=$DOCKERHUB_USER/league-simulator-league:$PREVIOUS_VERSION
+        kubectl -n league-simulator set image deployment/shiny-updater shiny-updater=$DOCKERHUB_USER/league-simulator-shiny:$PREVIOUS_VERSION
+        
+        echo "✅ Rollback initiated!"
+        echo "📊 Check status with: kubectl -n league-simulator get pods"
+        EOF
+        
+        chmod +x deployment-bundle/scripts/rollback.sh
+        
+        # Create status check script
+        cat > deployment-bundle/scripts/status.sh << 'EOF'
+        #!/bin/bash
+        
+        echo "🏆 League Simulator Status"
+        echo "=========================="
+        
+        kubectl -n league-simulator get pods -o wide
+        echo ""
+        
+        echo "📊 Deployment Status:"
+        kubectl -n league-simulator get deployments
+        echo ""
+        
+        echo "💾 Storage Status:"
+        kubectl -n league-simulator get pvc
+        echo ""
+        
+        echo "🔧 ConfigMap Status:"
+        kubectl -n league-simulator get configmap league-simulator-config -o yaml | grep -A 10 "data:"
+        EOF
+        
+        chmod +x deployment-bundle/scripts/status.sh
+        
+        # Create uninstall script
+        cat > deployment-bundle/scripts/uninstall.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        echo "⚠️  This will completely remove League Simulator from the cluster"
+        read -p "Are you sure? (yes/no): " confirm
+        
+        if [ "$confirm" = "yes" ]; then
+            echo "Removing League Simulator..."
+            kubectl delete namespace league-simulator --ignore-not-found=true
+            echo "✅ League Simulator removed"
+        else
+            echo "❌ Uninstall cancelled"
+        fi
+        EOF
+        
+        chmod +x deployment-bundle/scripts/uninstall.sh
+        
+        # Create version file and README
+        echo "$VERSION" > deployment-bundle/VERSION
+        
+        cat > deployment-bundle/README.md << EOF
+        # League Simulator Deployment Bundle v$VERSION
+        
+        This bundle contains everything needed to deploy League Simulator to a local Kubernetes cluster.
+        
+        ## Quick Start
+        
+        \`\`\`bash
+        # Deploy to Kubernetes
+        ./scripts/deploy.sh
+        
+        # Check status
+        ./scripts/status.sh
+        
+        # Rollback to previous version
+        ./scripts/rollback.sh v1.1.0
+        
+        # Uninstall completely
+        ./scripts/uninstall.sh
+        \`\`\`
+        
+        ## Prerequisites
+        
+        - Kubernetes cluster (Docker Desktop, minikube, etc.)
+        - kubectl configured and connected
+        - At least 4GB available storage
+        
+        ## What's Included
+        
+        - Kubernetes manifests for all services
+        - Deployment automation scripts
+        - Rollback and status checking utilities
+        - Complete uninstall capability
+        
+        ## Services
+        
+        - **League Updaters**: Bundesliga, 2. Bundesliga, 3. Liga
+        - **Shiny App Updater**: Web interface deployment
+        - **Persistent Storage**: Shared data between services
+        
+        ## Generated: $(date)
+        EOF
+    
+    - name: Create deployment bundle archive
+      run: |
+        VERSION=${{ steps.version.outputs.version }}
+        tar -czf deployment-$VERSION.tar.gz deployment-bundle/
+        
+        # Create checksums
+        sha256sum deployment-$VERSION.tar.gz > deployment-$VERSION.tar.gz.sha256
+    
+    - name: Upload deployment bundle
+      uses: actions/upload-artifact@v3
+      with:
+        name: deployment-bundle-${{ steps.version.outputs.version }}
+        path: |
+          deployment-*.tar.gz
+          deployment-*.tar.gz.sha256
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          deployment-*.tar.gz
+          deployment-*.tar.gz.sha256
+        body: |
+          ## 🚀 League Simulator Release ${{ steps.version.outputs.version }}
+          
+          ### 📦 Deployment Instructions
+          
+          1. **Download deployment bundle**: `deployment-${{ steps.version.outputs.version }}.tar.gz`
+          2. **Extract**: `tar -xzf deployment-${{ steps.version.outputs.version }}.tar.gz`
+          3. **Deploy**: `cd deployment-bundle && ./scripts/deploy.sh`
+          
+          ### 🔧 What's New
+          
+          - Enhanced CI/CD pipeline with multi-registry support
+          - Automated security scanning and container structure tests
+          - Multi-platform builds (linux/amd64, linux/arm64)
+          - Comprehensive deployment automation scripts
+          
+          ### 🐳 Docker Images
+          
+          - **Docker Hub**: 
+            - `${{ secrets.DOCKERHUB_USERNAME }}/league-simulator-league:${{ steps.version.outputs.version }}`
+            - `${{ secrets.DOCKERHUB_USERNAME }}/league-simulator-shiny:${{ steps.version.outputs.version }}`
+          - **GitHub Container Registry**:
+            - `ghcr.io/${{ env.IMAGE_NAME }}-league:${{ steps.version.outputs.version }}`
+            - `ghcr.io/${{ env.IMAGE_NAME }}-shiny:${{ steps.version.outputs.version }}`
+          
+          ### ✅ Quality Checks
+          
+          - ✅ All unit tests passed
+          - ✅ Container structure tests passed
+          - ✅ Security vulnerability scan passed
+          - ✅ Multi-platform builds successful
+          
+          ### 📋 Checksum
+          
+          ```
+          $(cat deployment-${{ steps.version.outputs.version }}.tar.gz.sha256)
+          ```
+        draft: false
+        prerelease: false
