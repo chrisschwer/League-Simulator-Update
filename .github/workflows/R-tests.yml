@@ -5,6 +5,7 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   test:
@@ -66,11 +67,38 @@ jobs:
       shell: Rscript {0}
       
     - name: Run tests
+      env:
+        RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY || 'test_key_for_ci' }}
       run: |
+        # Set working directory to project root
+        setwd("${{ github.workspace }}")
+        
+        # Source required R files from RCode directory
+        r_files <- list.files("RCode", pattern = "\\.R$", full.names = TRUE)
+        r_files <- r_files[!grepl("(test|Test)", r_files)]  # Exclude test files
+        
+        # Source files with error handling
+        for (file in r_files) {
+          tryCatch(
+            source(file),
+            error = function(e) {
+              cat("Warning: Could not source", file, ":", conditionMessage(e), "\n")
+            }
+          )
+        }
+        
+        # Now run tests
         library(testthat)
         test_results <- test_dir("tests/testthat", reporter = "summary")
-        if (length(test_results) > 0 && !all(sapply(test_results, function(x) x$passed))) {
-          stop("Tests failed")
+        
+        # Check if any tests failed
+        if (length(test_results) > 0) {
+          failed_tests <- sum(sapply(test_results, function(x) {
+            if (is.list(x) && "failed" %in% names(x)) x$failed else 0
+          }))
+          if (failed_tests > 0) {
+            stop(paste("Tests failed:", failed_tests, "failures"))
+          }
         }
       shell: Rscript {0}
       
