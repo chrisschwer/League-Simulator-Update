@@ -69,6 +69,9 @@ jobs:
     - name: Run tests
       env:
         RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY || 'test_key_for_ci' }}
+        CI_ENVIRONMENT: 'true'
+        TEST_TIMEOUT: '300'  # 5 minute timeout for individual tests
+      timeout-minutes: 15
       run: |
         # Set working directory to project root
         setwd("${{ github.workspace }}")
@@ -77,8 +80,12 @@ jobs:
         r_files <- list.files("RCode", pattern = "\\.R$", full.names = TRUE)
         r_files <- r_files[!grepl("(test|Test)", r_files)]  # Exclude test files
         
+        # Also include scripts directory for functions like parse_arguments
+        script_files <- list.files("scripts", pattern = "\\.R$", full.names = TRUE)
+        all_files <- c(r_files, script_files)
+        
         # Source files with error handling
-        for (file in r_files) {
+        for (file in all_files) {
           tryCatch(
             source(file),
             error = function(e) {
@@ -87,18 +94,49 @@ jobs:
           )
         }
         
-        # Now run tests
+        # Now run tests with timeout handling
         library(testthat)
-        test_results <- test_dir("tests/testthat", reporter = "summary")
         
-        # Check if any tests failed
+        cat("Starting test run...\n")
+        cat("API Key available:", if(nchar(Sys.getenv("RAPIDAPI_KEY")) > 0) "Yes" else "No", "\n")
+        
+        # Run tests with better error handling
+        test_results <- tryCatch({
+          test_dir("tests/testthat", reporter = "summary")
+        }, error = function(e) {
+          cat("Error during test execution:", conditionMessage(e), "\n")
+          return(NULL)
+        })
+        
+        # Check test results
+        if (is.null(test_results)) {
+          stop("Test execution failed")
+        }
+        
+        # Calculate failures more robustly
+        total_tests <- 0
+        failed_tests <- 0
+        
         if (length(test_results) > 0) {
-          failed_tests <- sum(sapply(test_results, function(x) {
-            if (is.list(x) && "failed" %in% names(x)) x$failed else 0
-          }))
-          if (failed_tests > 0) {
-            stop(paste("Tests failed:", failed_tests, "failures"))
+          for (result in test_results) {
+            if (is.list(result)) {
+              if ("failed" %in% names(result)) {
+                failed_tests <- failed_tests + result$failed
+                total_tests <- total_tests + result$failed
+              }
+              if ("passed" %in% names(result)) {
+                total_tests <- total_tests + result$passed
+              }
+            }
           }
+        }
+        
+        cat("Test summary: ", total_tests, " total tests, ", failed_tests, " failures\n")
+        
+        if (failed_tests > 0) {
+          stop(paste("Tests failed:", failed_tests, "out of", total_tests, "tests"))
+        } else {
+          cat("All tests passed!\n")
         }
       shell: Rscript {0}
       
