@@ -10,7 +10,7 @@ metadata:
     version: "1.0.0"
   annotations:
     generated-by: "configmap-generator.R"
-    generated-at: "2025-07-19 16:03:08.497119"
+    generated-at: "2025-07-19 16:58:37.911792"
     team-count: "60"
     source-file: "TeamList_2023.csv"
 data:
