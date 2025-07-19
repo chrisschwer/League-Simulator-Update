@@ -1,0 +1,52 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cronjob-lifecycle-monitor
+  namespace: league-simulator
+  labels:
+    app.kubernetes.io/name: pod-lifecycle-manager
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: league-simulator
+  annotations:
+    description: "Monitors CronJob execution for pod lifecycle management"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pod-lifecycle-manager
+  namespaceSelector:
+    matchNames:
+    - league-simulator
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics
+    scheme: http
+  - port: http
+    interval: 30s  
+    path: /healthz
+    scheme: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cronjob-metrics
+  namespace: league-simulator
+  labels:
+    app.kubernetes.io/name: pod-lifecycle-manager
+    app.kubernetes.io/component: metrics
+    app.kubernetes.io/part-of: league-simulator
+  annotations:
+    description: "Metrics endpoint for CronJob monitoring"
+spec:
+  type: ClusterIP
+  ports:
+  - name: metrics
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  - name: http
+    port: 8081
+    targetPort: 8081
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: pod-lifecycle-job
