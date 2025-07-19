@@ -1,4 +1,4 @@
-library(tidyverse)
+library(dplyr)
 library(tidyr)
 
 transform_data <- function(fixtures, teams) {

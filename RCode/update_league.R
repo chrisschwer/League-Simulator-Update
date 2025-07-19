@@ -34,14 +34,14 @@ update_league <- function(league = "BL", duration = 480, loops = 31, initial_wai
   FT_current <- 0
   
   # source C++ and R Code
-  Rcpp::sourceCpp("/RCode/SpielNichtSimulieren.cpp")
-  source("/RCode/leagueSimulatorCPP.R")
-  source("/RCode/prozent.R")
-  source("/RCode/retrieveResults.R")
-  source("/RCode/SaisonSimulierenCPP.R")
-  source("/RCode/simulationsCPP.R")
-  source("/RCode/SpielCPP.R")
-  source("/RCode/Tabelle.R")
+  Rcpp::sourceCpp("RCode/SpielNichtSimulieren.cpp")
+  source("RCode/leagueSimulatorCPP.R")
+  source("RCode/prozent.R")
+  source("RCode/retrieveResults.R")
+  source("RCode/SaisonSimulierenCPP.R")
+  source("RCode/simulationsCPP.R")
+  source("RCode/SpielCPP.R")
+  source("RCode/Tabelle.R")
   source("/RCode/transform_data.R")
   
   # Import Team Data

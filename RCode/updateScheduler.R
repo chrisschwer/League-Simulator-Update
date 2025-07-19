@@ -2,20 +2,20 @@
 
 # source C++ and R Code
 
-Rcpp::sourceCpp("/RCode/SpielNichtSimulieren.cpp")
-source("/RCode/leagueSimulatorCPP.R")
-source("/RCode/prozent.R")
-source("/RCode/retrieveResults.R")
-source("/RCode/SaisonSimulierenCPP.R")
-source("/RCode/simulationsCPP.R")
-source("/RCode/SpielCPP.R")
-source("/RCode/Tabelle.R")
-source("/RCode/transform_data.R")
-source("/RCode/updateShiny.R")
-source("/RCode/update_all_leagues_loop.R")
+Rcpp::sourceCpp("RCode/SpielNichtSimulieren.cpp")
+source("RCode/leagueSimulatorCPP.R")
+source("RCode/prozent.R")
+source("RCode/retrieveResults.R")
+source("RCode/SaisonSimulierenCPP.R")
+source("RCode/simulationsCPP.R")
+source("RCode/SpielCPP.R")
+source("RCode/Tabelle.R")
+source("RCode/transform_data.R")
+source("RCode/updateShiny.R")
+source("RCode/update_all_leagues_loop.R")
 
 season <- Sys.getenv("SEASON")
-filename <- paste0("/RCode/TeamList_", season, ".csv")
+filename <- paste0("RCode/TeamList_", season, ".csv")
 
 # Initialize skip to false
 skip <- FALSE

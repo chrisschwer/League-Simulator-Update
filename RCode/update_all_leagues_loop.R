@@ -2,7 +2,7 @@
 
 update_all_leagues_loop <- function (duration = 480, loops = 31, initial_wait = 0,
                                      n = 10000, saison = "2023", 
-                                     TeamList_file = "/RCode/TeamList_2023.csv")
+                                     TeamList_file = "RCode/TeamList_2023.csv")
 
 {
 
@@ -24,16 +24,16 @@ if (!exists("FT_Liga3")) {FT_Liga3 <- 0}
 
 # source C++ and R Code
 
-Rcpp::sourceCpp("/RCode/SpielNichtSimulieren.cpp")
-source("/RCode/leagueSimulatorCPP.R")
-source("/RCode/prozent.R")
-source("/RCode/retrieveResults.R")
-source("/RCode/SaisonSimulierenCPP.R")
-source("/RCode/simulationsCPP.R")
-source("/RCode/SpielCPP.R")
-source("/RCode/Tabelle.R")
-source("/RCode/transform_data.R")
-source("/RCode/updateShiny.R")
+Rcpp::sourceCpp("RCode/SpielNichtSimulieren.cpp")
+source("RCode/leagueSimulatorCPP.R")
+source("RCode/prozent.R")
+source("RCode/retrieveResults.R")
+source("RCode/SaisonSimulierenCPP.R")
+source("RCode/simulationsCPP.R")
+source("RCode/SpielCPP.R")
+source("RCode/Tabelle.R")
+source("RCode/transform_data.R")
+source("RCode/updateShiny.R")
 
 # Import Team Data
 TeamList <- read.csv(TeamList_file, sep=";")

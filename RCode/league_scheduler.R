@@ -2,8 +2,8 @@
 
 league_scheduler <- function(league = "BL", 
                            saison = "2024",
-                           TeamList_file = "/RCode/TeamList_2024.csv",
-                           output_dir = "/RCode/league_results/",
+                           TeamList_file = "RCode/TeamList_2024.csv",
+                           output_dir = "RCode/league_results/",
                            max_daily_calls = 30) {
   
   # Validate league parameter
@@ -12,7 +12,7 @@ league_scheduler <- function(league = "BL",
   }
   
   # Source the update function
-  source("/RCode/update_league.R")
+  source("RCode/update_league.R")
   
   # Define time windows for each league
   # Times are in 24-hour format as decimal hours (e.g., 17.5 = 17:30)
