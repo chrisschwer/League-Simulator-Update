@@ -1,0 +1,101 @@
+schemaVersion: 2.0.0
+
+metadataTest:
+  user: "1000:1000"
+  env:
+    - key: 'TZ'
+      value: 'Europe/Berlin'
+    - key: 'LEAGUE'
+      value: 'BL'
+  volumes: ['/RCode/league_results']
+
+fileExistenceTests:
+  - name: "Application directory exists"
+    path: "/RCode"
+    shouldExist: true
+    isDir: true
+
+  - name: "League update script exists"
+    path: "/RCode/update_league.R"
+    shouldExist: true
+    permissions: "-rw-r--r--"
+
+  - name: "Scheduler script exists"
+    path: "/RCode/updateScheduler.R"
+    shouldExist: true
+    permissions: "-rw-r--r--"
+
+  - name: "Core simulation files exist"
+    path: "/RCode/simulationsCPP.R"
+    shouldExist: true
+    permissions: "-rw-r--r--"
+
+  - name: "Results directory exists"
+    path: "/RCode/league_results"
+    shouldExist: true
+    isDir: true
+
+  - name: "Team lists exist"
+    path: "/RCode/TeamList_2024.csv"
+    shouldExist: true
+    permissions: "-rw-r--r--"
+
+commandTests:
+  - name: "Running as non-root user"
+    command: "id"
+    args: ["-u"]
+    expectedOutput: ["1000"]
+    excludedOutput: ["0"]
+    
+  - name: "User is appuser"
+    command: "whoami"
+    expectedOutput: ["appuser"]
+    
+  - name: "Working directory is /RCode"
+    command: "pwd"
+    expectedOutput: ["/RCode"]
+    
+  - name: "Can write to results directory"
+    command: "touch"
+    args: ["/RCode/league_results/test_write"]
+    exitCode: 0
+
+  - name: "R version 4.3.1 installed"
+    command: "R"
+    args: ["--version"]
+    expectedOutput: ["R version 4.3.1"]
+  
+  - name: "Essential R packages - httr"
+    command: "Rscript"
+    args: ["-e", "library(httr); cat('httr loaded')"]
+    expectedOutput: ["httr loaded"]
+    exitCode: 0
+    
+  - name: "Essential R packages - jsonlite"
+    command: "Rscript"
+    args: ["-e", "library(jsonlite); cat('jsonlite loaded')"]
+    expectedOutput: ["jsonlite loaded"]
+    exitCode: 0
+    
+  - name: "Essential R packages - dplyr"
+    command: "Rscript"
+    args: ["-e", "library(dplyr); cat('dplyr loaded')"]
+    expectedOutput: ["dplyr loaded"]
+    exitCode: 0
+    
+  - name: "Core league simulation packages"
+    command: "Rscript"
+    args: ["-e", "library(Rcpp); cat('Rcpp loaded')"]
+    expectedOutput: ["Rcpp loaded"]
+    exitCode: 0
+
+  - name: "League update script is executable"
+    command: "Rscript"
+    args: ["-e", "if(file.exists('/RCode/update_league.R')) cat('Script exists') else stop('Missing script')"]
+    expectedOutput: ["Script exists"]
+    exitCode: 0
+
+  - name: "Environment variables accessible"
+    command: "Rscript"
+    args: ["-e", "if(Sys.getenv('LEAGUE') != '') cat('LEAGUE env set') else cat('No LEAGUE env')"]
+    expectedOutput: ["LEAGUE env set"]

@@ -1,4 +1,4 @@
-name: Docker Build
+name: Docker Build (Legacy)
 
 on:
   push:
@@ -10,6 +10,9 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  
+# Note: This workflow is maintained for backward compatibility
+# The enhanced CI/CD pipeline is in build-test-deploy.yml
 
 jobs:
   build-monolithic:
