@@ -4,15 +4,8 @@
 library(testthat)
 library(microbenchmark)
 
-# Source helpers
-source("tests/testthat/helper-performance-baseline.R")
-
-# Source simulation functions
-source("RCode/simulationsCPP.R")
-source("RCode/SaisonSimulierenCPP.R")
-source("RCode/SpielCPP.R")
-library(Rcpp)
-sourceCpp("RCode/SpielNichtSimulieren.cpp")
+# Source helpers - handled by helper-test-setup.R
+source("helper-performance-baseline.R")
 
 context("Performance Regression Detection")
 

@@ -168,7 +168,12 @@ get_team_short_name_interactive <- function(team_name, existing_short_names = NU
   # Generate suggested short name
   suggested_short <- get_team_short_name(team_name)
   
-  while (TRUE) {
+  # Add retry limit to prevent infinite loops
+  max_retries <- 10
+  retry_count <- 0
+  
+  while (retry_count < max_retries) {
+    retry_count <- retry_count + 1
     if (check_interactive_mode()) {
       cat("Enter 3-character short name for", team_name, "\n")
       cat("Suggested:", suggested_short, "\n")
@@ -215,6 +220,11 @@ get_team_short_name_interactive <- function(team_name, existing_short_names = NU
     }
     
     break
+  }
+  
+  # Check if we exceeded retry limit
+  if (retry_count >= max_retries) {
+    stop("Maximum retry limit reached while getting team short name")
   }
   
   return(toupper(short_name))

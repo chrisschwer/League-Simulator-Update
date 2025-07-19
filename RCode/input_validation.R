@@ -85,6 +85,14 @@ validate_team_short_name <- function(short_name) {
     ))
   }
   
+  # Check that all letters are uppercase
+  if (grepl("[a-z]", short_name)) {
+    return(list(
+      valid = FALSE,
+      message = "Short name must be uppercase"
+    ))
+  }
+  
   # If 4 characters, must end in "2" (second team)
   if (name_length == 4 && !grepl("2$", short_name)) {
     return(list(

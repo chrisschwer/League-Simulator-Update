@@ -63,33 +63,32 @@ create_test_adjustments <- function(num_teams = 4, type = "none") {
 
 # Create test fixtures for transform_data.R
 create_test_fixtures_api <- function() {
-  # Simulate API response structure
-  fixtures <- list(
-    fixtures = list(
-      list(
-        fixture = list(id = 1001, status = list(short = "FT")),
-        teams = list(
-          home = list(id = 101, name = "Team A"),
-          away = list(id = 102, name = "Team B")
-        ),
-        goals = list(home = 2, away = 1)
+  # Create a tibble that mimics the API response structure
+  # The key is that each row's columns contain data frames that will be unnested
+  fixtures <- tibble::tibble(
+    teams = list(
+      data.frame(
+        home = I(list(data.frame(id = 101, name = "Team A"))),
+        away = I(list(data.frame(id = 102, name = "Team B")))
       ),
-      list(
-        fixture = list(id = 1002, status = list(short = "FT")),
-        teams = list(
-          home = list(id = 103, name = "Team C"),
-          away = list(id = 104, name = "Team D")
-        ),
-        goals = list(home = 1, away = 1)
+      data.frame(
+        home = I(list(data.frame(id = 103, name = "Team C"))),
+        away = I(list(data.frame(id = 104, name = "Team D")))
       ),
-      list(
-        fixture = list(id = 1003, status = list(short = "NS")),
-        teams = list(
-          home = list(id = 101, name = "Team A"),
-          away = list(id = 103, name = "Team C")
-        ),
-        goals = list(home = NULL, away = NULL)
+      data.frame(
+        home = I(list(data.frame(id = 101, name = "Team A"))),
+        away = I(list(data.frame(id = 103, name = "Team C")))
       )
+    ),
+    goals = list(
+      data.frame(home = 2, away = 1),
+      data.frame(home = 1, away = 1),
+      data.frame(home = NA, away = NA)  # Use NA instead of NULL for unplayed games
+    ),
+    fixture = list(
+      data.frame(id = 1001, status = I(list(data.frame(short = "FT")))),
+      data.frame(id = 1002, status = I(list(data.frame(short = "FT")))),
+      data.frame(id = 1003, status = I(list(data.frame(short = "NS"))))
     )
   )
   return(fixtures)
@@ -97,25 +96,12 @@ create_test_fixtures_api <- function() {
 
 # Create test teams data for transform_data.R
 create_test_teams_api <- function() {
-  teams <- list(
-    teams = list(
-      list(
-        team = list(id = 101, name = "Team A"),
-        elo = 1500
-      ),
-      list(
-        team = list(id = 102, name = "Team B"),
-        elo = 1450
-      ),
-      list(
-        team = list(id = 103, name = "Team C"),
-        elo = 1550
-      ),
-      list(
-        team = list(id = 104, name = "Team D"),
-        elo = 1400
-      )
-    )
+  # Create a data frame in the format transform_data expects
+  teams <- data.frame(
+    TeamID = c(101, 102, 103, 104),
+    ShortText = c("TEA", "TEB", "TEC", "TED"),
+    InitialELO = c(1500, 1450, 1550, 1400),
+    stringsAsFactors = FALSE
   )
   return(teams)
 }

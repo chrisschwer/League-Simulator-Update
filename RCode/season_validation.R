@@ -11,6 +11,7 @@ validate_season_completion <- function(season) {
     # Check all three leagues
     leagues <- c("78", "79", "80")  # Bundesliga, 2. Bundesliga, 3. Liga
     total_unfinished <- 0
+    leagues_checked <- 0
     
     for (league in leagues) {
       # Fetch all matches for this league and season
@@ -51,6 +52,15 @@ validate_season_completion <- function(season) {
           }
         }
       }
+      
+      # Mark this league as successfully checked
+      leagues_checked <- leagues_checked + 1
+    }
+    
+    # Check if any leagues were successfully validated
+    if (leagues_checked == 0) {
+      warning("Could not validate any leagues due to API failures")
+      return(FALSE)
     }
     
     if (total_unfinished > 0) {

@@ -69,7 +69,11 @@ source_rcode_modules <- function() {
     "transform_data.R",
     "input_handler.R",
     "elo_calculations.R",
-    "Tabelle.R"
+    "Tabelle.R",
+    "file_operations.R",
+    "team_data_carryover.R",
+    "season_processor.R",
+    "elo_aggregation.R"
   )
   
   # Source priority files first
