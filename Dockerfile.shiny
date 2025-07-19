@@ -1,26 +1,80 @@
-# Dockerfile for Shiny app updater container
-# This docker file needs environment variables passed with -e at the run command:
-# SHINYAPPS_IO_SECRET is the shinyapps secret
-# UPDATE_INTERVAL is the interval between updates in seconds (default: 300 = 5 minutes)
+# Optimized Dockerfile for Shiny app updater container
+# Multi-stage build for minimal image size
 
-# Start from a rocker r distribution
-FROM rocker/tidyverse:4.3.1
+# Build stage - install all packages and dependencies
+FROM rocker/r-ver:4.3.1 AS builder
 
-# Install necessary R packages
-COPY packagelist.txt .
-RUN while read in; do R -e "install.packages('$in')"; done < packagelist.txt
+# Install system dependencies required for R packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libcurl4-openssl-dev \
+    libssl-dev \
+    libxml2-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy ShinyApp into the container
-COPY ShinyApp/ /ShinyApp/
+WORKDIR /build
 
-# Create data directory (will be overridden by volume mount)
-RUN mkdir -p /ShinyApp/data /RCode/league_results
+# Install renv for package management
+RUN R -e "install.packages('renv', repos='https://cran.r-project.org')"
 
-# Set Timezone
-ENV TZ="Europe/Berlin"
+# Copy package files first for better caching
+COPY renv.lock* ./
+COPY packagelist.txt ./
 
-# Copy R scripts into the container
-COPY RCode/ /RCode/
+# Install packages - prefer renv.lock if it exists
+RUN if [ -f "renv.lock" ]; then \
+        R -e "renv::restore()"; \
+    else \
+        Rscript -e "packages <- readLines('packagelist.txt'); \
+        install.packages(packages, repos='https://cran.r-project.org', Ncpus=4)"; \
+    fi
+
+# Runtime stage - minimal image with only what's needed
+FROM rocker/r-ver:4.3.1
+
+# Install only runtime system dependencies
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends \
+    libcurl4 \
+    libxml2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set timezone
+ENV TZ=Europe/Berlin
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Create non-root user
+RUN useradd -m -u 1000 -s /bin/bash appuser
+
+# Copy installed R packages from builder
+COPY --from=builder /usr/local/lib/R/site-library /usr/local/lib/R/site-library
+
+# Copy application files with correct ownership
+COPY --chown=appuser:appuser ShinyApp/ /ShinyApp/
+COPY --chown=appuser:appuser RCode/ /RCode/
+
+# Create data directories
+RUN mkdir -p /ShinyApp/data /RCode/league_results && \
+    chown -R appuser:appuser /ShinyApp/data /RCode/league_results
+
+# Create health check script
+RUN echo '#!/usr/bin/env Rscript\n\
+tryCatch({\n\
+  # Check if required packages can be loaded\n\
+  library(shiny)\n\
+  library(rsconnect)\n\
+  library(ggplot2)\n\
+  # Check if directories are accessible\n\
+  if (!dir.exists("/ShinyApp/data") || !dir.exists("/RCode/league_results")) {\n\
+    stop("Required directories not accessible")\n\
+  }\n\
+  cat("HEALTHY\n")\n\
+  quit(status = 0)\n\
+}, error = function(e) {\n\
+  cat("UNHEALTHY:", conditionMessage(e), "\n")\n\
+  quit(status = 1)\n\
+})' > /usr/local/bin/healthcheck.R && \
+chmod +x /usr/local/bin/healthcheck.R
 
 # Create startup script that runs shiny_scheduler.R
 RUN echo '#!/usr/bin/env Rscript\n\
@@ -31,11 +85,23 @@ update_interval <- as.numeric(Sys.getenv("UPDATE_INTERVAL", "300"))\n\
 \n\
 # Run the Shiny scheduler\n\
 shiny_scheduler(update_interval = update_interval,\n\
-               results_dir = "/RCode/league_results/")\n' > /RCode/run_shiny_updater.R
+               results_dir = "/RCode/league_results/")\n' > /RCode/run_shiny_updater.R && \
+chown appuser:appuser /RCode/run_shiny_updater.R && \
+chmod +x /RCode/run_shiny_updater.R
 
-RUN chmod +x /RCode/run_shiny_updater.R
+# Switch to non-root user
+USER appuser
+WORKDIR /RCode
 
-# Volume for reading results
+# Volume for reading results (shared with league updaters)
 VOLUME ["/RCode/league_results"]
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
+  CMD ["/usr/local/bin/healthcheck.R"]
+
+# Environment variables documentation:
+# Required: SHINYAPPS_IO_SECRET
+# Optional: UPDATE_INTERVAL (default: 300 seconds)
 
 CMD ["Rscript", "/RCode/run_shiny_updater.R"]

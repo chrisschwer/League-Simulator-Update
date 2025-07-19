@@ -1,0 +1,83 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+docs/
+README.md
+LICENSE
+
+# Development files
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+
+# Test files
+tests/
+test_*.R
+*_test.R
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Archives
+*.tar.gz
+*.zip
+*.rar
+
+# Kubernetes
+k8s/
+*.yaml
+*.yml
+
+# CI/CD
+.github/
+
+# Local environment files
+.env
+.env.local
+.Renviron
+
+# Temporary directories
+tmp/
+temp/
+cache/
+
+# Output files that shouldn't be in image
+*.pdf
+*.html
+*.xlsx
+*.csv
+!TeamList_*.csv
+
+# R package development
+man/
+vignettes/
+
+# renv local library (will be restored from lockfile)
+renv/library/
+renv/local/
+renv/python/
+renv/staging/
+
+# Backup files
+*_backup_*
+*.backup
+
+# Processing logs
+processing_*.log

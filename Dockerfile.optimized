@@ -1,4 +1,4 @@
-# Optimized Dockerfile for single league update container
+# Optimized Dockerfile for League Simulator
 # Multi-stage build for minimal image size
 
 # Build stage - install all packages and dependencies
@@ -49,64 +49,49 @@ RUN useradd -m -u 1000 -s /bin/bash appuser
 # Copy installed R packages from builder
 COPY --from=builder /usr/local/lib/R/site-library /usr/local/lib/R/site-library
 
-# Copy R scripts with correct ownership
+# Copy application files with correct ownership
+COPY --chown=appuser:appuser ShinyApp/ /ShinyApp/
 COPY --chown=appuser:appuser RCode/ /RCode/
 
-# Create results directory
-RUN mkdir -p /RCode/league_results && chown -R appuser:appuser /RCode/league_results
+# Create data directory
+RUN mkdir -p /ShinyApp/data && chown appuser:appuser /ShinyApp/data
 
 # Create health check script
 RUN echo '#!/usr/bin/env Rscript\n\
+library(httr)\n\
+library(jsonlite)\n\
 tryCatch({\n\
   # Check if required packages can be loaded\n\
-  library(httr)\n\
-  library(jsonlite)\n\
-  library(dplyr)\n\
-  # Check if results directory is writable\n\
-  test_file <- "/RCode/league_results/.healthcheck"\n\
-  writeLines("OK", test_file)\n\
-  if (file.exists(test_file)) {\n\
-    unlink(test_file)\n\
-    cat("HEALTHY\n")\n\
-    quit(status = 0)\n\
+  libs <- c("shiny", "ggplot2", "reshape2", "rsconnect")\n\
+  for (lib in libs) {\n\
+    library(lib, character.only = TRUE)\n\
   }\n\
+  # Check if data directory is accessible\n\
+  if (!dir.exists("/ShinyApp/data")) {\n\
+    stop("Data directory not accessible")\n\
+  }\n\
+  cat("HEALTHY\n")\n\
+  quit(status = 0)\n\
 }, error = function(e) {\n\
   cat("UNHEALTHY:", conditionMessage(e), "\n")\n\
   quit(status = 1)\n\
 })' > /usr/local/bin/healthcheck.R && \
 chmod +x /usr/local/bin/healthcheck.R
 
-# Create startup script that runs league_scheduler.R with parameters
-RUN echo '#!/usr/bin/env Rscript\n\
-source("/RCode/league_scheduler.R")\n\
-\n\
-# Get environment variables\n\
-league <- Sys.getenv("LEAGUE", "BL")\n\
-season <- Sys.getenv("SEASON", "2024")\n\
-max_daily_calls <- as.numeric(Sys.getenv("MAX_DAILY_CALLS", "30"))\n\
-\n\
-# Run the scheduler for the specified league\n\
-league_scheduler(league = league,\n\
-                saison = season,\n\
-                TeamList_file = paste0("/RCode/TeamList_", season, ".csv"),\n\
-                output_dir = "/RCode/league_results/",\n\
-                max_daily_calls = max_daily_calls)\n' > /RCode/run_league_update.R && \
-chown appuser:appuser /RCode/run_league_update.R && \
-chmod +x /RCode/run_league_update.R
-
 # Switch to non-root user
 USER appuser
 WORKDIR /RCode
 
-# Volume for sharing results
-VOLUME ["/RCode/league_results"]
-
-# Health check
+# Health check - runs every 30 seconds
 HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
   CMD ["/usr/local/bin/healthcheck.R"]
 
-# Environment variables documentation:
-# Required: RAPIDAPI_KEY, LEAGUE (BL/BL2/Liga3), SEASON
-# Optional: MAX_DAILY_CALLS (default: 30)
+# Environment variables (document required vars)
+# Required at runtime:
+# - SHINYAPPS_IO_SECRET: ShinyApps.io deployment secret
+# - RAPIDAPI_KEY: RapidAPI key for data fetching
+# - DURATION: Update loop duration in minutes
+# - SEASON: Season year (e.g., "2024")
 
-CMD ["Rscript", "/RCode/run_league_update.R"]
+# Default command - run the update scheduler
+CMD ["R", "--save", "--restore", "-f", "/RCode/updateScheduler.R"]

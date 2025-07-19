@@ -1,13 +1,18 @@
 # Production dependencies for Docker runtime
 # Only packages required for running the application
 # Test dependencies are in test_packagelist.txt
+# Note: When using renv, this file is used for initial Docker builds
+# The actual versions are locked in renv.lock
+dplyr
+tidyr
 ggplot2
+tibble
+magrittr
 httr
 jsonlite
 reshape2
 rsconnect
 shiny
+Rcpp
+digest
 xtable
-languageservices
-tidyr
-tidyverse
