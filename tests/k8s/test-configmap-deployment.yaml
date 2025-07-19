@@ -1,0 +1,164 @@
+# Test specifications for Kubernetes ConfigMap deployment
+# These tests verify ConfigMap integration with deployments
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-team-data-2025
+  namespace: test
+data:
+  TeamList_2025.csv: |
+    TeamID;ShortText;Promotion;InitialELO
+    157;FCB;0;1969.32428619061
+    158;F95;0;1466.17960508047
+    159;BSC;0;1398.38965008223
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-configmap-mount
+  namespace: test
+spec:
+  containers:
+  - name: test-container
+    image: busybox
+    command: ['sh', '-c']
+    args:
+    - |
+      echo "Test 1: Verify ConfigMap mounted at correct path"
+      if [ -f "/RCode/TeamList_2025.csv" ]; then
+        echo "✓ File exists at expected path"
+      else
+        echo "✗ File not found at /RCode/TeamList_2025.csv"
+        exit 1
+      fi
+      
+      echo "Test 2: Verify file is readable"
+      if cat /RCode/TeamList_2025.csv > /dev/null 2>&1; then
+        echo "✓ File is readable"
+      else
+        echo "✗ File is not readable"
+        exit 1
+      fi
+      
+      echo "Test 3: Verify content structure"
+      HEADER=$(head -n 1 /RCode/TeamList_2025.csv)
+      if [ "$HEADER" = "TeamID;ShortText;Promotion;InitialELO" ]; then
+        echo "✓ Header structure is correct"
+      else
+        echo "✗ Header structure mismatch: $HEADER"
+        exit 1
+      fi
+      
+      echo "Test 4: Verify read-only mount"
+      if echo "test" >> /RCode/TeamList_2025.csv 2>/dev/null; then
+        echo "✗ File is writable (should be read-only)"
+        exit 1
+      else
+        echo "✓ File is read-only as expected"
+      fi
+      
+      echo "Test 5: Verify line count"
+      LINES=$(wc -l < /RCode/TeamList_2025.csv)
+      if [ "$LINES" -gt 1 ]; then
+        echo "✓ File contains data rows: $LINES lines"
+      else
+        echo "✗ File appears empty"
+        exit 1
+      fi
+      
+      echo "All ConfigMap mount tests passed!"
+    volumeMounts:
+    - name: team-data
+      mountPath: /RCode/TeamList_2025.csv
+      subPath: TeamList_2025.csv
+      readOnly: true
+  volumes:
+  - name: team-data
+    configMap:
+      name: test-team-data-2025
+  restartPolicy: Never
+---
+# Test for multiple ConfigMap mounts
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-team-data-2024
+  namespace: test
+data:
+  TeamList_2024.csv: |
+    TeamID;ShortText;Promotion;InitialELO
+    157;FCB;0;1888.68802333637
+    158;BVB;0;1818.66985439405
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-multi-configmap-mount
+  namespace: test
+spec:
+  containers:
+  - name: test-container
+    image: busybox
+    command: ['sh', '-c']
+    args:
+    - |
+      echo "Test: Multiple ConfigMaps mounted simultaneously"
+      
+      if [ -f "/RCode/TeamList_2024.csv" ] && [ -f "/RCode/TeamList_2025.csv" ]; then
+        echo "✓ Both ConfigMaps mounted successfully"
+        
+        # Verify different content
+        ELO_2024=$(grep "157;FCB" /RCode/TeamList_2024.csv | cut -d';' -f4)
+        ELO_2025=$(grep "157;FCB" /RCode/TeamList_2025.csv | cut -d';' -f4)
+        
+        if [ "$ELO_2024" != "$ELO_2025" ]; then
+          echo "✓ Different data confirmed: 2024=$ELO_2024, 2025=$ELO_2025"
+        else
+          echo "✗ Data appears identical between seasons"
+          exit 1
+        fi
+      else
+        echo "✗ One or both ConfigMaps failed to mount"
+        exit 1
+      fi
+      
+      echo "Multi-ConfigMap tests passed!"
+    volumeMounts:
+    - name: team-data-2024
+      mountPath: /RCode/TeamList_2024.csv
+      subPath: TeamList_2024.csv
+      readOnly: true
+    - name: team-data-2025
+      mountPath: /RCode/TeamList_2025.csv
+      subPath: TeamList_2025.csv
+      readOnly: true
+  volumes:
+  - name: team-data-2024
+    configMap:
+      name: test-team-data-2024
+  - name: team-data-2025
+    configMap:
+      name: test-team-data-2025
+  restartPolicy: Never
+---
+# Test for missing ConfigMap handling
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-missing-configmap
+  namespace: test
+spec:
+  containers:
+  - name: test-container
+    image: busybox
+    command: ['sh', '-c', 'echo "This pod should fail to start due to missing ConfigMap"']
+    volumeMounts:
+    - name: missing-data
+      mountPath: /RCode/TeamList_2026.csv
+      subPath: TeamList_2026.csv
+  volumes:
+  - name: missing-data
+    configMap:
+      name: non-existent-configmap  # This should cause pod to fail
+  restartPolicy: Never

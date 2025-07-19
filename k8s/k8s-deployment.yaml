@@ -88,10 +88,24 @@ spec:
         volumeMounts:
         - name: league-results
           mountPath: /RCode/league_results
+        - name: team-data-2024
+          mountPath: /RCode/TeamList_2024.csv
+          subPath: TeamList_2024.csv
+          readOnly: true
+        - name: team-data-2025
+          mountPath: /RCode/TeamList_2025.csv
+          subPath: TeamList_2025.csv
+          readOnly: true
       volumes:
       - name: league-results
         persistentVolumeClaim:
           claimName: league-results-pvc
+      - name: team-data-2024
+        configMap:
+          name: team-data-2024
+      - name: team-data-2025
+        configMap:
+          name: team-data-2025
 ---
 # Deployment for 2. Bundesliga updater
 apiVersion: apps/v1
@@ -125,10 +139,24 @@ spec:
         volumeMounts:
         - name: league-results
           mountPath: /RCode/league_results
+        - name: team-data-2024
+          mountPath: /RCode/TeamList_2024.csv
+          subPath: TeamList_2024.csv
+          readOnly: true
+        - name: team-data-2025
+          mountPath: /RCode/TeamList_2025.csv
+          subPath: TeamList_2025.csv
+          readOnly: true
       volumes:
       - name: league-results
         persistentVolumeClaim:
           claimName: league-results-pvc
+      - name: team-data-2024
+        configMap:
+          name: team-data-2024
+      - name: team-data-2025
+        configMap:
+          name: team-data-2025
 ---
 # Deployment for 3. Liga updater
 apiVersion: apps/v1
@@ -162,10 +190,24 @@ spec:
         volumeMounts:
         - name: league-results
           mountPath: /RCode/league_results
+        - name: team-data-2024
+          mountPath: /RCode/TeamList_2024.csv
+          subPath: TeamList_2024.csv
+          readOnly: true
+        - name: team-data-2025
+          mountPath: /RCode/TeamList_2025.csv
+          subPath: TeamList_2025.csv
+          readOnly: true
       volumes:
       - name: league-results
         persistentVolumeClaim:
           claimName: league-results-pvc
+      - name: team-data-2024
+        configMap:
+          name: team-data-2024
+      - name: team-data-2025
+        configMap:
+          name: team-data-2025
 ---
 # Deployment for Shiny app updater
 apiVersion: apps/v1
@@ -198,7 +240,21 @@ spec:
         - name: league-results
           mountPath: /ShinyApp/data
           subPath: shiny-data
+        - name: team-data-2024
+          mountPath: /RCode/TeamList_2024.csv
+          subPath: TeamList_2024.csv
+          readOnly: true
+        - name: team-data-2025
+          mountPath: /RCode/TeamList_2025.csv
+          subPath: TeamList_2025.csv
+          readOnly: true
       volumes:
       - name: league-results
         persistentVolumeClaim:
           claimName: league-results-pvc
+      - name: team-data-2024
+        configMap:
+          name: team-data-2024
+      - name: team-data-2025
+        configMap:
+          name: team-data-2025
