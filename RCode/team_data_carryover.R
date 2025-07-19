@@ -7,17 +7,43 @@ source("RCode/file_operations.R")
 load_previous_team_list <- function(season) {
   # Load TeamList for specified season
   # Returns data frame or NULL if not found
+  # Checks for most recent merged file first, then original file
   
   tryCatch({
-    team_list_file <- paste0("RCode/TeamList_", season, ".csv")
+    # First check for a merged file that might have been created during current processing
+    merged_file <- paste0("RCode/TeamList_", season, ".csv")
     
-    if (!file.exists(team_list_file)) {
+    # Check if we have temporary files from current processing (indicates season is being processed)
+    temp_files <- list.files("RCode", pattern = paste0("TeamList_", season, "_League.*_temp\\.csv$"), full.names = TRUE)
+    
+    if (length(temp_files) > 0) {
+      # We have temporary files, merge them and use the result
+      cat("Found temporary files for season", season, ", merging for carryover\n")
+      
+      all_teams <- data.frame()
+      for (file in temp_files) {
+        if (file.exists(file)) {
+          cat("Reading temporary file:", basename(file), "\n")
+          league_data <- read.csv(file, sep = ";", stringsAsFactors = FALSE)
+          if (!is.null(league_data) && nrow(league_data) > 0) {
+            all_teams <- rbind(all_teams, league_data)
+          }
+        }
+      }
+      
+      if (nrow(all_teams) > 0) {
+        return(all_teams)
+      }
+    }
+    
+    # Fall back to original merged file
+    if (!file.exists(merged_file)) {
       warning(paste("TeamList file not found for season", season))
       return(NULL)
     }
     
     # Read using safe file read
-    team_data <- safe_file_read(team_list_file, sep = ";", header = TRUE)
+    team_data <- safe_file_read(merged_file, sep = ";", header = TRUE)
     
     if (is.null(team_data)) {
       warning(paste("Could not read TeamList for season", season))

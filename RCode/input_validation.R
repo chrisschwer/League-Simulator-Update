@@ -67,18 +67,29 @@ validate_team_short_name <- function(short_name) {
     ))
   }
   
-  if (nchar(short_name) != 3) {
+  # Allow 2-3 characters for regular teams, 4 characters for second teams ending in "2"
+  name_length <- nchar(short_name)
+  
+  if (name_length < 2 || name_length > 4) {
     return(list(
       valid = FALSE,
-      message = "Short name must be exactly 3 characters"
+      message = "Short name must be 2-4 characters"
     ))
   }
   
   # Check for valid characters (letters and numbers only)
-  if (!grepl("^[A-Za-z0-9]{3}$", short_name)) {
+  if (!grepl("^[A-Za-z0-9]+$", short_name)) {
     return(list(
       valid = FALSE,
       message = "Short name must contain only letters and numbers"
+    ))
+  }
+  
+  # If 4 characters, must end in "2" (second team)
+  if (name_length == 4 && !grepl("2$", short_name)) {
+    return(list(
+      valid = FALSE,
+      message = "4-character short names must end with '2' (for second teams)"
     ))
   }
   

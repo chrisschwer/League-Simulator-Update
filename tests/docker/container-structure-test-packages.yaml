@@ -1,0 +1,52 @@
+schemaVersion: 2.0.0
+commandTests:
+  - name: "R version 4.3.1 installed"
+    command: "R"
+    args: ["--version"]
+    expectedOutput: ["R version 4.3.1"]
+  
+  - name: "Essential R packages - httr"
+    command: "Rscript"
+    args: ["-e", "library(httr); cat(as.character(packageVersion('httr')))"]
+    exitCode: 0
+    
+  - name: "Essential R packages - jsonlite"
+    command: "Rscript"
+    args: ["-e", "library(jsonlite); cat(as.character(packageVersion('jsonlite')))"]
+    exitCode: 0
+    
+  - name: "Essential R packages - dplyr"
+    command: "Rscript"
+    args: ["-e", "library(dplyr); cat(as.character(packageVersion('dplyr')))"]
+    exitCode: 0
+    
+  - name: "Essential R packages - tidyr"
+    command: "Rscript"
+    args: ["-e", "library(tidyr); cat(as.character(packageVersion('tidyr')))"]
+    exitCode: 0
+    
+  - name: "Essential R packages - ggplot2"
+    command: "Rscript"
+    args: ["-e", "library(ggplot2); cat(as.character(packageVersion('ggplot2')))"]
+    exitCode: 0
+    
+  - name: "Essential R packages - shiny"
+    command: "Rscript"
+    args: ["-e", "library(shiny); cat(as.character(packageVersion('shiny')))"]
+    exitCode: 0
+    
+  - name: "Essential R packages - Rcpp"
+    command: "Rscript"
+    args: ["-e", "library(Rcpp); cat(as.character(packageVersion('Rcpp')))"]
+    exitCode: 0
+    
+  - name: "Package management - renv"
+    command: "Rscript"
+    args: ["-e", "library(renv); cat(as.character(packageVersion('renv')))"]
+    exitCode: 0
+    
+  - name: "All packages loadable together"
+    command: "Rscript"
+    args: ["-e", "libs <- c('httr','jsonlite','dplyr','tidyr','ggplot2','shiny','Rcpp','renv'); sapply(libs, library, character.only=TRUE); cat('ALL_PACKAGES_LOADED')"]
+    expectedOutput: ["ALL_PACKAGES_LOADED"]
+    exitCode: 0

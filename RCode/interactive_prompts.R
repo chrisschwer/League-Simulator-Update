@@ -265,8 +265,8 @@ confirm_overwrite <- function(file_path) {
     response <- get_user_input("Overwrite existing file? (y/n): ", default = "n")
     return(tolower(trimws(response)) %in% c("y", "yes"))
   } else {
-    cat("Running in non-interactive mode. Skipping overwrite.\n")
-    return(FALSE)
+    cat("Running in non-interactive mode. Allowing overwrite.\n")
+    return(TRUE)
   }
 }
 

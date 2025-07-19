@@ -1,0 +1,53 @@
+schemaVersion: 2.0.0
+metadataTest:
+  user: "1000:1000"
+  env:
+    - key: 'TZ'
+      value: 'Europe/Berlin'
+  volumes: ['/RCode/league_results']
+
+fileExistenceTests:
+  - name: "Health check script exists and executable"
+    path: "/usr/local/bin/healthcheck.R"
+    shouldExist: true
+    permissions: "-rwxr-xr-x"
+
+  - name: "Application directory exists"
+    path: "/RCode"
+    shouldExist: true
+    isDir: true
+
+  - name: "Results directory exists"
+    path: "/RCode/league_results"
+    shouldExist: true
+    isDir: true
+
+  - name: "Run script exists and executable"
+    path: "/RCode/run_league_update.R"
+    shouldExist: true
+    permissions: "-rwxr-xr-x"
+
+commandTests:
+  - name: "Running as non-root user"
+    command: "id"
+    args: ["-u"]
+    expectedOutput: ["1000"]
+    excludedOutput: ["0"]
+    
+  - name: "User is appuser"
+    command: "whoami"
+    expectedOutput: ["appuser"]
+    
+  - name: "Home directory exists"
+    command: "test"
+    args: ["-d", "/home/appuser"]
+    exitCode: 0
+    
+  - name: "Working directory is /RCode"
+    command: "pwd"
+    expectedOutput: ["/RCode"]
+    
+  - name: "Can write to results directory"
+    command: "touch"
+    args: ["/RCode/league_results/test_write"]
+    exitCode: 0

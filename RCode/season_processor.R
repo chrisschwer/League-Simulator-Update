@@ -200,10 +200,33 @@ process_league_teams <- function(teams, league_id, season, final_elos, liga3_bas
     for (i in seq_along(teams)) {
       team <- teams[[i]]
       
-      # Check if team existed in previous season
-      team_elo <- final_elos$FinalELO[final_elos$TeamID == team$id]
+      # Check if team existed in previous season - prioritize previous_team_list over final_elos
+      team_exists <- FALSE
+      team_elo <- NULL
+      previous_data <- NULL
       
-      if (length(team_elo) == 0) {
+      # First check previous_team_list (contains teams from current processing)
+      if (!is.null(previous_team_list)) {
+        previous_data <- get_existing_team_data(team$id, previous_team_list)
+        if (!is.null(previous_data)) {
+          team_exists <- TRUE
+          # Get final ELO if available
+          elo_row <- final_elos$FinalELO[final_elos$TeamID == team$id]
+          if (length(elo_row) > 0) {
+            team_elo <- elo_row[1]
+          }
+        }
+      }
+      
+      # Fall back to final_elos check if not found in previous_team_list
+      if (!team_exists) {
+        team_elo <- final_elos$FinalELO[final_elos$TeamID == team$id]
+        if (length(team_elo) > 0) {
+          team_exists <- TRUE
+        }
+      }
+      
+      if (!team_exists) {
         # New team - need user input
         cat("\n--- New Team Detected ---\n")
         cat("Team ID:", team$id, "\n")
@@ -231,12 +254,7 @@ process_league_teams <- function(teams, league_id, season, final_elos, liga3_bas
         existing_short_names <- c(existing_short_names, final_short_name)
         
       } else {
-        # Existing team - use data from previous season if available
-        previous_data <- NULL
-        if (!is.null(previous_team_list)) {
-          previous_data <- get_existing_team_data(team$id, previous_team_list)
-        }
-        
+        # Existing team - use data from previous season (already found above)
         if (!is.null(previous_data)) {
           # Use carryover data from previous season
           short_name <- previous_data$short_name
@@ -262,11 +280,20 @@ process_league_teams <- function(teams, league_id, season, final_elos, liga3_bas
           promotion_value
         )
         
+        # Use team_elo if available, otherwise use baseline
+        if (!is.null(team_elo) && length(team_elo) > 0) {
+          initial_elo <- team_elo[1]
+          cat("Team", team$id, "(", team$name, "): Using final ELO", round(initial_elo, 2), "\n")
+        } else {
+          initial_elo <- ifelse(league_id == 80, liga3_baseline, 1500)
+          cat("Team", team$id, "(", team$name, "): Using baseline ELO", round(initial_elo, 2), "\n")
+        }
+        
         processed_team <- list(
           id = team$id,
           name = team$name,
           short_name = final_short_name,
-          initial_elo = team_elo[1],
+          initial_elo = initial_elo,
           promotion_value = promotion_value
         )
         
@@ -359,11 +386,54 @@ merge_league_files <- function(league_files, season) {
     
     cat("Total teams to merge:", nrow(all_teams), "\n")
     
+    # Remove duplicate TeamIDs (keep first occurrence)
+    if (any(duplicated(all_teams$TeamID))) {
+      duplicate_ids <- all_teams$TeamID[duplicated(all_teams$TeamID)]
+      cat("Warning: Removing duplicate TeamIDs:", paste(unique(duplicate_ids), collapse = ", "), "\n")
+      all_teams <- all_teams[!duplicated(all_teams$TeamID), ]
+      cat("Teams after deduplication:", nrow(all_teams), "\n")
+    }
+    
+    # Fix duplicate ShortTexts by appending numbers
+    if (any(duplicated(all_teams$ShortText))) {
+      duplicate_short_texts <- all_teams$ShortText[duplicated(all_teams$ShortText)]
+      cat("Warning: Fixing duplicate ShortTexts:", paste(unique(duplicate_short_texts), collapse = ", "), "\n")
+      
+      for (dup_name in unique(duplicate_short_texts)) {
+        dup_indices <- which(all_teams$ShortText == dup_name)
+        if (length(dup_indices) > 1) {
+          # Keep first occurrence, modify others
+          for (i in 2:length(dup_indices)) {
+            idx <- dup_indices[i]
+            counter <- 1
+            new_name <- paste0(substr(dup_name, 1, 2), counter)
+            
+            # Make sure the new name is unique
+            while (new_name %in% all_teams$ShortText) {
+              counter <- counter + 1
+              new_name <- paste0(substr(dup_name, 1, 2), counter)
+            }
+            
+            all_teams$ShortText[idx] <- new_name
+            cat("  Renamed", dup_name, "to", new_name, "for TeamID", all_teams$TeamID[idx], "\n")
+          }
+        }
+      }
+    }
+    
     # Sort by TeamID
     all_teams <- all_teams[order(all_teams$TeamID), ]
     
     # Generate final merged file
+    cat("Generating final merged file for season", season, "\n")
     merged_file <- generate_team_list_csv(all_teams, season)
+    
+    if (is.null(merged_file)) {
+      warning("Failed to generate merged file")
+      return(NULL)
+    }
+    
+    cat("Merged file created:", merged_file, "\n")
     
     # Clean up temporary league files
     for (file in temp_league_files) {

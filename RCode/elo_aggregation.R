@@ -6,14 +6,35 @@ calculate_final_elos <- function(season) {
   # Returns data frame with TeamID and FinalELO
   
   tryCatch({
-    # Load team list for the season
+    # Load team list for the season - check for temporary files first
     team_list_file <- paste0("RCode/TeamList_", season, ".csv")
-    if (!file.exists(team_list_file)) {
+    
+    # Check if we have temporary files from current processing
+    temp_files <- list.files("RCode", pattern = paste0("TeamList_", season, "_League.*_temp\\.csv$"), full.names = TRUE)
+    
+    if (length(temp_files) > 0) {
+      # We have temporary files, merge them to get the team list
+      cat("Using temporary files for ELO calculation in season", season, "\n")
+      
+      team_list <- data.frame()
+      for (file in temp_files) {
+        if (file.exists(file)) {
+          league_data <- read.csv(file, sep = ";", stringsAsFactors = FALSE)
+          if (!is.null(league_data) && nrow(league_data) > 0) {
+            team_list <- rbind(team_list, league_data)
+          }
+        }
+      }
+      
+      if (nrow(team_list) == 0) {
+        stop(paste("No valid team data found in temporary files for season", season))
+      }
+    } else if (file.exists(team_list_file)) {
+      # Use regular team list file
+      team_list <- read.csv(team_list_file, sep = ";", stringsAsFactors = FALSE)
+    } else {
       stop(paste("Team list file not found:", team_list_file))
     }
-    
-    # Read team list to get initial ELOs
-    team_list <- read.csv(team_list_file, sep = ";", stringsAsFactors = FALSE)
     
     # Initialize ELO tracking
     current_elos <- data.frame(
@@ -32,9 +53,11 @@ calculate_final_elos <- function(season) {
       matches <- get_league_matches(league, season)
       
       if (is.null(matches) || nrow(matches) == 0) {
-        warning(paste("No matches found for league", league, "season", season))
+        cat("No matches found for league", league, "season", season, "- ELO values will remain unchanged\n")
         next
       }
+      
+      cat("Processing", nrow(matches), "matches for league", league, "season", season, "\n")
       
       # Process each match chronologically
       matches_sorted <- matches[order(matches$fixture_date), ]
@@ -54,6 +77,23 @@ calculate_final_elos <- function(season) {
       stringsAsFactors = FALSE
     )
     
+    # Debug: Show ELO changes
+    initial_sum <- sum(team_list$InitialELO)
+    final_sum <- sum(final_elos$FinalELO)
+    cat("ELO Summary - Initial total:", initial_sum, "Final total:", final_sum, "\n")
+    
+    # Show some specific changes for key teams
+    key_teams <- c(168, 1320, 4259)  # B04, Cottbus, Aachen
+    for (team_id in key_teams) {
+      initial_idx <- which(team_list$TeamID == team_id)
+      final_idx <- which(final_elos$TeamID == team_id)
+      if (length(initial_idx) > 0 && length(final_idx) > 0) {
+        initial_elo <- team_list$InitialELO[initial_idx[1]]
+        final_elo <- final_elos$FinalELO[final_idx[1]]
+        cat("Team", team_id, "ELO change:", initial_elo, "->", final_elo, "(", final_elo - initial_elo, ")\n")
+      }
+    }
+    
     return(final_elos)
     
   }, error = function(e) {
@@ -66,13 +106,9 @@ get_league_matches <- function(league, season) {
   # Returns data frame with match information
   
   tryCatch({
-    # Use existing retrieveResults function if available
-    if (exists("retrieveResults")) {
-      results <- retrieveResults(league, season)
-    } else {
-      # Fallback to direct API call
-      results <- fetch_league_results(league, season)
-    }
+    # Always use fetch_league_results for ELO calculations
+    # retrieveResults doesn't return the required data structure
+    results <- fetch_league_results(league, season)
     
     if (is.null(results)) {
       return(NULL)
@@ -264,7 +300,7 @@ calculate_liga3_relegation_baseline <- function(season) {
     baseline <- mean(bottom_4_elos)
     
     cat("Liga3 relegation baseline for season", season, ":", round(baseline, 2), "\n")
-    cat("Based on teams:", liga3_elos_sorted$TeamID[1:4], "\n")
+    cat("Based on teams:", liga3_elos_sorted$TeamID[1:4], "with ELOs:", round(bottom_4_elos, 2), "\n")
     
     return(baseline)
     

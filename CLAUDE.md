@@ -11,6 +11,21 @@ source("tests/testthat.R")
 
 # Run specific test file
 testthat::test_file("tests/testthat/test-prozent.R")
+
+# Test API connection
+Rscript test_api_connection.R
+
+# Test ELO calculation
+Rscript test_elo_fix.R
+```
+
+### Running Updates
+```bash
+# Single update for initial prognoses
+Rscript run_single_update_2025.R
+
+# Continuous update loop (production)
+Rscript RCode/updateScheduler.R
 ```
 
 ### Docker Operations
@@ -162,6 +177,25 @@ Create these labels in your GitHub repository:
 - Priority labels: `priority:critical`, `priority:high`, `priority:medium`, `priority:low`
 - Type labels: `type:feature`, `type:bug`, `type:enhancement`, `type:documentation`
 
+## Environment Variables & Security
+
+### Required Variables (.Renviron)
+```bash
+# API-Football access via RapidAPI
+RAPIDAPI_KEY=your_rapidapi_key_here
+
+# ShinyApps.io deployment (optional)
+SHINYAPPS_IO_NAME=your_username
+SHINYAPPS_IO_TOKEN=your_token
+SHINYAPPS_IO_SECRET=your_secret
+```
+
+### Security Best Practices
+- Never commit `.Renviron` files (already in .gitignore)
+- Rotate API keys regularly
+- Use environment-specific keys (dev/prod)
+- Never share credentials in chat/issues/logs
+
 ## Known Issues & Solutions
 
 ### Interactive Prompts in Season Transition (Fixed in PR #22)
@@ -178,3 +212,25 @@ get_user_input("Enter value: ", default = "default")
 - Interactive: `Rscript scripts/season_transition.R 2024 2025`
 - Non-interactive: `Rscript scripts/season_transition.R 2024 2025 --non-interactive`
 - Config file: `Rscript scripts/season_transition.R 2024 2025 --config examples/team_config.json`
+
+### ELO Calculation Issues (Resolved - July 2025)
+**Issue**: ELO ratings not updating during season transition despite teams playing many matches
+**Root Cause**: Missing or invalid `RAPIDAPI_KEY` environment variable preventing API calls
+**Solution**: Ensure valid API key is set before running season transition
+
+```bash
+# Required for ELO calculations
+export RAPIDAPI_KEY="your_valid_rapidapi_key"
+```
+
+**Technical Details**:
+- ELO system correctly maintains existing values when no match data available
+- `retrieveResults(league, season)` requires valid API access to fetch match results
+- Without matches, ELO calculations skip updates (expected behavior)
+- Multi-season transitions (e.g., 2023→2025) work correctly when API key is valid
+
+**Verification**: Check ELO changes in output logs:
+```
+Team 168 ELO change: 1765 -> 1834 ( +69 )  # With match data
+Team 168 ELO change: 1765 -> 1765 ( 0 )    # Without match data
+```
