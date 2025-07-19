@@ -35,13 +35,20 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.R/library
-        key: ${{ runner.os }}-r-${{ hashFiles('packagelist.txt') }}
+        key: ${{ runner.os }}-r-${{ hashFiles('packagelist.txt', 'test_packagelist.txt') }}
         restore-keys: ${{ runner.os }}-r-
     
     - name: Install R dependencies
       run: |
         packages <- readLines("packagelist.txt")
         install.packages(packages[!packages %in% installed.packages()[,"Package"]])
+      shell: Rscript {0}
+    
+    - name: Install test dependencies
+      run: |
+        test_packages <- readLines("test_packagelist.txt")
+        test_packages <- test_packages[!grepl("^#", test_packages) & nchar(trimws(test_packages)) > 0]
+        install.packages(test_packages[!test_packages %in% installed.packages()[,"Package"]])
       shell: Rscript {0}
     
     - name: Run R tests
