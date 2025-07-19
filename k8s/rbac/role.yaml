@@ -1,0 +1,24 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: deployment-scaler
+  namespace: league-simulator
+  labels:
+    app.kubernetes.io/name: deployment-scaler
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/part-of: league-simulator
+  annotations:
+    description: "Minimal permissions for scaling deployments (principle of least privilege)"
+rules:
+# Allow getting deployment information and scaling
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list"]
+- apiGroups: ["apps"]
+  resources: ["deployments/scale"]
+  verbs: ["get", "patch", "update"]
+# Allow getting pod information for validation
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+  resourceNames: []
