@@ -1,17 +1,41 @@
 # Test specifications for ConfigMap integration
 # These tests ensure TeamList data can be loaded from ConfigMaps
 
+# Helper function to get the appropriate path
+get_teamlist_path <- function(season) {
+  # Check for ConfigMap mount (Kubernetes environment)
+  configmap_path <- paste0("/RCode/TeamList_", season, ".csv")
+  if (file.exists(configmap_path)) {
+    return(configmap_path)
+  }
+  
+  # Check for relative path (CI/local environment)
+  relative_path <- paste0("RCode/TeamList_", season, ".csv")
+  if (file.exists(relative_path)) {
+    return(relative_path)
+  }
+  
+  # Try from test directory
+  test_path <- paste0("../../RCode/TeamList_", season, ".csv")
+  if (file.exists(test_path)) {
+    return(test_path)
+  }
+  
+  return(NULL)
+}
+
 test_that("ConfigMap loading preserves backward compatibility", {
   # GIVEN: TeamList files mounted via ConfigMap at expected paths
   # WHEN: Application reads TeamList data
   # THEN: Data loads successfully without code changes
   
   # Test 1.1: Verify file exists at expected path
-  skip_if_not(file.exists("/RCode/TeamList_2025.csv"), 
-              "ConfigMap not mounted - skipping integration test")
+  teamlist_path <- get_teamlist_path("2025")
+  skip_if_null(teamlist_path, 
+              "TeamList_2025.csv not found - skipping integration test")
   
   # Test 1.2: Verify CSV structure matches expected format
-  team_data <- read.csv("/RCode/TeamList_2025.csv", sep = ";")
+  team_data <- read.csv(teamlist_path, sep = ";")
   expect_equal(names(team_data), c("TeamID", "ShortText", "Promotion", "InitialELO"))
   
   # Test 1.3: Verify data types are preserved
@@ -30,13 +54,15 @@ test_that("Multiple season ConfigMaps can be mounted simultaneously", {
   # THEN: All seasons are accessible
   
   # Test 2.1: Check 2024 season availability
-  skip_if_not(file.exists("/RCode/TeamList_2024.csv"))
-  team_2024 <- read.csv("/RCode/TeamList_2024.csv", sep = ";")
+  teamlist_2024 <- get_teamlist_path("2024")
+  skip_if_null(teamlist_2024, "TeamList_2024.csv not found")
+  team_2024 <- read.csv(teamlist_2024, sep = ";")
   expect_gt(nrow(team_2024), 0)
   
   # Test 2.2: Check 2025 season availability
-  skip_if_not(file.exists("/RCode/TeamList_2025.csv"))
-  team_2025 <- read.csv("/RCode/TeamList_2025.csv", sep = ";")
+  teamlist_2025 <- get_teamlist_path("2025")
+  skip_if_null(teamlist_2025, "TeamList_2025.csv not found")
+  team_2025 <- read.csv(teamlist_2025, sep = ";")
   expect_gt(nrow(team_2025), 0)
   
   # Test 2.3: Verify seasons have different data
@@ -48,10 +74,11 @@ test_that("ConfigMap mounting handles UTF-8 encoding correctly", {
   # WHEN: ConfigMap data is loaded
   # THEN: Character encoding is preserved
   
-  skip_if_not(file.exists("/RCode/TeamList_2025.csv"))
+  teamlist_path <- get_teamlist_path("2025")
+  skip_if_null(teamlist_path, "TeamList_2025.csv not found")
   
   # Test 3.1: Read with explicit encoding
-  team_data <- read.csv("/RCode/TeamList_2025.csv", sep = ";", 
+  team_data <- read.csv(teamlist_path, sep = ";", 
                        encoding = "UTF-8")
   
   # Test 3.2: Verify known teams with special characters (if any)
@@ -68,12 +95,13 @@ test_that("Application handles missing ConfigMap gracefully", {
   # THEN: Appropriate error handling occurs
   
   # Test 4.1: Check for non-existent season
-  expect_false(file.exists("/RCode/TeamList_2026.csv"))
+  teamlist_2026 <- get_teamlist_path("2026")
+  expect_null(teamlist_2026)
   
   # Test 4.2: Verify error handling for missing file
   expect_error(
-    read.csv("/RCode/TeamList_2026.csv", sep = ";"),
-    "cannot open the connection"
+    read.csv("RCode/TeamList_2026.csv", sep = ";"),
+    "cannot open the connection|No such file"
   )
   
   # Test 4.3: Fallback mechanism (if implemented)
@@ -85,8 +113,9 @@ test_that("ConfigMap data validates against schema", {
   # WHEN: Data is loaded from ConfigMap
   # THEN: All validation rules pass
   
-  skip_if_not(file.exists("/RCode/TeamList_2025.csv"))
-  team_data <- read.csv("/RCode/TeamList_2025.csv", sep = ";")
+  teamlist_path <- get_teamlist_path("2025")
+  skip_if_null(teamlist_path, "TeamList_2025.csv not found")
+  team_data <- read.csv(teamlist_path, sep = ";")
   
   # Test 5.1: TeamID is unique
   expect_equal(length(unique(team_data$TeamID)), nrow(team_data))
@@ -111,15 +140,20 @@ test_that("Read-only ConfigMap mount prevents accidental writes", {
   # WHEN: Application attempts to write
   # THEN: Write operations fail appropriately
   
-  skip_if_not(file.exists("/RCode/TeamList_2025.csv"))
+  teamlist_path <- get_teamlist_path("2025")
+  skip_if_null(teamlist_path, "TeamList_2025.csv not found")
   
-  # Test 6.1: Verify write attempt fails
-  expect_error(
-    write.csv(data.frame(test = 1), "/RCode/TeamList_2025.csv"),
-    "cannot open the connection|Permission denied"
-  )
+  # Test 6.1: Verify write attempt fails (only in ConfigMap environment)
+  if (grepl("^/RCode/", teamlist_path)) {
+    expect_error(
+      write.csv(data.frame(test = 1), teamlist_path),
+      "cannot open the connection|Permission denied"
+    )
+  } else {
+    skip("Write protection test only applicable in ConfigMap environment")
+  }
   
   # Test 6.2: Original data remains unchanged
-  team_data <- read.csv("/RCode/TeamList_2025.csv", sep = ";")
+  team_data <- read.csv(teamlist_path, sep = ";")
   expect_true("TeamID" %in% names(team_data))
 })

@@ -1,10 +1,10 @@
 # Shiny updater scheduler that runs during any league's active window
 
 shiny_scheduler <- function(update_interval = 300,  # 5 minutes in seconds
-                          results_dir = "/RCode/league_results/") {
+                          results_dir = "RCode/league_results/") {
   
   # Source the update function
-  source("/RCode/update_shiny_from_files.R")
+  source("RCode/update_shiny_from_files.R")
   
   # Define time windows for all leagues (same as in league_scheduler.R)
   time_windows <- list(

@@ -2,8 +2,8 @@
 
 update_league <- function(league = "BL", duration = 480, loops = 31, initial_wait = 0,
                          n = 10000, saison = "2023", 
-                         TeamList_file = "/RCode/TeamList_2023.csv",
-                         output_dir = "/RCode/league_results/")
+                         TeamList_file = "RCode/TeamList_2023.csv",
+                         output_dir = "RCode/league_results/")
 {
   
   # Validate league parameter
@@ -42,7 +42,7 @@ update_league <- function(league = "BL", duration = 480, loops = 31, initial_wai
   source("RCode/simulationsCPP.R")
   source("RCode/SpielCPP.R")
   source("RCode/Tabelle.R")
-  source("/RCode/transform_data.R")
+  source("RCode/transform_data.R")
   
   # Import Team Data
   TeamList <- read.csv(TeamList_file, sep=";")

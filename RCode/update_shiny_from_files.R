@@ -1,9 +1,9 @@
 # Function to read league results from files and update Shiny app
 
-update_shiny_from_files <- function(results_dir = "/RCode/league_results/") {
+update_shiny_from_files <- function(results_dir = "RCode/league_results/") {
   
   # Source the updateShiny function
-  source("/RCode/updateShiny.R")
+  source("RCode/updateShiny.R")
   
   # Define expected result files
   result_files <- list(
