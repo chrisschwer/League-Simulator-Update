@@ -148,18 +148,41 @@ detect_second_teams <- function(team_name) {
   # Detect if a team is a second team based on short name
   # Returns TRUE for second teams
   
-  # Common patterns for second teams
+  # Be more specific - only detect actual second team patterns
   second_team_patterns <- c(
-    ".*II$",       # Ends with II
-    ".*2$",        # Ends with 2  
-    ".*[0-9]$",    # Ends with any number
-    "^[A-Z0-9]{3}2$" # 4-character codes ending with 2 (new pattern)
+    ".*II$",         # Ends with II
+    ".*2$",          # Ends with 2
+    "^[A-Z]{2,3}2$", # 3-4 character codes ending with 2 (like H962, VFB2)
+    "^.*[0-9]+$"     # Ends with number(s) but be careful
   )
   
-  for (pattern in second_team_patterns) {
+  # Exclude patterns that are NOT second teams
+  # Many teams naturally have numbers in their names
+  false_positive_patterns <- c(
+    "^M02$",   # Mainz 05 -> M02
+    "^S02$",   # Schalke 04 -> S02  
+    "^H92$",   # Hannover 96 -> H92
+    "^D92$",   # Darmstadt 98 -> D92
+    "^SC2$",   # SC Paderborn -> SC2
+    "^FC2$",   # FC Ingolstadt -> FC2
+    "^UL2$"    # SSV Ulm -> UL2
+  )
+  
+  # Check if it matches false positive patterns first
+  for (pattern in false_positive_patterns) {
     if (grepl(pattern, team_name)) {
-      return(TRUE)
+      return(FALSE)
     }
+  }
+  
+  # Only consider teams ending in 2 as second teams if they have more than 3 chars
+  # or if they explicitly end with "II"
+  if (grepl("II$", team_name)) {
+    return(TRUE)
+  }
+  
+  if (grepl("2$", team_name) && nchar(team_name) >= 4) {
+    return(TRUE)
   }
   
   return(FALSE)
@@ -237,10 +260,11 @@ validate_csv_data <- function(data) {
   }
   
   # Check for duplicate ShortTexts
-  if (any(duplicated(data$ShortText))) {
+  duplicate_short_texts <- data$ShortText[duplicated(data$ShortText)]
+  if (length(duplicate_short_texts) > 0) {
     return(list(
       valid = FALSE,
-      message = "Duplicate ShortTexts found"
+      message = paste("Duplicate ShortTexts found:", paste(unique(duplicate_short_texts), collapse = ", "))
     ))
   }
   

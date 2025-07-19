@@ -178,3 +178,25 @@ get_user_input("Enter value: ", default = "default")
 - Interactive: `Rscript scripts/season_transition.R 2024 2025`
 - Non-interactive: `Rscript scripts/season_transition.R 2024 2025 --non-interactive`
 - Config file: `Rscript scripts/season_transition.R 2024 2025 --config examples/team_config.json`
+
+### ELO Calculation Issues (Resolved - July 2025)
+**Issue**: ELO ratings not updating during season transition despite teams playing many matches
+**Root Cause**: Missing or invalid `RAPIDAPI_KEY` environment variable preventing API calls
+**Solution**: Ensure valid API key is set before running season transition
+
+```bash
+# Required for ELO calculations
+export RAPIDAPI_KEY="your_valid_rapidapi_key"
+```
+
+**Technical Details**:
+- ELO system correctly maintains existing values when no match data available
+- `retrieveResults(league, season)` requires valid API access to fetch match results
+- Without matches, ELO calculations skip updates (expected behavior)
+- Multi-season transitions (e.g., 2023→2025) work correctly when API key is valid
+
+**Verification**: Check ELO changes in output logs:
+```
+Team 168 ELO change: 1765 -> 1834 ( +69 )  # With match data
+Team 168 ELO change: 1765 -> 1765 ( 0 )    # Without match data
+```

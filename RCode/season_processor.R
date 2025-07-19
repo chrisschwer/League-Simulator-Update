@@ -394,6 +394,33 @@ merge_league_files <- function(league_files, season) {
       cat("Teams after deduplication:", nrow(all_teams), "\n")
     }
     
+    # Fix duplicate ShortTexts by appending numbers
+    if (any(duplicated(all_teams$ShortText))) {
+      duplicate_short_texts <- all_teams$ShortText[duplicated(all_teams$ShortText)]
+      cat("Warning: Fixing duplicate ShortTexts:", paste(unique(duplicate_short_texts), collapse = ", "), "\n")
+      
+      for (dup_name in unique(duplicate_short_texts)) {
+        dup_indices <- which(all_teams$ShortText == dup_name)
+        if (length(dup_indices) > 1) {
+          # Keep first occurrence, modify others
+          for (i in 2:length(dup_indices)) {
+            idx <- dup_indices[i]
+            counter <- 1
+            new_name <- paste0(substr(dup_name, 1, 2), counter)
+            
+            # Make sure the new name is unique
+            while (new_name %in% all_teams$ShortText) {
+              counter <- counter + 1
+              new_name <- paste0(substr(dup_name, 1, 2), counter)
+            }
+            
+            all_teams$ShortText[idx] <- new_name
+            cat("  Renamed", dup_name, "to", new_name, "for TeamID", all_teams$TeamID[idx], "\n")
+          }
+        }
+      }
+    }
+    
     # Sort by TeamID
     all_teams <- all_teams[order(all_teams$TeamID), ]
     
