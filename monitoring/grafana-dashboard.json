@@ -1,0 +1,234 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "deployment-safety",
+    "title": "Deployment Safety Dashboard",
+    "tags": ["deployment", "safety", "monitoring"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 0,
+    "refresh": "10s",
+    "panels": [
+      {
+        "id": 1,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "type": "graph",
+        "title": "Deployment Status",
+        "targets": [
+          {
+            "expr": "kube_deployment_status_replicas{deployment=\"league-simulator\"}",
+            "legendFormat": "Current Replicas"
+          },
+          {
+            "expr": "kube_deployment_spec_replicas{deployment=\"league-simulator\"}",
+            "legendFormat": "Desired Replicas"
+          },
+          {
+            "expr": "kube_deployment_status_replicas_updated{deployment=\"league-simulator\"}",
+            "legendFormat": "Updated Replicas"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "type": "graph",
+        "title": "Response Time (95th percentile)",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"league-simulator\"}[5m]))",
+            "legendFormat": "p95 Response Time"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "s",
+            "label": "Response Time"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "type": "graph",
+        "title": "Error Rate",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{job=\"league-simulator\",status=~\"5..\"}[5m]) / rate(http_requests_total{job=\"league-simulator\"}[5m])",
+            "legendFormat": "Error Rate"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "percentunit",
+            "label": "Error Rate"
+          }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [0.05],
+                "type": "gt"
+              },
+              "query": {
+                "params": ["A", "5m", "now"]
+              },
+              "reducer": {
+                "params": [],
+                "type": "avg"
+              },
+              "type": "query"
+            }
+          ]
+        }
+      },
+      {
+        "id": 4,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "type": "graph",
+        "title": "Health Check Status",
+        "targets": [
+          {
+            "expr": "up{job=\"league-simulator\"}",
+            "legendFormat": "{{ instance }}"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "short",
+            "label": "Health Status",
+            "min": 0,
+            "max": 1
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16},
+        "type": "table",
+        "title": "Deployment Events",
+        "targets": [
+          {
+            "expr": "increase(deployment_event_total{deployment=\"league-simulator\"}[1h])",
+            "format": "table",
+            "instant": true
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 24},
+        "type": "stat",
+        "title": "Availability SLO",
+        "targets": [
+          {
+            "expr": "(1 - rate(http_requests_total{job=\"league-simulator\",status=~\"5..\"}[30m]) / rate(http_requests_total{job=\"league-simulator\"}[30m])) * 100",
+            "legendFormat": "Availability %"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "auto",
+          "reduceOptions": {
+            "calcs": ["lastNotNull"],
+            "fields": "",
+            "values": false
+          },
+          "textMode": "auto"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "yellow", "value": 99},
+                {"color": "green", "value": 99.9}
+              ]
+            },
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "id": 7,
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 24},
+        "type": "stat",
+        "title": "Rollback Count (24h)",
+        "targets": [
+          {
+            "expr": "increase(deployment_rollback_total{deployment=\"league-simulator\"}[24h])",
+            "legendFormat": "Rollbacks"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 1},
+                {"color": "red", "value": 3}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 8,
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 24},
+        "type": "stat",
+        "title": "Security Vulnerabilities",
+        "targets": [
+          {
+            "expr": "security_scan_vulnerabilities{severity=\"HIGH\"} + security_scan_vulnerabilities{severity=\"CRITICAL\"}",
+            "legendFormat": "High/Critical"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "red", "value": 1}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 9,
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 24},
+        "type": "stat",
+        "title": "Deployment Duration",
+        "targets": [
+          {
+            "expr": "deployment_duration_seconds{deployment=\"league-simulator\"}",
+            "legendFormat": "Duration"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 300},
+                {"color": "red", "value": 600}
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}
