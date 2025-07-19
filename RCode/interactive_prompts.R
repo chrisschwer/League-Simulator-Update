@@ -1,9 +1,52 @@
 # Interactive User Interface
 # Handles user prompts, input validation, and progress display
 
-# Source the input handler module
 # Define null coalesce operator
 `%||%` <- function(a, b) if (is.null(a)) b else a
+
+# Source required dependencies
+source_dependency <- function(filename, required_functions = NULL) {
+  possible_paths <- c(
+    file.path("RCode", filename),
+    filename,
+    file.path(dirname(sys.frame(1)$ofile %||% "."), filename),
+    file.path("..", "RCode", filename),
+    file.path("..", "..", "RCode", filename)
+  )
+  
+  # Check if functions already exist
+  if (!is.null(required_functions)) {
+    if (all(sapply(required_functions, exists))) {
+      return(TRUE)
+    }
+  }
+  
+  for (path in possible_paths) {
+    if (file.exists(path)) {
+      source(path)
+      return(TRUE)
+    }
+  }
+  
+  return(FALSE)
+}
+
+# Source dependencies
+if (!exists("get_league_name")) {
+  source_dependency("api_service.R", c("get_league_name", "get_team_short_name", "detect_second_teams"))
+}
+
+if (!exists("get_initial_elo_for_new_team")) {
+  source_dependency("elo_aggregation.R", c("get_initial_elo_for_new_team"))
+}
+
+if (!exists("validate_team_short_name")) {
+  source_dependency("input_validation.R", c("validate_team_short_name", "validate_elo_input"))
+}
+
+if (!exists("log_non_interactive_action")) {
+  source_dependency("logging.R", c("log_non_interactive_action"))
+}
 
 # Try to source input handler from multiple possible locations
 input_handler_sourced <- FALSE

@@ -1,6 +1,31 @@
 # CSV Generation Functions
 # Creates properly formatted TeamList CSV files
 
+# Source required dependencies
+if (!exists("confirm_overwrite")) {
+  # Try to find and source interactive_prompts.R
+  possible_paths <- c(
+    "RCode/interactive_prompts.R",
+    "interactive_prompts.R",
+    file.path(dirname(sys.frame(1)$ofile %||% "."), "interactive_prompts.R"),
+    "../RCode/interactive_prompts.R",
+    "../../RCode/interactive_prompts.R"
+  )
+  
+  sourced <- FALSE
+  for (path in possible_paths) {
+    if (file.exists(path)) {
+      source(path)
+      sourced <- TRUE
+      break
+    }
+  }
+  
+  if (!sourced) {
+    stop("Could not find interactive_prompts.R - required for csv_generation.R")
+  }
+}
+
 generate_team_list_csv <- function(team_data, season, output_dir = "RCode") {
   # Generate properly formatted TeamList CSV
   # Handles all required columns and formatting
@@ -47,13 +72,31 @@ generate_team_list_csv <- function(team_data, season, output_dir = "RCode") {
     
     # Generate corresponding ConfigMap YAML if ConfigMap generator is available
     tryCatch({
-        configmap_generator_path <- "k8s/templates/configmap-generator.R"
-        if (file.exists(configmap_generator_path)) {
+        # Try multiple paths for the configmap generator
+        possible_paths <- c(
+            "k8s/templates/configmap-generator.R",
+            file.path("..", "k8s", "templates", "configmap-generator.R"),
+            file.path("..", "..", "k8s", "templates", "configmap-generator.R"),
+            file.path(getwd(), "k8s", "templates", "configmap-generator.R")
+        )
+        
+        configmap_generator_path <- NULL
+        for (path in possible_paths) {
+            if (file.exists(path)) {
+                configmap_generator_path <- path
+                break
+            }
+        }
+        
+        if (!is.null(configmap_generator_path)) {
             source(configmap_generator_path)
             yaml_file <- generate_configmap_yaml(file_path, season, version = "1.0.0")
             cat("✓ Generated ConfigMap YAML:", yaml_file, "\n")
         } else {
-            cat("ConfigMap generator not found, skipping YAML generation\n")
+            # This is not an error - ConfigMap generation is optional
+            if (interactive() || getOption("verbose", FALSE)) {
+                cat("ConfigMap generator not found, skipping YAML generation\n")
+            }
         }
     }, error = function(e) {
         cat("Warning: Could not generate ConfigMap YAML:", e$message, "\n")

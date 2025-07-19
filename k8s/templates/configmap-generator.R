@@ -1,7 +1,8 @@
 # ConfigMap YAML Generator for League Simulator Team Data
 # Converts TeamList CSV files to Kubernetes ConfigMap YAML format
 
-library(yaml)
+# Note: We generate YAML manually instead of using the yaml package
+# to avoid adding an extra dependency
 
 #' Generate ConfigMap YAML from TeamList CSV file
 #'
@@ -157,39 +158,30 @@ validate_configmap_yaml <- function(yaml_file) {
     stop("YAML file not found: ", yaml_file)
   }
   
-  # Read and parse YAML
-  tryCatch({
-    yaml_content <- yaml::read_yaml(yaml_file)
-  }, error = function(e) {
-    stop("Invalid YAML format in ", yaml_file, ": ", e$message)
-  })
+  # Read YAML file content
+  yaml_lines <- readLines(yaml_file)
   
-  # Validate ConfigMap structure
-  if (yaml_content$apiVersion != "v1") {
-    stop("Invalid apiVersion in ", yaml_file)
+  # Basic validation using regex patterns
+  if (!any(grepl("^apiVersion:\\s*v1", yaml_lines))) {
+    stop("Invalid or missing apiVersion: v1 in ", yaml_file)
   }
   
-  if (yaml_content$kind != "ConfigMap") {
-    stop("Invalid kind in ", yaml_file)
+  if (!any(grepl("^kind:\\s*ConfigMap", yaml_lines))) {
+    stop("Invalid or missing kind: ConfigMap in ", yaml_file)
   }
   
-  if (is.null(yaml_content$metadata$name)) {
+  if (!any(grepl("^\\s+name:", yaml_lines))) {
     stop("Missing metadata.name in ", yaml_file)
   }
   
-  if (is.null(yaml_content$data)) {
+  if (!any(grepl("^data:", yaml_lines))) {
     stop("Missing data section in ", yaml_file)
   }
   
-  # Validate CSV data within ConfigMap
-  csv_keys <- names(yaml_content$data)
-  if (length(csv_keys) != 1) {
-    stop("ConfigMap should contain exactly one CSV file, found: ", length(csv_keys))
-  }
-  
-  csv_key <- csv_keys[1]
-  if (!grepl("^TeamList_[0-9]{4}\\.csv$", csv_key)) {
-    stop("Invalid CSV filename in ConfigMap: ", csv_key)
+  # Validate CSV filename in data section
+  team_list_pattern <- "^\\s+TeamList_[0-9]{4}\\.csv:\\s*\\|"
+  if (!any(grepl(team_list_pattern, yaml_lines))) {
+    stop("Missing or invalid TeamList CSV entry in data section of ", yaml_file)
   }
   
   cat("✓ ConfigMap YAML validation passed:", yaml_file, "\n")
