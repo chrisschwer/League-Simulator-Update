@@ -45,6 +45,20 @@ generate_team_list_csv <- function(team_data, season, output_dir = "RCode") {
     cat("Team list CSV created successfully:", file_path, "\n")
     cat("Teams:", nrow(formatted_data), "\n")
     
+    # Generate corresponding ConfigMap YAML if ConfigMap generator is available
+    tryCatch({
+        configmap_generator_path <- "k8s/templates/configmap-generator.R"
+        if (file.exists(configmap_generator_path)) {
+            source(configmap_generator_path)
+            yaml_file <- generate_configmap_yaml(file_path, season, version = "1.0.0")
+            cat("✓ Generated ConfigMap YAML:", yaml_file, "\n")
+        } else {
+            cat("ConfigMap generator not found, skipping YAML generation\n")
+        }
+    }, error = function(e) {
+        cat("Warning: Could not generate ConfigMap YAML:", e$message, "\n")
+    })
+    
     return(file_path)
     
   }, error = function(e) {
