@@ -1,0 +1,162 @@
+# Prometheus Alert Rules for Deployment Safety
+
+groups:
+  - name: deployment_safety
+    interval: 30s
+    rules:
+      # Deployment Progress Monitoring
+      - alert: DeploymentStalled
+        expr: |
+          kube_deployment_status_replicas_updated{deployment="league-simulator"} 
+          < kube_deployment_spec_replicas{deployment="league-simulator"}
+        for: 5m
+        labels:
+          severity: warning
+          component: deployment
+        annotations:
+          summary: "Deployment {{ $labels.deployment }} is stalled"
+          description: "Deployment has {{ $value }} updated replicas, expected {{ $labels.spec_replicas }}"
+
+      # Rollback Detection
+      - alert: AutomaticRollbackTriggered
+        expr: |
+          increase(deployment_rollback_total{deployment="league-simulator"}[5m]) > 0
+        labels:
+          severity: critical
+          component: deployment
+        annotations:
+          summary: "Automatic rollback triggered for {{ $labels.deployment }}"
+          description: "Deployment was automatically rolled back. Check logs for root cause."
+
+      # Health Check Failures
+      - alert: HealthCheckFailureRate
+        expr: |
+          rate(health_check_failures_total{app="league-simulator"}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+          component: health
+        annotations:
+          summary: "High health check failure rate"
+          description: "Health check failure rate is {{ $value | humanizePercentage }} over last 5 minutes"
+
+      # Performance Degradation
+      - alert: ResponseTimeRegression
+        expr: |
+          histogram_quantile(0.95, 
+            rate(http_request_duration_seconds_bucket{job="league-simulator"}[5m])
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: performance
+        annotations:
+          summary: "Response time regression detected"
+          description: "95th percentile response time is {{ $value }}s (threshold: 0.5s)"
+
+      # Resource Exhaustion
+      - alert: PodMemoryUsageHigh
+        expr: |
+          container_memory_usage_bytes{pod=~"league-simulator-.*"} 
+          / container_spec_memory_limit_bytes{pod=~"league-simulator-.*"} > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: resources
+        annotations:
+          summary: "Pod {{ $labels.pod }} memory usage is high"
+          description: "Memory usage is {{ $value | humanizePercentage }} of limit"
+
+      # Error Rate Spike
+      - alert: ErrorRateHigh
+        expr: |
+          rate(http_requests_total{job="league-simulator",status=~"5.."}[5m]) 
+          / rate(http_requests_total{job="league-simulator"}[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          component: application
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+
+      # Canary Deployment Issues
+      - alert: CanaryDeploymentUnhealthy
+        expr: |
+          up{job="league-simulator",version="canary"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: canary
+        annotations:
+          summary: "Canary deployment is unhealthy"
+          description: "Canary pods are not responding to health checks"
+
+      # Security Violations
+      - alert: SecurityScanViolation
+        expr: |
+          security_scan_vulnerabilities{severity="HIGH"} > 0 or
+          security_scan_vulnerabilities{severity="CRITICAL"} > 0
+        labels:
+          severity: critical
+          component: security
+        annotations:
+          summary: "Security vulnerabilities detected"
+          description: "Found {{ $value }} {{ $labels.severity }} severity vulnerabilities"
+
+  - name: deployment_slos
+    interval: 60s
+    rules:
+      # Availability SLO
+      - alert: AvailabilitySLOBreach
+        expr: |
+          (1 - rate(http_requests_total{job="league-simulator",status=~"5.."}[30m]) 
+          / rate(http_requests_total{job="league-simulator"}[30m])) < 0.999
+        for: 5m
+        labels:
+          severity: critical
+          component: slo
+        annotations:
+          summary: "Availability SLO breach"
+          description: "Availability is {{ $value | humanizePercentage }} (SLO: 99.9%)"
+
+      # Latency SLO
+      - alert: LatencySLOBreach
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_request_duration_seconds_bucket{job="league-simulator"}[30m])
+          ) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+          component: slo
+        annotations:
+          summary: "Latency SLO breach"
+          description: "95th percentile latency is {{ $value }}s (SLO: 200ms)"
+
+  - name: deployment_automation
+    interval: 30s
+    rules:
+      # Deployment Duration
+      - alert: DeploymentTakingTooLong
+        expr: |
+          time() - kube_deployment_created{deployment="league-simulator"} > 600
+          and kube_deployment_status_replicas_updated{deployment="league-simulator"} 
+          < kube_deployment_spec_replicas{deployment="league-simulator"}
+        labels:
+          severity: warning
+          component: deployment
+        annotations:
+          summary: "Deployment taking too long"
+          description: "Deployment has been running for {{ $value | humanizeDuration }}"
+
+      # Rollback Frequency
+      - alert: FrequentRollbacks
+        expr: |
+          increase(deployment_rollback_total{deployment="league-simulator"}[1h]) > 2
+        labels:
+          severity: warning
+          component: stability
+        annotations:
+          summary: "Frequent rollbacks detected"
+          description: "{{ $value }} rollbacks in the last hour"

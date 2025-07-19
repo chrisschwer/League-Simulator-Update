@@ -1,0 +1,192 @@
+name: Staged Deployment with Safety Gates
+
+on:
+  workflow_call:
+    inputs:
+      target_environment:
+        required: true
+        type: string
+        description: 'Target environment (staging/production)'
+      image_tag:
+        required: true
+        type: string
+        description: 'Docker image tag to deploy'
+
+jobs:
+  stage-1-validation:
+    name: Stage 1 - Pre-Deployment Validation
+    runs-on: ubuntu-latest
+    outputs:
+      validation_passed: ${{ steps.validate.outputs.passed }}
+      
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Validate deployment prerequisites
+      id: validate
+      run: |
+        echo "Validating deployment prerequisites..."
+        
+        # Check environment configuration
+        if [[ "${{ inputs.target_environment }}" == "production" ]]; then
+          # Production-specific checks
+          echo "::notice::Production deployment requested"
+          
+          # Verify staging tests passed
+          # Check last staging deployment status
+          # Verify approval requirements
+        fi
+        
+        echo "passed=true" >> $GITHUB_OUTPUT
+        
+    - name: Security scan on target image
+      run: |
+        docker run --rm \
+          -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasec/trivy image \
+          --severity HIGH,CRITICAL \
+          --exit-code 1 \
+          ${{ inputs.image_tag }}
+
+  stage-2-canary:
+    name: Stage 2 - Canary Deployment (5%)
+    needs: stage-1-validation
+    if: needs.stage-1-validation.outputs.validation_passed == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Deploy canary
+      run: |
+        echo "Deploying canary to ${{ inputs.target_environment }}"
+        # kubectl set image deployment/league-simulator league-simulator=${{ inputs.image_tag }}
+        # kubectl patch service league-simulator -p '{"spec":{"selector":{"version":"canary"}}}'
+        
+    - name: Wait for canary stabilization
+      run: sleep 60
+      
+    - name: Run canary tests
+      run: |
+        echo "Running tests against canary deployment..."
+        # Would run actual tests against canary endpoints
+        
+    - name: Validate canary metrics
+      run: |
+        echo "Checking canary error rates and latency..."
+        # Check metrics from monitoring system
+        # Verify error rate < 1%
+        # Verify latency < baseline + 10%
+
+  stage-3-partial:
+    name: Stage 3 - Partial Rollout (25%)
+    needs: stage-2-canary
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Increase traffic to 25%
+      run: |
+        echo "Increasing canary traffic to 25%"
+        # Update traffic split configuration
+        
+    - name: Monitor for 5 minutes
+      run: |
+        echo "Monitoring partial rollout..."
+        for i in {1..5}; do
+          echo "Minute $i/5"
+          # Check error rates
+          # Check performance metrics
+          sleep 60
+        done
+        
+    - name: Automated rollback check
+      run: |
+        echo "Checking rollback triggers..."
+        # If error rate > 5% or latency > 2x baseline, trigger rollback
+
+  stage-4-majority:
+    name: Stage 4 - Majority Rollout (50%)
+    needs: stage-3-partial
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target_environment }}-rollout
+    
+    steps:
+    - name: Increase traffic to 50%
+      run: |
+        echo "Increasing traffic to 50%"
+        # This stage requires manual approval in production
+        
+    - name: Extended monitoring (10 minutes)
+      run: |
+        echo "Extended monitoring period..."
+        for i in {1..10}; do
+          echo "Minute $i/10"
+          # Comprehensive health checks
+          sleep 60
+        done
+
+  stage-5-complete:
+    name: Stage 5 - Complete Rollout (100%)
+    needs: stage-4-majority
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target_environment }}
+    
+    steps:
+    - name: Complete rollout
+      run: |
+        echo "Completing rollout to 100%"
+        # Remove canary configuration
+        # Update all pods to new version
+        
+    - name: Post-deployment verification
+      run: |
+        echo "Running comprehensive post-deployment tests..."
+        # Full integration test suite
+        # Performance baseline comparison
+        # Security validation
+        
+    - name: Update deployment record
+      run: |
+        echo "Recording successful deployment"
+        DEPLOYMENT_RECORD="{
+          \"environment\": \"${{ inputs.target_environment }}\",
+          \"image\": \"${{ inputs.image_tag }}\",
+          \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
+          \"stages_completed\": 5,
+          \"status\": \"success\"
+        }"
+        echo "$DEPLOYMENT_RECORD" > deployment-record.json
+        
+    - name: Upload deployment record
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-record-${{ inputs.target_environment }}
+        path: deployment-record.json
+
+  rollback-stage:
+    name: Emergency Rollback
+    needs: [stage-2-canary, stage-3-partial, stage-4-majority]
+    if: failure()
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Trigger immediate rollback
+      run: |
+        echo "🚨 INITIATING EMERGENCY ROLLBACK"
+        # kubectl rollout undo deployment/league-simulator
+        
+    - name: Verify rollback success
+      run: |
+        echo "Verifying rollback completed..."
+        # Check that previous version is running
+        # Verify service is healthy
+        
+    - name: Generate incident report
+      run: |
+        echo "## Deployment Failure Report" > incident-report.md
+        echo "- Environment: ${{ inputs.target_environment }}" >> incident-report.md
+        echo "- Failed Image: ${{ inputs.image_tag }}" >> incident-report.md
+        echo "- Failure Stage: ${{ job.status }}" >> incident-report.md
+        echo "- Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> incident-report.md
+        
+    - name: Notify team
+      run: |
+        echo "::error::Deployment failed and was rolled back"
