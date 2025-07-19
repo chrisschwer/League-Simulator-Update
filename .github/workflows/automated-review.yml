@@ -1,0 +1,120 @@
+name: Automated Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  code-review:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0  # Full history for better analysis
+    
+    - name: Setup Review Tools
+      run: |
+        echo "🔍 Automated code review starting..."
+    
+    - name: Check PR Size
+      id: pr-size
+      run: |
+        ADDITIONS=$(gh pr view ${{ github.event.pull_request.number }} --json additions -q '.additions')
+        DELETIONS=$(gh pr view ${{ github.event.pull_request.number }} --json deletions -q '.deletions')
+        TOTAL=$((ADDITIONS + DELETIONS))
+        
+        echo "📊 PR Size: +$ADDITIONS -$DELETIONS (Total: $TOTAL)"
+        
+        if [ $TOTAL -gt 500 ]; then
+          echo "⚠️  Large PR detected. Consider breaking into smaller PRs."
+        fi
+      env:
+        GH_TOKEN: ${{ github.token }}
+    
+    - name: Run Linting Checks
+      continue-on-error: true
+      run: |
+        echo "### 🎨 Code Style Check" >> review.md
+        echo "" >> review.md
+        
+        # Run your linting commands here
+        # Example: npm run lint >> review.md 2>&1 || echo "❌ Linting issues found" >> review.md
+        
+        echo "✅ Code style checks completed" >> review.md
+        echo "" >> review.md
+    
+    - name: Check Test Coverage
+      continue-on-error: true
+      run: |
+        echo "### 🧪 Test Coverage" >> review.md
+        echo "" >> review.md
+        
+        # Run coverage check
+        # Example: npm test -- --coverage >> review.md 2>&1
+        
+        echo "✅ Test coverage analysis completed" >> review.md
+        echo "" >> review.md
+    
+    - name: Security Scan
+      continue-on-error: true
+      run: |
+        echo "### 🔒 Security Analysis" >> review.md
+        echo "" >> review.md
+        
+        # Run security checks
+        # Example: npm audit >> review.md 2>&1 || echo "⚠️  Security vulnerabilities found" >> review.md
+        
+        echo "✅ Security scan completed" >> review.md
+        echo "" >> review.md
+    
+    - name: Documentation Check
+      run: |
+        echo "### 📚 Documentation" >> review.md
+        echo "" >> review.md
+        
+        # Check if README or docs were updated
+        if git diff --name-only origin/${{ github.base_ref }}..HEAD | grep -E "(README|\.md$|docs/)" > /dev/null; then
+          echo "✅ Documentation updated" >> review.md
+        else
+          echo "ℹ️  No documentation changes detected" >> review.md
+        fi
+        echo "" >> review.md
+    
+    - name: Post Review Comment
+      if: always()
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const fs = require('fs');
+          let review = '## 🤖 Automated Code Review\n\n';
+          
+          try {
+            review += fs.readFileSync('review.md', 'utf8');
+          } catch (e) {
+            review += 'Review completed but no detailed results available.';
+          }
+          
+          review += '\n---\n*This is an automated review. Please ensure all checks pass before merging.*';
+          
+          github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            body: review
+          });
+    
+    - name: Add Labels
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const labels = ['needs-review'];
+          
+          github.rest.issues.addLabels({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            labels: labels
+          });

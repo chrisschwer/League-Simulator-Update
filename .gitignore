@@ -1,3 +1,6 @@
 .Renviron
 RCode/.Renviron
 .DS_Store
+
+# Claude Code local memory
+CLAUDE.local.md

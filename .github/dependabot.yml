@@ -1,0 +1,26 @@
+# Dependabot configuration for automated dependency updates
+version: 2
+updates:
+  # Enable version updates for R packages via renv
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "github-actions"
+
+  # Docker base image updates
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "docker"
+    # Only update patch versions automatically
+    versioning-strategy: "auto"
+
+  # Note: Dependabot doesn't natively support renv.lock files yet
+  # Consider using a custom GitHub Action to check for R package updates
+  # or manually run renv::update() monthly and review changes

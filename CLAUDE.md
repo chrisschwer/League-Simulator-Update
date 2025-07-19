@@ -177,6 +177,31 @@ Create these labels in your GitHub repository:
 - Priority labels: `priority:critical`, `priority:high`, `priority:medium`, `priority:low`
 - Type labels: `type:feature`, `type:bug`, `type:enhancement`, `type:documentation`
 
+## Version Management
+
+### Package Version Strategy
+We use a hybrid approach for version management:
+- **R packages**: Pinned via renv for reproducibility
+- **System packages**: Updated for security patches
+- **Base images**: Pinned R version with regular reviews
+
+### Using renv
+```r
+# Update packages
+renv::update()
+renv::snapshot()
+
+# Restore from lockfile
+renv::restore()
+```
+
+### Update Schedule
+- **Monthly**: Security patches review
+- **Quarterly**: Feature updates
+- **Annually**: Major version upgrades
+
+See [Version Management Guide](docs/VERSION_MANAGEMENT.md) for details.
+
 ## Environment Variables & Security
 
 ### Required Variables (.Renviron)
@@ -234,3 +259,57 @@ export RAPIDAPI_KEY="your_valid_rapidapi_key"
 Team 168 ELO change: 1765 -> 1834 ( +69 )  # With match data
 Team 168 ELO change: 1765 -> 1765 ( 0 )    # Without match data
 ```
+# Workflow Integration
+
+This project uses the sophisticated GitHub Projects workflow for Claude Code development.
+
+## Workflow Documentation
+@.claude/workflow.md - Complete workflow system documentation and command reference
+
+## Project Commands
+
+All workflow commands are available as slash commands:
+- `/newissue` - Create GitHub issue with comprehensive PRD
+- `/makeprogress` - Progress issue through workflow stages with worktree support
+- `/analyze` - Perform in-depth technical analysis
+- `/writetest` - Write comprehensive test specifications
+- `/plan` - Create detailed implementation plan
+- `/implement` - Write production code in isolated worktree
+- `/review` - Review code quality and standards
+- `/createpr` - Create pull request with full context
+- `/meta-plan` - Analyze all issues for strategic planning
+- `/eod` - End-of-day cleanup and progress summary
+- `/parallel` - Manage multiple worktrees for parallel development
+
+## Workflow Stages
+
+The workflow follows an 11-stage process with 3 human approval gates:
+
+1. **🆕 New Issues** - Initial issue creation
+2. **📋 Requirements** - Technical analysis and requirements gathering
+3. **🎨 Design** - Test specifications and design validation
+4. **📝 Planning** - Implementation planning and architecture
+5. **💻 Development** - Code implementation in isolated worktree
+6. **👀 Review** - Code review and quality checks
+7. **🧪 Testing** - Comprehensive testing and validation
+8. **✅ Validation** - Final validation and approval
+9. **🚀 Deployment** - Production deployment
+10. **📊 Monitoring** - Post-deployment monitoring
+11. **🎉 Complete** - Project completion and retrospective
+
+## Human Approval Gates
+
+- **After Requirements** (Stage 2→3): Human review of technical analysis
+- **After Design** (Stage 3→4): Human review of test specifications
+- **After Planning** (Stage 4→5): Human review of implementation plan
+
+## Project Memory Structure
+
+This project follows Claude Code's memory hierarchy:
+- `CLAUDE.md` - Main project memory (this file)
+- `CLAUDE.local.md` - Personal project preferences (gitignored)
+- `.claude/workflow.md` - Workflow system documentation
+- `.claude/commands/` - Project-specific slash commands
+
+For complete workflow documentation, see @.claude/workflow.md
+

@@ -1,0 +1,4 @@
+# Session Notes Directory
+
+This directory contains daily session handoff notes created by the /eod command.
+Files are named YYYY-MM-DD.md and contain context for the next Claude session.
