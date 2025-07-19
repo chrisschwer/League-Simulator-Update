@@ -180,7 +180,7 @@ docker-compose exec league-simulator Rscript -e "
 ### How ELO Ratings Are Determined
 
 1. **Existing teams**: Carry forward from previous season
-2. **Promoted teams**: 
+2. **Promoted teams**:
    - From 2. Bundesliga to Bundesliga: ~1400-1450
    - From 3. Liga to 2. Bundesliga: ~1350-1400
    - From Regionalliga to 3. Liga: ~1300-1350

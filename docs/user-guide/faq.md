@@ -98,7 +98,7 @@ Home advantage is included in the ELO ratings.
 The heatmap shows probability of each finishing position:
 - **Rows**: Teams (current order)
 - **Columns**: Final positions (1-18)
-- **Colors**: 
+- **Colors**:
   - Dark green: High probability (>50%)
   - Light green: Medium probability (20-50%)
   - Yellow: Low probability (5-20%)
@@ -220,7 +220,7 @@ Quality measures:
 ### Is the code open source?
 
 Yes! The League Simulator is open source:
-- **GitHub**: https://github.com/chrisschwer/League-Simulator-Update
+- **GitHub**: `https://github.com/chrisschwer/League-Simulator-Update`
 - **License**: MIT
 - **Contributions**: Welcome via pull requests
 - **Documentation**: Comprehensive guides included

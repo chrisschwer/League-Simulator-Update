@@ -485,7 +485,7 @@ echo -e "\n=== Diagnostics Complete ==="
    - Describe steps to reproduce
 
 3. **Emergency Contacts**:
-   - API Support: support@api-football.com
+   - API Support: `support@api-football.com`
    - Docker Issues: Check Docker Desktop logs
    - Application Issues: Create GitHub issue
 

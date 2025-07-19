@@ -66,7 +66,7 @@ Update the existing local development section:
    docker build -f Dockerfile.optimized -t league-simulator:dev .
    ```
 
-2. **Run with environment variables**:
+1. **Run with environment variables**:
    ```bash
    docker run -e RAPIDAPI_KEY=your_key \
               -e SHINYAPPS_IO_SECRET=your_secret \
@@ -75,7 +75,7 @@ Update the existing local development section:
               league-simulator:dev
    ```
 
-3. **Health checks**: All containers include health checks accessible at:
+2. **Health checks**: All containers include health checks accessible at:
    ```bash
    docker inspect --format='{{.State.Health.Status}}' <container_id>
    ```
@@ -138,7 +138,7 @@ The new optimized images are backward compatible but require attention to:
    docker pull ghcr.io/org/league-simulator:latest
    ```
 
-2. **Update docker-compose.yml** if used:
+1. **Update docker-compose.yml** if used:
    ```yaml
    services:
      league-simulator:
@@ -146,7 +146,7 @@ The new optimized images are backward compatible but require attention to:
        user: "1000:1000"  # Explicit non-root user
    ```
 
-3. **Verify health**:
+2. **Verify health**:
    ```bash
    docker run --health-cmd="/usr/local/bin/healthcheck.R" league-simulator:latest
    ```

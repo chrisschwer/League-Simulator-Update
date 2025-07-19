@@ -199,7 +199,7 @@ leagues <- list(
 - **Purpose**: Web interface for viewing results
 - **Port**: 3838 (configurable)
 - **Data**: Reads from shared volume
-- **Access**: http://localhost:3838
+- **Access**: `http://localhost:3838`
 
 ### Data Flow
 
