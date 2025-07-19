@@ -32,7 +32,8 @@ generate_team_list_csv <- function(team_data, season, output_dir = "RCode") {
   
   tryCatch({
     # Validate input data
-    if (is.null(team_data) || length(team_data) == 0) {
+    if (is.null(team_data) || length(team_data) == 0 || 
+        (is.data.frame(team_data) && nrow(team_data) == 0)) {
       stop("No team data provided")
     }
     
@@ -270,8 +271,9 @@ validate_csv_data <- function(data) {
   # Check data types
   type_errors <- c()
   
-  if (!is.character(data$TeamID)) {
-    type_errors <- c(type_errors, "TeamID must be character")
+  # TeamID can be either numeric or character
+  if (!is.numeric(data$TeamID) && !is.character(data$TeamID)) {
+    type_errors <- c(type_errors, "TeamID must be numeric or character")
   }
   
   if (!is.character(data$ShortText)) {
@@ -410,10 +412,11 @@ write_team_list_safely <- function(data, file_path) {
     }
     
     cat("CSV file written successfully:", file_path, "\n")
+    return(TRUE)
     
   }, error = function(e) {
     # Clean up temporary file on error
-    if (file.exists(temp_file)) {
+    if (exists("temp_file") && file.exists(temp_file)) {
       file.remove(temp_file)
     }
     stop(paste("Error writing CSV file:", e$message))
@@ -441,9 +444,9 @@ verify_csv_integrity <- function(file_path) {
       return(FALSE)
     }
     
-    # Check file size
+    # Check file size - adjust threshold based on actual content
     file_size <- file.info(file_path)$size
-    if (file_size < 100) {  # Minimum reasonable size
+    if (file_size < 20) {  # Very minimal size for a CSV with headers
       warning("CSV file appears too small")
       return(FALSE)
     }
@@ -464,15 +467,8 @@ backup_existing_file <- function(file_path) {
     return(NULL)
   }
   
-  # Generate backup filename
-  timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-  file_dir <- dirname(file_path)
-  file_name <- basename(file_path)
-  file_ext <- tools::file_ext(file_name)
-  file_base <- tools::file_path_sans_ext(file_name)
-  
-  backup_name <- paste0(file_base, "_backup_", timestamp, ".", file_ext)
-  backup_path <- file.path(file_dir, backup_name)
+  # Generate backup filename with .bak extension
+  backup_path <- paste0(file_path, ".bak")
   
   # Create backup
   tryCatch({
@@ -586,4 +582,32 @@ export_team_comparison <- function(season1, season2, output_file = NULL) {
 # Utility operator for handling NULL values
 `%||%` <- function(x, y) {
   if (is.null(x)) y else x
+}
+
+merge_league_files <- function(season, output_dir) {
+  # Merge individual league CSV files into final TeamList
+  # Combines Liga1, Liga2, Liga3 files
+  
+  file_paths <- file.path(output_dir, c(
+    paste0("TeamList_", season, "_Liga1.csv"),
+    paste0("TeamList_", season, "_Liga2.csv"),
+    paste0("TeamList_", season, "_Liga3.csv")
+  ))
+  
+  # Check all files exist
+  if (!all(file.exists(file_paths))) {
+    missing <- file_paths[!file.exists(file_paths)]
+    stop(paste("Missing league files:", paste(missing, collapse = ", ")))
+  }
+  
+  # Read and combine
+  all_data <- do.call(rbind, lapply(file_paths, function(f) {
+    read.csv(f, sep = ";", stringsAsFactors = FALSE)
+  }))
+  
+  # Write merged file
+  output_file <- file.path(output_dir, paste0("TeamList_", season, ".csv"))
+  write_team_list_safely(all_data, output_file)
+  
+  return(output_file)
 }

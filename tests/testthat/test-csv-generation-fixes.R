@@ -463,12 +463,26 @@ test_that("CSV generation integrates properly with merge process", {
     return(expected_output)
   })
   
-  # Test integration
-  result <- merge_league_files(c(league_file1, league_file2), "2025")
+  # Create Liga files with proper naming convention
+  liga1_file <- file.path(temp_dir, "TeamList_2025_Liga1.csv")
+  liga2_file <- file.path(temp_dir, "TeamList_2025_Liga2.csv")
+  liga3_file <- file.path(temp_dir, "TeamList_2025_Liga3.csv")
+  
+  # Copy test data to properly named files
+  file.copy(league_file1, liga1_file)
+  file.copy(league_file2, liga3_file)
+  
+  # Create empty Liga2 file
+  write.table(data.frame(TeamID=integer(), ShortText=character(), 
+                        Promotion=numeric(), InitialELO=numeric()), 
+              liga2_file, sep=";", row.names=FALSE, quote=FALSE)
+  
+  # Test integration with correct parameters
+  result <- merge_league_files("2025", temp_dir)
   
   # Should return the expected file path
   expect_equal(result, expected_output)
   
   # Cleanup
-  unlink(c(league_file1, league_file2))
+  unlink(c(league_file1, league_file2, liga1_file, liga2_file, liga3_file, expected_output))
 })

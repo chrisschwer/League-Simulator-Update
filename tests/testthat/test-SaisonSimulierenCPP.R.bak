@@ -29,10 +29,10 @@ test_that("SaisonSimulierenCPP simulates unplayed games correctly", {
   expect_equal(result_spielplan[, 1:2], spielplan[, 1:2])
   
   # Check that goals are non-negative integers
-  expect_true(all(result_spielplan[, 3] >= 0))
-  expect_true(all(result_spielplan[, 4] >= 0))
-  expect_true(all(result_spielplan[, 3] == as.integer(result_spielplan[, 3])))
-  expect_true(all(result_spielplan[, 4] == as.integer(result_spielplan[, 4])))
+  expect_true(all(result[, 3] >= 0))
+  expect_true(all(result[, 4] >= 0))
+  expect_true(all(result[, 3] == as.integer(result[, 3])))
+  expect_true(all(result[, 4] == as.integer(result[, 4])))
 })
 
 test_that("SaisonSimulierenCPP preserves played games", {
@@ -84,12 +84,8 @@ test_that("SaisonSimulierenCPP handles fully played season", {
     AnzahlSpiele = 12
   )
   
-  # Extract the Spielplan from the result list
-  result_spielplan <- result[[1]]
-  result_elo <- result[[2]]
-  
   # Results should be unchanged
-  expect_equal(result_spielplan[, 3:4], original_results)
+  expect_equal(result[, 3:4], original_results)
 })
 
 test_that("SaisonSimulierenCPP updates ELO values through season", {
@@ -108,16 +104,12 @@ test_that("SaisonSimulierenCPP updates ELO values through season", {
     AnzahlSpiele = 12
   )
   
-  # Extract the Spielplan and ELO from the result list
-  result_spielplan <- result[[1]]
-  result_elo <- result[[2]]
-  
   # ELO values should change throughout the season
   # We can't directly test the internal ELO updates, but we can verify
   # that the simulation produces varied results
-  home_wins <- sum(result_spielplan[, 3] > result_spielplan[, 4])
-  away_wins <- sum(result_spielplan[, 4] > result_spielplan[, 3])
-  draws <- sum(result_spielplan[, 3] == result_spielplan[, 4])
+  home_wins <- sum(result[, 3] > result[, 4])
+  away_wins <- sum(result[, 4] > result[, 3])
+  draws <- sum(result[, 3] == result[, 4])
   
   # Should have a mix of results
   expect_true(home_wins > 0)
@@ -144,10 +136,7 @@ test_that("SaisonSimulierenCPP respects home advantage", {
       AnzahlSpiele = 12
     )
     
-    # Extract the Spielplan from the result list
-    result_spielplan <- result[[1]]
-    
-    home_wins_total <- home_wins_total + sum(result_spielplan[, 3] > result_spielplan[, 4])
+    home_wins_total <- home_wins_total + sum(result[, 3] > result[, 4])
   }
   
   # With home advantage and equal teams, home wins should be > 33%
@@ -199,10 +188,6 @@ test_that("SaisonSimulierenCPP handles different mod factors", {
     AnzahlSpiele = 12
   )
   
-  # Extract the Spielplan from the result list
-  result_low_spielplan <- result_low[[1]]
-  result_low_elo <- result_low[[2]]
-  
   set.seed(111)
   result_high <- SaisonSimulierenCPP(
     Spielplan = spielplan,
@@ -213,13 +198,9 @@ test_that("SaisonSimulierenCPP handles different mod factors", {
     AnzahlSpiele = 12
   )
   
-  # Extract the Spielplan from the result list
-  result_high_spielplan <- result_high[[1]]
-  result_high_elo <- result_high[[2]]
-  
   # Both should produce valid results
-  expect_false(any(is.na(result_low_spielplan[, 3:4])))
-  expect_false(any(is.na(result_high_spielplan[, 3:4])))
+  expect_false(any(is.na(result_low[, 3:4])))
+  expect_false(any(is.na(result_high[, 3:4])))
   
   # Results might differ due to different ELO update magnitudes
   # affecting subsequent games
@@ -240,25 +221,21 @@ test_that("SaisonSimulierenCPP handles extreme ELO differences", {
     AnzahlSpiele = 12
   )
   
-  # Extract the Spielplan from the result list
-  result_spielplan <- result[[1]]
-  result_elo <- result[[2]]
-  
   # Should handle extreme differences without errors
-  expect_false(any(is.na(result_spielplan[, 3:4])))
+  expect_false(any(is.na(result[, 3:4])))
   
   # Team 1 (ELO 2000) should generally score more goals
   team1_games <- which(spielplan[, 1] == 1 | spielplan[, 2] == 1)
   team1_goals <- sum(
-    result_spielplan[spielplan[, 1] == 1, 3],
-    result_spielplan[spielplan[, 2] == 1, 4]
+    result[spielplan[, 1] == 1, 3],
+    result[spielplan[, 2] == 1, 4]
   )
   
   # Team 2 (ELO 1000) should generally score fewer goals
   team2_games <- which(spielplan[, 1] == 2 | spielplan[, 2] == 2)
   team2_goals <- sum(
-    result_spielplan[spielplan[, 1] == 2, 3],
-    result_spielplan[spielplan[, 2] == 2, 4]
+    result[spielplan[, 1] == 2, 3],
+    result[spielplan[, 2] == 2, 4]
   )
   
   # This is probabilistic but with large ELO difference should generally hold
@@ -280,13 +257,9 @@ test_that("SaisonSimulierenCPP handles empty season gracefully", {
     AnzahlSpiele = 0
   )
   
-  # Extract the Spielplan from the result list
-  result_spielplan <- result[[1]]
-  result_elo <- result[[2]]
-  
   # Should return empty matrix
-  expect_equal(nrow(result_spielplan), 0)
-  expect_equal(ncol(result_spielplan), 4)
+  expect_equal(nrow(result), 0)
+  expect_equal(ncol(result), 4)
 })
 
 test_that("SaisonSimulierenCPP maintains matrix structure", {
@@ -303,15 +276,11 @@ test_that("SaisonSimulierenCPP maintains matrix structure", {
     AnzahlSpiele = 12
   )
   
-  # Extract the Spielplan from the result list
-  result_spielplan <- result[[1]]
-  result_elo <- result[[2]]
-  
   # Check matrix structure is preserved
-  expect_equal(dim(result_spielplan), dim(spielplan))
-  expect_true(is.matrix(result_spielplan))
-  expect_equal(typeof(result_spielplan), typeof(spielplan))
+  expect_equal(dim(result), dim(spielplan))
+  expect_true(is.matrix(result))
+  expect_equal(typeof(result), typeof(spielplan))
   
   # All values should be numeric
-  expect_true(all(is.numeric(result_spielplan)))
+  expect_true(all(is.numeric(result)))
 })

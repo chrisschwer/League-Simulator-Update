@@ -1,5 +1,12 @@
 # Test file for CLI argument parsing
 
+# Source the parse_arguments function from season_transition.R
+# Extract just the function we need to avoid running the main script
+parse_args_code <- readLines("../../scripts/season_transition.R")
+func_start <- which(grepl("^parse_arguments", parse_args_code))
+func_end <- which(grepl("^\\}", parse_args_code) & seq_along(parse_args_code) > func_start)[1]
+eval(parse(text = parse_args_code[func_start:func_end]))
+
 test_that("parse_arguments correctly handles season arguments", {
   # Test basic season arguments
   args <- parse_arguments(c("2024", "2025"))
