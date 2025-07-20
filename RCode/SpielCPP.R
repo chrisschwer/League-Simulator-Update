@@ -34,9 +34,9 @@ SpielCPP <- function (ELOHeim, ELOGast, ToreHeim, ToreGast,
     ToreGast <- qpois (p = ZufallGast, lambda = ToreGastDurchschnitt)
   }
   
-  result <- SpielNichtSimulieren (ELOHeim + Heimvorteil, ELOGast,
+  result <- SpielNichtSimulieren (ELOHeim, ELOGast,
                                   ToreHeim, ToreGast,
-                                  ModFaktor, 0)
+                                  ModFaktor, Heimvorteil)
   
   return(result)
   

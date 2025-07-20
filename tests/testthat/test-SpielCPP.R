@@ -222,6 +222,93 @@ test_that("SpielCPP produces consistent simulations with same random values", {
   expect_equal(result1, result2)
 })
 
+test_that("SpielCPP correctly applies home advantage through SpielNichtSimulieren", {
+  # Test that teams with different ELOs but same effective strength 
+  # (ELO + home advantage) get the same ELO changes
+  
+  # All scenarios: home wins 2-1
+  # Effective strength is same in all cases (home ELO + advantage = 1500)
+  scenarios <- list(
+    list(home = 1500, away = 1500, adv = 0,   desc = "Equal teams, no advantage"),
+    list(home = 1450, away = 1500, adv = 50,  desc = "Home weaker by 50, advantage 50"),
+    list(home = 1400, away = 1500, adv = 100, desc = "Home weaker by 100, advantage 100"),
+    list(home = 1350, away = 1500, adv = 150, desc = "Home weaker by 150, advantage 150")
+  )
+  
+  elo_changes <- numeric(length(scenarios))
+  final_elos <- numeric(length(scenarios))
+  
+  for (i in seq_along(scenarios)) {
+    s <- scenarios[[i]]
+    result <- SpielCPP_wrapper(
+      ELOHeim = s$home,
+      ELOGast = s$away,
+      ToreHeim = 2,
+      ToreGast = 1,
+      ZufallHeim = 0.5,
+      ZufallGast = 0.5,
+      ModFaktor = 40,
+      Heimvorteil = s$adv,
+      Simulieren = FALSE
+    )
+    
+    elo_changes[i] <- result$ELOHeim - s$home
+    final_elos[i] <- result$ELOHeim
+    
+    # Verify effective strength
+    expect_equal(s$home + s$adv, 1500, 
+                 info = paste(s$desc, "- effective strength should be 1500"))
+  }
+  
+  # All scenarios should have the same ELO change
+  expect_true(all(abs(elo_changes - elo_changes[1]) < 0.001),
+              info = "All scenarios with same effective strength should have same ELO change")
+  
+  # But final ELOs should be different (decreasing with higher home advantage)
+  expect_true(all(diff(final_elos) < 0),
+              info = "Final ELO should decrease with higher home advantage")
+  
+  # Specific checks
+  expect_equal(elo_changes[1], 20, tolerance = 0.1,
+               info = "Equal teams winning 2-1 should gain ~20 ELO")
+  expect_equal(final_elos[1], 1520, tolerance = 0.1)
+  expect_equal(final_elos[2], 1470, tolerance = 0.1)
+  expect_equal(final_elos[3], 1420, tolerance = 0.1)
+  expect_equal(final_elos[4], 1370, tolerance = 0.1)
+  
+  # Test home losses with different advantages
+  # Both scenarios: home loses 1-2, same effective strength (1500)
+  loss_scenarios <- list(
+    list(home = 1500, away = 1500, adv = 0),
+    list(home = 1400, away = 1500, adv = 100)
+  )
+  
+  loss_changes <- numeric(length(loss_scenarios))
+  
+  for (i in seq_along(loss_scenarios)) {
+    s <- loss_scenarios[[i]]
+    result <- SpielCPP_wrapper(
+      ELOHeim = s$home,
+      ELOGast = s$away,
+      ToreHeim = 1,
+      ToreGast = 2,
+      ZufallHeim = 0.5,
+      ZufallGast = 0.5,
+      ModFaktor = 40,
+      Heimvorteil = s$adv,
+      Simulieren = FALSE
+    )
+    
+    loss_changes[i] <- result$ELOHeim - s$home
+  }
+  
+  # Both should lose the same amount
+  expect_equal(loss_changes[1], loss_changes[2], tolerance = 0.001,
+               info = "Teams with same effective strength should have same ELO loss")
+  expect_equal(loss_changes[1], -20, tolerance = 0.1,
+               info = "Equal effective teams losing 1-2 should lose ~20 ELO")
+})
+
 test_that("SpielCPP handles zero goals correctly", {
   # Test 0-0 draw
   result <- SpielCPP_wrapper(
