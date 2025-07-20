@@ -4,3 +4,6 @@ RCode/.Renviron
 
 # Claude Code local memory
 CLAUDE.local.md
+
+# Test results
+api_test_results.json
