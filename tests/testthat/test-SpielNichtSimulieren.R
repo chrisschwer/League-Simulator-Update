@@ -1,6 +1,8 @@
 library(testthat)
-# Load the Rcpp exported function
-source("../../RCode/RcppExports.R")
+library(Rcpp)
+# Load the C++ function
+sourceCpp("../../RCode/SpielNichtSimulieren.cpp")
+source("../../RCode/cpp_wrappers.R")
 
 test_that("SpielNichtSimulieren calculates ELO changes correctly for home win", {
   # Home team wins 2-1

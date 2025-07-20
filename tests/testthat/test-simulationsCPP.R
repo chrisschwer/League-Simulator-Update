@@ -1,5 +1,6 @@
 library(testthat)
 source("../../RCode/simulationsCPP.R")
+source("../../RCode/cpp_wrappers.R")
 
 test_that("simulationsCPP handles fully played season correctly", {
   # Create a fully played season
@@ -11,7 +12,7 @@ test_that("simulationsCPP handles fully played season correctly", {
   
   # Run simulation with 100 iterations (should not simulate anything)
   set.seed(123)
-  result <- simulationsCPP(
+  result <- simulationsCPP_wrapper(
     season = season,
     ELOValue = elo_values,
     numberTeams = 4,
@@ -43,7 +44,7 @@ test_that("simulationsCPP handles empty season correctly", {
   
   # Run simulation
   set.seed(456)
-  result <- simulationsCPP(
+  result <- simulationsCPP_wrapper(
     season = season,
     ELOValue = elo_values,
     numberTeams = 4,
@@ -73,7 +74,7 @@ test_that("simulationsCPP handles partial season correctly", {
   
   # Run simulation
   set.seed(789)
-  result <- simulationsCPP(
+  result <- simulationsCPP_wrapper(
     season = season,
     ELOValue = elo_values,
     numberTeams = 4,
@@ -106,7 +107,7 @@ test_that("simulationsCPP applies point adjustments correctly", {
   
   # Run simulation
   set.seed(321)
-  result <- simulationsCPP(
+  result <- simulationsCPP_wrapper(
     season = season,
     ELOValue = elo_values,
     numberTeams = 4,
@@ -139,7 +140,7 @@ test_that("simulationsCPP handles different iteration counts", {
   
   for (iters in iteration_counts) {
     set.seed(999)
-    result <- simulationsCPP(
+    result <- simulationsCPP_wrapper(
       season = season,
       ELOValue = elo_values,
       numberTeams = 4,
@@ -168,7 +169,7 @@ test_that("simulationsCPP handles goal adjustments correctly", {
   
   # Run simulation
   set.seed(111)
-  result <- simulationsCPP(
+  result <- simulationsCPP_wrapper(
     season = season,
     ELOValue = elo_values,
     numberTeams = 4,
@@ -196,7 +197,7 @@ test_that("simulationsCPP produces consistent results with same seed", {
   
   # Run simulation twice with same seed
   set.seed(42)
-  result1 <- simulationsCPP(
+  result1 <- simulationsCPP_wrapper(
     season = season,
     ELOValue = elo_values,
     numberTeams = 4,
@@ -211,7 +212,7 @@ test_that("simulationsCPP produces consistent results with same seed", {
   )
   
   set.seed(42)
-  result2 <- simulationsCPP(
+  result2 <- simulationsCPP_wrapper(
     season = season,
     ELOValue = elo_values,
     numberTeams = 4,
@@ -237,7 +238,7 @@ test_that("simulationsCPP handles extreme ELO differences", {
   
   # Run simulation
   set.seed(777)
-  result <- simulationsCPP(
+  result <- simulationsCPP_wrapper(
     season = season,
     ELOValue = elo_values,
     numberTeams = 4,
@@ -267,7 +268,7 @@ test_that("simulationsCPP handles single team edge case", {
   
   # This should handle gracefully or error appropriately
   expect_error(
-    simulationsCPP(
+    simulationsCPP_wrapper(
       season = season,
       ELOValue = elo_values,
       numberTeams = 1,

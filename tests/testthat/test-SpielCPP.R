@@ -1,9 +1,10 @@
 library(testthat)
 source("../../RCode/SpielCPP.R")
+source("../../RCode/cpp_wrappers.R")
 
 test_that("SpielCPP calculates ELO correctly for actual results", {
   # Test with actual match result (not simulated)
-  result <- SpielCPP(
+  result <- SpielCPP_wrapper(
     ELOHeim = 1500,
     ELOGast = 1500,
     ToreHeim = 2,
@@ -38,7 +39,7 @@ test_that("SpielCPP calculates ELO correctly for actual results", {
 test_that("SpielCPP simulates match results correctly", {
   # Test match simulation
   set.seed(123)
-  result <- SpielCPP(
+  result <- SpielCPP_wrapper(
     ELOHeim = 1600,
     ELOGast = 1400,
     ToreHeim = NA,  # Will be simulated
@@ -68,7 +69,7 @@ test_that("SpielCPP simulates match results correctly", {
 
 test_that("SpielCPP handles draws correctly", {
   # Test draw result
-  result <- SpielCPP(
+  result <- SpielCPP_wrapper(
     ELOHeim = 1500,
     ELOGast = 1500,
     ToreHeim = 1,
@@ -95,7 +96,7 @@ test_that("SpielCPP handles draws correctly", {
 
 test_that("SpielCPP handles extreme ELO differences", {
   # Strong favorite loses
-  result <- SpielCPP(
+  result <- SpielCPP_wrapper(
     ELOHeim = 1800,
     ELOGast = 1200,
     ToreHeim = 0,
@@ -128,7 +129,7 @@ test_that("SpielCPP respects home advantage", {
   n_sims <- 100
   
   for (i in 1:n_sims) {
-    result <- SpielCPP(
+    result <- SpielCPP_wrapper(
       ELOHeim = 1500,
       ELOGast = 1500,
       ToreHeim = NA,
@@ -154,7 +155,7 @@ test_that("SpielCPP respects home advantage", {
 
 test_that("SpielCPP handles large goal differences", {
   # Test with a large win
-  result <- SpielCPP(
+  result <- SpielCPP_wrapper(
     ELOHeim = 1500,
     ELOGast = 1500,
     ToreHeim = 5,
@@ -169,7 +170,7 @@ test_that("SpielCPP handles large goal differences", {
   )
   
   # Large win should result in larger ELO changes than 1-0
-  result_small <- SpielCPP(
+  result_small <- SpielCPP_wrapper(
     ELOHeim = 1500,
     ELOGast = 1500,
     ToreHeim = 1,
@@ -189,7 +190,7 @@ test_that("SpielCPP handles large goal differences", {
 
 test_that("SpielCPP produces consistent simulations with same random values", {
   # Same random values should produce same result
-  result1 <- SpielCPP(
+  result1 <- SpielCPP_wrapper(
     ELOHeim = 1550,
     ELOGast = 1450,
     ToreHeim = NA,
@@ -203,7 +204,7 @@ test_that("SpielCPP produces consistent simulations with same random values", {
     ToreIntercept = 0.9
   )
   
-  result2 <- SpielCPP(
+  result2 <- SpielCPP_wrapper(
     ELOHeim = 1550,
     ELOGast = 1450,
     ToreHeim = NA,
@@ -223,7 +224,7 @@ test_that("SpielCPP produces consistent simulations with same random values", {
 
 test_that("SpielCPP handles zero goals correctly", {
   # Test 0-0 draw
-  result <- SpielCPP(
+  result <- SpielCPP_wrapper(
     ELOHeim = 1500,
     ELOGast = 1500,
     ToreHeim = 0,
@@ -252,7 +253,7 @@ test_that("SpielCPP handles different mod factors correctly", {
   mod_factors <- c(20, 40, 60)
   
   for (mod in mod_factors) {
-    result <- SpielCPP(
+    result <- SpielCPP_wrapper(
       ELOHeim = 1500,
       ELOGast = 1400,
       ToreHeim = 2,

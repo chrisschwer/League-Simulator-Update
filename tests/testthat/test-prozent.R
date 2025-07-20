@@ -1,5 +1,5 @@
 library(testthat)
-source("RCode/prozent.R")
+source("../../RCode/prozent.R")
 
 test_that("prozent converts fractions to percentages", {
   expect_equal(prozent(0.5), 50)
