@@ -7,3 +7,4 @@ shinytest2
 mockery
 lintr
 testthat
+here

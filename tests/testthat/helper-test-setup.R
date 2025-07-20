@@ -211,3 +211,10 @@ test_match_data <- function() {
     stringsAsFactors = FALSE
   )
 }
+
+# Test helper function to skip tests when object is NULL
+skip_if_null <- function(object, message = "Object is NULL") {
+  if (is.null(object)) {
+    testthat::skip(message)
+  }
+}
