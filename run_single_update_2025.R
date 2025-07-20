@@ -19,7 +19,6 @@ update_all_leagues_single <- function(n = 10000, saison = "2025",
   # Source C++ and R Code with relative paths
   Rcpp::sourceCpp("RCode/SpielNichtSimulieren.cpp")
   source("RCode/leagueSimulatorCPP.R")
-  source("RCode/leagueSimulatorCPP_Liga3.R")  # Add Liga3 version if needed
   source("RCode/prozent.R")
   source("RCode/retrieveResults.R")
   source("RCode/SaisonSimulierenCPP.R")
@@ -79,13 +78,9 @@ update_all_leagues_single <- function(n = 10000, saison = "2025",
   Ergebnis3 <- leagueSimulatorCPP(Liga3, n = n)
   
   # Special simulation for Liga3 promotion (excluding second teams)
-  if (file.exists("RCode/leagueSimulatorCPP_Liga3.R")) {
-    Ergebnis3_Aufstieg <- leagueSimulatorCPP_Liga3(Liga3, n = n, 
-                                                    adjPoints = adjPoints_Liga3_Aufstieg)
-  } else {
-    Ergebnis3_Aufstieg <- leagueSimulatorCPP(Liga3, n = n, 
-                                             adjPoints = adjPoints_Liga3_Aufstieg)
-  }
+  # Always use standard simulator with dual-run approach
+  Ergebnis3_Aufstieg <- leagueSimulatorCPP(Liga3, n = n, 
+                                           adjPoints = adjPoints_Liga3_Aufstieg)
   
   # Update Shiny
   cat("\nUpdating Shiny app with results...\n")
