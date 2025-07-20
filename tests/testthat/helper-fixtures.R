@@ -58,6 +58,12 @@ create_test_adjustments <- function(num_teams = 4, type = "none") {
   } else if (type == "goals") {
     # Various goal adjustments
     return(c(2, -1, 0, 1)[1:num_teams])
+  } else if (type == "goals_against") {
+    # Goals against adjustments
+    return(c(-2, 1, 0, -1)[1:num_teams])
+  } else if (type == "goal_diff") {
+    # Goal difference adjustments
+    return(c(1, -2, 3, 0)[1:num_teams])
   }
 }
 
