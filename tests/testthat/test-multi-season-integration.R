@@ -116,51 +116,112 @@ test_that("2023→2024→2025 workflow carries over team data correctly", {
 })
 
 test_that("multi-season processing generates different Liga3 baselines", {
-  # Mock Liga3 matches for different seasons
-  mock_matches_2023 <- data.frame(
-    fixture_date = c("2023-05-01"),
-    teams_home_id = c(1001),
-    teams_away_id = c(1002),
-    goals_home = c(1),
-    goals_away = c(0),
-    fixture_status_short = c("FT"),
+  # Create RCode directory if it doesn't exist
+  if (!dir.exists("RCode")) {
+    dir.create("RCode", showWarnings = FALSE)
+  }
+  
+  # Create TeamList files that the function expects
+  team_list_2023 <- file.path("RCode", "TeamList_2023.csv")
+  team_list_2024 <- file.path("RCode", "TeamList_2024.csv")
+  
+  # Create Liga3 scenarios with different performance levels inline
+  # Low scenario for 2023
+  liga3_teams_2023 <- c(1320, 4259, 1321, 1001, 1002, 1003, 1004, 1005, 1006, 1007)
+  elo_values_2023 <- c(1100, 1050, 1000, 950, 900, 850, 800, 750, 700, 650) # low
+  
+  liga3_2023 <- list(
+    matches = data.frame(
+      fixture_date = paste0("2023", "-05-01"),
+      teams_home_id = liga3_teams_2023[1:5],
+      teams_away_id = liga3_teams_2023[6:10],
+      goals_home = c(2, 1, 0, 3, 1),
+      goals_away = c(1, 1, 2, 1, 0),
+      fixture_status_short = rep("FT", 5),
+      stringsAsFactors = FALSE
+    ),
+    final_elos = data.frame(
+      TeamID = liga3_teams_2023,
+      FinalELO = elo_values_2023,
+      stringsAsFactors = FALSE
+    ),
+    expected_baseline = mean(sort(elo_values_2023)[1:4])
+  )
+  
+  # High scenario for 2024
+  liga3_teams_2024 <- c(1320, 4259, 1321, 1001, 1002, 1003, 1004, 1005, 1006, 1007)
+  elo_values_2024 <- c(1350, 1300, 1250, 1200, 1150, 1100, 1050, 1000, 950, 900) # high
+  
+  liga3_2024 <- list(
+    matches = data.frame(
+      fixture_date = paste0("2024", "-05-01"),
+      teams_home_id = liga3_teams_2024[1:5],
+      teams_away_id = liga3_teams_2024[6:10],
+      goals_home = c(2, 1, 0, 3, 1),
+      goals_away = c(1, 1, 2, 1, 0),
+      fixture_status_short = rep("FT", 5),
+      stringsAsFactors = FALSE
+    ),
+    final_elos = data.frame(
+      TeamID = liga3_teams_2024,
+      FinalELO = elo_values_2024,
+      stringsAsFactors = FALSE
+    ),
+    expected_baseline = mean(sort(elo_values_2024)[1:4])
+  )
+  
+  # Write team list files
+  team_data_2023 <- data.frame(
+    TeamID = liga3_teams_2023,
+    ShortText = c("FCE", "AAC", "HAN", "T01", "T02", "T03", "T04", "T05", "T06", "T07"),
+    Promotion = rep(0, 10),
+    InitialELO = elo_values_2023,
     stringsAsFactors = FALSE
   )
   
-  mock_matches_2024 <- data.frame(
-    fixture_date = c("2024-05-01"),
-    teams_home_id = c(2001),
-    teams_away_id = c(2002),
-    goals_home = c(2),
-    goals_away = c(1),
-    fixture_status_short = c("FT"),
+  team_data_2024 <- data.frame(
+    TeamID = liga3_teams_2024,
+    ShortText = c("FCE", "AAC", "HAN", "T01", "T02", "T03", "T04", "T05", "T06", "T07"),
+    Promotion = rep(0, 10),
+    InitialELO = elo_values_2024,
     stringsAsFactors = FALSE
   )
   
-  # Mock final ELOs - different distributions
-  mock_final_elos_2023 <- data.frame(
-    TeamID = c(1001, 1002, 1003, 1004, 1005, 1006),
-    FinalELO = c(1200, 1150, 1100, 1050, 1000, 950),
-    stringsAsFactors = FALSE
-  )
-  
-  mock_final_elos_2024 <- data.frame(
-    TeamID = c(2001, 2002, 2003, 2004, 2005, 2006),
-    FinalELO = c(1250, 1200, 1150, 1100, 1050, 1000),  # Higher overall
-    stringsAsFactors = FALSE
-  )
+  write.table(team_data_2023, team_list_2023, sep = ";", row.names = FALSE, quote = FALSE)
+  write.table(team_data_2024, team_list_2024, sep = ";", row.names = FALSE, quote = FALSE)
   
   # Mock functions for Liga3 baseline calculation
   stub(calculate_liga3_relegation_baseline, "get_league_matches", function(league, season) {
-    if (season == "2023") return(mock_matches_2023)
-    if (season == "2024") return(mock_matches_2024)
+    if (season == "2023") return(liga3_2023$matches)
+    if (season == "2024") return(liga3_2024$matches)
     return(NULL)
   })
   
   stub(calculate_liga3_relegation_baseline, "calculate_final_elos", function(season) {
-    if (season == "2023") return(mock_final_elos_2023)
-    if (season == "2024") return(mock_final_elos_2024)
+    if (season == "2023") return(liga3_2023$final_elos)
+    if (season == "2024") return(liga3_2024$final_elos)
     return(NULL)
+  })
+  
+  # Mock the Tabelle function to return league standings
+  stub(calculate_liga3_relegation_baseline, "Tabelle", function(season_data, numberTeams, numberGames) {
+    # Return mock league table with proper rankings for 10 teams
+    # Liga3 teams in our mock: indices 1-10 map to the 10 teams in order
+    # For "low" scenario (2023): bottom 4 are teams 7,8,9,10 with ELOs 800,750,700,650
+    # For "high" scenario (2024): bottom 4 are teams 7,8,9,10 with ELOs 1050,1000,950,900
+    return(matrix(
+      c(1, 1, 20, 5, 15, 27,    # Team at index 1 - rank 1 (best)
+        2, 2, 18, 6, 12, 24,    # Team at index 2 - rank 2
+        3, 3, 16, 8, 8, 21,     # Team at index 3 - rank 3
+        4, 4, 14, 10, 4, 18,    # Team at index 4 - rank 4
+        5, 5, 12, 12, 0, 15,    # Team at index 5 - rank 5
+        6, 6, 10, 14, -4, 12,   # Team at index 6 - rank 6
+        7, 7, 8, 16, -8, 9,     # Team at index 7 - rank 7 (relegated)
+        8, 8, 6, 18, -12, 6,    # Team at index 8 - rank 8 (relegated)
+        9, 9, 4, 20, -16, 3,    # Team at index 9 - rank 9 (relegated)
+        10, 10, 2, 22, -20, 0), # Team at index 10 - rank 10 (relegated)
+      ncol = 6, byrow = TRUE
+    ))
   })
   
   # Test
@@ -170,9 +231,13 @@ test_that("multi-season processing generates different Liga3 baselines", {
   # Should be different baselines
   expect_true(baseline_2024 > baseline_2023)
   
-  # Specific values
-  expect_equal(baseline_2023, mean(c(950, 1000, 1050, 1100)))  # 1025
-  expect_equal(baseline_2024, mean(c(1000, 1050, 1100, 1150)))  # 1075
+  # Specific values from the mock scenarios
+  expect_equal(baseline_2023, liga3_2023$expected_baseline)
+  expect_equal(baseline_2024, liga3_2024$expected_baseline)
+  
+  # Cleanup
+  unlink(team_list_2023)
+  unlink(team_list_2024)
 })
 
 test_that("temporary files are properly created and used in multi-season workflow", {
@@ -288,11 +353,19 @@ test_that("ELO calculation works when TeamList file doesn't exist yet", {
 })
 
 test_that("Liga3 baseline calculation works during multi-season processing", {
+  # Create RCode directory if it doesn't exist
+  if (!dir.exists("RCode")) {
+    dir.create("RCode", showWarnings = FALSE)
+  }
+  
   # Test the specific scenario that was failing
   temp_dir <- tempdir()
   
+  # Create main TeamList file that the function expects
+  team_list_main <- file.path("RCode", "TeamList_2024.csv")
   # Create temporary Liga3 file (simulating mid-processing state)
   liga3_temp <- file.path(temp_dir, "TeamList_2024_League80_temp.csv")
+  
   liga3_data <- data.frame(
     TeamID = c(1001, 1002, 1003, 1004, 1005, 1006),
     ShortText = c("T01", "T02", "T03", "T04", "T05", "T06"),
@@ -301,17 +374,21 @@ test_that("Liga3 baseline calculation works during multi-season processing", {
     stringsAsFactors = FALSE
   )
   
+  # Write both files
+  write.table(liga3_data, team_list_main, sep = ";", row.names = FALSE, quote = FALSE)
   write.table(liga3_data, liga3_temp, sep = ";", row.names = FALSE, quote = FALSE)
   
-  # Mock Liga3 matches
-  mock_matches <- data.frame(
-    fixture_date = c("2024-05-01"),
-    teams_home_id = c(1001),
-    teams_away_id = c(1002),
-    goals_home = c(1),
-    goals_away = c(0),
-    fixture_status_short = c("FT"),
-    stringsAsFactors = FALSE
+  # Create mock Liga3 scenario inline for proper match data with all teams
+  liga3_scenario <- list(
+    matches = data.frame(
+      fixture_date = "2024-05-01",
+      teams_home_id = c(1001, 1002, 1003),
+      teams_away_id = c(1004, 1005, 1006),
+      goals_home = c(2, 1, 0),
+      goals_away = c(1, 1, 2),
+      fixture_status_short = rep("FT", 3),
+      stringsAsFactors = FALSE
+    )
   )
   
   # Mock the calculate_final_elos function to use temp files
@@ -324,7 +401,23 @@ test_that("Liga3 baseline calculation works during multi-season processing", {
     ))
   })
   
-  stub(calculate_liga3_relegation_baseline, "get_league_matches", function(...) mock_matches)
+  stub(calculate_liga3_relegation_baseline, "get_league_matches", function(...) liga3_scenario$matches)
+  
+  # Mock the Tabelle function to return league standings with bottom 4 teams
+  stub(calculate_liga3_relegation_baseline, "Tabelle", function(season, numberTeams, numberGames) {
+    # Return mock league table with team rankings
+    # Columns: team_number, rank, goals_for, goals_against, goal_diff, points
+    # Teams 3, 4, 5, 6 are in relegation positions (ranks 3-6 out of 6)
+    return(matrix(
+      c(1, 1, 10, 5, 5, 9,    # Team 1001 - rank 1
+        2, 2, 8, 6, 2, 6,     # Team 1002 - rank 2
+        3, 3, 5, 7, -2, 3,    # Team 1003 - rank 3 (relegation)
+        4, 4, 4, 8, -4, 3,    # Team 1004 - rank 4 (relegation)
+        5, 5, 3, 9, -6, 1,    # Team 1005 - rank 5 (relegation)
+        6, 6, 2, 10, -8, 0),  # Team 1006 - rank 6 (relegation)
+      ncol = 6, byrow = TRUE
+    ))
+  })
   
   # Test
   baseline <- calculate_liga3_relegation_baseline("2024")
@@ -338,6 +431,7 @@ test_that("Liga3 baseline calculation works during multi-season processing", {
   
   # Cleanup
   unlink(liga3_temp)
+  unlink(team_list_main)
 })
 
 context("Multi-Season Integration - No Duplicate Prompts")
