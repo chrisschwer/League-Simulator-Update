@@ -277,3 +277,71 @@ test_that("SpielNichtSimulieren handles edge case scores", {
   expect_true(result[1] > 1500)
   expect_true(result[2] < 1500)
 })
+
+test_that("SpielNichtSimulieren properly uses home advantage in ELO calculations", {
+  # Test scenario: Draw (1-1) with home team weaker by 100 ELO points
+  # Home ELO: 1600, Away ELO: 1700
+  # Expected behavior depends on home advantage value
+  
+  # Case 1: homeAdvantage < 100 (e.g., 50)
+  # Effective difference: -50 (home still weaker)
+  # For a draw, home team exceeded expectations, should gain ELO
+  result_50 <- SpielNichtSimulieren(
+    ELOHome = 1600,
+    ELOAway = 1700,
+    GoalsHome = 1,
+    GoalsAway = 1,
+    modFactor = 40,
+    homeAdvantage = 50
+  )
+  
+  # Home team should gain ELO (draw against stronger opponent)
+  expect_true(result_50[1] > 1600, 
+              info = "Home team should gain ELO when drawing against stronger opponent with insufficient home advantage")
+  expect_true(result_50[2] < 1700,
+              info = "Away team should lose ELO when drawing against weaker opponent despite their advantage")
+  
+  # Case 2: homeAdvantage = 100
+  # Effective difference: 0 (teams equal)
+  # For a draw, result matches expectation, minimal ELO change
+  result_100 <- SpielNichtSimulieren(
+    ELOHome = 1600,
+    ELOAway = 1700,
+    GoalsHome = 1,
+    GoalsAway = 1,
+    modFactor = 40,
+    homeAdvantage = 100
+  )
+  
+  # ELO changes should be minimal (draw between equals)
+  expect_true(abs(result_100[1] - 1600) < 1,
+              info = "Home team ELO should barely change when drawing as equals (with home advantage)")
+  expect_true(abs(result_100[2] - 1700) < 1,
+              info = "Away team ELO should barely change when drawing as equals")
+  
+  # Case 3: homeAdvantage > 100 (e.g., 150)
+  # Effective difference: +50 (home now stronger)
+  # For a draw, home team underperformed, should lose ELO
+  result_150 <- SpielNichtSimulieren(
+    ELOHome = 1600,
+    ELOAway = 1700,
+    GoalsHome = 1,
+    GoalsAway = 1,
+    modFactor = 40,
+    homeAdvantage = 150
+  )
+  
+  # Home team should lose ELO (draw when expected to win)
+  expect_true(result_150[1] < 1600,
+              info = "Home team should lose ELO when drawing as favorite (with large home advantage)")
+  expect_true(result_150[2] > 1700,
+              info = "Away team should gain ELO when drawing against favorite")
+  
+  # Verify ELO conservation (changes should sum to zero)
+  for (result in list(result_50, result_100, result_150)) {
+    elo_change_home <- result[1] - 1600
+    elo_change_away <- result[2] - 1700
+    expect_equal(elo_change_home + elo_change_away, 0, tolerance = 0.001,
+                 info = "ELO changes should always sum to zero")
+  }
+})
