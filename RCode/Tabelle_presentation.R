@@ -37,37 +37,65 @@ Tabelle_presentation <- function(season,
   goal_diff <- base_table[, 5]
   points <- base_table[, 6]
   
+  # Handle NA values (can occur when numberGames > 0 but season has NA goals)
+  goals_for[is.na(goals_for)] <- 0
+  goals_against[is.na(goals_against)] <- 0
+  goal_diff[is.na(goal_diff)] <- 0
+  points[is.na(points)] <- 0
+  
+  # Check if goal difference adjustments were applied
+  # If no explicit goal diff adjustments, recalculate GD for consistency
+  if (all(AdjGoalDiff == 0)) {
+    # Recalculate goal difference to maintain GD = GF - GA
+    goal_diff <- goals_for - goals_against
+  }
+  
   # Calculate W/D/L for each team
   wins <- rep(0, numberTeams)
   draws <- rep(0, numberTeams)
   losses <- rep(0, numberTeams)
   games_played <- rep(0, numberTeams)
   
-  if (numberGames > 0) {
+  if (numberGames > 0 && nrow(season) > 0) {
     # Process each game to count W/D/L
-    for (i in 1:numberGames) {
-      home_team <- season[i, 1]
-      away_team <- season[i, 2]
-      home_goals <- season[i, 3]
-      away_goals <- season[i, 4]
-      
-      # Update games played
-      games_played[home_team] <- games_played[home_team] + 1
-      games_played[away_team] <- games_played[away_team] + 1
-      
-      # Determine result
-      if (home_goals > away_goals) {
-        # Home win
-        wins[home_team] <- wins[home_team] + 1
-        losses[away_team] <- losses[away_team] + 1
-      } else if (home_goals < away_goals) {
-        # Away win
-        wins[away_team] <- wins[away_team] + 1
-        losses[home_team] <- losses[home_team] + 1
-      } else {
-        # Draw
-        draws[home_team] <- draws[home_team] + 1
-        draws[away_team] <- draws[away_team] + 1
+    # Count actual games played (rows with non-NA goals)
+    actual_games <- 0
+    for (i in 1:nrow(season)) {
+      if (!is.na(season[i, 3]) && !is.na(season[i, 4])) {
+        actual_games <- actual_games + 1
+      }
+    }
+    
+    if (actual_games > 0) {
+      for (i in 1:nrow(season)) {
+        # Skip rows with NA goals
+        if (is.na(season[i, 3]) || is.na(season[i, 4])) {
+          next
+        }
+        
+        home_team <- season[i, 1]
+        away_team <- season[i, 2]
+        home_goals <- season[i, 3]
+        away_goals <- season[i, 4]
+        
+        # Update games played
+        games_played[home_team] <- games_played[home_team] + 1
+        games_played[away_team] <- games_played[away_team] + 1
+        
+        # Determine result
+        if (home_goals > away_goals) {
+          # Home win
+          wins[home_team] <- wins[home_team] + 1
+          losses[away_team] <- losses[away_team] + 1
+        } else if (home_goals < away_goals) {
+          # Away win
+          wins[away_team] <- wins[away_team] + 1
+          losses[home_team] <- losses[home_team] + 1
+        } else {
+          # Draw
+          draws[home_team] <- draws[home_team] + 1
+          draws[away_team] <- draws[away_team] + 1
+        }
       }
     }
   }
