@@ -1,11 +1,13 @@
 #' Tabelle_presentation
 #' 
-#' Calculates the league table in presentation format with match statistics
+#' Calculates the league table in presentation format with match statistics.
+#' This function wraps the core Tabelle function and provides additional
+#' statistics including wins, draws, and losses for each team.
 #' 
 #' @param season matrix m x 4 of completed games, containing number for home and
 #'   away team in first two columns and respective goals in last two columns
 #' @param numberTeams number of teams in league
-#' @param numberGames number of games played, i.e. m
+#' @param numberGames number of games played, i.e. m (can be 0 for empty season)
 #' @param AdjPoints vector containing an adjustment for the points scored per
 #'   team
 #' @param AdjGoals vector containing an adjustment for the goals scored per team
@@ -14,7 +16,24 @@
 #' @param AdjGoalDiff vector containing an adjustment for the goal difference 
 #'   per team
 #' 
-#' @return A dataframe with columns: Pl, Team, GP, W, D, L, Pts, GF, GA, GD
+#' @return A dataframe with columns: Pl (position), Team (team ID), GP (games played),
+#'   W (wins), D (draws), L (losses), Pts (points), GF (goals for), 
+#'   GA (goals against), GD (goal difference)
+#'   
+#' @details
+#' This function maintains backward compatibility with the core Tabelle function
+#' while providing a more user-friendly output format. When no explicit goal
+#' difference adjustments are applied (AdjGoalDiff = 0), the function ensures
+#' that GD = GF - GA for consistency. NA values in the base table (which can
+#' occur with partial seasons) are converted to 0.
+#' 
+#' @seealso \code{\link{Tabelle}} for the core table calculation function
+#' 
+#' @examples
+#' # Create a simple season
+#' season <- matrix(c(1,2,2,1, 2,1,1,1), nrow=2, byrow=TRUE)
+#' result <- Tabelle_presentation(season, 2, 2)
+#' print(result)
 #'   
 
 Tabelle_presentation <- function(season, 
