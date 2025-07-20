@@ -1,7 +1,8 @@
 # Test Suite Repair Plan
 
 **Status**: 🚧 In Progress  
-**Total Tests to Fix**: 38 failing tests across 13 files  
+**Current State**: 16 failures, 6 warnings, 1 skip, 143 passed  
+**Last Updated**: 2025-07-20  
 **Strategy**: Fix each test systematically, verify it passes, then move to next  
 
 ## Overview
@@ -10,79 +11,63 @@ This document tracks the systematic repair of all failing tests in the League Si
 
 ## Test Failure Summary
 
-| Category | Count | Priority |
-|----------|-------|----------|
-| Missing Function Imports | 15 | High |
-| C++ Compilation Issues | 10 | High |
-| Regex Pattern Deficiencies | 5 | High |
-| Error Handling | 5 | Medium |
-| Mock Data Quality | 3 | Medium |
-| Locale-Dependent | 3 | Low |
-| Performance Baselines | 2 | Low |
+| Category | Current Count | Status | Priority |
+|----------|--------------|--------|----------|
+| Missing Function Imports | 0 | ✅ Fixed | High |
+| C++ Compilation Issues | 0 | ✅ Fixed | High |
+| CSV Generation Issues | 0 | ✅ Fixed | High |
+| Input Handler (pkgload) | 9 | ❌ Active | High |
+| Table Calculation Logic | 3 | ❌ Active | Medium |
+| Locale-Dependent | 2 | ❌ Active | Low |
+| ELO Baseline Mismatch | 2 | ❌ Active | Medium |
 
 ## Phase Progress Tracker
 
-- [ ] Phase 1: Infrastructure Setup
-- [ ] Phase 2: Second Team Detection Fix  
-- [ ] Phase 3: CSV Generation Fixes
+- [x] Phase 1: Infrastructure Setup ✅
+- [x] Phase 2: Second Team Detection Fix ✅
+- [x] Phase 3: CSV Generation Fixes ✅
 - [ ] Phase 4: Interactive Prompt Fixes
 - [ ] Phase 5: API and Error Handling
 - [ ] Phase 6: Integration Test Fixes
-- [ ] Phase 7: Missing Functions
+- [ ] Phase 7: Missing Functions (Input Handler)
 - [ ] Phase 8: Table and Performance
 - [ ] Phase 9: Final Validation
 
 ## Phase 1: Infrastructure Setup
 
 ### 1.1 Create Test Helper Infrastructure
-**Status**: 🚧 In Progress  
+**Status**: ✅ Complete  
 **File**: `tests/testthat/helper-test-setup.R`
 
-This helper will:
-- Load all required packages
-- Source all R modules from RCode directory
-- Compile C++ files
-- Set consistent locale for tests
+This helper successfully:
+- Loads all required packages
+- Sources all R modules from RCode directory
+- Compiles C++ files
+- Sets consistent locale for tests
 
-**Test Command**: 
-```bash
-Rscript -e "testthat::test_file('tests/testthat/test-cli-arguments.R')"
-```
+**Result**: All cli-arguments tests passing (25/25)
 
 ### 1.2 Fix C++ Compilation
-**Status**: ⏳ Pending  
+**Status**: ✅ Complete  
 **Files**: `src/simulationCPP.cpp`, `src/SpielCPP.cpp`, `src/SpielNichtSimulieren.cpp`
 
-**Test Command**:
-```bash
-Rscript -e "testthat::test_file('tests/testthat/test-SaisonSimulierenCPP.R')"
-```
+**Result**: C++ compilation working correctly
 
 ## Phase 2: Second Team Detection Fix
 
 ### 2.1 Fix Second Team Regex Patterns
-**Status**: ⏳ Pending  
+**Status**: ✅ Complete  
 **File**: `RCode/api_service.R`
 
-The current regex pattern `\b2\b` incorrectly matches "2. Bundesliga". Need to:
-- Exclude league names first
-- Add hyphenated U-21/U-23 patterns
-- Add "Reserves" (plural) pattern
-
-**Test Command**:
-```bash
-Rscript -e "testthat::test_file('tests/testthat/test-second-team-conversion.R')"
-```
-
-**Expected**: All 5 tests pass
+**Result**: Second team detection working correctly
 
 ## Phase 3: CSV Generation Fixes
 
 ### 3.1 Implement Missing CSV Functions
-**Status**: ⏳ Pending  
+**Status**: ✅ Complete  
 **File**: `RCode/csv_generation.R`
 
-Functions to implement:
+All CSV functions implemented and working:
 - `validate_csv_data()`
 - `backup_existing_file()`
 - `write_team_list_safely()`
@@ -90,16 +75,9 @@ Functions to implement:
 - `merge_league_files()`
 
 ### 3.2 Fix Error Handling
-**Status**: ⏳ Pending
+**Status**: ✅ Complete
 
-Add early validation in `generate_team_list_csv()` to check for NULL/empty data.
-
-**Test Command**:
-```bash
-Rscript -e "testthat::test_file('tests/testthat/test-csv-generation-fixes.R')"
-```
-
-**Expected**: All 5 tests pass
+**Result**: All CSV generation tests passing (22/22 across all CSV test files)
 
 ## Phase 4: Interactive Prompt Fixes
 
@@ -217,10 +195,52 @@ Each phase will be committed separately:
 8. `fix(tests): Phase 8 - Table calculations and performance`
 9. `fix(tests): Phase 9 - Final cleanup and validation`
 
+## Current Failing Tests (2025-07-20)
+
+### Input Handler Tests (9 failures)
+**Files**: `test-input-handler.R`  
+**Issue**: All failures due to `dev_package()` error: "No packages loaded with pkgload"  
+**Root Cause**: Tests using `testthat::local_mocked_bindings()` without proper package context  
+**Solution**: Either load package with pkgload or use alternative mocking approach
+
+### ConfigMap Integration Tests (2 failures, 1 warning)
+**File**: `test-configmap-integration.R`  
+**Issues**:
+1. Locale-dependent error message (German vs English)
+2. Promotion field validation failure
+
+### E2E Simulation Workflow (3 failures)
+**File**: `test-e2e-simulation-workflow.R`  
+**Issues**:
+1. Table calculation: `Played` field mismatch
+2. Win/Draw/Loss sum doesn't equal matches played
+3. ELO change symmetry broken
+
+### ELO Aggregation (2 failures)
+**File**: `test-elo-aggregation.R`  
+**Issues**:
+1. Liga3 baseline calculation off by 21 points (1046 vs 1025)
+2. Mixed file scenario fails to find team data
+
 ## Final Report
 
-Upon completion, this section will contain:
-- Summary of all fixes
-- Performance improvements achieved
-- Recommendations for future test maintenance
-- Any remaining issues or concerns
+### Current Status (2025-07-20)
+- **Total Tests**: 159
+- **Passing**: 143 (89.9%)
+- **Failing**: 16 (10.1%)
+- **Major Improvements**: 
+  - All CSV generation tests fixed ✅
+  - All C++ compilation issues resolved ✅
+  - CLI arguments tests fully passing ✅
+  - ConfigMap generation tests passing ✅
+
+### Recommendations for Next Steps
+1. **Priority 1**: Fix input handler tests by addressing pkgload issue
+2. **Priority 2**: Fix table calculation logic in simulation workflow
+3. **Priority 3**: Address locale-dependent test failures
+4. **Priority 4**: Investigate ELO baseline calculation discrepancy
+
+### Issues 43, 44, 45 Assessment
+- **Issue 43 (Season Transition Baseline)**: Partially improved - was 14 failures, now 2 failures remain in ELO aggregation
+- **Issue 44 (Multi-Season Integration)**: Likely improved - dependencies (CSV, C++ compilation) are now fixed
+- **Issue 45 (E2E Workflow)**: Still failing - same 3 failures in standings calculation and ELO symmetry
