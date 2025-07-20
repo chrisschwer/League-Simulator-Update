@@ -99,6 +99,12 @@ generate_elo_based_results <- function(teams, fixtures, seed = 123) {
 #' @return Data frame with all fixtures (double round-robin)
 generate_season_fixtures <- function(team_names) {
   n_teams <- length(team_names)
+  
+  # Only works for even number of teams
+  if (n_teams %% 2 != 0) {
+    stop("This function requires an even number of teams")
+  }
+  
   fixtures <- data.frame(
     home = character(),
     away = character(),
@@ -106,33 +112,58 @@ generate_season_fixtures <- function(team_names) {
     stringsAsFactors = FALSE
   )
   
-  # Generate double round-robin (each team plays each other twice)
-  match_id <- 1
   start_date <- as.Date("2024-08-01")
   
-  # First half of season
-  for (i in 1:(n_teams - 1)) {
-    for (j in (i + 1):n_teams) {
+  # Define the 18-team round-robin schedule (rounds 1-17)
+  # Each row is a round, each pair is a match (home - away)
+  schedule <- list(
+    list(c(1,2), c(3,4), c(5,6), c(7,8), c(9,10), c(11,12), c(13,14), c(15,16), c(17,18)),
+    list(c(7,14), c(9,16), c(18,11), c(2,13), c(15,4), c(17,6), c(1,8), c(3,10), c(12,5)),
+    list(c(8,13), c(15,10), c(17,12), c(14,1), c(16,3), c(18,5), c(2,7), c(4,9), c(6,11)),
+    list(c(15,18), c(17,2), c(1,4), c(3,6), c(5,8), c(7,10), c(12,9), c(14,11), c(16,13)),
+    list(c(10,17), c(12,1), c(14,3), c(5,16), c(18,7), c(9,2), c(4,11), c(13,6), c(15,8)),
+    list(c(6,9), c(11,8), c(10,13), c(15,12), c(17,14), c(16,1), c(18,3), c(5,2), c(7,4)),
+    list(c(17,15), c(4,5), c(12,18), c(10,2), c(7,11), c(3,9), c(13,1), c(16,8), c(14,6)),
+    list(c(3,7), c(6,12), c(2,14), c(16,4), c(13,15), c(10,11), c(8,18), c(9,1), c(5,17)),
+    list(c(4,14), c(13,11), c(9,5), c(6,18), c(1,17), c(12,8), c(16,10), c(7,15), c(2,3)),
+    list(c(13,3), c(5,7), c(16,17), c(12,10), c(8,6), c(2,4), c(9,15), c(18,14), c(11,1)),
+    list(c(5,1), c(2,18), c(8,10), c(9,7), c(12,13), c(14,16), c(11,17), c(6,4), c(3,15)),
+    list(c(9,11), c(1,15), c(6,7), c(8,14), c(3,5), c(13,17), c(10,4), c(2,12), c(18,16)),
+    list(c(14,10), c(7,17), c(13,9), c(11,3), c(4,12), c(5,15), c(6,16), c(1,18), c(8,2)),
+    list(c(18,4), c(8,9), c(11,15), c(13,5), c(2,16), c(1,7), c(14,12), c(17,3), c(10,6)),
+    list(c(2,6), c(16,12), c(4,8), c(1,3), c(10,18), c(15,14), c(7,13), c(11,5), c(17,9)),
+    list(c(3,12), c(5,14), c(7,16), c(18,9), c(11,2), c(4,13), c(15,6), c(8,17), c(1,10)),
+    list(c(11,16), c(18,13), c(15,2), c(4,17), c(6,1), c(8,3), c(5,10), c(12,7), c(9,14))
+  )
+  
+  # Generate fixtures for rounds 1-17
+  for (round_num in 1:17) {
+    round_matches <- schedule[[round_num]]
+    for (match in round_matches) {
       fixtures <- rbind(fixtures, data.frame(
-        home = team_names[i],
-        away = team_names[j],
-        date = start_date + (match_id %/% 9) * 7,  # 9 games per matchday
+        home = team_names[match[1]],
+        away = team_names[match[2]],
+        date = start_date + (round_num - 1) * 7,
         stringsAsFactors = FALSE
       ))
-      match_id <- match_id + 1
     }
   }
   
-  # Second half of season (reverse fixtures)
-  for (i in 1:(n_teams - 1)) {
-    for (j in (i + 1):n_teams) {
+  # Generate reverse fixtures for rounds 18-34
+  first_round_fixtures <- fixtures
+  for (round_num in 18:34) {
+    # Get corresponding matches from first round
+    original_round <- round_num - 17
+    start_idx <- (original_round - 1) * 9 + 1
+    end_idx <- original_round * 9
+    
+    for (i in start_idx:end_idx) {
       fixtures <- rbind(fixtures, data.frame(
-        home = team_names[j],
-        away = team_names[i],
-        date = start_date + (match_id %/% 9) * 7,
+        home = first_round_fixtures$away[i],
+        away = first_round_fixtures$home[i],
+        date = start_date + (round_num - 1) * 7,
         stringsAsFactors = FALSE
       ))
-      match_id <- match_id + 1
     }
   }
   
