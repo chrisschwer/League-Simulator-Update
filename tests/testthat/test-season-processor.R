@@ -3,17 +3,7 @@
 library(testthat)
 library(mockery)
 
-# Skip sourcing if already loaded or use conditional sourcing
-if (!exists("process_league_teams")) {
-  # Try to source from test environment
-  tryCatch({
-    source("../../RCode/season_processor.R")
-    source("../../RCode/team_data_carryover.R")
-  }, error = function(e) {
-    # Skip if files not found - functions might be loaded differently
-    warning("Could not source files, assuming functions are already loaded")
-  })
-}
+# Source required files - handled by helper-test-setup.R
 
 context("Season Processor - Team Data Carryover")
 

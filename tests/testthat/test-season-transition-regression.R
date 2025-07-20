@@ -4,15 +4,7 @@
 library(testthat)
 library(mockery)
 
-# Source required files
-tryCatch({
-  source("../../RCode/season_processor.R")
-  source("../../RCode/elo_aggregation.R")
-  source("../../RCode/interactive_prompts.R")
-  source("../../RCode/csv_generation.R")
-}, error = function(e) {
-  warning("Could not source files, assuming functions are already loaded")
-})
+# Source required files - handled by helper-test-setup.R
 
 context("Regression Tests - Magical 1046 Issue")
 

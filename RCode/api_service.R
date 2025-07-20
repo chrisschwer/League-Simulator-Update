@@ -112,15 +112,24 @@ detect_second_teams <- function(team_name) {
     return(FALSE)
   }
   
+  # First, exclude league names to avoid false positives
+  if (grepl("\\d+\\.\\s*(Bundesliga|Liga)", team_name, ignore.case = TRUE)) {
+    return(FALSE)
+  }
+  
   # Common patterns for second teams
   second_team_patterns <- c(
-    " II$",      # Team II
-    " 2$",       # Team 2
-    " U21$",     # U21 teams
-    " B$",       # Team B
-    " Reserve$", # Reserve teams
-    "\\bII\\b",  # II anywhere in name
-    "\\b2\\b"    # 2 anywhere in name (be careful with this)
+    " II$",         # Team II
+    " 2$",          # Team 2
+    " U21$",        # U21 teams
+    " U-21$",       # U-21 teams
+    " U23$",        # U23 teams  
+    " U-23$",       # U-23 teams
+    " B$",          # Team B
+    " Reserve$",    # Reserve team
+    " Reserves$",   # Reserves team
+    "\\bII\\b",     # II anywhere in name
+    "\\b2\\b"       # 2 anywhere in name (after league check)
   )
   
   for (pattern in second_team_patterns) {

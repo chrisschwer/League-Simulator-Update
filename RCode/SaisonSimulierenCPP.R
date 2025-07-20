@@ -20,6 +20,11 @@ SaisonSimulierenCPP <- function (Spielplan, ELOWerte,
   
   
 {
+  # Handle empty season case
+  if (AnzahlSpiele == 0) {
+    return (list(Spielplan, ELOWerte))
+  }
+  
   for (i in 1:AnzahlSpiele) 
   {
     # Heim und Gastmannschaft ermitteln

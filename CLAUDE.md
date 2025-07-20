@@ -223,6 +223,11 @@ SHINYAPPS_IO_SECRET=your_secret
 
 ## Known Issues & Solutions
 
+### Test Suite Failures (In Progress)
+**Status**: 🚧 38 tests failing - systematic repair in progress  
+**Tracking**: See [Test Fix Plan](docs/TEST_FIX_PLAN.md) for detailed progress  
+**Temporary Note**: This will be removed once all tests pass
+
 ### Interactive Prompts in Season Transition (Fixed in PR #22)
 **Issue**: Season transition script gets stuck in infinite loop when running via `Rscript`
 **Root Cause**: `readline()` returns empty strings in non-interactive mode
