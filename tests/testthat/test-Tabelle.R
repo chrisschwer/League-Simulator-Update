@@ -1,5 +1,6 @@
 library(testthat)
 source("../../RCode/Tabelle.R")
+source("../../RCode/Tabelle_presentation.R")
 
 test_that("Tabelle calculates points correctly", {
   # Create a completed season
@@ -8,7 +9,7 @@ test_that("Tabelle calculates points correctly", {
   # No adjustments
   adj_none <- create_test_adjustments(4, "none")
   
-  result <- Tabelle(
+  result <- Tabelle_presentation(
     season = season,
     numberTeams = 4,
     numberGames = 12,
@@ -67,7 +68,7 @@ test_that("Tabelle sorts teams correctly", {
   
   adj_none <- create_test_adjustments(4, "none")
   
-  result <- Tabelle(
+  result <- Tabelle_presentation(
     season = season,
     numberTeams = 4,
     numberGames = 6,
@@ -93,7 +94,7 @@ test_that("Tabelle handles point adjustments", {
   adj_points <- create_test_adjustments(4, "points")  # Team 1: -6, Team 3: +3
   adj_none <- create_test_adjustments(4, "none")
   
-  result <- Tabelle(
+  result <- Tabelle_presentation(
     season = season,
     numberTeams = 4,
     numberGames = 12,
@@ -104,7 +105,7 @@ test_that("Tabelle handles point adjustments", {
   )
   
   # Calculate expected points manually for verification
-  result_no_adj <- Tabelle(
+  result_no_adj <- Tabelle_presentation(
     season = season,
     numberTeams = 4,
     numberGames = 12,
@@ -140,7 +141,7 @@ test_that("Tabelle handles goal adjustments", {
   adj_goals <- create_test_adjustments(4, "goals")  # Various goal adjustments
   adj_none <- create_test_adjustments(4, "none")
   
-  result <- Tabelle(
+  result <- Tabelle_presentation(
     season = season,
     numberTeams = 4,
     numberGames = 12,
@@ -151,7 +152,7 @@ test_that("Tabelle handles goal adjustments", {
   )
   
   # Get unadjusted result for comparison
-  result_no_adj <- Tabelle(
+  result_no_adj <- Tabelle_presentation(
     season = season,
     numberTeams = 4,
     numberGames = 12,
@@ -180,7 +181,7 @@ test_that("Tabelle handles empty season", {
   season <- create_test_season(0)
   adj_none <- create_test_adjustments(4, "none")
   
-  result <- Tabelle(
+  result <- Tabelle_presentation(
     season = season,
     numberTeams = 4,
     numberGames = 12,
@@ -214,7 +215,7 @@ test_that("Tabelle handles tie-breaking correctly", {
   
   adj_none <- create_test_adjustments(4, "none")
   
-  result <- Tabelle(
+  result <- Tabelle_presentation(
     season = season,
     numberTeams = 4,
     numberGames = 6,
@@ -242,7 +243,7 @@ test_that("Tabelle handles partial season correctly", {
   season <- create_test_season(6)
   adj_none <- create_test_adjustments(4, "none")
   
-  result <- Tabelle(
+  result <- Tabelle_presentation(
     season = season,
     numberTeams = 4,
     numberGames = 12,
@@ -273,7 +274,7 @@ test_that("Tabelle handles all teams with same points", {
   
   adj_none <- create_test_adjustments(4, "none")
   
-  result <- Tabelle(
+  result <- Tabelle_presentation(
     season = season,
     numberTeams = 4,
     numberGames = 6,
@@ -299,7 +300,7 @@ test_that("Tabelle handles combined adjustments", {
   adj_goals_against <- c(0, 2, -1, 0)
   adj_goal_diff <- c(1, 0, -2, 3)
   
-  result <- Tabelle(
+  result <- Tabelle_presentation(
     season = season,
     numberTeams = 4,
     numberGames = 12,
@@ -310,7 +311,7 @@ test_that("Tabelle handles combined adjustments", {
   )
   
   # Get base result for comparison
-  result_no_adj <- Tabelle(
+  result_no_adj <- Tabelle_presentation(
     season = season,
     numberTeams = 4,
     numberGames = 12,
