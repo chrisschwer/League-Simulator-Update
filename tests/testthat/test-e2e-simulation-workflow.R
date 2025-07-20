@@ -88,6 +88,7 @@ test_that("Full season simulation workflow produces valid probability matrix", {
 test_that("Mid-season update workflow handles partial data correctly", {
   # Setup
   teams <- read.csv("fixtures/test-data/TeamList_2024_test.csv", stringsAsFactors = FALSE)
+  teams <- teams[1:18, ]  # Use only first 18 teams for even scheduling
   
   # Simulate matchday 15 scenario
   matchday <- 15
@@ -172,7 +173,7 @@ test_that("Simulation handles edge cases gracefully", {
                      single_result$initial_elos[teams$Team[1]]
   elo_change_away <- single_result$final_elos[teams$Team[2]] - 
                      single_result$initial_elos[teams$Team[2]]
-  expect_equal(elo_change_home, -elo_change_away, tolerance = 0.001)
+  expect_equal(unname(elo_change_home), unname(-elo_change_away), tolerance = 0.001)
 })
 
 test_that("Results can be saved and loaded for Shiny app", {
