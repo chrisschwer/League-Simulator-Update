@@ -1,8 +1,24 @@
 # Team Data Carryover Module
 # Handles loading and matching team data from previous seasons
 
+# Helper function for robust sourcing
+source_with_fallback <- function(path) {
+  if (requireNamespace("here", quietly = TRUE)) {
+    source(here::here(path))
+  } else {
+    # Fallback: try from project root or current directory
+    if (file.exists(path)) {
+      source(path)
+    } else if (file.exists(file.path("..", "..", path))) {
+      source(file.path("..", "..", path))
+    } else {
+      stop(paste("Cannot find", path))
+    }
+  }
+}
+
 # Source required modules
-source("RCode/file_operations.R")
+source_with_fallback("RCode/file_operations.R")
 
 load_previous_team_list <- function(season) {
   # Load TeamList for specified season

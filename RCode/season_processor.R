@@ -1,8 +1,24 @@
 # Season Processing Pipeline
 # Main processing logic for season transitions
 
+# Helper function for robust sourcing
+source_with_fallback <- function(path) {
+  if (requireNamespace("here", quietly = TRUE)) {
+    source(here::here(path))
+  } else {
+    # Fallback: try from project root or current directory
+    if (file.exists(path)) {
+      source(path)
+    } else if (file.exists(file.path("..", "..", path))) {
+      source(file.path("..", "..", path))
+    } else {
+      stop(paste("Cannot find", path))
+    }
+  }
+}
+
 # Source team data carryover module
-source("RCode/team_data_carryover.R")
+source_with_fallback("RCode/team_data_carryover.R")
 
 process_season_transition <- function(source_season, target_season) {
   # Main processing pipeline
