@@ -285,7 +285,7 @@ test_that("Liga3 baseline calculation works with temporary files", {
   temp_dir <- tempdir()
   temp_file <- file.path(temp_dir, "TeamList_2024_League80_temp.csv")
   
-  # Liga3 teams with varying ELOs
+  # Liga3 teams with varying ELOs - need enough for standings
   liga3_teams <- data.frame(
     TeamID = c(1001, 1002, 1003, 1004, 1005, 1006),
     ShortText = c("COT", "AAC", "HAV", "HO2", "ST2", "MSV"),
@@ -296,34 +296,65 @@ test_that("Liga3 baseline calculation works with temporary files", {
   
   write.table(liga3_teams, temp_file, sep = ";", row.names = FALSE, quote = FALSE)
   
-  # Mock Liga3 matches
+  # Mock Liga3 matches - comprehensive schedule to establish standings
   liga3_matches <- data.frame(
-    fixture_date = c("2024-05-01"),
-    teams_home_id = c(1001),
-    teams_away_id = c(1002),
-    goals_home = c(1),
-    goals_away = c(0),
-    fixture_status_short = c("FT"),
+    fixture_date = c("2024-04-01", "2024-04-08", "2024-04-15", 
+                     "2024-04-22", "2024-04-29", "2024-05-06",
+                     "2024-05-13", "2024-05-20", "2024-05-27"),
+    teams_home_id = c(1001, 1002, 1003, 1004, 1005, 1006,
+                      1001, 1002, 1003),
+    teams_away_id = c(1002, 1003, 1004, 1005, 1006, 1001,
+                      1003, 1004, 1005),
+    goals_home = c(3, 2, 1, 0, 0, 1,    # First round results
+                   4, 3, 0),             # Second round partial
+    goals_away = c(0, 1, 1, 2, 3, 0,
+                   0, 1, 2),
+    fixture_status_short = rep("FT", 9),
     stringsAsFactors = FALSE
   )
   
   # Mock functions for calculate_final_elos to use temp files
   stub(calculate_liga3_relegation_baseline, "calculate_final_elos", function(season) {
-    # Simulate reading from temp files
+    # Return final ELOs after season - teams that lost more have lower ELOs
     return(data.frame(
-      TeamID = liga3_teams$TeamID,
-      FinalELO = liga3_teams$InitialELO,  # Simplified - no match processing
+      TeamID = c(1001, 1002, 1003, 1004, 1005, 1006),
+      FinalELO = c(1280, 1200, 1080, 1000, 920, 970),  # Based on performance
       stringsAsFactors = FALSE
     ))
   })
   
   stub(calculate_liga3_relegation_baseline, "get_league_matches", function(...) liga3_matches)
   
+  # Mock Tabelle to return standings based on match results
+  stub(calculate_liga3_relegation_baseline, "Tabelle", function(season, numberTeams, numberGames) {
+    # Based on match results, teams finish in this order
+    return(matrix(c(
+      1, 1, 12, 1, 11, 15,  # Team 1001 - 1st place (won most)
+      2, 2, 8, 4, 4, 9,     # Team 1002 - 2nd place
+      3, 3, 5, 7, -2, 6,    # Team 1003 - 3rd place (relegated)
+      4, 4, 4, 8, -4, 3,    # Team 1006 - 4th place (relegated)
+      5, 5, 3, 9, -6, 3,    # Team 1004 - 5th place (relegated)
+      6, 6, 2, 11, -9, 0    # Team 1005 - 6th place (relegated)
+    ), ncol = 6, byrow = TRUE))
+  })
+  
+  # Mock file operations
+  stub(calculate_liga3_relegation_baseline, "file.exists", function(path) {
+    if (grepl("temp\\.csv$", path)) return(TRUE)  # Temp file exists
+    return(FALSE)  # No other files
+  })
+  
+  stub(calculate_liga3_relegation_baseline, "list.files", function(path, pattern, ...) {
+    if (grepl("temp", pattern)) return(temp_file)
+    return(character(0))
+  })
+  
   # Test
   baseline <- calculate_liga3_relegation_baseline("2024")
   
-  # Should calculate from bottom 4 ELOs: 950, 1000, 1050, 1100
-  expected_baseline <- mean(c(950, 1000, 1050, 1100))
+  # Should calculate from relegated teams (positions 3-6): 1003, 1006, 1004, 1005
+  # Their final ELOs are: 1080, 970, 1000, 920
+  expected_baseline <- mean(c(1080, 970, 1000, 920))  # 992.5
   expect_equal(baseline, expected_baseline)
   
   # Cleanup

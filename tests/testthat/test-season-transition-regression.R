@@ -10,41 +10,92 @@ context("Regression Tests - Magical 1046 Issue")
 
 test_that("Liga3 baseline is NOT 1046 for all season transitions", {
   # Test Issue: Liga3 baseline was hardcoded to 1046 for ALL seasons
-  # Fix: Dynamic calculation based on bottom 4 Liga3 teams from each season
+  # Fix: Dynamic calculation based on teams finishing in relegation positions (17-20)
   
-  # Mock different Liga3 scenarios for different seasons
+  # Mock realistic Liga3 with 8 teams and full match schedule
+  # 2023 season: Teams play each other, creating clear standings
   mock_matches_scenario_1 <- data.frame(
-    fixture_date = c("2023-05-01"),
-    teams_home_id = c(1001),
-    teams_away_id = c(1002),
-    goals_home = c(1),
-    goals_away = c(0),
-    fixture_status_short = c("FT"),
+    fixture_date = c("2023-03-01", "2023-03-08", "2023-03-15", "2023-03-22", 
+                     "2023-03-29", "2023-04-05", "2023-04-12", "2023-04-19",
+                     "2023-04-26", "2023-05-03", "2023-05-10", "2023-05-17",
+                     "2023-05-20", "2023-05-24", "2023-05-27", "2023-05-28"),
+    teams_home_id = c(1001, 1003, 1005, 1007, 1002, 1004, 1006, 1008,
+                      1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008),
+    teams_away_id = c(1002, 1004, 1006, 1008, 1003, 1005, 1007, 1001,
+                      1004, 1005, 1006, 1007, 1008, 1001, 1002, 1003),
+    # Results designed so teams 1005, 1006, 1007, 1008 finish bottom 4
+    goals_home = c(3, 2, 0, 0, 2, 3, 0, 0,  # Strong teams win at home
+                   4, 3, 2, 1, 0, 0, 1, 0),
+    goals_away = c(0, 1, 2, 3, 1, 0, 2, 3,  # Weak teams lose away
+                   0, 0, 1, 2, 3, 4, 2, 1),
+    fixture_status_short = rep("FT", 16),
     stringsAsFactors = FALSE
   )
   
+  # 2024 season: Different team distribution
   mock_matches_scenario_2 <- data.frame(
-    fixture_date = c("2024-05-01"),
-    teams_home_id = c(2001),
-    teams_away_id = c(2002),
-    goals_home = c(2),
-    goals_away = c(1),
-    fixture_status_short = c("FT"),
+    fixture_date = c("2024-03-01", "2024-03-08", "2024-03-15", "2024-03-22", 
+                     "2024-03-29", "2024-04-05", "2024-04-12", "2024-04-19",
+                     "2024-04-26", "2024-05-03", "2024-05-10", "2024-05-17",
+                     "2024-05-20", "2024-05-24", "2024-05-27", "2024-05-28"),
+    teams_home_id = c(2001, 2003, 2005, 2007, 2002, 2004, 2006, 2008,
+                      2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008),
+    teams_away_id = c(2002, 2004, 2006, 2008, 2003, 2005, 2007, 2001,
+                      2004, 2005, 2006, 2007, 2008, 2001, 2002, 2003),
+    # Different results pattern - teams 2002, 2004, 2006, 2008 finish bottom
+    goals_home = c(2, 4, 3, 0, 0, 1, 0, 1,
+                   3, 1, 5, 0, 2, 0, 0, 2),
+    goals_away = c(1, 0, 1, 2, 3, 1, 4, 0,
+                   1, 2, 0, 3, 0, 2, 1, 0),
+    fixture_status_short = rep("FT", 16),
     stringsAsFactors = FALSE
   )
   
-  # Different ELO distributions (key fix point)
+  # Different ELO distributions - note these are FINAL ELOs after season
+  # Teams that performed poorly have lower ELOs, but not necessarily lowest overall
   mock_final_elos_2023 <- data.frame(
     TeamID = c(1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008),
-    FinalELO = c(1250, 1200, 1150, 1100, 1050, 1000, 950, 900),  # Bottom 4: 900, 950, 1000, 1050
+    FinalELO = c(1250, 1200, 1150, 1100, 1050, 1000, 950, 900),
     stringsAsFactors = FALSE
   )
   
   mock_final_elos_2024 <- data.frame(
     TeamID = c(2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008),
-    FinalELO = c(1350, 1300, 1250, 1200, 1150, 1100, 1050, 1000),  # Bottom 4: 1000, 1050, 1100, 1150
+    FinalELO = c(1350, 1050, 1300, 1100, 1250, 1150, 1200, 1000),
     stringsAsFactors = FALSE
   )
+  
+  # Mock Tabelle function to return proper league standings
+  stub(calculate_liga3_relegation_baseline, "Tabelle", function(season, numberTeams, numberGames) {
+    if (numberTeams == 8) {
+      if (any(season[1,3] == 3)) {  # 2023 season (first match has 3 home goals)
+        # Return table where teams 5-8 (1005-1008) are in positions 5-8
+        return(matrix(c(
+          1, 1, 25, 8, 17, 21,   # Team 1001 - 1st place
+          2, 2, 22, 10, 12, 18,  # Team 1002 - 2nd place
+          3, 3, 20, 12, 8, 15,   # Team 1003 - 3rd place
+          4, 4, 18, 14, 4, 12,   # Team 1004 - 4th place
+          5, 5, 10, 18, -8, 6,   # Team 1005 - 5th place (relegated)
+          6, 6, 8, 20, -12, 4,   # Team 1006 - 6th place (relegated)
+          7, 7, 6, 22, -16, 3,   # Team 1007 - 7th place (relegated)
+          8, 8, 4, 25, -21, 1    # Team 1008 - 8th place (relegated)
+        ), ncol = 6, byrow = TRUE))
+      } else {  # 2024 season
+        # Different standings - teams 2, 4, 6, 8 are relegated
+        return(matrix(c(
+          1, 1, 28, 6, 22, 24,   # Team 2001 - 1st place
+          2, 5, 8, 20, -12, 6,   # Team 2002 - 5th place (relegated)
+          3, 2, 24, 8, 16, 21,   # Team 2003 - 2nd place
+          4, 6, 6, 22, -16, 4,   # Team 2004 - 6th place (relegated)
+          5, 3, 20, 10, 10, 18,  # Team 2005 - 3rd place
+          6, 7, 5, 24, -19, 3,   # Team 2006 - 7th place (relegated)
+          7, 4, 16, 12, 4, 15,   # Team 2007 - 4th place
+          8, 8, 3, 28, -25, 1    # Team 2008 - 8th place (relegated)
+        ), ncol = 6, byrow = TRUE))
+      }
+    }
+    return(NULL)
+  })
   
   # Mock functions
   stub(calculate_liga3_relegation_baseline, "get_league_matches", function(league, season) {
@@ -59,6 +110,15 @@ test_that("Liga3 baseline is NOT 1046 for all season transitions", {
     return(NULL)
   })
   
+  # Mock file operations for team list files
+  stub(calculate_liga3_relegation_baseline, "file.exists", function(path) {
+    return(FALSE)  # No team list files exist in test
+  })
+  
+  stub(calculate_liga3_relegation_baseline, "list.files", function(path, pattern, ...) {
+    return(character(0))  # No temp files either
+  })
+  
   # Test
   baseline_2023 <- calculate_liga3_relegation_baseline("2023")
   baseline_2024 <- calculate_liga3_relegation_baseline("2024")
@@ -69,9 +129,11 @@ test_that("Liga3 baseline is NOT 1046 for all season transitions", {
   # Should be different values
   expect_true(baseline_2024 > baseline_2023)
   
-  # Specific expected values
-  expected_2023 <- mean(c(900, 950, 1000, 1050))   # 975
-  expected_2024 <- mean(c(1000, 1050, 1100, 1150)) # 1075
+  # Expected values based on relegated teams (positions 5-8 in 8-team league)
+  # 2023: Teams 1005-1008 relegated, mean of their ELOs
+  expected_2023 <- mean(c(1050, 1000, 950, 900))   # 975
+  # 2024: Teams 2002, 2004, 2006, 2008 relegated
+  expected_2024 <- mean(c(1050, 1100, 1150, 1000)) # 1075
   
   expect_equal(baseline_2023, expected_2023)
   expect_equal(baseline_2024, expected_2024)
@@ -486,7 +548,7 @@ test_that("circular dependency resolution works end-to-end", {
     file.path(temp_dir, "TeamList_2024_League80_temp.csv")
   )
   
-  # Create temp files
+  # Create temp files - Liga3 needs enough teams for proper baseline calculation
   temp_data1 <- data.frame(
     TeamID = c(168),
     ShortText = c("B04"),
@@ -495,11 +557,12 @@ test_that("circular dependency resolution works end-to-end", {
     stringsAsFactors = FALSE
   )
   
+  # Liga3 temp data - 6 teams to allow proper standings calculation
   temp_data2 <- data.frame(
-    TeamID = c(1320),
-    ShortText = c("FCE"),
-    Promotion = c(0),
-    InitialELO = c(1100),
+    TeamID = c(1320, 1001, 1002, 1003, 1004, 1005),
+    ShortText = c("FCE", "T01", "T02", "T03", "T04", "T05"),
+    Promotion = c(0, 0, 0, 0, 0, 0),
+    InitialELO = c(1100, 1050, 1000, 950, 900, 850),
     stringsAsFactors = FALSE
   )
   
@@ -527,27 +590,55 @@ test_that("circular dependency resolution works end-to-end", {
   
   # Test Liga3 baseline calculation with temp files
   stub(calculate_liga3_relegation_baseline, "calculate_final_elos", function(season) {
-    # Return mock data as if from temp files
+    # Return mock data as if from temp files - 6 teams with varying ELOs
     return(data.frame(
-      TeamID = c(168, 1320, 1001, 1002, 1003, 1004),
-      FinalELO = c(1765, 1100, 1050, 1000, 950, 900),
+      TeamID = c(168, 1320, 1001, 1002, 1003, 1004, 1005),
+      FinalELO = c(1765, 1100, 1050, 1000, 950, 900, 850),
       stringsAsFactors = FALSE
     ))
   })
   
+  # Mock Liga3 matches - enough matches to establish standings
   mock_liga3_matches <- data.frame(
-    teams_home_id = c(1320, 1001, 1002),
-    teams_away_id = c(1001, 1002, 1003),
+    fixture_date = c("2024-04-01", "2024-04-08", "2024-04-15", 
+                     "2024-04-22", "2024-04-29", "2024-05-06"),
+    teams_home_id = c(1320, 1001, 1002, 1003, 1004, 1005),
+    teams_away_id = c(1001, 1002, 1003, 1004, 1005, 1320),
+    goals_home = c(2, 1, 0, 0, 1, 0),   # Results create clear standings
+    goals_away = c(1, 0, 1, 2, 0, 3),
+    fixture_status_short = rep("FT", 6),
     stringsAsFactors = FALSE
   )
   
   stub(calculate_liga3_relegation_baseline, "get_league_matches", function(...) mock_liga3_matches)
   
+  # Mock Tabelle to return standings where teams 1003-1005 are bottom 4 (positions 3-6 in 6-team league)
+  stub(calculate_liga3_relegation_baseline, "Tabelle", function(season, numberTeams, numberGames) {
+    return(matrix(c(
+      1, 1, 8, 2, 6, 9,    # Team 1320 - 1st place
+      2, 2, 6, 3, 3, 6,    # Team 1001 - 2nd place
+      3, 3, 4, 5, -1, 3,   # Team 1002 - 3rd place (relegated in 6-team league)
+      4, 4, 3, 6, -3, 3,   # Team 1003 - 4th place (relegated)
+      5, 5, 2, 7, -5, 1,   # Team 1004 - 5th place (relegated)
+      6, 6, 1, 8, -7, 0    # Team 1005 - 6th place (relegated)
+    ), ncol = 6, byrow = TRUE))
+  })
+  
+  # Mock file operations
+  stub(calculate_liga3_relegation_baseline, "file.exists", function(path) {
+    return(FALSE)  # No team list files exist in test
+  })
+  
+  stub(calculate_liga3_relegation_baseline, "list.files", function(path, pattern, ...) {
+    return(character(0))  # No temp files either
+  })
+  
   # Test baseline calculation - should work with temp files
   baseline <- calculate_liga3_relegation_baseline("2024")
   
-  # REGRESSION: Should calculate baseline from temp file data, not default to 1046
-  expected_baseline <- mean(c(900, 950, 1000, 1050))  # Bottom 4 from mock data
+  # REGRESSION: Should calculate baseline from relegated teams (positions 3-6 in 6-team league)
+  # Teams 1002, 1003, 1004, 1005 are relegated based on standings
+  expected_baseline <- mean(c(1000, 950, 900, 850))  # 925
   expect_equal(baseline, expected_baseline)
   expect_false(baseline == 1046)
   

@@ -1,5 +1,19 @@
 # ELO Aggregation Functions
 # Calculates final ELO ratings and Liga3 relegation baselines
+#
+# Liga3 Relegation Baseline:
+# The baseline is calculated as the mean of the final ELO ratings of teams
+# that finished in the relegation positions (typically 17-20 in Liga3).
+# This is based on actual league standings, NOT just lowest ELO values.
+# 
+# The baseline serves as the initial ELO for new teams entering Liga3,
+# ensuring they start with a rating similar to recently relegated teams.
+#
+# Process:
+# 1. Calculate end-of-season ELO values for all teams (after all matches)
+# 2. Calculate final league standings using match results
+# 3. Identify teams that finished in relegation positions
+# 4. Return mean of those teams' final ELO values
 
 calculate_final_elos <- function(season) {
   # Aggregate final ELO ratings from all matches in a season
@@ -266,14 +280,20 @@ calculate_elo_update <- function(home_elo, away_elo, goals_home, goals_away) {
 }
 
 calculate_liga3_relegation_baseline <- function(season) {
-  # Calculate mean ELO of last 4 Liga3 teams for relegation baseline
-  # Returns baseline ELO value
+  # Calculate mean ELO of teams that finished in relegation positions (17-20) in Liga3
+  # This baseline is used as initial ELO for new teams entering Liga3
+  # 
+  # Process:
+  # 1. Calculate end-of-season ELO values for all teams
+  # 2. Get Liga3 match results and calculate final league standings
+  # 3. Identify teams finishing in positions 17-20 (relegated)
+  # 4. Return mean of their final ELO values
   
   tryCatch({
-    # Get final ELOs for all teams
+    # Get final ELOs for all teams (end-of-season values after all matches)
     final_elos <- calculate_final_elos(season)
     
-    # Get Liga3 teams (league 80)
+    # Get Liga3 matches (league 80)
     liga3_matches <- get_league_matches("80", season)
     
     if (is.null(liga3_matches) || nrow(liga3_matches) == 0) {
@@ -283,24 +303,77 @@ calculate_liga3_relegation_baseline <- function(season) {
     
     # Get all Liga3 team IDs
     liga3_teams <- unique(c(liga3_matches$teams_home_id, liga3_matches$teams_away_id))
+    number_of_teams <- length(liga3_teams)
     
-    # Filter final ELOs for Liga3 teams
-    liga3_elos <- final_elos[final_elos$TeamID %in% liga3_teams, ]
-    
-    if (nrow(liga3_elos) < 4) {
-      warning(paste("Not enough Liga3 teams found for baseline calculation (", nrow(liga3_elos), "teams)"))
+    # Liga3 should have 20 teams, but handle different sizes
+    if (number_of_teams < 4) {
+      warning(paste("Not enough Liga3 teams found for baseline calculation (", number_of_teams, "teams)"))
       return(1046)  # Default fallback ELO
     }
     
-    # Sort by ELO and take bottom 4
-    liga3_elos_sorted <- liga3_elos[order(liga3_elos$FinalELO), ]
-    bottom_4_elos <- liga3_elos_sorted$FinalELO[1:4]
+    # Calculate league table to find relegated teams
+    # First, get team list for Liga3
+    team_list_file <- paste0("RCode/TeamList_", season, ".csv")
+    if (!file.exists(team_list_file)) {
+      # Try temporary files if main file doesn't exist
+      temp_files <- list.files("RCode", pattern = paste0("TeamList_", season, "_League80_temp\\.csv$"), full.names = TRUE)
+      if (length(temp_files) > 0 && file.exists(temp_files[1])) {
+        team_list_file <- temp_files[1]
+      } else {
+        warning(paste("Team list file not found for season", season))
+        return(1046)
+      }
+    }
     
-    # Calculate mean
-    baseline <- mean(bottom_4_elos)
+    # Convert matches to format expected by Tabelle function
+    season_results <- data.frame(
+      homeTeam = match(liga3_matches$teams_home_id, liga3_teams),
+      awayTeam = match(liga3_matches$teams_away_id, liga3_teams),
+      homeGoals = liga3_matches$goals_home,
+      awayGoals = liga3_matches$goals_away,
+      stringsAsFactors = FALSE
+    )
     
+    # Calculate league table
+    league_table <- Tabelle(
+      season = as.matrix(season_results),
+      numberTeams = number_of_teams,
+      numberGames = nrow(season_results)
+    )
+    
+    # League table columns: team_number, rank, goals_for, goals_against, goal_diff, points
+    # Find teams in relegation positions (bottom 4)
+    # In Liga3 with 20 teams, relegation positions are 17-20 (ranks 17, 18, 19, 20)
+    relegation_positions <- (number_of_teams - 3):number_of_teams
+    
+    # Get team numbers (indices) of relegated teams
+    relegated_team_indices <- league_table[league_table[,2] %in% relegation_positions, 1]
+    
+    # Map back to actual team IDs
+    relegated_team_ids <- liga3_teams[relegated_team_indices]
+    
+    # Get final ELOs for relegated teams
+    relegated_elos <- final_elos[final_elos$TeamID %in% relegated_team_ids, ]
+    
+    if (nrow(relegated_elos) != 4) {
+      warning(paste("Expected 4 relegated teams but found", nrow(relegated_elos)))
+      if (nrow(relegated_elos) < 4) {
+        return(1046)  # Default fallback
+      }
+    }
+    
+    # Calculate mean of relegated teams' final ELOs
+    baseline <- mean(relegated_elos$FinalELO)
+    
+    # Log details for transparency
     cat("Liga3 relegation baseline for season", season, ":", round(baseline, 2), "\n")
-    cat("Based on teams:", liga3_elos_sorted$TeamID[1:4], "with ELOs:", round(bottom_4_elos, 2), "\n")
+    cat("Based on relegated teams (positions", min(relegation_positions), "-", max(relegation_positions), "):\n")
+    for (i in 1:nrow(relegated_elos)) {
+      team_id <- relegated_elos$TeamID[i]
+      team_idx <- which(liga3_teams == team_id)
+      team_rank <- league_table[league_table[,1] == team_idx, 2]
+      cat("  Position", team_rank, ": Team", team_id, "- Final ELO:", round(relegated_elos$FinalELO[i], 2), "\n")
+    }
     
     return(baseline)
     
