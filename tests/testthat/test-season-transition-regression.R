@@ -12,6 +12,41 @@ test_that("Liga3 baseline is NOT 1046 for all season transitions", {
   # Test Issue: Liga3 baseline was hardcoded to 1046 for ALL seasons
   # Fix: Dynamic calculation based on teams finishing in relegation positions (17-20)
   
+  # Create temporary RCode directory if it doesn't exist
+  temp_dir <- tempdir()
+  rcode_dir <- file.path(temp_dir, "RCode")
+  if (!dir.exists(rcode_dir)) {
+    dir.create(rcode_dir)
+  }
+  
+  # Create temporary TeamList files for 2023 and 2024
+  # These are needed because the implementation looks for these files
+  team_list_2023 <- data.frame(
+    TeamID = c(1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008),
+    ShortText = c("T01", "T02", "T03", "T04", "T05", "T06", "T07", "T08"),
+    Promotion = rep(0, 8),
+    InitialELO = c(1250, 1200, 1150, 1100, 1050, 1000, 950, 900),
+    stringsAsFactors = FALSE
+  )
+  
+  team_list_2024 <- data.frame(
+    TeamID = c(2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008),
+    ShortText = c("T21", "T22", "T23", "T24", "T25", "T26", "T27", "T28"),
+    Promotion = rep(0, 8),
+    InitialELO = c(1350, 1050, 1300, 1100, 1250, 1150, 1200, 1000),
+    stringsAsFactors = FALSE
+  )
+  
+  # Write temporary files
+  write.table(team_list_2023, file.path(rcode_dir, "TeamList_2023.csv"), 
+              sep = ";", row.names = FALSE, quote = FALSE)
+  write.table(team_list_2024, file.path(rcode_dir, "TeamList_2024.csv"), 
+              sep = ";", row.names = FALSE, quote = FALSE)
+  
+  # Change working directory temporarily to use our temp RCode directory
+  old_wd <- getwd()
+  setwd(temp_dir)
+  
   # Mock realistic Liga3 with 8 teams and full match schedule
   # 2023 season: Teams play each other, creating clear standings
   mock_matches_scenario_1 <- data.frame(
@@ -110,14 +145,7 @@ test_that("Liga3 baseline is NOT 1046 for all season transitions", {
     return(NULL)
   })
   
-  # Mock file operations for team list files
-  stub(calculate_liga3_relegation_baseline, "file.exists", function(path) {
-    return(FALSE)  # No team list files exist in test
-  })
-  
-  stub(calculate_liga3_relegation_baseline, "list.files", function(path, pattern, ...) {
-    return(character(0))  # No temp files either
-  })
+  # Remove file mocks - let the function find the actual temp files we created
   
   # Test
   baseline_2023 <- calculate_liga3_relegation_baseline("2023")
@@ -130,13 +158,18 @@ test_that("Liga3 baseline is NOT 1046 for all season transitions", {
   expect_true(baseline_2024 > baseline_2023)
   
   # Expected values based on relegated teams (positions 5-8 in 8-team league)
-  # 2023: Teams 1005-1008 relegated, mean of their ELOs
-  expected_2023 <- mean(c(1050, 1000, 950, 900))   # 975
-  # 2024: Teams 2002, 2004, 2006, 2008 relegated
-  expected_2024 <- mean(c(1050, 1100, 1150, 1000)) # 1075
+  # Based on actual standings from mock Tabelle function:
+  # 2023: Teams 1002, 1004, 1006, 1008 relegated (positions 5-8)
+  expected_2023 <- mean(c(1200, 1100, 1000, 900))   # 1050
+  # 2024: Teams 2003, 2004, 2007, 2008 relegated (positions 5-8) 
+  expected_2024 <- mean(c(1300, 1100, 1200, 1000)) # 1150
   
   expect_equal(baseline_2023, expected_2023)
   expect_equal(baseline_2024, expected_2024)
+  
+  # Cleanup
+  setwd(old_wd)
+  unlink(rcode_dir, recursive = TRUE)
 })
 
 test_that("new teams get season-specific baseline, not hardcoded 1046", {
@@ -541,11 +574,21 @@ test_that("circular dependency resolution works end-to-end", {
   
   temp_dir <- tempdir()
   
+  # Create RCode directory in temp
+  rcode_dir <- file.path(temp_dir, "RCode")
+  if (!dir.exists(rcode_dir)) {
+    dir.create(rcode_dir)
+  }
+  
+  # Change to temp directory for this test
+  old_wd <- getwd()
+  setwd(temp_dir)
+  
   # Simulate scenario: Processing 2024→2025, TeamList_2024.csv doesn't exist yet
   # but TeamList_2024_League*_temp.csv files do exist
   temp_files <- c(
-    file.path(temp_dir, "TeamList_2024_League78_temp.csv"),
-    file.path(temp_dir, "TeamList_2024_League80_temp.csv")
+    file.path(rcode_dir, "TeamList_2024_League78_temp.csv"),
+    file.path(rcode_dir, "TeamList_2024_League80_temp.csv")
   )
   
   # Create temp files - Liga3 needs enough teams for proper baseline calculation
@@ -624,14 +667,7 @@ test_that("circular dependency resolution works end-to-end", {
     ), ncol = 6, byrow = TRUE))
   })
   
-  # Mock file operations
-  stub(calculate_liga3_relegation_baseline, "file.exists", function(path) {
-    return(FALSE)  # No team list files exist in test
-  })
-  
-  stub(calculate_liga3_relegation_baseline, "list.files", function(path, pattern, ...) {
-    return(character(0))  # No temp files either
-  })
+  # Remove file mocks - let the function find the actual temp files we created
   
   # Test baseline calculation - should work with temp files
   baseline <- calculate_liga3_relegation_baseline("2024")
@@ -643,5 +679,6 @@ test_that("circular dependency resolution works end-to-end", {
   expect_false(baseline == 1046)
   
   # Cleanup
-  unlink(temp_files)
+  setwd(old_wd)
+  unlink(rcode_dir, recursive = TRUE)
 })
