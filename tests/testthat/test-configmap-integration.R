@@ -95,13 +95,13 @@ test_that("Application handles missing ConfigMap gracefully", {
   # THEN: Appropriate error handling occurs
   
   # Test 4.1: Check for non-existent season
-  teamlist_2026 <- get_teamlist_path("2026")
-  expect_null(teamlist_2026)
+  teamlist_2525 <- get_teamlist_path("2525")
+  expect_null(teamlist_2525)
   
   # Test 4.2: Verify error handling for missing file
   # Use locale-agnostic approach - just verify an error occurs
   expect_error(
-    read.csv("RCode/TeamList_2026.csv", sep = ";")
+    read.csv("RCode/TeamList_2525.csv", sep = ";")
   )
   
   # Test 4.3: Fallback mechanism (if implemented)
