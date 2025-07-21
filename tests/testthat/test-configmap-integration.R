@@ -123,8 +123,8 @@ test_that("ConfigMap data validates against schema", {
   # Test 5.2: ShortText is non-empty
   expect_true(all(nchar(team_data$ShortText) > 0))
   
-  # Test 5.3: Promotion is binary (0 or 1)
-  expect_true(all(team_data$Promotion %in% c(0, 1)))
+  # Test 5.3: Promotion is either 0 or -50 to reflect the artificial point punishment on teams that cannot be promoted
+  expect_true(all(team_data$Promotion %in% c(0, -50)))
   
   # Test 5.4: InitialELO is within reasonable range
   expect_true(all(team_data$InitialELO > 1000))
