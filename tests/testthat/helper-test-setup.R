@@ -175,7 +175,19 @@ cleanup_test_files <- function() {
 tryCatch({
   message("Setting up test environment...")
   setup_test_directories()
-  source_rcode_modules()
+  
+  # Try to load as package if DESCRIPTION exists
+  if (file.exists(file.path(BASE_PATH, "DESCRIPTION"))) {
+    tryCatch({
+      suppressMessages(pkgload::load_all(BASE_PATH, quiet = TRUE))
+    }, error = function(e) {
+      # Fall back to sourcing if package loading fails
+      source_rcode_modules()
+    })
+  } else {
+    source_rcode_modules()
+  }
+  
   compile_cpp_files()
   message("Test environment setup complete")
 }, error = function(e) {
