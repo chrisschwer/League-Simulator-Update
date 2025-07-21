@@ -1,0 +1,20 @@
+Package: LeagueSimulator
+Title: League Simulator for Football Predictions
+Version: 0.1.0
+Authors@R: c(
+    person("Christoph", "Schwerdtfeger", email = "christoph@example.com", role = c("aut", "cre")))
+Description: A football league simulation system with ELO ratings and Monte Carlo simulations.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Imports:
+    data.table,
+    dplyr,
+    httr,
+    jsonlite,
+    lubridate,
+    readr,
+    Rcpp,
+    stringr,
+    testthat
+RoxygenNote: 7.3.1
