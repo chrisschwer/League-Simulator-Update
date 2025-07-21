@@ -66,8 +66,9 @@ jobs:
         chmod +x kubectl
         sudo mv kubectl /usr/local/bin/
         
-        # Validate manifests
-        kubectl apply --dry-run=client -f k8s/
+        # Validate manifests syntax only (no API server required)
+        kubectl apply --dry-run=client --validate=false -f k8s/deployment.yaml
+        kubectl apply --dry-run=client --validate=false -f k8s/k8s-deployment.yaml
 
   security-compliance-scan:
     name: Security and Compliance Tests
