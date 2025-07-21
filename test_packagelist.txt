@@ -8,3 +8,7 @@ mockery
 lintr
 testthat
 here
+data.table
+readr
+stringr
+lubridate
