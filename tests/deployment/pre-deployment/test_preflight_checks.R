@@ -26,23 +26,20 @@ test_that("Configuration files are valid", {
   expect_true(file.exists(team_list_file),
               info = sprintf("TeamList file %s does not exist", team_list_file))
   
-  # Validate file structure
-  team_data <- read.csv(team_list_file, stringsAsFactors = FALSE)
+  # Validate file structure - use semicolon delimiter
+  team_data <- read.csv(team_list_file, stringsAsFactors = FALSE, sep = ";")
   
-  # Check required columns
-  required_columns <- c("League", "Team", "ID", "ELO", "Liga3Gruppe")
+  # Check required columns - updated to match actual column names
+  required_columns <- c("TeamID", "ShortText", "InitialELO")
   expect_true(all(required_columns %in% names(team_data)),
               info = "TeamList file missing required columns")
   
   # Validate data integrity
-  expect_true(all(!is.na(team_data$ID)),
+  expect_true(all(!is.na(team_data$TeamID)),
               info = "TeamList contains teams with missing IDs")
   
-  expect_true(all(team_data$ELO > 0),
+  expect_true(all(team_data$InitialELO > 0),
               info = "TeamList contains invalid ELO ratings")
-  
-  expect_true(all(team_data$League %in% c("Bundesliga", "Bundesliga2", "Liga3")),
-              info = "TeamList contains invalid league names")
 })
 
 test_that("Docker image passes security scan", {
