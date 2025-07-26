@@ -38,9 +38,27 @@ jobs:
         echo "### 🎨 Code Style Check" >> review.md
         echo "" >> review.md
         
-        # Run your linting commands here
-        # Example: npm run lint >> review.md 2>&1 || echo "❌ Linting issues found" >> review.md
+        # Install R and lintr
+        sudo apt-get update
+        sudo apt-get install -y r-base
         
+        # Install lintr package
+        Rscript -e "install.packages('lintr', repos='https://cloud.r-project.org')"
+        
+        # Run R linting
+        echo "Running R code linting..." >> review.md
+        Rscript -e "
+          library(lintr)
+          lints <- lint_dir('RCode')
+          if (length(lints) > 0) {
+            cat('Found', length(lints), 'linting issues\n')
+            print(lints)
+          } else {
+            cat('No linting issues found\n')
+          }
+        " >> review.md 2>&1 || echo "⚠️  Some linting issues detected" >> review.md
+        
+        echo "" >> review.md
         echo "✅ Code style checks completed" >> review.md
         echo "" >> review.md
     
@@ -50,9 +68,20 @@ jobs:
         echo "### 🧪 Test Coverage" >> review.md
         echo "" >> review.md
         
-        # Run coverage check
-        # Example: npm test -- --coverage >> review.md 2>&1
+        # Check if any test files were modified
+        if git diff --name-only origin/${{ github.base_ref }}..HEAD | grep -E "tests/.*\\.R$" > /dev/null; then
+          echo "✅ Test files were updated" >> review.md
+        else
+          # Check if source code was modified
+          if git diff --name-only origin/${{ github.base_ref }}..HEAD | grep -E "(RCode|scripts)/.*\\.R$" > /dev/null; then
+            echo "⚠️  Source code modified but no test updates detected" >> review.md
+            echo "Consider adding or updating tests for the changes" >> review.md
+          else
+            echo "ℹ️  No source code changes requiring new tests" >> review.md
+          fi
+        fi
         
+        echo "" >> review.md
         echo "✅ Test coverage analysis completed" >> review.md
         echo "" >> review.md
     
@@ -62,9 +91,25 @@ jobs:
         echo "### 🔒 Security Analysis" >> review.md
         echo "" >> review.md
         
-        # Run security checks
-        # Example: npm audit >> review.md 2>&1 || echo "⚠️  Security vulnerabilities found" >> review.md
+        # Check for common security issues in R code
+        echo "Checking for potential security issues..." >> review.md
         
+        # Check for hardcoded credentials
+        if grep -r -E "(api_key|password|secret|token)\s*=\s*['\"][^'\"]+['\"]" RCode/ scripts/ --include="*.R" 2>/dev/null | grep -v "Sys.getenv" | head -5; then
+          echo "⚠️  Potential hardcoded credentials found (showing first 5)" >> review.md
+        fi
+        
+        # Check for use of system() or shell() commands
+        if grep -r -E "(system|shell)\\s*\\(" RCode/ scripts/ --include="*.R" 2>/dev/null | head -5; then
+          echo "⚠️  System/shell commands detected - ensure proper input validation (showing first 5)" >> review.md
+        fi
+        
+        # Check for SQL injection risks
+        if grep -r -E "(paste|sprintf|paste0).*\\b(SELECT|INSERT|UPDATE|DELETE)\\b" RCode/ scripts/ --include="*.R" 2>/dev/null | head -5; then
+          echo "⚠️  Potential SQL injection risk - use parameterized queries (showing first 5)" >> review.md
+        fi
+        
+        echo "" >> review.md
         echo "✅ Security scan completed" >> review.md
         echo "" >> review.md
     
