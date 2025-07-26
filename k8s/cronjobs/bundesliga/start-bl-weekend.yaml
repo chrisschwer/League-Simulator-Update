@@ -36,6 +36,12 @@ spec:
           restartPolicy: OnFailure
           containers:
           - name: scaler
+            securityContext:
+              allowPrivilegeEscalation: false
+              runAsNonRoot: true
+              capabilities:
+                drop:
+                  - ALL
             image: bitnami/kubectl:1.28
             command:
             - kubectl

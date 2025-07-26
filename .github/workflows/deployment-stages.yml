@@ -24,11 +24,13 @@ jobs:
     
     - name: Validate deployment prerequisites
       id: validate
+      env:
+        TARGET_ENV: ${{ inputs.target_environment }}
       run: |
         echo "Validating deployment prerequisites..."
         
         # Check environment configuration
-        if [[ "${{ inputs.target_environment }}" == "production" ]]; then
+        if [[ "$TARGET_ENV" == "production" ]]; then
           # Production-specific checks
           echo "::notice::Production deployment requested"
           
@@ -40,13 +42,15 @@ jobs:
         echo "passed=true" >> $GITHUB_OUTPUT
         
     - name: Security scan on target image
+      env:
+        IMAGE_TAG: ${{ inputs.image_tag }}
       run: |
         docker run --rm \
           -v /var/run/docker.sock:/var/run/docker.sock \
           aquasec/trivy image \
           --severity HIGH,CRITICAL \
           --exit-code 1 \
-          ${{ inputs.image_tag }}
+          "$IMAGE_TAG"
 
   stage-2-canary:
     name: Stage 2 - Canary Deployment (5%)
@@ -56,9 +60,12 @@ jobs:
     
     steps:
     - name: Deploy canary
+      env:
+        TARGET_ENV: ${{ inputs.target_environment }}
+        IMAGE_TAG: ${{ inputs.image_tag }}
       run: |
-        echo "Deploying canary to ${{ inputs.target_environment }}"
-        # kubectl set image deployment/league-simulator league-simulator=${{ inputs.image_tag }}
+        echo "Deploying canary to $TARGET_ENV"
+        # kubectl set image deployment/league-simulator league-simulator="$IMAGE_TAG"
         # kubectl patch service league-simulator -p '{"spec":{"selector":{"version":"canary"}}}'
         
     - name: Wait for canary stabilization
@@ -144,11 +151,14 @@ jobs:
         # Security validation
         
     - name: Update deployment record
+      env:
+        TARGET_ENV: ${{ inputs.target_environment }}
+        IMAGE_TAG: ${{ inputs.image_tag }}
       run: |
         echo "Recording successful deployment"
         DEPLOYMENT_RECORD="{
-          \"environment\": \"${{ inputs.target_environment }}\",
-          \"image\": \"${{ inputs.image_tag }}\",
+          \"environment\": \"$TARGET_ENV\",
+          \"image\": \"$IMAGE_TAG\",
           \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
           \"stages_completed\": 5,
           \"status\": \"success\"
@@ -180,11 +190,15 @@ jobs:
         # Verify service is healthy
         
     - name: Generate incident report
+      env:
+        TARGET_ENV: ${{ inputs.target_environment }}
+        IMAGE_TAG: ${{ inputs.image_tag }}
+        JOB_STATUS: ${{ job.status }}
       run: |
         echo "## Deployment Failure Report" > incident-report.md
-        echo "- Environment: ${{ inputs.target_environment }}" >> incident-report.md
-        echo "- Failed Image: ${{ inputs.image_tag }}" >> incident-report.md
-        echo "- Failure Stage: ${{ job.status }}" >> incident-report.md
+        echo "- Environment: $TARGET_ENV" >> incident-report.md
+        echo "- Failed Image: $IMAGE_TAG" >> incident-report.md
+        echo "- Failure Stage: $JOB_STATUS" >> incident-report.md
         echo "- Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> incident-report.md
         
     - name: Notify team

@@ -76,6 +76,12 @@ spec:
     spec:
       containers:
       - name: league-updater
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          capabilities:
+            drop:
+              - ALL
         image: league-simulator:league
         env:
         - name: LEAGUE
@@ -127,6 +133,12 @@ spec:
     spec:
       containers:
       - name: league-updater
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          capabilities:
+            drop:
+              - ALL
         image: league-simulator:league
         env:
         - name: LEAGUE
@@ -178,6 +190,12 @@ spec:
     spec:
       containers:
       - name: league-updater
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          capabilities:
+            drop:
+              - ALL
         image: league-simulator:league
         env:
         - name: LEAGUE
@@ -227,6 +245,12 @@ spec:
     spec:
       containers:
       - name: shiny-updater
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          capabilities:
+            drop:
+              - ALL
         image: league-simulator:shiny
         envFrom:
         - configMapRef:
