@@ -117,51 +117,51 @@ jobs:
         cat("API Key available:", if(nchar(Sys.getenv("RAPIDAPI_KEY")) > 0) "Yes" else "No", "\n")
         cat("CI Environment:", Sys.getenv("CI_ENVIRONMENT"), "\n")
         
-        # Define test files to skip in CI (non-deployment tests)
-        skip_patterns <- c(
-          "test-season-transition",
-          "test-season-processor", 
-          "test-season-validation",
-          "test-interactive-prompts",
-          "test-input-handler",
-          "test-csv-generation",
-          "test-team-count",
-          "test-multi-season",
-          "test-cli-arguments",
-          "test-configmap",
-          "test-elo-aggregation",  # Not used in deployment
-          "test-second-team"       # Not used in deployment
-        )
-        
-        # Get all test files
-        all_test_files <- list.files("tests/testthat", pattern = "^test.*\\.R$", full.names = TRUE)
-        
-        # Filter out non-deployment tests
-        test_files_to_run <- all_test_files[!sapply(all_test_files, function(f) {
-          any(sapply(skip_patterns, function(p) grepl(p, f)))
-        })]
-        
-        cat("Running", length(test_files_to_run), "deployment tests out of", length(all_test_files), "total tests\n")
-        cat("Skipping:", length(all_test_files) - length(test_files_to_run), "non-deployment tests\n\n")
-        
         # Run tests with better error handling and reporting
-        test_results <- tryCatch({
-          # Use ListReporter for better results parsing
-          # Run only deployment-relevant tests
-          results <- list()
-          reporter <- ListReporter$new()
+        # For CI, skip non-deployment tests
+        if (Sys.getenv("RUN_DEPLOYMENT_TESTS_ONLY") == "true") {
+          cat("Running deployment tests only (skipping season transition, etc.)\n")
           
-          for (test_file in test_files_to_run) {
-            cat("Running:", basename(test_file), "\n")
-            result <- test_file(test_file, reporter = reporter)
-            results <- c(results, list(result))
+          # Define test files to skip in CI (non-deployment tests)
+          skip_patterns <- c(
+            "test-season-transition",
+            "test-season-processor", 
+            "test-season-validation",
+            "test-interactive-prompts",
+            "test-input-handler",
+            "test-csv-generation",
+            "test-team-count",
+            "test-multi-season",
+            "test-cli-arguments",
+            "test-configmap",
+            "test-elo-aggregation",
+            "test-second-team"
+          )
+          
+          # Create custom filter for test files
+          test_filter <- function(path) {
+            !any(sapply(skip_patterns, function(p) grepl(p, path)))
           }
           
-          reporter
-        }, error = function(e) {
-          cat("Error during test execution:", conditionMessage(e), "\n")
-          return(NULL)
-        })
+          # Run tests with filter
+          test_results <- tryCatch({
+            # Use ListReporter for better results parsing
+            test_dir("tests/testthat", 
+                    reporter = ListReporter$new(),
+                    filter = test_filter)
+          }, error = function(e) {
+            cat("Error during test execution:", conditionMessage(e), "\n")
+            return(NULL)
+          })
+        } else {
+          # Run all tests
+          test_results <- tryCatch({
+            test_dir("tests/testthat", reporter = ListReporter$new())
+          }, error = function(e) {
+            cat("Error during test execution:", conditionMessage(e), "\n")
+            return(NULL)
+          })
+        }
         
         # Check test results
         if (is.null(test_results)) {
