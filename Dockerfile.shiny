@@ -14,16 +14,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /build
 
 # Copy package files first for better caching
+COPY renv.lock* ./
 COPY packagelist.txt ./
 
-# Install packages from packagelist.txt
-RUN Rscript -e " \
-    packages <- readLines('packagelist.txt'); \
-    packages <- packages[!grepl('^#', packages) & nchar(trimws(packages)) > 0]; \
-    packages <- trimws(packages); \
-    install.packages(packages[!packages %in% installed.packages()[,'Package']], \
-                     repos = 'https://cloud.r-project.org', Ncpus=4); \
-    "
+# Install renv first (R is available after FROM statement)
+RUN R -e "install.packages('renv', repos='https://cran.r-project.org')"
+
+# Install packages - prefer renv.lock if it exists
+RUN if [ -f "renv.lock" ]; then \
+        R -e "renv::restore()"; \
+    else \
+        Rscript -e "packages <- readLines('packagelist.txt'); \
+        packages <- packages[!grepl('^#', packages) & nchar(trimws(packages)) > 0]; \
+        packages <- trimws(packages); \
+        install.packages(packages[!packages %in% installed.packages()[,'Package']], \
+                         repos='https://cloud.r-project.org', Ncpus=4)"; \
+    fi
 
 # Runtime stage - minimal image with only what's needed
 FROM rocker/r-ver:4.3.1
