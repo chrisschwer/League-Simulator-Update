@@ -195,6 +195,7 @@ jobs:
         context: .
         file: ./Dockerfile.league  # Use specific Dockerfile
         push: false
+        load: true  # Load image into Docker daemon for local use
         tags: league-simulator:test
         cache-from: type=gha
         cache-to: type=gha,mode=max
