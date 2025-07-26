@@ -1,8 +1,13 @@
 # Optimized Dockerfile for Shiny app updater container
 # Multi-stage build for minimal image size
 
+# Build arguments for flexibility
+ARG R_VERSION=4.3.1
+ARG NCPUS=4
+ARG BUILD_DATE
+
 # Build stage - install all packages and dependencies
-FROM rocker/r-ver:4.3.1 AS builder
+FROM rocker/r-ver:${R_VERSION} AS builder
 
 # Install system dependencies required for R packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -17,30 +22,44 @@ WORKDIR /build
 COPY renv.lock* ./
 COPY packagelist.txt ./
 
-# Install renv first (R is available after FROM statement)
-RUN R -e "install.packages('renv', repos='https://cran.r-project.org')"
+# Configure R to use binary packages from RStudio Package Manager
+RUN R -e "options(repos = c(RSPM = 'https://packagemanager.rstudio.com/all/latest', CRAN = 'https://cran.r-project.org'))"
 
-# Install packages - prefer renv.lock if it exists
-RUN if [ -f "renv.lock" ]; then \
+# Install renv first with cache mount
+RUN --mount=type=cache,target=/root/.cache/R/renv \
+    R -e "install.packages('renv')"
+
+# Install packages with cache mount - prefer renv.lock if it exists
+RUN --mount=type=cache,target=/root/.cache/R/renv \
+    --mount=type=cache,target=/usr/local/lib/R/site-library \
+    if [ -f "renv.lock" ]; then \
         R -e "renv::restore()"; \
     else \
         Rscript -e "packages <- readLines('packagelist.txt'); \
         packages <- packages[!grepl('^#', packages) & nchar(trimws(packages)) > 0]; \
         packages <- trimws(packages); \
         install.packages(packages[!packages %in% installed.packages()[,'Package']], \
-                         repos='https://cloud.r-project.org', Ncpus=4)"; \
+                         Ncpus=${NCPUS})"; \
     fi
 
 # Runtime stage - minimal image with only what's needed
-FROM rocker/r-ver:4.3.1
+FROM rocker/r-ver:${R_VERSION}
+
+# Metadata labels
+LABEL org.opencontainers.image.title="League Simulator - Shiny Updater" \
+      org.opencontainers.image.description="Automated Shiny app deployment for football league simulations" \
+      org.opencontainers.image.source="https://github.com/chrisschwer/league-simulator" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version="${R_VERSION}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
 
 # Install only runtime system dependencies
 RUN apt-get update && \
-    apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
     libcurl4 \
     libxml2 \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Set timezone
 ENV TZ=Europe/Berlin
@@ -60,24 +79,9 @@ COPY --chown=appuser:appuser RCode/ /RCode/
 RUN mkdir -p /ShinyApp/data /RCode/league_results && \
     chown -R appuser:appuser /ShinyApp/data /RCode/league_results
 
-# Create health check script
-RUN echo '#!/usr/bin/env Rscript\n\
-tryCatch({\n\
-  # Check if required packages can be loaded\n\
-  library(shiny)\n\
-  library(rsconnect)\n\
-  library(ggplot2)\n\
-  # Check if directories are accessible\n\
-  if (!dir.exists("/ShinyApp/data") || !dir.exists("/RCode/league_results")) {\n\
-    stop("Required directories not accessible")\n\
-  }\n\
-  cat("HEALTHY\n")\n\
-  quit(status = 0)\n\
-}, error = function(e) {\n\
-  cat("UNHEALTHY:", conditionMessage(e), "\n")\n\
-  quit(status = 1)\n\
-})' > /usr/local/bin/healthcheck.R && \
-chmod +x /usr/local/bin/healthcheck.R
+# Copy health check script
+COPY docker/healthcheck-shiny.R /usr/local/bin/healthcheck.R
+RUN chmod +x /usr/local/bin/healthcheck.R
 
 # Create startup script that runs shiny_scheduler.R
 RUN echo '#!/usr/bin/env Rscript\n\

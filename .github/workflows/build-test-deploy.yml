@@ -11,6 +11,7 @@ env:
   REGISTRY_DOCKERHUB: docker.io
   REGISTRY_GHCR: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  DOCKER_BUILDKIT: 1
 
 permissions:
   contents: read
@@ -134,6 +135,10 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     
+    - name: Get current date
+      id: date
+      run: echo "date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+    
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v5
@@ -157,6 +162,10 @@ jobs:
         tags: test-image-${{ matrix.service }}:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        build-args: |
+          BUILD_DATE=${{ steps.date.outputs.date }}
+          R_VERSION=4.3.1
+          NCPUS=4
     
     - name: Install container-structure-test
       run: |
@@ -194,6 +203,10 @@ jobs:
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        build-args: |
+          BUILD_DATE=${{ steps.date.outputs.date }}
+          R_VERSION=4.3.1
+          NCPUS=4
 
   integration-tests:
     name: Integration Tests
@@ -210,8 +223,16 @@ jobs:
     
     - name: Build images for integration testing
       run: |
-        docker build -f Dockerfile.league -t league-simulator:league .
-        docker build -f Dockerfile.shiny -t league-simulator:shiny .
+        DOCKER_BUILDKIT=1 docker build \
+          --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+          --build-arg R_VERSION=4.3.1 \
+          --build-arg NCPUS=4 \
+          -f Dockerfile.league -t league-simulator:league .
+        DOCKER_BUILDKIT=1 docker build \
+          --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+          --build-arg R_VERSION=4.3.1 \
+          --build-arg NCPUS=4 \
+          -f Dockerfile.shiny -t league-simulator:shiny .
     
     - name: Create test environment
       run: |

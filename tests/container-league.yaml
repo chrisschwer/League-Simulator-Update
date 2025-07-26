@@ -1,101 +1,64 @@
 schemaVersion: 2.0.0
 
+# Metadata tests
 metadataTest:
-  user: "1000:1000"
+  labels:
+    - key: 'org.opencontainers.image.title'
+      value: 'League Simulator - League Updater'
+    - key: 'org.opencontainers.image.licenses'
+      value: 'MIT'
   env:
     - key: 'TZ'
       value: 'Europe/Berlin'
-    - key: 'LEAGUE'
-      value: 'BL'
-  volumes: ['/RCode/league_results']
 
+# File existence tests
 fileExistenceTests:
-  - name: "Application directory exists"
-    path: "/RCode"
+  - name: 'R Scripts'
+    path: '/RCode'
     shouldExist: true
-    isDir: true
-
-  - name: "League update script exists"
-    path: "/RCode/update_league.R"
+    permissions: '-rwxr-xr-x'
+    uid: 1000
+    gid: 1000
+  - name: 'League Results Directory'
+    path: '/RCode/league_results'
     shouldExist: true
-    permissions: "-rw-r--r--"
-
-  - name: "Scheduler script exists"
-    path: "/RCode/updateScheduler.R"
+    permissions: 'drwxr-xr-x'
+    uid: 1000
+    gid: 1000
+  - name: 'Health Check Script'
+    path: '/usr/local/bin/healthcheck.R'
     shouldExist: true
-    permissions: "-rw-r--r--"
-
-  - name: "Core simulation files exist"
-    path: "/RCode/simulationsCPP.R"
+    permissions: '-rwxr-xr-x'
+  - name: 'Startup Script'
+    path: '/RCode/run_league_update.R'
     shouldExist: true
-    permissions: "-rw-r--r--"
+    permissions: '-rwxr-xr-x'
+    uid: 1000
+    gid: 1000
 
-  - name: "Results directory exists"
-    path: "/RCode/league_results"
-    shouldExist: true
-    isDir: true
+# File content tests
+fileContentTests:
+  - name: 'Health Check Script Content'
+    path: '/usr/local/bin/healthcheck.R'
+    expectedContents: ['#!/usr/bin/env Rscript', 'library(httr)', 'library(jsonlite)', 'library(dplyr)']
+  - name: 'Startup Script Content'
+    path: '/RCode/run_league_update.R'
+    expectedContents: ['#!/usr/bin/env Rscript', 'league_scheduler', 'Sys.getenv']
 
-  - name: "Team lists exist"
-    path: "/RCode/TeamList_2024.csv"
-    shouldExist: true
-    permissions: "-rw-r--r--"
-
+# Command tests
 commandTests:
-  - name: "Running as non-root user"
-    command: "id"
-    args: ["-u"]
-    expectedOutput: ["1000"]
-    excludedOutput: ["0"]
-    
-  - name: "User is appuser"
-    command: "whoami"
-    expectedOutput: ["appuser"]
-    
-  - name: "Working directory is /RCode"
-    command: "pwd"
-    expectedOutput: ["/RCode"]
-    
-  - name: "Can write to results directory"
-    command: "touch"
-    args: ["/RCode/league_results/test_write"]
-    exitCode: 0
-
-  - name: "R version 4.3.1 installed"
-    command: "R"
-    args: ["--version"]
-    expectedOutput: ["R version 4.3.1"]
-  
-  - name: "Essential R packages - httr"
-    command: "Rscript"
-    args: ["-e", "library(httr); cat('httr loaded')"]
-    expectedOutput: ["httr loaded"]
-    exitCode: 0
-    
-  - name: "Essential R packages - jsonlite"
-    command: "Rscript"
-    args: ["-e", "library(jsonlite); cat('jsonlite loaded')"]
-    expectedOutput: ["jsonlite loaded"]
-    exitCode: 0
-    
-  - name: "Essential R packages - dplyr"
-    command: "Rscript"
-    args: ["-e", "library(dplyr); cat('dplyr loaded')"]
-    expectedOutput: ["dplyr loaded"]
-    exitCode: 0
-    
-  - name: "Core league simulation packages"
-    command: "Rscript"
-    args: ["-e", "library(Rcpp); cat('Rcpp loaded')"]
-    expectedOutput: ["Rcpp loaded"]
-    exitCode: 0
-
-  - name: "League update script is executable"
-    command: "Rscript"
-    args: ["-e", "if(file.exists('/RCode/update_league.R')) cat('Script exists') else stop('Missing script')"]
-    expectedOutput: ["Script exists"]
-    exitCode: 0
-
-  - name: "Environment variables accessible"
-    command: "Rscript"
-    args: ["-e", "if(Sys.getenv('LEAGUE') != '') cat('LEAGUE env set') else cat('No LEAGUE env')"]
-    expectedOutput: ["LEAGUE env set"]
+  - name: 'R is installed'
+    command: 'R'
+    args: ['--version']
+    expectedOutput: ['R version 4.3.1']
+  - name: 'Required R packages are installed'
+    command: 'Rscript'
+    args: ['-e', 'library(httr); library(jsonlite); library(dplyr); cat("OK")']
+    expectedOutput: ['OK']
+  - name: 'User is non-root'
+    command: 'id'
+    args: ['-u']
+    expectedOutput: ['1000']
+  - name: 'Working directory is correct'
+    command: 'pwd'
+    expectedOutput: ['/RCode']

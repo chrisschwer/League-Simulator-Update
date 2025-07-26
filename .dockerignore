@@ -81,3 +81,41 @@ renv/staging/
 
 # Processing logs
 processing_*.log
+
+# Docker files themselves (avoid recursive builds)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Build artifacts
+build/
+dist/
+target/
+
+# Node modules (if any JS dependencies)
+node_modules/
+
+# Python cache (if any Python scripts)
+__pycache__/
+*.pyc
+*.pyo
+
+# Coverage reports
+coverage/
+*.coverage
+htmlcov/
+
+# Workflow files
+.claude/
+CLAUDE.local.md
+
+# Examples and sample data
+examples/
+sample_data/
+
+# Screenshots and images
+*.png
+*.jpg
+*.jpeg
+*.gif
+!docker/*.R

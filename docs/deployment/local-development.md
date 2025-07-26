@@ -35,8 +35,13 @@ cd League-Simulator-Update
 cp .env.example .env.development
 echo "ENVIRONMENT=development" >> .env.development
 
-# Build development images
-docker-compose -f docker-compose.dev.yml build
+# Build development images with optimizations
+DOCKER_BUILDKIT=1 docker-compose -f docker-compose.dev.yml build
+
+# Or with custom build arguments
+docker-compose -f docker-compose.dev.yml build \
+  --build-arg R_VERSION=4.4.0 \
+  --build-arg NCPUS=8
 ```
 
 #### Development Docker Compose
@@ -53,6 +58,9 @@ services:
       dockerfile: Dockerfile.league
       args:
         - BUILD_ENV=development
+        - R_VERSION=4.3.1
+        - NCPUS=4
+        - BUILD_DATE=${BUILD_DATE:-$(date -u +'%Y-%m-%dT%H:%M:%SZ')}
     environment:
       - RAPIDAPI_KEY=${RAPIDAPI_KEY}
       - SEASON=${SEASON}
@@ -372,6 +380,65 @@ bench::mark(
 | API rate limits in dev | Use mock data or separate dev API key |
 | Shiny app not refreshing | Clear browser cache, restart R session |
 | Docker volume not syncing | Check Docker Desktop settings, restart Docker |
+
+## Docker Build Optimizations
+
+### Binary Package Installation
+
+The Dockerfiles now use RStudio Package Manager (RSPM) for pre-compiled R binaries:
+
+```dockerfile
+# Configured automatically in Dockerfiles
+RUN R -e "options(repos = c(RSPM = 'https://packagemanager.rstudio.com/all/latest'))"
+```
+
+This provides:
+- 30-50% faster package installation
+- Reduced build times
+- Consistent package versions
+
+### BuildKit Cache Mounts
+
+Enable BuildKit for better caching:
+
+```bash
+# Enable BuildKit globally
+export DOCKER_BUILDKIT=1
+
+# Or per command
+DOCKER_BUILDKIT=1 docker build .
+```
+
+Benefits:
+- Persistent package cache between builds
+- Faster rebuilds
+- Reduced bandwidth usage
+
+### Custom Build Arguments
+
+Customize builds with arguments:
+
+```bash
+# Build with specific R version
+docker build --build-arg R_VERSION=4.4.0 -f Dockerfile.league .
+
+# Use more CPU cores for faster installation
+docker build --build-arg NCPUS=8 -f Dockerfile.shiny .
+
+# Add build metadata
+docker build --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') .
+```
+
+### Health Check Scripts
+
+Health checks are now external scripts in `docker/`:
+- `docker/healthcheck-league.R` - League updater health check
+- `docker/healthcheck-shiny.R` - Shiny app health check
+
+To modify health checks:
+1. Edit the script in `docker/`
+2. Rebuild the image
+3. Test with: `docker inspect --format='{{.State.Health.Status}}' container_name`
 
 ## Related Documentation
 

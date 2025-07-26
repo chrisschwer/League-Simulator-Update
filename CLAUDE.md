@@ -318,3 +318,64 @@ This project follows Claude Code's memory hierarchy:
 
 For complete workflow documentation, see @.claude/workflow.md
 
+## Documentation Reference
+
+The `docs/` directory contains comprehensive technical documentation for all aspects of the system. Reference these documents when debugging or working with specific technologies:
+
+### Technical Reference Documentation
+
+- **@docs/DOCUMENTATION_GITHUB_ACTIONS.md** - GitHub Actions syntax, workflow patterns, secrets/variables, caching strategies, and CI/CD best practices. Reference when debugging workflow failures or creating new pipelines.
+
+- **@docs/DOCUMENTATION_DOCKER.md** - Dockerfile syntax, multi-stage builds, layer caching, security practices, and optimization techniques. Use when working with containerization or debugging Docker build issues.
+
+- **@docs/DOCUMENTATION_ROCKER.md** - Rocker project R Docker images, versioning strategies, and R-specific containerization patterns. Reference for R container optimization and troubleshooting.
+
+- **@docs/DOCUMENTATION_KUBERNETES.md** - Kubernetes manifest syntax, kubectl commands, resource management, health checks, and deployment patterns. Use when working with k8s deployments or debugging pod issues.
+
+- **@docs/DOCUMENTATION_RENV.md** - renv package management, lockfile structure, Docker integration, and reproducibility best practices. Reference for R dependency management and environment issues.
+
+- **@docs/DOCUMENTATION_GHCR.md** - GitHub Container Registry authentication, naming conventions, permissions, and integration patterns. Use when working with container registry operations.
+
+### Project-Specific Documentation
+
+- **@docs/TEST_FIX_PLAN.md** - Systematic plan for fixing failing tests (currently 38 failures)
+- **@docs/TEST_ORGANIZATION.md** - Test categorization and CI/CD optimization strategies
+- **@docs/VERSION_MANAGEMENT.md** - Package versioning strategy and update schedules
+- **@docs/GITHUB_ACTIONS_CONFIG.md** - Project-specific GitHub Actions configuration
+- **@docs/API_KEY_SETUP.md** - RapidAPI and other API key configuration guide
+- **@docs/SEASON_TRANSITION_FIX.md** - Season transition system fixes and improvements
+- **@docs/DEPLOYMENT_SAFETY.md** - Pre-deployment validation and safety checks
+
+### Architecture Documentation
+
+- **@docs/architecture/overview.md** - System architecture and component relationships
+- **@docs/architecture/microservices.md** - Microservices design and communication patterns
+- **@docs/architecture/data-flow.md** - Data flow between components and storage
+- **@docs/architecture/api-reference.md** - API endpoints and data structures
+- **@docs/architecture/pod-lifecycle-management.md** - Kubernetes pod lifecycle and management
+
+### Deployment & Operations
+
+- **@docs/deployment/quick-start.md** - Quick deployment guide for new users
+- **@docs/deployment/detailed-guide.md** - Comprehensive deployment instructions
+- **@docs/deployment/local-development.md** - Local development environment setup
+- **@docs/deployment/production.md** - Production deployment best practices
+- **@docs/deployment/rollback.md** - Rollback procedures and disaster recovery
+- **@docs/operations/daily-operations.md** - Daily operational procedures
+- **@docs/operations/backup-recovery.md** - Backup and recovery strategies
+- **@docs/operations/incident-response.md** - Incident response procedures
+- **@docs/operations/security.md** - Security policies and procedures
+
+### Troubleshooting Guides
+
+- **@docs/troubleshooting/common-issues.md** - Common problems and solutions
+- **@docs/troubleshooting/debugging.md** - Debugging techniques and tools
+- **@docs/troubleshooting/log-analysis.md** - Log analysis and monitoring
+- **@docs/troubleshooting/performance.md** - Performance optimization guide
+
+### User Guides
+
+- **@docs/user-guide/season-transition.md** - Season transition procedures
+- **@docs/user-guide/team-management.md** - Team data management guide
+- **@docs/user-guide/faq.md** - Frequently asked questions
+
