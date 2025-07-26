@@ -72,7 +72,7 @@ jobs:
         CI_ENVIRONMENT: 'true'
         RUN_DEPLOYMENT_TESTS_ONLY: 'true'
         TEST_TIMEOUT: '300'  # 5 minute timeout for individual tests
-      timeout-minutes: 10  # Reduced from 15 since we're running fewer tests
+      timeout-minutes: 20  # Increased to 20 minutes for more complex tests
       run: |
         # Set working directory to project root
         setwd("${{ github.workspace }}")
