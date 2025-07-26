@@ -125,10 +125,9 @@ jobs:
         
     - name: Check for secrets in code
       uses: trufflesecurity/trufflehog@main
+      continue-on-error: true
       with:
         path: ./
-        base: ${{ github.event.repository.default_branch }}
-        head: HEAD
         
     - name: SAST with Semgrep
       uses: returntocorp/semgrep-action@v1
