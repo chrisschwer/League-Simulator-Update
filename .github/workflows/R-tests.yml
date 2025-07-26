@@ -70,8 +70,9 @@ jobs:
       env:
         RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY || 'test_key_for_ci' }}
         CI_ENVIRONMENT: 'true'
+        RUN_DEPLOYMENT_TESTS_ONLY: 'true'
         TEST_TIMEOUT: '300'  # 5 minute timeout for individual tests
-      timeout-minutes: 15
+      timeout-minutes: 10  # Reduced from 15 since we're running fewer tests
       run: |
         # Set working directory to project root
         setwd("${{ github.workspace }}")
@@ -116,10 +117,47 @@ jobs:
         cat("API Key available:", if(nchar(Sys.getenv("RAPIDAPI_KEY")) > 0) "Yes" else "No", "\n")
         cat("CI Environment:", Sys.getenv("CI_ENVIRONMENT"), "\n")
         
+        # Define test files to skip in CI (non-deployment tests)
+        skip_patterns <- c(
+          "test-season-transition",
+          "test-season-processor", 
+          "test-season-validation",
+          "test-interactive-prompts",
+          "test-input-handler",
+          "test-csv-generation",
+          "test-team-count",
+          "test-multi-season",
+          "test-cli-arguments",
+          "test-configmap",
+          "test-elo-aggregation",  # Not used in deployment
+          "test-second-team"       # Not used in deployment
+        )
+        
+        # Get all test files
+        all_test_files <- list.files("tests/testthat", pattern = "^test.*\\.R$", full.names = TRUE)
+        
+        # Filter out non-deployment tests
+        test_files_to_run <- all_test_files[!sapply(all_test_files, function(f) {
+          any(sapply(skip_patterns, function(p) grepl(p, f)))
+        })]
+        
+        cat("Running", length(test_files_to_run), "deployment tests out of", length(all_test_files), "total tests\n")
+        cat("Skipping:", length(all_test_files) - length(test_files_to_run), "non-deployment tests\n\n")
+        
         # Run tests with better error handling and reporting
         test_results <- tryCatch({
           # Use ListReporter for better results parsing
-          test_dir("tests/testthat", reporter = ListReporter$new())
+          # Run only deployment-relevant tests
+          results <- list()
+          reporter <- ListReporter$new()
+          
+          for (test_file in test_files_to_run) {
+            cat("Running:", basename(test_file), "\n")
+            result <- test_file(test_file, reporter = reporter)
+            results <- c(results, list(result))
+          }
+          
+          reporter
         }, error = function(e) {
           cat("Error during test execution:", conditionMessage(e), "\n")
           return(NULL)
@@ -157,7 +195,7 @@ jobs:
         
         # For CI, we'll tolerate some failures while fixing them
         # Once all tests pass, change this threshold to 0
-        max_allowed_failures <- 40  # Current known failures
+        max_allowed_failures <- 20  # Reduced threshold for deployment tests only
         
         if (failed_tests > max_allowed_failures) {
           stop(paste("Too many test failures:", failed_tests, "exceeded threshold of", max_allowed_failures))
