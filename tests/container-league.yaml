@@ -13,10 +13,10 @@ metadataTest:
 
 # File existence tests
 fileExistenceTests:
-  - name: 'R Scripts'
+  - name: 'R Scripts Directory'
     path: '/RCode'
     shouldExist: true
-    permissions: '-rwxr-xr-x'
+    permissions: 'drwxr-xr-x'
     uid: 1000
     gid: 1000
   - name: 'League Results Directory'
@@ -29,10 +29,9 @@ fileExistenceTests:
     path: '/usr/local/bin/healthcheck.R'
     shouldExist: true
     permissions: '-rwxr-xr-x'
-  - name: 'Startup Script'
-    path: '/RCode/run_league_update.R'
+  - name: 'Update Scheduler Script'
+    path: '/RCode/updateScheduler.R'
     shouldExist: true
-    permissions: '-rwxr-xr-x'
     uid: 1000
     gid: 1000
 
@@ -41,9 +40,9 @@ fileContentTests:
   - name: 'Health Check Script Content'
     path: '/usr/local/bin/healthcheck.R'
     expectedContents: ['#!/usr/bin/env Rscript', 'library(httr)', 'library(jsonlite)', 'library(dplyr)']
-  - name: 'Startup Script Content'
-    path: '/RCode/run_league_update.R'
-    expectedContents: ['#!/usr/bin/env Rscript', 'league_scheduler', 'Sys.getenv']
+  - name: 'Update Scheduler Script Content'
+    path: '/RCode/updateScheduler.R'
+    expectedContents: ['source', 'update_all_leagues_loop', 'Sys.getenv']
 
 # Command tests
 commandTests:

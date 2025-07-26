@@ -16,7 +16,7 @@ fileExistenceTests:
   - name: 'Shiny App Directory'
     path: '/ShinyApp'
     shouldExist: true
-    permissions: '-rwxr-xr-x'
+    permissions: 'drwxr-xr-x'
     uid: 1000
     gid: 1000
   - name: 'Shiny Data Directory'
@@ -28,7 +28,7 @@ fileExistenceTests:
   - name: 'RCode Directory'
     path: '/RCode'
     shouldExist: true
-    permissions: '-rwxr-xr-x'
+    permissions: 'drwxr-xr-x'
     uid: 1000
     gid: 1000
   - name: 'League Results Directory'
@@ -41,10 +41,9 @@ fileExistenceTests:
     path: '/usr/local/bin/healthcheck.R'
     shouldExist: true
     permissions: '-rwxr-xr-x'
-  - name: 'Startup Script'
-    path: '/RCode/run_shiny_updater.R'
+  - name: 'Shiny Updater Script'
+    path: '/RCode/updateShiny.R'
     shouldExist: true
-    permissions: '-rwxr-xr-x'
     uid: 1000
     gid: 1000
 
@@ -53,9 +52,9 @@ fileContentTests:
   - name: 'Health Check Script Content'
     path: '/usr/local/bin/healthcheck.R'
     expectedContents: ['#!/usr/bin/env Rscript', 'library(shiny)', 'library(rsconnect)', 'library(ggplot2)']
-  - name: 'Startup Script Content'
-    path: '/RCode/run_shiny_updater.R'
-    expectedContents: ['#!/usr/bin/env Rscript', 'shiny_scheduler', 'Sys.getenv']
+  - name: 'Shiny Updater Script Content'
+    path: '/RCode/updateShiny.R'
+    expectedContents: ['source', 'deployApp', 'Sys.getenv']
 
 # Command tests
 commandTests:
