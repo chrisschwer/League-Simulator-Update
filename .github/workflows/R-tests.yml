@@ -77,40 +77,7 @@ jobs:
         # Set working directory to project root
         setwd("${{ github.workspace }}")
         
-        # Source required R files from RCode directory with explicit Rcpp compilation
-        library(Rcpp)
-        
-        # Compile C++ code first
-        cpp_files <- c("RCode/SpielNichtSimulieren.cpp")
-        for (cpp_file in cpp_files) {
-          cat("Compiling", cpp_file, "\n")
-          tryCatch(
-            sourceCpp(cpp_file),
-            error = function(e) {
-              cat("Warning: Could not compile", cpp_file, ":", conditionMessage(e), "\n")
-            }
-          )
-        }
-        
-        # Source R files
-        r_files <- list.files("RCode", pattern = "\\.R$", full.names = TRUE)
-        r_files <- r_files[!grepl("(test|Test)", r_files)]  # Exclude test files
-        
-        # Also include scripts directory for functions like parse_arguments
-        script_files <- list.files("scripts", pattern = "\\.R$", full.names = TRUE)
-        all_files <- c(r_files, script_files)
-        
-        # Source files with error handling
-        for (file in all_files) {
-          tryCatch(
-            source(file),
-            error = function(e) {
-              cat("Warning: Could not source", file, ":", conditionMessage(e), "\n")
-            }
-          )
-        }
-        
-        # Now run tests with timeout handling
+        # The helper-test-setup.R file will handle all sourcing
         library(testthat)
         
         cat("Starting test run...\n")
