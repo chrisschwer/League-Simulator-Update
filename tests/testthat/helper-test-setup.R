@@ -81,7 +81,7 @@ source_rcode_modules <- function() {
     file_path <- file.path(RCODE_PATH, file)
     if (file.exists(file_path)) {
       tryCatch(
-        source(file_path, envir = .GlobalEnv),
+        source(file_path),
         error = function(e) {
           message("Warning: Could not source ", file, ": ", e$message)
         }
@@ -93,7 +93,7 @@ source_rcode_modules <- function() {
   for (file in r_files) {
     if (!basename(file) %in% priority_files) {
       tryCatch(
-        source(file, envir = .GlobalEnv),
+        source(file),
         error = function(e) {
           message("Warning: Could not source ", basename(file), ": ", e$message)
         }
