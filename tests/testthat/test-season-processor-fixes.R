@@ -4,14 +4,7 @@
 library(testthat)
 library(mockery)
 
-# Source required files
-tryCatch({
-  source("../../RCode/season_processor.R")
-  source("../../RCode/team_data_carryover.R")
-  source("../../RCode/csv_generation.R")
-}, error = function(e) {
-  warning("Could not source files, assuming functions are already loaded")
-})
+# Functions should be loaded by helper-test-setup.R
 
 context("Season Processor Fixes - Team Matching Priority")
 
