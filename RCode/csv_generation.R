@@ -1,6 +1,11 @@
 # CSV Generation Functions
 # Creates properly formatted TeamList CSV files
 
+# Utility operator for handling NULL values
+`%||%` <- function(x, y) {
+  if (is.null(x)) y else x
+}
+
 # Source required dependencies
 if (!exists("confirm_overwrite")) {
   # Try to find and source interactive_prompts.R
@@ -577,11 +582,6 @@ export_team_comparison <- function(season1, season2, output_file = NULL) {
     warning("Error exporting team comparison:", e$message)
     return(NULL)
   })
-}
-
-# Utility operator for handling NULL values
-`%||%` <- function(x, y) {
-  if (is.null(x)) y else x
 }
 
 merge_league_files <- function(season, output_dir) {

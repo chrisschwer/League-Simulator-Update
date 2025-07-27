@@ -4,14 +4,7 @@
 library(testthat)
 library(mockery)
 
-# Source required files
-tryCatch({
-  source("../../RCode/csv_generation.R")
-  source("../../RCode/interactive_prompts.R")
-  source("../../RCode/file_operations.R")
-}, error = function(e) {
-  warning("Could not source files, assuming functions are already loaded")
-})
+# Functions should be loaded by helper-test-setup.R
 
 context("CSV Generation Fixes - File Overwrite Behavior")
 

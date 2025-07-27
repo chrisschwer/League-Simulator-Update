@@ -4,15 +4,7 @@
 library(testthat)
 library(mockery)
 
-# Source required files
-tryCatch({
-  source("../../RCode/season_processor.R")
-  source("../../RCode/team_data_carryover.R")
-  source("../../RCode/elo_aggregation.R")
-  source("../../RCode/api_service.R")
-}, error = function(e) {
-  warning("Could not source files, assuming functions are already loaded")
-})
+# Functions should be loaded by helper-test-setup.R
 
 context("Multi-Season Integration - Complete Workflow")
 

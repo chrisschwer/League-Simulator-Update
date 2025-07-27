@@ -193,7 +193,7 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         context: .
-        file: ./Dockerfile.league  # Use specific Dockerfile
+        file: ./Dockerfile.shiny  # Use Shiny Dockerfile for app testing
         push: false
         load: true  # Load image into Docker daemon for local use
         tags: league-simulator:test

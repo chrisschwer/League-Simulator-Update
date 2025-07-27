@@ -53,7 +53,12 @@ source_rcode_modules <- function() {
   exclude_patterns <- c(
     "updateScheduler\\.R",
     "update_all_leagues_loop\\.R",
-    "run_single_update"
+    "run_single_update",
+    "updateShiny\\.R",
+    "update_league\\.R",
+    "update_shiny_from_files\\.R",
+    "league_scheduler\\.R",
+    "shiny_scheduler\\.R"
   )
   
   for (pattern in exclude_patterns) {
@@ -68,7 +73,6 @@ source_rcode_modules <- function() {
     "csv_generation.R",
     "transform_data.R",
     "input_handler.R",
-    "elo_calculations.R",
     "Tabelle.R",
     "file_operations.R",
     "team_data_carryover.R",
@@ -126,24 +130,18 @@ compile_cpp_files <- function() {
   spiel_cpp <- file.path(RCODE_PATH, "SpielNichtSimulieren.cpp")
   if (file.exists(spiel_cpp)) {
     tryCatch({
-      message("Compiling: SpielNichtSimulieren.cpp")
-      Rcpp::sourceCpp(spiel_cpp, rebuild = TRUE)
+      # Only rebuild if function doesn't exist
+      if (!exists("SpielNichtSimulieren")) {
+        message("Compiling: SpielNichtSimulieren.cpp")
+        Rcpp::sourceCpp(spiel_cpp)
+      }
     }, error = function(e) {
       message("Warning: Could not compile SpielNichtSimulieren.cpp: ", e$message)
     })
   }
   
-  # Compile other C++ files
-  for (cpp_file in cpp_files) {
-    if (basename(cpp_file) != "SpielNichtSimulieren.cpp") {
-      tryCatch({
-        message("Compiling: ", basename(cpp_file))
-        Rcpp::sourceCpp(cpp_file, rebuild = TRUE)
-      }, error = function(e) {
-        message("Warning: Could not compile ", basename(cpp_file), ": ", e$message)
-      })
-    }
-  }
+  # Skip compilation of other C++ files - they should be loaded by sourcing the R wrappers
+  # This avoids the slow rebuild process during testing
 }
 
 # Helper function to create test data directories
@@ -176,17 +174,8 @@ tryCatch({
   message("Setting up test environment...")
   setup_test_directories()
   
-  # Try to load as package if DESCRIPTION exists
-  if (file.exists(file.path(BASE_PATH, "DESCRIPTION"))) {
-    tryCatch({
-      suppressMessages(pkgload::load_all(BASE_PATH, quiet = TRUE))
-    }, error = function(e) {
-      # Fall back to sourcing if package loading fails
-      source_rcode_modules()
-    })
-  } else {
-    source_rcode_modules()
-  }
+  # Always use source method for tests to ensure all files are loaded
+  source_rcode_modules()
   
   compile_cpp_files()
   message("Test environment setup complete")

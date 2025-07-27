@@ -4,13 +4,7 @@
 library(testthat)
 library(mockery)
 
-# Source required files
-tryCatch({
-  source("../../RCode/elo_aggregation.R")
-  source("../../RCode/SpielCPP.R")
-}, error = function(e) {
-  warning("Could not source files, assuming functions are already loaded")
-})
+# Functions should be loaded by helper-test-setup.R
 
 context("ELO Aggregation - Liga3 Baseline Calculation")
 
