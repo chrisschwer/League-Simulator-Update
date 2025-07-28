@@ -35,8 +35,10 @@ jobs:
     
     - name: Generate test shards
       id: shard
+      env:
+        SHARD_COUNT: ${{ github.event.inputs.shards || '4' }}
       run: |
-        n_shards="${{ github.event.inputs.shards || '4' }}"
+        n_shards="$SHARD_COUNT"
         Rscript .github/scripts/shard-tests.R $n_shards tests/testthat
 
   parallel-test:
