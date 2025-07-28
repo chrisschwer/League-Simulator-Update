@@ -1,0 +1,360 @@
+name: CI/CD Dashboard
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["R Tests", "Build, Test, and Deploy", "Parallel Test Execution"]
+    types: [completed]
+
+jobs:
+  generate-dashboard:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: read
+      actions: read
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up R
+      uses: r-lib/actions/setup-r@v2
+      with:
+        r-version: '4.3.1'
+    
+    - name: Install required packages
+      run: |
+        install.packages(c("ggplot2", "jsonlite", "dplyr", "lubridate"), 
+                        repos = "https://cloud.r-project.org")
+      shell: Rscript {0}
+    
+    - name: Collect workflow metrics
+      uses: actions/github-script@v7
+      id: metrics
+      with:
+        script: |
+          const fs = require('fs');
+          
+          // Get workflow runs from last 7 days
+          const since = new Date();
+          since.setDate(since.getDate() - 7);
+          
+          const workflows = ['R Tests', 'Build, Test, and Deploy', 'Parallel Test Execution'];
+          const allRuns = [];
+          
+          for (const workflowName of workflows) {
+            try {
+              // Get workflow ID
+              const workflows = await github.rest.actions.listRepoWorkflows({
+                owner: context.repo.owner,
+                repo: context.repo.repo
+              });
+              
+              const workflow = workflows.data.workflows.find(w => w.name === workflowName);
+              if (!workflow) continue;
+              
+              // Get runs
+              const runs = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: workflow.id,
+                created: `>=${since.toISOString()}`,
+                per_page: 100
+              });
+              
+              allRuns.push(...runs.data.workflow_runs.map(run => ({
+                ...run,
+                workflow_name: workflowName
+              })));
+            } catch (e) {
+              console.error(`Error fetching ${workflowName}:`, e.message);
+            }
+          }
+          
+          // Save metrics
+          fs.writeFileSync('workflow-metrics.json', JSON.stringify(allRuns, null, 2));
+          
+          // Calculate summary stats
+          const summary = {
+            total_runs: allRuns.length,
+            by_workflow: {},
+            by_conclusion: {}
+          };
+          
+          allRuns.forEach(run => {
+            // By workflow
+            if (!summary.by_workflow[run.workflow_name]) {
+              summary.by_workflow[run.workflow_name] = {
+                total: 0,
+                success: 0,
+                failure: 0,
+                cancelled: 0,
+                duration_sum: 0
+              };
+            }
+            
+            const wf = summary.by_workflow[run.workflow_name];
+            wf.total++;
+            if (run.conclusion === 'success') wf.success++;
+            else if (run.conclusion === 'failure') wf.failure++;
+            else if (run.conclusion === 'cancelled') wf.cancelled++;
+            
+            if (run.run_started_at && run.updated_at) {
+              const duration = new Date(run.updated_at) - new Date(run.run_started_at);
+              wf.duration_sum += duration;
+            }
+            
+            // By conclusion
+            summary.by_conclusion[run.conclusion || 'in_progress'] = 
+              (summary.by_conclusion[run.conclusion || 'in_progress'] || 0) + 1;
+          });
+          
+          return summary;
+    
+    - name: Generate visualizations
+      env:
+        METRICS_SUMMARY: ${{ steps.metrics.outputs.result }}
+      run: |
+        library(ggplot2)
+        library(jsonlite)
+        library(dplyr)
+        library(lubridate)
+        
+        # Load data
+        runs <- fromJSON("workflow-metrics.json")
+        
+        # Create directory for plots
+        dir.create("dashboard-plots", showWarnings = FALSE)
+        
+        # Convert timestamps
+        runs$created_at <- ymd_hms(runs$created_at)
+        runs$updated_at <- ymd_hms(runs$updated_at)
+        runs$duration_minutes <- as.numeric(difftime(runs$updated_at, runs$created_at, units = "mins"))
+        
+        # 1. Success rate over time
+        daily_stats <- runs %>%
+          mutate(date = as.Date(created_at)) %>%
+          group_by(date, workflow_name) %>%
+          summarize(
+            total = n(),
+            success = sum(conclusion == "success", na.rm = TRUE),
+            success_rate = success / total * 100,
+            .groups = "drop"
+          )
+        
+        p1 <- ggplot(daily_stats, aes(x = date, y = success_rate, color = workflow_name)) +
+          geom_line(size = 1.2) +
+          geom_point(size = 2) +
+          scale_y_continuous(limits = c(0, 100)) +
+          labs(
+            title = "CI/CD Success Rate Over Time",
+            x = "Date",
+            y = "Success Rate (%)",
+            color = "Workflow"
+          ) +
+          theme_minimal() +
+          theme(legend.position = "bottom")
+        
+        ggsave("dashboard-plots/success-rate.png", p1, width = 10, height = 6)
+        
+        # 2. Duration trends
+        duration_stats <- runs %>%
+          filter(!is.na(duration_minutes), duration_minutes < 120) %>%
+          mutate(date = as.Date(created_at)) %>%
+          group_by(date, workflow_name) %>%
+          summarize(
+            avg_duration = mean(duration_minutes),
+            median_duration = median(duration_minutes),
+            .groups = "drop"
+          )
+        
+        p2 <- ggplot(duration_stats, aes(x = date, y = avg_duration, color = workflow_name)) +
+          geom_line(size = 1.2) +
+          geom_point(size = 2) +
+          labs(
+            title = "Average Workflow Duration",
+            x = "Date",
+            y = "Duration (minutes)",
+            color = "Workflow"
+          ) +
+          theme_minimal() +
+          theme(legend.position = "bottom")
+        
+        ggsave("dashboard-plots/duration-trends.png", p2, width = 10, height = 6)
+        
+        # 3. Failure distribution
+        failure_data <- runs %>%
+          filter(conclusion == "failure") %>%
+          count(workflow_name) %>%
+          mutate(percentage = n / sum(n) * 100)
+        
+        if (nrow(failure_data) > 0) {
+          p3 <- ggplot(failure_data, aes(x = reorder(workflow_name, n), y = n, fill = workflow_name)) +
+            geom_bar(stat = "identity") +
+            coord_flip() +
+            labs(
+              title = "Failure Distribution by Workflow",
+              x = "Workflow",
+              y = "Number of Failures"
+            ) +
+            theme_minimal() +
+            theme(legend.position = "none")
+          
+          ggsave("dashboard-plots/failure-distribution.png", p3, width = 8, height = 6)
+        }
+        
+        # Save summary statistics
+        summary_stats <- list(
+          last_updated = Sys.time(),
+          period = "Last 7 days",
+          total_runs = nrow(runs),
+          overall_success_rate = sum(runs$conclusion == "success", na.rm = TRUE) / nrow(runs) * 100,
+          avg_duration_minutes = mean(runs$duration_minutes, na.rm = TRUE),
+          workflows = unique(runs$workflow_name)
+        )
+        
+        write(toJSON(summary_stats, pretty = TRUE), "dashboard-plots/summary.json")
+      shell: Rscript {0}
+    
+    - name: Generate dashboard markdown
+      run: |
+        cat > ci-dashboard.md << 'EOF'
+        # CI/CD Performance Dashboard
+        
+        Last Updated: $(date -u +'%Y-%m-%d %H:%M:%S UTC')
+        
+        ## Overview
+        
+        This dashboard provides insights into the health and performance of our CI/CD pipelines.
+        
+        ## Success Rate Trends
+        
+        ![Success Rate Over Time](dashboard-plots/success-rate.png)
+        
+        ## Performance Metrics
+        
+        ![Duration Trends](dashboard-plots/duration-trends.png)
+        
+        ## Failure Analysis
+        
+        ![Failure Distribution](dashboard-plots/failure-distribution.png)
+        
+        ## Summary Statistics
+        
+        EOF
+        
+        # Add summary from JSON
+        if [ -f "dashboard-plots/summary.json" ]; then
+          echo '```json' >> ci-dashboard.md
+          cat dashboard-plots/summary.json >> ci-dashboard.md
+          echo '```' >> ci-dashboard.md
+        fi
+        
+        # Add recommendations
+        cat >> ci-dashboard.md << 'EOF'
+        
+        ## Recommendations
+        
+        Based on the current metrics:
+        
+        EOF
+        
+        # Generate recommendations based on data
+        if [ -f "workflow-metrics.json" ]; then
+          Rscript -e "
+            library(jsonlite)
+            runs <- fromJSON('workflow-metrics.json')
+            
+            # Calculate metrics
+            success_rate <- sum(runs\$conclusion == 'success', na.rm = TRUE) / nrow(runs) * 100
+            
+            if (success_rate < 80) {
+              cat('- ⚠️ **Low Success Rate**: Current success rate is', 
+                  sprintf('%.1f%%', success_rate), 
+                  '- investigate failing tests\n')
+            }
+            
+            # Check for timeout issues
+            timeout_count <- sum(runs\$conclusion == 'timed_out', na.rm = TRUE)
+            if (timeout_count > 5) {
+              cat('- ⏱️ **Timeout Issues**: ', timeout_count, 
+                  'workflow runs timed out - consider increasing limits\n')
+            }
+            
+            # Check duration trends
+            recent_runs <- runs[1:min(10, nrow(runs)), ]
+            if (mean(recent_runs\$duration_minutes, na.rm = TRUE) > 30) {
+              cat('- 🐌 **Slow Builds**: Recent builds averaging over 30 minutes\n')
+            }
+          " >> ci-dashboard.md
+        fi
+    
+    - name: Upload dashboard artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ci-dashboard
+        path: |
+          ci-dashboard.md
+          dashboard-plots/
+          workflow-metrics.json
+    
+    - name: Update dashboard issue
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const dashboardContent = fs.readFileSync('ci-dashboard.md', 'utf8');
+          
+          // Find or create dashboard issue
+          const issues = await github.rest.issues.listForRepo({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            labels: 'ci-dashboard',
+            state: 'open'
+          });
+          
+          const issueData = {
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: 'CI/CD Performance Dashboard',
+            body: dashboardContent,
+            labels: ['ci-dashboard']
+          };
+          
+          if (issues.data.length > 0) {
+            // Update existing issue
+            await github.rest.issues.update({
+              ...issueData,
+              issue_number: issues.data[0].number
+            });
+            console.log(`Updated dashboard issue #${issues.data[0].number}`);
+          } else {
+            // Create new issue
+            const newIssue = await github.rest.issues.create(issueData);
+            console.log(`Created dashboard issue #${newIssue.data.number}`);
+          }
+    
+    - name: Generate step summary
+      run: |
+        {
+          echo "## CI/CD Dashboard Updated"
+          echo ""
+          echo "Dashboard has been generated with the latest metrics."
+          echo ""
+          echo "### Quick Stats"
+          
+          if [ -f "dashboard-plots/summary.json" ]; then
+            jq -r '
+              "- Total Runs: \(.total_runs)",
+              "- Success Rate: \(.overall_success_rate | tostring | .[0:4])%",
+              "- Avg Duration: \(.avg_duration_minutes | tostring | .[0:4]) minutes"
+            ' dashboard-plots/summary.json
+          fi
+          
+          echo ""
+          echo "View the full dashboard in the [CI/CD Dashboard issue](https://github.com/${{ github.repository }}/issues?q=is%3Aissue+is%3Aopen+label%3Aci-dashboard)"
+        } >> $GITHUB_STEP_SUMMARY

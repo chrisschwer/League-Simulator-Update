@@ -204,6 +204,20 @@ jobs:
         
         # Generate test summary
         source(".github/scripts/test-summary.R")
+        
+        # Update test history for flaky test detection
+        if (!is.null(test_results) && !is.null(test_results$results)) {
+          for (i in seq_along(test_results$results)) {
+            result <- test_results$results[[i]]
+            test_name <- names(test_results$results)[i]
+            
+            if (!is.null(test_name) && nchar(test_name) > 0) {
+              status <- if (is.null(result$error) && is.null(result$failure)) "pass" else "fail"
+              system(sprintf("Rscript .github/scripts/flaky-test-detector.R update '%s' %s", 
+                           test_name, status))
+            }
+          }
+        }
       shell: Rscript {0}
       
     - name: Stop resource monitoring
@@ -220,6 +234,34 @@ jobs:
           .github/scripts/monitor-resources.sh generate_summary >> $GITHUB_STEP_SUMMARY
         fi
       continue-on-error: true
+      
+    - name: Analyze test failures
+      if: failure()
+      run: |
+        # Create failure analysis directory
+        mkdir -p .github/failure-analysis
+        
+        # Capture test output for analysis
+        if [ -f "${{ runner.temp }}/_github_workflow/event.json" ]; then
+          cp "${{ runner.temp }}/_github_workflow/event.json" .github/failure-analysis/
+        fi
+        
+        # Run failure analysis
+        .github/scripts/analyze-failures.sh "${{ runner.temp }}/_runner_file_commands/step_summary_*" .github/failure-analysis || true
+        
+        # Upload analysis
+        if [ -f .github/failure-analysis/analysis_*.md ]; then
+          echo "Test failure analysis generated"
+        fi
+      continue-on-error: true
+      
+    - name: Upload failure analysis
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: failure-analysis-${{ matrix.os }}-${{ matrix.r-version }}
+        path: .github/failure-analysis/
+        retention-days: 30
       
     - name: Run performance tests (Ubuntu latest R only)
       if: matrix.os == 'ubuntu-latest' && matrix.r-version == '4.4.0'
