@@ -489,8 +489,270 @@ echo -e "\n=== Diagnostics Complete ==="
    - Docker Issues: Check Docker Desktop logs
    - Application Issues: Create GitHub issue
 
+## CI/CD Pipeline Issues
+
+### 11. GitHub Actions Test Timeouts
+
+**Symptoms:**
+- Tests killed after 30 minutes
+- "Error: The operation was canceled"
+- Workflow shows as failed due to timeout
+
+**Diagnosis:**
+```bash
+# Check workflow run times
+gh run list --workflow=R-tests.yml --limit=10
+
+# View timeout errors
+gh run view --log | grep -i "timeout\|canceled"
+```
+
+**Solutions:**
+
+```yaml
+# Solution 1: Increase workflow timeout
+# In .github/workflows/R-tests.yml:
+timeout-minutes: 45  # Increased from 30
+
+# Solution 2: Use test sharding
+# Tests run in parallel across 4 shards
+# See .github/workflows/parallel-tests.yml
+
+# Solution 3: Skip long-running tests in CI
+test_that("expensive simulation", {
+  skip_on_ci()  # Skip in CI environment
+  # Long test code here
+})
+```
+
+### 12. Container Structure Test Failures
+
+**Symptoms:**
+- "Container structure test failed"
+- R version mismatch errors
+- Permission check failures
+
+**Diagnosis:**
+```bash
+# Run container tests locally
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+  -v $(pwd):/workspace \
+  gcr.io/gcp-runtimes/container-structure-test:latest \
+  test --image league-simulator:latest \
+  --config /workspace/tests/container-league.yaml
+```
+
+**Solutions:**
+
+```yaml
+# Solution 1: Update test YAML for dynamic versions
+# In tests/container-league.yaml:
+- name: "R Version"
+  command: "R"
+  args: ["--version"]
+  expectedOutput: ["R version 4\\.[0-9]+\\.[0-9]+"]  # Regex pattern
+
+# Solution 2: Remove problematic permission tests
+# Comment out or remove permission-specific checks
+
+# Solution 3: Rebuild with consistent base image
+FROM rocker/r-ver:4.3.3  # Use specific version
+```
+
+### 13. Flaky Test Quarantine
+
+**Symptoms:**
+- Tests passing/failing randomly
+- "Test quarantined" messages
+- Reduced test coverage
+
+**Diagnosis:**
+```r
+# Check quarantine list
+quarantine <- jsonlite::read_json(".github/test-quarantine.json")
+print(names(quarantine$quarantined_tests))
+
+# View flaky test report
+source(".github/scripts/flaky-test-detector.R")
+generate_flaky_report()
+```
+
+**Solutions:**
+
+```r
+# Solution 1: Fix and remove from quarantine
+# After fixing the test:
+remove_from_quarantine("test-name", reason = "Fixed race condition")
+
+# Solution 2: Increase test stability
+# Add proper setup/teardown
+test_that("stable test", {
+  # Setup
+  withr::local_seed(12345)  # Consistent randomness
+  withr::local_tempdir()    # Isolated file system
+  
+  # Test code here
+  
+  # Cleanup happens automatically
+})
+
+# Solution 3: Review quarantine criteria
+# Adjust threshold in .github/workflows/quarantine-flaky-tests.yml
+# Default is 20% failure rate
+```
+
+### 14. Docker Cache Misses
+
+**Symptoms:**
+- Long build times
+- "No cache available" messages
+- Repeated package installations
+
+**Diagnosis:**
+```bash
+# Check cache usage
+docker system df
+docker images | grep cache
+
+# View build cache
+docker buildx du --verbose
+```
+
+**Solutions:**
+
+```yaml
+# Solution 1: Enable GitHub Actions cache
+# In .github/workflows/docker-cache.yml
+- uses: docker/build-push-action@v4
+  with:
+    cache-from: type=gha
+    cache-to: type=gha,mode=max
+
+# Solution 2: Optimize Dockerfile ordering
+# Put stable layers first:
+FROM rocker/r-ver:4.3.3
+COPY renv.lock .          # Changes rarely
+RUN R -e "renv::restore()" # Cached if renv.lock unchanged
+COPY . .                   # Changes frequently
+
+# Solution 3: Use registry caching
+- uses: docker/build-push-action@v4
+  with:
+    cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:cache
+    cache-to: type=registry,ref=ghcr.io/${{ github.repository }}:cache,mode=max
+```
+
+### 15. Parallel Test Conflicts
+
+**Symptoms:**
+- Tests pass individually but fail in parallel
+- File locking errors
+- Database conflicts
+
+**Diagnosis:**
+```bash
+# Run tests serially to confirm
+Rscript tests/testthat.R --parallel=1
+
+# Check for shared resources
+grep -r "tempfile()" tests/testthat/
+grep -r "write.csv" tests/testthat/
+```
+
+**Solutions:**
+
+```r
+# Solution 1: Use unique temp files
+test_that("parallel safe test", {
+  # Bad: Fixed filename
+  # write.csv(data, "test.csv")
+  
+  # Good: Unique temp file
+  temp_file <- tempfile(fileext = ".csv")
+  write.csv(data, temp_file)
+  on.exit(unlink(temp_file))
+})
+
+# Solution 2: Isolate test directories
+withr::local_tempdir()  # Each test gets own directory
+
+# Solution 3: Configure test shards properly
+# In .github/scripts/shard-tests.R
+# Ensure no overlap between shards
+```
+
+### 16. CI Performance Dashboard Issues
+
+**Symptoms:**
+- Dashboard not updating
+- Metrics missing or incorrect
+- Visualization errors
+
+**Diagnosis:**
+```bash
+# Check dashboard workflow
+gh run list --workflow=ci-dashboard.yml --status=failure
+
+# View dashboard data
+cat .github/ci-metrics/latest.json
+```
+
+**Solutions:**
+
+```bash
+# Solution 1: Manually trigger dashboard update
+gh workflow run ci-dashboard.yml
+
+# Solution 2: Fix data collection
+# Check artifact uploads in workflows
+- uses: actions/upload-artifact@v3
+  with:
+    name: test-results
+    path: test-results.json
+
+# Solution 3: Reset dashboard data
+rm -rf .github/ci-metrics/*
+gh workflow run ci-dashboard.yml --ref main
+```
+
+## CI/CD Quick Reference
+
+### Useful Commands
+```bash
+# Trigger workflow manually
+gh workflow run R-tests.yml
+
+# View recent failures
+gh run list --workflow=R-tests.yml --status=failure --limit=5
+
+# Download workflow logs
+gh run download <run-id>
+
+# Cancel stuck workflow
+gh run cancel <run-id>
+
+# Re-run failed jobs
+gh run rerun <run-id> --failed
+```
+
+### Key CI/CD Files
+- Main test workflow: `.github/workflows/R-tests.yml`
+- Parallel tests: `.github/workflows/parallel-tests.yml`
+- Test sharding: `.github/scripts/shard-tests.R`
+- Flaky detection: `.github/scripts/flaky-test-detector.R`
+- CI dashboard: `.github/workflows/ci-dashboard.yml`
+
+### Performance Targets
+- Test completion: <15 minutes (with sharding)
+- Cache hit rate: >80%
+- Success rate: >95%
+- Flaky test rate: <5%
+
 ## Related Documentation
 
+- [CI/CD Guide](../deployment/ci-cd-guide.md)
+- [CI Monitoring](../operations/ci-monitoring.md)
+- [CI Performance Report](../ci-performance-report.md)
 - [Log Analysis](log-analysis.md)
 - [Performance Tuning](performance.md)
 - [Debugging Guide](debugging.md)
