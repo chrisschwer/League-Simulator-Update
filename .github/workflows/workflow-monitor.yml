@@ -1,0 +1,102 @@
+name: Workflow Health Monitor
+
+on:
+  workflow_run:
+    workflows: ["R Tests", "Build, Test, and Deploy"]
+    types: [completed]
+  schedule:
+    # Run daily at 6 AM UTC to check workflow health
+    - cron: '0 6 * * *'
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Analyze workflow health
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const workflowRuns = await github.rest.actions.listWorkflowRuns({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            per_page: 50
+          });
+          
+          // Calculate metrics
+          const runs = workflowRuns.data.workflow_runs;
+          const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          const recentRuns = runs.filter(run => new Date(run.created_at) > last24h);
+          
+          let successCount = 0;
+          let failureCount = 0;
+          let timeoutCount = 0;
+          let totalDuration = 0;
+          
+          recentRuns.forEach(run => {
+            if (run.conclusion === 'success') successCount++;
+            else if (run.conclusion === 'failure') failureCount++;
+            else if (run.conclusion === 'timed_out') timeoutCount++;
+            
+            if (run.run_started_at && run.updated_at) {
+              const duration = new Date(run.updated_at) - new Date(run.run_started_at);
+              totalDuration += duration;
+            }
+          });
+          
+          const avgDuration = recentRuns.length > 0 ? totalDuration / recentRuns.length / 1000 / 60 : 0;
+          const successRate = recentRuns.length > 0 ? (successCount / recentRuns.length * 100).toFixed(1) : 0;
+          
+          // Create summary
+          let summary = `## Workflow Health Report\n\n`;
+          summary += `### Last 24 Hours\n`;
+          summary += `- Total Runs: ${recentRuns.length}\n`;
+          summary += `- Success Rate: ${successRate}%\n`;
+          summary += `- Failures: ${failureCount}\n`;
+          summary += `- Timeouts: ${timeoutCount}\n`;
+          summary += `- Average Duration: ${avgDuration.toFixed(1)} minutes\n\n`;
+          
+          // Add alerts
+          if (successRate < 80) {
+            summary += `⚠️ **Alert**: Success rate below 80%\n`;
+          }
+          if (timeoutCount > 2) {
+            summary += `⚠️ **Alert**: Multiple timeouts detected\n`;
+          }
+          if (avgDuration > 25) {
+            summary += `⚠️ **Alert**: Average duration exceeding 25 minutes\n`;
+          }
+          
+          // Write to step summary
+          await core.summary
+            .addRaw(summary)
+            .write();
+          
+          // Set outputs for notifications
+          core.setOutput('success_rate', successRate);
+          core.setOutput('has_alerts', successRate < 80 || timeoutCount > 2 || avgDuration > 25);
+    
+    - name: Create issue if unhealthy
+      if: steps.monitor.outputs.has_alerts == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const issues = await github.rest.issues.listForRepo({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            labels: 'ci-health',
+            state: 'open'
+          });
+          
+          if (issues.data.length === 0) {
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'CI/CD Pipeline Health Alert',
+              body: `The CI/CD pipeline is experiencing issues. Success rate: ${steps.monitor.outputs.success_rate}%\n\nPlease check the [workflow runs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions) for details.`,
+              labels: ['ci-health', 'P1-High']
+            });
+          }

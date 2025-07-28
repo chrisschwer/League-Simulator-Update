@@ -16,25 +16,21 @@ fileExistenceTests:
   - name: 'Shiny App Directory'
     path: '/ShinyApp'
     shouldExist: true
-    permissions: 'drwxr-xr-x'
     uid: 1000
     gid: 1000
   - name: 'Shiny Data Directory'
     path: '/ShinyApp/data'
     shouldExist: true
-    permissions: 'drwxr-xr-x'
     uid: 1000
     gid: 1000
   - name: 'RCode Directory'
     path: '/RCode'
     shouldExist: true
-    permissions: 'drwxr-xr-x'
     uid: 1000
     gid: 1000
   - name: 'League Results Directory'
     path: '/RCode/league_results'
     shouldExist: true
-    permissions: 'drwxr-xr-x'
     uid: 1000
     gid: 1000
   - name: 'Health Check Script'

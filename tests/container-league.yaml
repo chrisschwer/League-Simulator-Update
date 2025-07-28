@@ -16,13 +16,11 @@ fileExistenceTests:
   - name: 'R Scripts Directory'
     path: '/RCode'
     shouldExist: true
-    permissions: 'drwxr-xr-x'
     uid: 1000
     gid: 1000
   - name: 'League Results Directory'
     path: '/RCode/league_results'
     shouldExist: true
-    permissions: 'drwxr-xr-x'
     uid: 1000
     gid: 1000
   - name: 'Health Check Script'

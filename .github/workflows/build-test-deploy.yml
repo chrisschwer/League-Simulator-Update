@@ -67,7 +67,6 @@ jobs:
       shell: Rscript {0}
     
     - name: Run R tests
-      continue-on-error: true
       env:
         RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY || 'test_key_for_ci' }}
         CI_ENVIRONMENT: 'true'
