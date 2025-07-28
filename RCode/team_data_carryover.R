@@ -20,6 +20,13 @@ source_with_fallback <- function(path) {
 # Source required modules
 source_with_fallback("RCode/file_operations.R")
 
+#' Load team list from previous season
+#' 
+#' Loads TeamList for specified season, checking for most recent merged file first
+#' 
+#' @param season The season year to load
+#' @return Data frame of team data or NULL if not found
+#' @export
 load_previous_team_list <- function(season) {
   # Load TeamList for specified season
   # Returns data frame or NULL if not found
@@ -81,6 +88,14 @@ load_previous_team_list <- function(season) {
   })
 }
 
+#' Get existing team data from previous season
+#' 
+#' Retrieves team data from previous season by TeamID
+#' 
+#' @param team_id The team ID to look up
+#' @param previous_team_list Data frame of previous season teams
+#' @return List with short_name and promotion_value or NULL
+#' @export
 get_existing_team_data <- function(team_id, previous_team_list) {
   # Get team data from previous season by TeamID
   # Returns list with short_name and promotion_value or NULL
@@ -123,6 +138,13 @@ build_team_lookup_table <- function(previous_team_list) {
   return(lookup)
 }
 
+#' Validate uniqueness of short names
+#' 
+#' Checks if all team short names are unique
+#' 
+#' @param short_names Vector of team short names
+#' @return Logical indicating if all names are unique
+#' @export
 validate_short_name_uniqueness <- function(short_names) {
   # Check if all short names are unique
   # Returns validation result
@@ -180,6 +202,13 @@ merge_team_data_with_carryover <- function(new_teams, previous_team_list, final_
   return(new_teams)
 }
 
+#' Ensure unique short names for teams
+#' 
+#' Modifies duplicate short names to ensure uniqueness by appending suffixes
+#' 
+#' @param teams Data frame containing team data with ShortText column
+#' @return Data frame with unique short names
+#' @export
 ensure_unique_short_names <- function(teams) {
   # Ensure all teams have unique short names
   # Returns teams with guaranteed unique short names

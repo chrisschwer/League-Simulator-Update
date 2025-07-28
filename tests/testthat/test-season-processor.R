@@ -3,7 +3,9 @@
 library(testthat)
 library(mockery)
 
-# Source required files - handled by helper-test-setup.R
+# Source required files directly - the helper seems to not be working in test context
+source("../../RCode/season_processor.R")
+source("../../RCode/team_data_carryover.R")
 
 context("Season Processor - Team Data Carryover")
 
@@ -142,16 +144,14 @@ test_that("Liga3 baseline is passed to prompt_for_team_info", {
 context("Season Processor - Season Validation")
 
 test_that("process_single_season validates previous season completion", {
-  # Mock validation to fail
-  stub(process_single_season, "validate_season_completion", function(season) {
-    stop(sprintf("Season %s not finished, no season transition possible.", season))
-  })
+  # Mock validation to return FALSE
+  stub(process_single_season, "validate_season_completion", FALSE)
   
-  # Test
-  expect_error(
-    process_single_season("2025", "2024"),
-    "Season 2024 not finished, no season transition possible."
-  )
+  # Test - process_single_season returns a list with success = FALSE on error
+  result <- process_single_season("2025", "2024")
+  
+  expect_false(result$success)
+  expect_equal(result$error, "Season 2024 not finished, no season transition possible.")
 })
 
 context("Team Data Carryover Module")
