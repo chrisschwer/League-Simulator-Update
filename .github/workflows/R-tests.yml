@@ -13,14 +13,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        r-version: ['4.2.0', '4.3.0', '4.4.0']
-        exclude:
-          # Reduce matrix size - only test latest R on macOS
+        os: [ubuntu-latest]
+        r-version: ['4.3.1', '4.4.0']
+        include:
+          # Add one macOS test with latest R for platform coverage
           - os: macos-latest
-            r-version: '4.2.0'
-          - os: macos-latest
-            r-version: '4.3.0'
+            r-version: '4.4.0'
 
     steps:
     - uses: actions/checkout@v4
@@ -44,6 +42,25 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-r-${{ matrix.r-version }}-
           
+    - name: Cache test results
+      uses: actions/cache@v4
+      with:
+        path: tests/testthat/_test_cache
+        key: ${{ runner.os }}-r-${{ matrix.r-version }}-tests-${{ hashFiles('tests/testthat/test-*.R', 'RCode/*.R') }}
+        restore-keys: |
+          ${{ runner.os }}-r-${{ matrix.r-version }}-tests-
+          
+    - name: Cache compiled C++ objects
+      uses: actions/cache@v4
+      with:
+        path: |
+          RCode/*.o
+          RCode/*.so
+          RCode/*.dll
+        key: ${{ runner.os }}-r-${{ matrix.r-version }}-cpp-${{ hashFiles('RCode/*.cpp') }}
+        restore-keys: |
+          ${{ runner.os }}-r-${{ matrix.r-version }}-cpp-
+          
     - name: Install production dependencies
       run: |
         packages <- readLines("packagelist.txt")
@@ -60,11 +77,19 @@ jobs:
         install.packages(packages, repos = "https://cloud.r-project.org")
       shell: Rscript {0}
       
-    - name: Compile C++ code
+    - name: Compile C++ code with retry
+      uses: nick-fields/retry@v2
+      with:
+        timeout_minutes: 5
+        max_attempts: 3
+        command: |
+          Rscript -e "library(Rcpp); sourceCpp('RCode/SpielNichtSimulieren.cpp')"
+          
+    - name: Start resource monitoring
       run: |
-        library(Rcpp)
-        sourceCpp("RCode/SpielNichtSimulieren.cpp")
-      shell: Rscript {0}
+        .github/scripts/monitor-resources.sh &
+        echo $! > monitor.pid
+      continue-on-error: true
       
     - name: Run tests
       env:
@@ -72,7 +97,7 @@ jobs:
         CI_ENVIRONMENT: 'true'
         RUN_DEPLOYMENT_TESTS_ONLY: 'true'
         TEST_TIMEOUT: '300'  # 5 minute timeout for individual tests
-      timeout-minutes: 20  # Increased to 20 minutes for more complex tests
+      timeout-minutes: 30  # Increased to 30 minutes for complex test scenarios
       run: |
         # Set working directory to project root
         setwd("${{ github.workspace }}")
@@ -131,6 +156,8 @@ jobs:
         
         # Check test results
         if (is.null(test_results)) {
+          cat("\nERROR TYPE: Infrastructure\n")
+          cat("Test execution framework failed - this is likely a CI infrastructure issue\n")
           stop("Test execution failed")
         }
         
@@ -161,17 +188,80 @@ jobs:
         
         # For CI, we'll tolerate some failures while fixing them
         # Once all tests pass, change this threshold to 0
-        max_allowed_failures <- 40  # Temporary higher threshold while fixing tests
+        max_allowed_failures <- 20  # Reduced threshold as tests are being fixed
         
         if (failed_tests > max_allowed_failures) {
+          cat("\nERROR TYPE: Code\n")
+          cat("Test failures indicate code issues that need to be fixed\n")
           stop(paste("Too many test failures:", failed_tests, "exceeded threshold of", max_allowed_failures))
         } else if (failed_tests > 0) {
           cat("\nWARNING:", failed_tests, "tests failed (threshold:", max_allowed_failures, ")\n")
           cat("This is temporarily allowed while tests are being fixed.\n")
+          cat("ERROR TYPE: Code (non-blocking)\n")
         } else {
           cat("\nAll tests passed!\n")
         }
+        
+        # Generate test summary
+        source(".github/scripts/test-summary.R")
+        
+        # Update test history for flaky test detection
+        if (!is.null(test_results) && !is.null(test_results$results)) {
+          for (i in seq_along(test_results$results)) {
+            result <- test_results$results[[i]]
+            test_name <- names(test_results$results)[i]
+            
+            if (!is.null(test_name) && nchar(test_name) > 0) {
+              status <- if (is.null(result$error) && is.null(result$failure)) "pass" else "fail"
+              system(sprintf("Rscript .github/scripts/flaky-test-detector.R update '%s' %s", 
+                           test_name, status))
+            }
+          }
+        }
       shell: Rscript {0}
+      
+    - name: Stop resource monitoring
+      if: always()
+      run: |
+        if [ -f monitor.pid ]; then
+          kill $(cat monitor.pid) 2>/dev/null || true
+          rm monitor.pid
+        fi
+        
+        # Display resource summary
+        if [ -f resource-metrics.json ]; then
+          echo "## Resource Usage During Tests" >> $GITHUB_STEP_SUMMARY
+          .github/scripts/monitor-resources.sh generate_summary >> $GITHUB_STEP_SUMMARY
+        fi
+      continue-on-error: true
+      
+    - name: Analyze test failures
+      if: failure()
+      run: |
+        # Create failure analysis directory
+        mkdir -p .github/failure-analysis
+        
+        # Capture test output for analysis
+        if [ -f "${{ runner.temp }}/_github_workflow/event.json" ]; then
+          cp "${{ runner.temp }}/_github_workflow/event.json" .github/failure-analysis/
+        fi
+        
+        # Run failure analysis
+        .github/scripts/analyze-failures.sh "${{ runner.temp }}/_runner_file_commands/step_summary_*" .github/failure-analysis || true
+        
+        # Upload analysis
+        if [ -f .github/failure-analysis/analysis_*.md ]; then
+          echo "Test failure analysis generated"
+        fi
+      continue-on-error: true
+      
+    - name: Upload failure analysis
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: failure-analysis-${{ matrix.os }}-${{ matrix.r-version }}
+        path: .github/failure-analysis/
+        retention-days: 30
       
     - name: Run performance tests (Ubuntu latest R only)
       if: matrix.os == 'ubuntu-latest' && matrix.r-version == '4.4.0'

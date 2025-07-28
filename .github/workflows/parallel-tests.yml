@@ -1,0 +1,228 @@
+name: Parallel Test Execution
+
+on:
+  workflow_dispatch:
+    inputs:
+      shards:
+        description: 'Number of parallel shards'
+        required: false
+        default: '4'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'RCode/**.R'
+      - 'tests/testthat/**.R'
+      - '.github/workflows/parallel-tests.yml'
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.shard.outputs.matrix }}
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up R
+      uses: r-lib/actions/setup-r@v2
+      with:
+        r-version: '4.3.1'
+    
+    - name: Install jsonlite for sharding
+      run: |
+        install.packages("jsonlite", repos = "https://cloud.r-project.org")
+      shell: Rscript {0}
+    
+    - name: Generate test shards
+      id: shard
+      run: |
+        n_shards="${{ github.event.inputs.shards || '4' }}"
+        Rscript .github/scripts/shard-tests.R $n_shards tests/testthat
+
+  parallel-test:
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    
+    name: Test Shard ${{ matrix.shard }}
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up R
+      uses: r-lib/actions/setup-r@v2
+      with:
+        r-version: '4.3.1'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev
+    
+    - name: Cache R packages (shard-specific)
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.R_LIBS_USER }}
+        key: ${{ runner.os }}-r-4.3.1-shard-${{ matrix.shard }}-${{ hashFiles('**/packagelist.txt', '**/test_packagelist.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-r-4.3.1-shard-${{ matrix.shard }}-
+          ${{ runner.os }}-r-4.3.1-
+    
+    - name: Install dependencies
+      run: |
+        # Install packages
+        packages <- c(readLines("packagelist.txt"), readLines("test_packagelist.txt"))
+        packages <- packages[!grepl("^#", packages) & nchar(trimws(packages)) > 0]
+        packages <- unique(trimws(packages))
+        install.packages(packages[!packages %in% installed.packages()[,"Package"]], 
+                        repos = "https://cloud.r-project.org", 
+                        Ncpus = 2)
+      shell: Rscript {0}
+    
+    - name: Compile C++ code
+      run: |
+        library(Rcpp)
+        sourceCpp("RCode/SpielNichtSimulieren.cpp")
+      shell: Rscript {0}
+    
+    - name: Run tests for shard ${{ matrix.shard }}
+      env:
+        RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY || 'test_key_for_ci' }}
+        CI_ENVIRONMENT: 'true'
+        TEST_SHARD: ${{ matrix.shard }}
+        TOTAL_SHARDS: ${{ strategy.job-total }}
+      run: |
+        library(testthat)
+        
+        # Get tests for this shard from matrix
+        shard_tests <- '${{ toJson(matrix.tests) }}'
+        test_files <- jsonlite::fromJSON(shard_tests)
+        
+        cat(sprintf("Running shard %d of %d\n", 
+                   as.integer(Sys.getenv("TEST_SHARD")), 
+                   as.integer(Sys.getenv("TOTAL_SHARDS"))))
+        cat(sprintf("Tests in this shard: %d\n", length(test_files)))
+        
+        # Run tests
+        results <- list()
+        failures <- 0
+        
+        for (test_file in test_files) {
+          cat(sprintf("\n=== Running: %s ===\n", basename(test_file)))
+          
+          result <- tryCatch({
+            test_file(test_file)
+          }, error = function(e) {
+            cat("Error:", e$message, "\n")
+            list(error = e$message)
+          })
+          
+          if (!is.null(result$error) || 
+              (inherits(result, "testthat_results") && 
+               any(sapply(result, function(x) !is.null(x$error) || !is.null(x$failure))))) {
+            failures <- failures + 1
+          }
+          
+          results[[test_file]] <- result
+        }
+        
+        # Summary
+        cat(sprintf("\n\nShard %d Summary:\n", as.integer(Sys.getenv("TEST_SHARD"))))
+        cat(sprintf("- Total test files: %d\n", length(test_files)))
+        cat(sprintf("- Failed test files: %d\n", failures))
+        
+        # Save results for aggregation
+        saveRDS(results, sprintf("shard-%s-results.rds", Sys.getenv("TEST_SHARD")))
+        
+        if (failures > 0) {
+          stop(sprintf("Shard %d had %d test failures", 
+                      as.integer(Sys.getenv("TEST_SHARD")), failures))
+        }
+      shell: Rscript {0}
+    
+    - name: Upload shard results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: shard-${{ matrix.shard }}-results
+        path: shard-${{ matrix.shard }}-results.rds
+    
+    - name: Generate shard summary
+      if: always()
+      run: |
+        echo "## Shard ${{ matrix.shard }} Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ -f "shard-${{ matrix.shard }}-results.rds" ]; then
+          Rscript -e "
+            results <- readRDS('shard-${{ matrix.shard }}-results.rds')
+            cat('### Tests Run:\n')
+            for (test in names(results)) {
+              status <- if(is.null(results[[test]]\$error)) '✅' else '❌'
+              cat(sprintf('- %s %s\n', status, basename(test)))
+            }
+          " >> $GITHUB_STEP_SUMMARY
+        else
+          echo "No results file found for shard ${{ matrix.shard }}" >> $GITHUB_STEP_SUMMARY
+        fi
+
+  aggregate-results:
+    needs: parallel-test
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download all shard results
+      uses: actions/download-artifact@v4
+      with:
+        pattern: shard-*-results
+        merge-multiple: true
+    
+    - name: Set up R
+      uses: r-lib/actions/setup-r@v2
+      with:
+        r-version: '4.3.1'
+    
+    - name: Aggregate test results
+      run: |
+        # Load all shard results
+        shard_files <- list.files(pattern = "shard-.*-results\\.rds")
+        all_results <- list()
+        
+        for (file in shard_files) {
+          shard_results <- readRDS(file)
+          all_results <- c(all_results, shard_results)
+        }
+        
+        # Calculate overall statistics
+        total_tests <- length(all_results)
+        failed_tests <- sum(sapply(all_results, function(r) {
+          !is.null(r$error) || 
+          (inherits(r, "testthat_results") && 
+           any(sapply(r, function(x) !is.null(x$error) || !is.null(x$failure))))
+        }))
+        
+        # Generate final report
+        cat("# Parallel Test Execution Summary\n\n")
+        cat(sprintf("- Total Shards: %d\n", length(shard_files)))
+        cat(sprintf("- Total Test Files: %d\n", total_tests))
+        cat(sprintf("- Failed Test Files: %d\n", failed_tests))
+        cat(sprintf("- Success Rate: %.1f%%\n", 100 * (total_tests - failed_tests) / total_tests))
+        
+        # Check thresholds
+        if (failed_tests > 20) {
+          stop(sprintf("Too many failures: %d (threshold: 20)", failed_tests))
+        }
+        
+        # Write to step summary
+        sink(Sys.getenv("GITHUB_STEP_SUMMARY"), append = TRUE)
+        cat("\n## Overall Test Results\n\n")
+        cat(sprintf("✅ Passed: %d test files\n", total_tests - failed_tests))
+        cat(sprintf("❌ Failed: %d test files\n", failed_tests))
+        cat(sprintf("📊 Success Rate: %.1f%%\n", 100 * (total_tests - failed_tests) / total_tests))
+        sink()
+      shell: Rscript {0}

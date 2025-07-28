@@ -1,0 +1,207 @@
+name: Incremental Tests
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'RCode/**.R'
+      - 'tests/testthat/**.R'
+      - 'RCode/**.cpp'
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      affected_tests: ${{ steps.analyze.outputs.affected_tests }}
+      has_changes: ${{ steps.analyze.outputs.has_changes }}
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Get changed files
+      id: changed-files
+      uses: tj-actions/changed-files@v41
+      with:
+        files: |
+          RCode/**.R
+          RCode/**.cpp
+          tests/testthat/**.R
+    
+    - name: Set up R
+      if: steps.changed-files.outputs.any_changed == 'true'
+      uses: r-lib/actions/setup-r@v2
+      with:
+        r-version: '4.3.1'
+    
+    - name: Analyze test dependencies
+      id: analyze
+      if: steps.changed-files.outputs.any_changed == 'true'
+      run: |
+        echo "Changed files:"
+        echo "${{ steps.changed-files.outputs.all_changed_files }}"
+        
+        # Convert space-separated to newline-separated for R script
+        echo "${{ steps.changed-files.outputs.all_changed_files }}" | tr ' ' '\n' > changed_files.txt
+        
+        # Run dependency analysis
+        Rscript .github/scripts/test-dependencies.R $(cat changed_files.txt)
+        
+        # Set outputs
+        echo "has_changes=true" >> $GITHUB_OUTPUT
+      shell: bash
+    
+    - name: No changes detected
+      if: steps.changed-files.outputs.any_changed != 'true'
+      run: |
+        echo "No relevant changes detected"
+        echo "has_changes=false" >> $GITHUB_OUTPUT
+
+  incremental-test:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up R
+      uses: r-lib/actions/setup-r@v2
+      with:
+        r-version: '4.3.1'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev
+    
+    - name: Cache R packages
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.R_LIBS_USER }}
+        key: ${{ runner.os }}-r-4.3.1-incremental-${{ hashFiles('**/packagelist.txt', '**/test_packagelist.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-r-4.3.1-incremental-
+          ${{ runner.os }}-r-4.3.1-
+    
+    - name: Install dependencies
+      run: |
+        # Install production packages
+        packages <- readLines("packagelist.txt")
+        packages <- packages[!grepl("^#", packages) & nchar(trimws(packages)) > 0]
+        packages <- trimws(packages)
+        install.packages(packages[!packages %in% installed.packages()[,"Package"]], 
+                        repos = "https://cloud.r-project.org")
+        
+        # Install test packages
+        test_packages <- readLines("test_packagelist.txt")
+        test_packages <- test_packages[!grepl("^#", test_packages) & nchar(trimws(test_packages)) > 0]
+        test_packages <- trimws(test_packages)
+        install.packages(test_packages[!test_packages %in% installed.packages()[,"Package"]], 
+                        repos = "https://cloud.r-project.org")
+      shell: Rscript {0}
+    
+    - name: Compile C++ code
+      run: |
+        library(Rcpp)
+        sourceCpp("RCode/SpielNichtSimulieren.cpp")
+      shell: Rscript {0}
+    
+    - name: Run affected tests only
+      env:
+        RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY || 'test_key_for_ci' }}
+        CI_ENVIRONMENT: 'true'
+        AFFECTED_TESTS: ${{ needs.detect-changes.outputs.affected_tests }}
+      run: |
+        library(testthat)
+        
+        affected_tests <- strsplit(Sys.getenv("AFFECTED_TESTS"), ",")[[1]]
+        
+        if (length(affected_tests) == 0 || all(affected_tests == "")) {
+          cat("No tests affected by changes - skipping test run\n")
+        } else {
+          cat("Running", length(affected_tests), "affected tests:\n")
+          for (test in affected_tests) {
+            cat("  -", test, "\n")
+          }
+          
+          # Run only affected tests
+          test_results <- list()
+          for (test_file in affected_tests) {
+            if (file.exists(test_file)) {
+              cat("\nRunning:", test_file, "\n")
+              result <- tryCatch({
+                test_file(test_file)
+              }, error = function(e) {
+                cat("Error in test:", e$message, "\n")
+                NULL
+              })
+              test_results[[test_file]] <- result
+            }
+          }
+          
+          # Summary
+          failures <- sum(sapply(test_results, function(r) {
+            if (is.null(r)) return(1)
+            if (inherits(r, "testthat_results")) {
+              sum(sapply(r, function(x) !is.null(x$error) || !is.null(x$failure)))
+            } else {
+              0
+            }
+          }))
+          
+          if (failures > 0) {
+            stop(sprintf("%d test failures in affected tests", failures))
+          } else {
+            cat("\nAll affected tests passed!\n")
+          }
+        }
+      shell: Rscript {0}
+    
+    - name: Comment PR with results
+      if: always()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const affectedTests = '${{ needs.detect-changes.outputs.affected_tests }}'.split(',').filter(t => t);
+          const success = '${{ job.status }}' === 'success';
+          
+          let comment = '## Incremental Test Results\n\n';
+          
+          if (affectedTests.length === 0) {
+            comment += '✅ No tests were affected by the changes in this PR.\n';
+          } else {
+            comment += `${success ? '✅' : '❌'} Ran ${affectedTests.length} affected tests\n\n`;
+            comment += '### Affected Tests:\n';
+            affectedTests.forEach(test => {
+              comment += `- ${test}\n`;
+            });
+          }
+          
+          // Find existing comment
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+          
+          const botComment = comments.find(comment => 
+            comment.user.type === 'Bot' && comment.body.includes('## Incremental Test Results')
+          );
+          
+          if (botComment) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: botComment.id,
+              body: comment
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
+          }
