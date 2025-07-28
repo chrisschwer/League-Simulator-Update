@@ -101,6 +101,14 @@ process_season_transition <- function(source_season, target_season) {
   })
 }
 
+#' Process a single season transition
+#' 
+#' Handles team discovery and ELO assignment for a single season
+#' 
+#' @param season The target season year
+#' @param previous_season The source season year
+#' @return A list with success status, files created, teams processed, and any error
+#' @export
 process_single_season <- function(season, previous_season) {
   # Process transition for single season
   # Handles team discovery and ELO assignment
@@ -205,6 +213,18 @@ process_single_season <- function(season, previous_season) {
   })
 }
 
+#' Process teams for a specific league
+#' 
+#' Processes team data for a league including ELO assignment and name handling
+#' 
+#' @param teams The team data to process
+#' @param league_id The ID of the league
+#' @param season The season year
+#' @param final_elos Final ELO ratings from previous season
+#' @param liga3_baseline Baseline ELO for Liga 3 teams
+#' @param previous_team_list Previous season team list for carryover
+#' @return Processed team data frame
+#' @export
 process_league_teams <- function(teams, league_id, season, final_elos, liga3_baseline, previous_team_list = NULL) {
   # Process teams for a specific league
   # Handles ELO assignment and user prompts with carryover from previous seasons
