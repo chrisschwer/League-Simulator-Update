@@ -159,7 +159,10 @@ jobs:
         file: ./Dockerfile.${{ matrix.service }}
         load: true
         tags: test-image-${{ matrix.service }}:latest
-        cache-from: type=gha
+        cache-from: |
+          type=gha
+          type=registry,ref=${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}-${{ matrix.service }}:cache-latest
+          type=registry,ref=${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}-${{ matrix.service }}:cache-${{ hashFiles('packagelist.txt', 'renv.lock') }}
         cache-to: type=gha,mode=max
         build-args: |
           BUILD_DATE=${{ steps.date.outputs.date }}
@@ -200,7 +203,10 @@ jobs:
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
+        cache-from: |
+          type=gha
+          type=registry,ref=${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}-${{ matrix.service }}:cache-latest
+          type=registry,ref=${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}-${{ matrix.service }}:cache-${{ hashFiles('packagelist.txt', 'renv.lock') }}
         cache-to: type=gha,mode=max
         build-args: |
           BUILD_DATE=${{ steps.date.outputs.date }}

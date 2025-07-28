@@ -84,6 +84,12 @@ jobs:
         max_attempts: 3
         command: |
           Rscript -e "library(Rcpp); sourceCpp('RCode/SpielNichtSimulieren.cpp')"
+          
+    - name: Start resource monitoring
+      run: |
+        .github/scripts/monitor-resources.sh &
+        echo $! > monitor.pid
+      continue-on-error: true
       
     - name: Run tests
       env:
@@ -199,6 +205,21 @@ jobs:
         # Generate test summary
         source(".github/scripts/test-summary.R")
       shell: Rscript {0}
+      
+    - name: Stop resource monitoring
+      if: always()
+      run: |
+        if [ -f monitor.pid ]; then
+          kill $(cat monitor.pid) 2>/dev/null || true
+          rm monitor.pid
+        fi
+        
+        # Display resource summary
+        if [ -f resource-metrics.json ]; then
+          echo "## Resource Usage During Tests" >> $GITHUB_STEP_SUMMARY
+          .github/scripts/monitor-resources.sh generate_summary >> $GITHUB_STEP_SUMMARY
+        fi
+      continue-on-error: true
       
     - name: Run performance tests (Ubuntu latest R only)
       if: matrix.os == 'ubuntu-latest' && matrix.r-version == '4.4.0'
