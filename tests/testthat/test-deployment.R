@@ -6,8 +6,22 @@ library(testthat)
 skip_if_not(Sys.getenv("RUN_DEPLOYMENT_TESTS_ONLY") == "true" || Sys.getenv("CI_ENVIRONMENT") == "true", 
             "Deployment tests only run in CI or when explicitly enabled")
 
-# Source required files
-source("tests/testthat/helper-test-setup.R")
+# Minimal setup - avoid helper file to speed up CI
+library(Rcpp)
+library(httr)
+library(jsonlite)
+library(dplyr)
+
+# Source only the minimal required files for testing
+if (file.exists("RCode/api_service.R")) {
+  source("RCode/api_service.R")
+}
+if (file.exists("RCode/error_handling.R")) {
+  source("RCode/error_handling.R")
+}
+if (file.exists("RCode/retry_handler.R")) {
+  source("RCode/retry_handler.R")
+}
 
 context("Deployment-Critical Tests")
 

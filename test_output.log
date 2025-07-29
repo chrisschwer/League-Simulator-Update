@@ -1,0 +1,1821 @@
+Setting up test environment...
+Test environment setup complete
+✔ | F W  S  OK | Context
+
+⠏ |          0 | cli-arguments                                                  
+✔ |         25 | cli-arguments
+
+⠏ |          0 | configmap-edge-cases                                           
+✔ |         25 | configmap-edge-cases
+
+⠏ |          0 | configmap-generation                                           
+✔ |         19 | configmap-generation
+
+⠏ |          0 | configmap-integration                                          
+✔ |   1  1  19 | configmap-integration
+────────────────────────────────────────────────────────────────────────────────
+Warning ('test-configmap-integration.R:103:3'): Application handles missing ConfigMap gracefully
+kann Datei 'RCode/TeamList_2525.csv' nicht öffnen: No such file or directory
+Backtrace:
+    ▆
+ 1. ├─testthat::expect_error(read.csv("RCode/TeamList_2525.csv", sep = ";")) at test-configmap-integration.R:103:3
+ 2. │ └─testthat:::quasi_capture(...)
+ 3. │   ├─testthat (local) .capture(...)
+ 4. │   │ └─base::withCallingHandlers(...)
+ 5. │   └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+ 6. └─utils::read.csv("RCode/TeamList_2525.csv", sep = ";")
+ 7.   └─utils::read.table(...)
+ 8.     └─base::file(file, "rt")
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | csv-generation-fixes                                           
+⠏ |          0 | CSV Generation Fixes - File Overwrite Behavior                 
+✖ | 4        0 | CSV Generation Fixes - File Overwrite Behavior
+────────────────────────────────────────────────────────────────────────────────
+Error ('test-csv-generation-fixes.R:13:3'): confirm_overwrite allows overwrite in non-interactive mode
+Error in `eval(code, test_env)`: Objekt 'confirm_overwrite' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(confirm_overwrite, "check_interactive_mode", function() FALSE) at test-csv-generation-fixes.R:13:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-csv-generation-fixes.R:24:3'): confirm_overwrite prompts user in interactive mode
+Error in `eval(code, test_env)`: Objekt 'confirm_overwrite' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(confirm_overwrite, "check_interactive_mode", function() TRUE) at test-csv-generation-fixes.R:24:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-csv-generation-fixes.R:38:3'): confirm_overwrite handles user rejection in interactive mode
+Error in `eval(code, test_env)`: Objekt 'confirm_overwrite' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(confirm_overwrite, "check_interactive_mode", function() TRUE) at test-csv-generation-fixes.R:38:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-csv-generation-fixes.R:52:3'): confirm_overwrite handles empty response with default
+Error in `eval(code, test_env)`: Objekt 'confirm_overwrite' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(confirm_overwrite, "check_interactive_mode", function() TRUE) at test-csv-generation-fixes.R:52:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | CSV Generation Fixes - File Generation Process                 
+✖ | 4        0 | CSV Generation Fixes - File Generation Process
+────────────────────────────────────────────────────────────────────────────────
+Error ('test-csv-generation-fixes.R:79:3'): generate_team_list_csv creates file successfully
+Error in `eval(code, test_env)`: Objekt 'generate_team_list_csv' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(generate_team_list_csv, "format_team_data", function(data) data) at test-csv-generation-fixes.R:79:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-csv-generation-fixes.R:106:3'): generate_team_list_csv handles existing file with confirmation
+Error in `eval(code, test_env)`: Objekt 'generate_team_list_csv' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(generate_team_list_csv, "format_team_data", function(data) data) at test-csv-generation-fixes.R:106:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-csv-generation-fixes.R:135:3'): generate_team_list_csv fails when user rejects overwrite
+Error in `eval(code, test_env)`: Objekt 'generate_team_list_csv' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(generate_team_list_csv, "format_team_data", function(data) data) at test-csv-generation-fixes.R:135:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-csv-generation-fixes.R:160:3'): generate_team_list_csv handles validation failures
+Error in `eval(code, test_env)`: Objekt 'generate_team_list_csv' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(generate_team_list_csv, "format_team_data", function(data) data) at test-csv-generation-fixes.R:160:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | CSV Generation Fixes - Data Formatting                         
+✔ |          3 | CSV Generation Fixes - Data Formatting
+
+⠏ |          0 | CSV Generation Fixes - File Operations                         
+✔ |          5 | CSV Generation Fixes - File Operations
+
+⠏ |          0 | CSV Generation Fixes - Error Handling                          
+✖ | 4        0 | CSV Generation Fixes - Error Handling
+────────────────────────────────────────────────────────────────────────────────
+Failure ('test-csv-generation-fixes.R:351:3'): generate_team_list_csv handles empty data
+`generate_team_list_csv(empty_data, "2025", temp_dir)` threw an error with unexpected message.
+Expected match: "No team data provided"
+Actual message: "konnte Funktion \"generate_team_list_csv\" nicht finden"
+Backtrace:
+    ▆
+ 1. └─testthat::expect_error(...) at test-csv-generation-fixes.R:351:3
+ 2.   └─testthat:::quasi_capture(...)
+ 3.     ├─testthat (local) .capture(...)
+ 4.     │ └─base::withCallingHandlers(...)
+ 5.     └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+
+Failure ('test-csv-generation-fixes.R:362:3'): generate_team_list_csv handles NULL data
+`generate_team_list_csv(NULL, "2025", temp_dir)` threw an error with unexpected message.
+Expected match: "No team data provided"
+Actual message: "konnte Funktion \"generate_team_list_csv\" nicht finden"
+Backtrace:
+    ▆
+ 1. └─testthat::expect_error(...) at test-csv-generation-fixes.R:362:3
+ 2.   └─testthat:::quasi_capture(...)
+ 3.     ├─testthat (local) .capture(...)
+ 4.     │ └─base::withCallingHandlers(...)
+ 5.     └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+
+Error ('test-csv-generation-fixes.R:381:3'): generate_team_list_csv handles write failures
+Error in `eval(code, test_env)`: Objekt 'generate_team_list_csv' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(generate_team_list_csv, "format_team_data", function(data) data) at test-csv-generation-fixes.R:381:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-csv-generation-fixes.R:408:3'): generate_team_list_csv handles integrity verification failure
+Error in `eval(code, test_env)`: Objekt 'generate_team_list_csv' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(generate_team_list_csv, "format_team_data", function(data) data) at test-csv-generation-fixes.R:408:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | CSV Generation Fixes - Integration with Season Processing      
+✖ | 1        0 | CSV Generation Fixes - Integration with Season Processing
+────────────────────────────────────────────────────────────────────────────────
+Error ('test-csv-generation-fixes.R:452:3'): CSV generation integrates properly with merge process
+Error in `eval(code, test_env)`: Objekt 'merge_league_files' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-csv-generation-fixes.R:452:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | e2e-simulation-workflow                                        
+⠏ |          0 | End-to-End Simulation Workflow                                 
+⠋ |          1 | End-to-End Simulation Workflow                                 
+⠋ |         21 | End-to-End Simulation Workflow                                 
+Mock simulation (1000 iterations) completed in 0.06 seconds
+
+✔ |         21 | End-to-End Simulation Workflow
+
+⠏ |          0 | elo-aggregation                                                
+⠏ |          0 | ELO Aggregation - Liga3 Baseline Calculation                   
+✖ | 3        0 | ELO Aggregation - Liga3 Baseline Calculation
+────────────────────────────────────────────────────────────────────────────────
+Error ('test-elo-aggregation.R:91:3'): calculate_liga3_relegation_baseline returns different values for different seasons
+Error in `eval(code, test_env)`: Objekt 'calculate_liga3_relegation_baseline' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-elo-aggregation.R:91:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-elo-aggregation.R:131:3'): calculate_liga3_relegation_baseline falls back to 1046 on error
+Error in `eval(code, test_env)`: Objekt 'calculate_liga3_relegation_baseline' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-elo-aggregation.R:131:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-elo-aggregation.R:155:3'): calculate_liga3_relegation_baseline handles insufficient teams
+Error in `eval(code, test_env)`: Objekt 'calculate_liga3_relegation_baseline' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-elo-aggregation.R:155:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | ELO Aggregation - Final ELO Calculation                        
+✖ | 2        0 | ELO Aggregation - Final ELO Calculation
+────────────────────────────────────────────────────────────────────────────────
+Error ('test-elo-aggregation.R:194:3'): calculate_final_elos uses temporary files when regular file doesn't exist
+Error in `eval(code, test_env)`: Objekt 'calculate_final_elos' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-elo-aggregation.R:194:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-elo-aggregation.R:243:3'): calculate_final_elos processes matches and updates ELOs
+Error in `eval(code, test_env)`: Objekt 'calculate_final_elos' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(calculate_final_elos, "file.exists", function(...) TRUE) at test-elo-aggregation.R:243:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | ELO Aggregation - Match Processing                             
+✖ | 2        0 | ELO Aggregation - Match Processing
+────────────────────────────────────────────────────────────────────────────────
+Error ('test-elo-aggregation.R:294:3'): update_elos_for_match handles missing teams gracefully
+Error in `update_elos_for_match(current_elos, match)`: konnte Funktion "update_elos_for_match" nicht finden
+
+Error ('test-elo-aggregation.R:316:3'): update_elos_for_match uses SpielNichtSimulieren when available
+Error in `eval(code, test_env)`: Objekt 'update_elos_for_match' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-elo-aggregation.R:316:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | ELO Aggregation - Integration with Temporary Files             
+✖ | 1    1   0 | ELO Aggregation - Integration with Temporary Files
+────────────────────────────────────────────────────────────────────────────────
+Error ('test-elo-aggregation.R:375:3'): Liga3 baseline calculation works with temporary files
+Error in `eval(code, test_env)`: Objekt 'calculate_liga3_relegation_baseline' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-elo-aggregation.R:375:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | input-handler                                                  
+✖ | 9    1   0 | input-handler
+────────────────────────────────────────────────────────────────────────────────
+Error ('test-input-handler.R:26:3'): get_user_input works in Rscript mode with terminal
+Error in `get_user_input("Enter value: ")`: konnte Funktion "get_user_input" nicht finden
+
+Error ('test-input-handler.R:38:3'): get_user_input uses default in non-TTY environment
+Error in `get_user_input("Enter value: ", default = "default_value")`: konnte Funktion "get_user_input" nicht finden
+
+Failure ('test-input-handler.R:50:3'): get_user_input errors without default in non-TTY environment
+`get_user_input("Enter value: ")` threw an error with unexpected message.
+Expected match: "Cannot read input in non-interactive, non-TTY environment without default value"
+Actual message: "konnte Funktion \"get_user_input\" nicht finden"
+Backtrace:
+    ▆
+ 1. └─testthat::expect_error(get_user_input("Enter value: "), "Cannot read input in non-interactive, non-TTY environment without default value") at test-input-handler.R:50:3
+ 2.   └─testthat:::quasi_capture(...)
+ 3.     ├─testthat (local) .capture(...)
+ 4.     │ └─base::withCallingHandlers(...)
+ 5.     └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+
+Error ('test-input-handler.R:59:5'): confirm_action handles various inputs correctly
+Error in `dev_package()`: No packages loaded with pkgload
+Backtrace:
+    ▆
+ 1. └─testthat::local_mocked_bindings(get_user_input = function(...) response) at test-input-handler.R:59:5
+ 2.   ├─.package %||% dev_package()
+ 3.   └─testthat:::dev_package()
+ 4.     └─cli::cli_abort("No packages loaded with pkgload")
+ 5.       └─rlang::abort(...)
+
+Error ('test-input-handler.R:76:3'): get_numeric_input validates numeric input
+Error in `dev_package()`: No packages loaded with pkgload
+Backtrace:
+    ▆
+ 1. └─testthat::local_mocked_bindings(get_user_input = function(...) "42") at test-input-handler.R:76:3
+ 2.   ├─.package %||% dev_package()
+ 3.   └─testthat:::dev_package()
+ 4.     └─cli::cli_abort("No packages loaded with pkgload")
+ 5.       └─rlang::abort(...)
+
+Error ('test-input-handler.R:99:3'): get_numeric_input respects min/max constraints
+Error in `dev_package()`: No packages loaded with pkgload
+Backtrace:
+    ▆
+ 1. └─testthat::local_mocked_bindings(...) at test-input-handler.R:99:3
+ 2.   ├─.package %||% dev_package()
+ 3.   └─testthat:::dev_package()
+ 4.     └─cli::cli_abort("No packages loaded with pkgload")
+ 5.       └─rlang::abort(...)
+
+Error ('test-input-handler.R:126:3'): get_choice_input handles choice selection
+Error in `dev_package()`: No packages loaded with pkgload
+Backtrace:
+    ▆
+ 1. └─testthat::local_mocked_bindings(get_user_input = function(...) "2") at test-input-handler.R:126:3
+ 2.   ├─.package %||% dev_package()
+ 3.   └─testthat:::dev_package()
+ 4.     └─cli::cli_abort("No packages loaded with pkgload")
+ 5.       └─rlang::abort(...)
+
+Error ('test-input-handler.R:143:3'): non-interactive mode with flag works correctly
+Error in `get_user_input("Enter value: ", default = "non_interactive_default")`: konnte Funktion "get_user_input" nicht finden
+
+Error ('test-input-handler.R:161:3'): can_accept_input correctly detects input capability
+Error in `can_accept_input()`: konnte Funktion "can_accept_input" nicht finden
+Backtrace:
+    ▆
+ 1. └─testthat::expect_true(can_accept_input()) at test-input-handler.R:161:3
+ 2.   └─testthat::quasi_label(enquo(object), label, arg = "object")
+ 3.     └─rlang::eval_bare(expr, quo_get_env(quo))
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | integration-e2e                                                
+⠏ |          0 | API Integration                                                
+⠼ |          5 | API Integration                                                
+✔ |          8 | API Integration
+
+⠏ |          0 | ELO Calculations                                               
+⠇ |         19 | ELO Calculations                                               
+✔ |         20 | ELO Calculations
+
+⠏ |          0 | Complete Season Simulation                                     
+⠦ |          7 | Complete Season Simulation                                     
+✔ |         96 | Complete Season Simulation
+
+⠏ |          0 | Data Consistency                                               
+✔ |          6 | Data Consistency
+
+⠏ |          0 | Performance                                                    
+Mock data generation completed in 0.01 seconds
+
+✔ |          1 | Performance
+
+⠏ |          0 | Error Handling                                                 
+✖ | 1        2 | Error Handling
+────────────────────────────────────────────────────────────────────────────────
+Failure ('test-integration-e2e.R:215:3'): Functions handle invalid inputs gracefully
+`generate_season_fixtures(character(0))` did not throw an error.
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | interactive-prompts                                            
+=== New Team Information Required ===
+Team Name: Energie Cottbus 
+League: 3. Liga 
+
+--- Team Information Summary ---
+Team Name: Energie Cottbus 
+Short Name: ENE 
+Initial ELO: 1046 
+Promotion Value: 0 
+
+=== New Team Information Required ===
+Team Name: Test Team 
+League: 3. Liga 
+
+--- Team Information Summary ---
+Team Name: Test Team 
+Short Name: TES 
+Initial ELO: 1046 
+Promotion Value: 0 
+Please re-enter team information.
+
+=== New Team Information Required ===
+Team Name: Test Team 
+League: 3. Liga 
+
+--- Team Information Summary ---
+Team Name: Test Team 
+Short Name: TES 
+Initial ELO: 1046 
+Promotion Value: 0 
+Please re-enter team information.
+
+=== New Team Information Required ===
+Team Name: Test Team 
+League: 3. Liga 
+
+--- Team Information Summary ---
+Team Name: Test Team 
+Short Name: TES 
+Initial ELO: 1046 
+Promotion Value: 0 
+Please re-enter team information.
+
+=== New Team Information Required ===
+Team Name: Test Team 
+League: 3. Liga 
+
+--- Team Information Summary ---
+Team Name: Test Team 
+Short Name: TES 
+Initial ELO: 1046 
+Promotion Value: 0 
+Please re-enter team information.
+
+=== New Team Information Required ===
+Team Name: Test Team 
+League: 3. Liga 
+
+--- Team Information Summary ---
+Team Name: Test Team 
+Short Name: TES 
+Initial ELO: 1046 
+Promotion Value: 0 
+Please re-enter team information.
+
+=== New Team Information Required ===
+Team Name: Test Team 
+League: 3. Liga 
+
+--- Team Information Summary ---
+Team Name: Test Team 
+Short Name: TES 
+Initial ELO: 1046 
+Promotion Value: 0 
+Please re-enter team information.
+
+=== New Team Information Required ===
+Team Name: Test Team 
+League: 3. Liga 
+
+--- Team Information Summary ---
+Team Name: Test Team 
+Short Name: TES 
+Initial ELO: 1046 
+Promotion Value: 0 
+Please re-enter team information.
+
+=== New Team Information Required ===
+Team Name: Test Team 
+League: 3. Liga 
+
+--- Team Information Summary ---
+Team Name: Test Team 
+Short Name: TES 
+Initial ELO: 1046 
+Promotion Value: 0 
+Please re-enter team information.
+
+=== New Team Information Required ===
+Team Name: Test Team 
+League: 3. Liga 
+
+--- Team Information Summary ---
+Team Name: Test Team 
+Short Name: TES 
+Initial ELO: 1046 
+Promotion Value: 0 
+Please re-enter team information.
+
+=== New Team Information Required ===
+Team Name: Test Team 
+League: 3. Liga 
+
+--- Team Information Summary ---
+Team Name: Test Team 
+Short Name: TES 
+Initial ELO: 1046 
+Promotion Value: 0 
+Please re-enter team information.
+
+⠦ |   1  1   5 | interactive-prompts                                            
+=== New Team Information Required ===
+Team Name: Energie Cottbus 
+League: 3. Liga 
+
+--- Team Information Summary ---
+Team Name: Energie Cottbus 
+Short Name: ENE 
+Initial ELO: 1046 
+Promotion Value: 0 
+
+=== New Team Information Required ===
+Team Name: Energie Cottbus 
+League: 3. Liga 
+
+--- Team Information Summary ---
+Team Name: Energie Cottbus 
+Short Name: ENE 
+Initial ELO: 1046 
+Promotion Value: 0 
+Enter 3-character short name for Test Team 
+Suggested: TES 
+Invalid short name: Short name must be 2-4 characters 
+Enter 3-character short name for Test Team 
+Suggested: TES 
+Invalid short name: Short name must be 2-4 characters 
+Enter 3-character short name for Test Team 
+Suggested: TES 
+Invalid short name: Short name must contain only letters and numbers 
+Enter 3-character short name for Test Team 
+Suggested: TES 
+Invalid short name: Short name must be uppercase 
+Enter 3-character short name for Test Team 
+Suggested: TES 
+Enter initial ELO rating for Bundesliga 
+Default: 1500 
+Invalid ELO: ELO value must be between 500 and 2500 
+Enter initial ELO rating for Bundesliga 
+Default: 1500 
+Invalid ELO: ELO value must be between 500 and 2500 
+Enter initial ELO rating for Bundesliga 
+Default: 1500 
+Invalid ELO: ELO value cannot be NULL or NA 
+Enter initial ELO rating for Bundesliga 
+Default: 1500 
+
+=== New Team Information Required ===
+Team Name: Energie Cottbus 
+League: 3. Liga 
+
+--- Team Information Summary ---
+Team Name: Energie Cottbus 
+Short Name: FCE 
+Initial ELO: 1150 
+Promotion Value: 0 
+
+File already exists: test.csv 
+
+File already exists: test.csv 
+
+File already exists: test.csv 
+Running in non-interactive mode. Allowing overwrite.
+
+✔ |   2  2  21 | interactive-prompts
+────────────────────────────────────────────────────────────────────────────────
+Warning ('test-interactive-prompts.R:65:3'): prompt_for_team_info accepts valid input
+`with_mock()` was deprecated in testthat 3.3.0.
+ℹ Please use `with_mocked_bindings()` instead.
+Backtrace:
+    ▆
+ 1. └─testthat::with_mock(...) at test-interactive-prompts.R:65:3
+
+Warning ('test-interactive-prompts.R:177:3'): get_initial_elo_interactive validates range
+NAs durch Umwandlung erzeugt
+Backtrace:
+    ▆
+ 1. └─global get_initial_elo_interactive("78")
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | multi-season-integration                                       
+⠏ |          0 | Multi-Season Integration - Complete Workflow                   Liga3 relegation baseline for season 2023 : 725 
+Based on relegated teams (positions 7 - 10 ):
+  Position 7 : Team 1004 - Final ELO: 800 
+  Position 8 : Team 1005 - Final ELO: 750 
+  Position 9 : Team 1006 - Final ELO: 700 
+  Position 10 : Team 1007 - Final ELO: 650 
+Liga3 relegation baseline for season 2024 : 975 
+Based on relegated teams (positions 7 - 10 ):
+  Position 7 : Team 1004 - Final ELO: 1050 
+  Position 8 : Team 1005 - Final ELO: 1000 
+  Position 9 : Team 1006 - Final ELO: 950 
+  Position 10 : Team 1007 - Final ELO: 900 
+
+✖ | 2        3 | Multi-Season Integration - Complete Workflow
+────────────────────────────────────────────────────────────────────────────────
+Error ('test-multi-season-integration.R:52:3'): 2023→2024→2025 workflow carries over team data correctly
+Error in `eval(code, test_env)`: Objekt 'process_league_teams' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-multi-season-integration.R:52:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-multi-season-integration.R:266:3'): temporary files are properly created and used in multi-season workflow
+Error in `eval(code, test_env)`: Objekt 'load_previous_team_list' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-multi-season-integration.R:266:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | Multi-Season Integration - Circular Dependency Resolution      Using temporary files for ELO calculation in season 2024 
+Processing ELO updates for league 78 season 2024 
+No matches found for league 78 season 2024 - ELO values will remain unchanged
+Processing ELO updates for league 79 season 2024 
+No matches found for league 79 season 2024 - ELO values will remain unchanged
+Processing ELO updates for league 80 season 2024 
+No matches found for league 80 season 2024 - ELO values will remain unchanged
+ELO Summary - Initial total: 2865 Final total: 2865 
+Team 168 ELO change: 1765 -> 1765 ( 0 )
+Team 1320 ELO change: 1100 -> 1100 ( 0 )
+Liga3 relegation baseline for season 2024 : 1025 
+Based on relegated teams (positions 3 - 6 ):
+  Position 3 : Team 1003 - Final ELO: 1100 
+  Position 4 : Team 1004 - Final ELO: 1050 
+  Position 5 : Team 1005 - Final ELO: 1000 
+  Position 6 : Team 1006 - Final ELO: 950 
+
+✔ |          5 | Multi-Season Integration - Circular Dependency Resolution
+
+⠏ |          0 | Multi-Season Integration - No Duplicate Prompts                
+✖ | 2        0 | Multi-Season Integration - No Duplicate Prompts
+────────────────────────────────────────────────────────────────────────────────
+Error ('test-multi-season-integration.R:456:3'): teams processed in 2024 are not prompted again in 2025
+Error in `eval(code, test_env)`: Objekt 'process_league_teams' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(process_league_teams, "prompt_for_team_info", mock_prompt) at test-multi-season-integration.R:456:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-multi-season-integration.R:512:3'): genuinely new teams in 2025 are still prompted
+Error in `eval(code, test_env)`: Objekt 'process_league_teams' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(process_league_teams, "prompt_for_team_info", mock_prompt) at test-multi-season-integration.R:512:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | performance-matrix                                             
+⠏ |          0 | Performance Matrix Tests                                       
+✔ |      5   0 | Performance Matrix Tests
+
+⠏ |          0 | performance-regression                                         
+⠏ |          0 | Performance Regression Detection                               
+✔ |      6   0 | Performance Regression Detection
+
+⠏ |          0 | performance-scaling                                            
+⠏ |          0 | Performance Scaling Validation                                 
+✔ |      6   0 | Performance Scaling Validation
+
+⠏ |          0 | prozent                                                        
+✔ |          5 | prozent
+
+⠏ |          0 | SaisonSimulierenCPP                                            
+✖ | 9        2 | SaisonSimulierenCPP
+────────────────────────────────────────────────────────────────────────────────
+Error ('test-SaisonSimulierenCPP.R:11:3'): SaisonSimulierenCPP simulates unplayed games correctly
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ZufallHeim = Zufall1, 
+    ZufallGast = Zufall2, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil, 
+    Simulieren = TRUE)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SaisonSimulierenCPP(...) at test-SaisonSimulierenCPP.R:11:3
+
+Error ('test-SaisonSimulierenCPP.R:48:3'): SaisonSimulierenCPP preserves played games
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ToreHeim = ToreHeim, 
+    ToreGast = ToreGast, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SaisonSimulierenCPP(...) at test-SaisonSimulierenCPP.R:48:3
+
+Error ('test-SaisonSimulierenCPP.R:78:3'): SaisonSimulierenCPP handles fully played season
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ToreHeim = ToreHeim, 
+    ToreGast = ToreGast, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SaisonSimulierenCPP(...) at test-SaisonSimulierenCPP.R:78:3
+
+Error ('test-SaisonSimulierenCPP.R:102:3'): SaisonSimulierenCPP updates ELO values through season
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ZufallHeim = Zufall1, 
+    ZufallGast = Zufall2, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil, 
+    Simulieren = TRUE)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SaisonSimulierenCPP(...) at test-SaisonSimulierenCPP.R:102:3
+
+Error ('test-SaisonSimulierenCPP.R:138:5'): SaisonSimulierenCPP respects home advantage
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ZufallHeim = Zufall1, 
+    ZufallGast = Zufall2, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil, 
+    Simulieren = TRUE)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SaisonSimulierenCPP(...) at test-SaisonSimulierenCPP.R:138:5
+
+Error ('test-SaisonSimulierenCPP.R:164:3'): SaisonSimulierenCPP produces consistent results with same seed
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ToreHeim = ToreHeim, 
+    ToreGast = ToreGast, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SaisonSimulierenCPP(...) at test-SaisonSimulierenCPP.R:164:3
+
+Error ('test-SaisonSimulierenCPP.R:193:3'): SaisonSimulierenCPP handles different mod factors
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ZufallHeim = Zufall1, 
+    ZufallGast = Zufall2, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil, 
+    Simulieren = TRUE)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SaisonSimulierenCPP(...) at test-SaisonSimulierenCPP.R:193:3
+
+Error ('test-SaisonSimulierenCPP.R:234:3'): SaisonSimulierenCPP handles extreme ELO differences
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ZufallHeim = Zufall1, 
+    ZufallGast = Zufall2, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil, 
+    Simulieren = TRUE)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SaisonSimulierenCPP(...) at test-SaisonSimulierenCPP.R:234:3
+
+Error ('test-SaisonSimulierenCPP.R:297:3'): SaisonSimulierenCPP maintains matrix structure
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ToreHeim = ToreHeim, 
+    ToreGast = ToreGast, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SaisonSimulierenCPP(...) at test-SaisonSimulierenCPP.R:297:3
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | season-processor-fixes                                         
+⠏ |          0 | Season Processor Fixes - Team Matching Priority                
+✖ | 3        0 | Season Processor Fixes - Team Matching Priority
+────────────────────────────────────────────────────────────────────────────────
+Error ('test-season-processor-fixes.R:34:3'): process_league_teams prioritizes previous_team_list over final_elos
+Error in `eval(code, test_env)`: Objekt 'process_league_teams' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-season-processor-fixes.R:34:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-season-processor-fixes.R:78:3'): process_league_teams uses final_elos when available
+Error in `eval(code, test_env)`: Objekt 'process_league_teams' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-season-processor-fixes.R:78:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-season-processor-fixes.R:119:3'): process_league_teams falls back to prompting for genuinely new teams
+Error in `eval(code, test_env)`: Objekt 'process_league_teams' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(process_league_teams, "prompt_for_team_info", mock_prompt) at test-season-processor-fixes.R:119:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | Season Processor Fixes - File Merge Process                    
+✖ | 3        0 | Season Processor Fixes - File Merge Process
+────────────────────────────────────────────────────────────────────────────────
+Error ('test-season-processor-fixes.R:168:3'): merge_league_files creates final TeamList file
+Error in `eval(code, test_env)`: Objekt 'merge_league_files' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(merge_league_files, "generate_team_list_csv", mock_generate_csv) at test-season-processor-fixes.R:168:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-season-processor-fixes.R:213:3'): merge_league_files handles empty league files gracefully
+Error in `eval(code, test_env)`: Objekt 'merge_league_files' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(merge_league_files, "generate_team_list_csv", mock_generate_csv) at test-season-processor-fixes.R:213:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-season-processor-fixes.R:253:3'): merge_league_files sorts teams by TeamID
+Error in `eval(code, test_env)`: Objekt 'merge_league_files' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(merge_league_files, "generate_team_list_csv", mock_generate_csv) at test-season-processor-fixes.R:253:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | Season Processor Fixes - Enhanced Debugging                    
+✖ | 2        0 | Season Processor Fixes - Enhanced Debugging
+────────────────────────────────────────────────────────────────────────────────
+Error ('test-season-processor-fixes.R:290:5'): process_league_teams logs ELO decisions
+Error in `process_league_teams(api_teams, "78", "2025", final_elos, 1500, 
+    previous_team_list)`: konnte Funktion "process_league_teams" nicht finden
+Backtrace:
+    ▆
+ 1. └─utils::capture.output(...) at test-season-processor-fixes.R:289:3
+ 2.   └─base::withVisible(...elt(i))
+
+Error ('test-season-processor-fixes.R:320:3'): process_league_teams logs baseline ELO usage
+Error in `eval(code, test_env)`: Objekt 'process_league_teams' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-season-processor-fixes.R:320:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | Season Processor Fixes - Error Handling                        
+✖ | 2        0 | Season Processor Fixes - Error Handling
+────────────────────────────────────────────────────────────────────────────────
+Error ('test-season-processor-fixes.R:345:3'): merge_league_files handles missing temp files gracefully
+Error in `merge_league_files(non_existent_files, "2025")`: konnte Funktion "merge_league_files" nicht finden
+
+Error ('test-season-processor-fixes.R:367:3'): merge_league_files handles CSV generation failure
+Error in `eval(code, test_env)`: Objekt 'merge_league_files' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-season-processor-fixes.R:367:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | Season Processor Fixes - Team Data Carryover Enhancement       
+✖ | 1        0 | Season Processor Fixes - Team Data Carryover Enhancement
+────────────────────────────────────────────────────────────────────────────────
+Error ('test-season-processor-fixes.R:422:3'): load_previous_team_list prioritizes temporary files
+Error in `eval(code, test_env)`: Objekt 'load_previous_team_list' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-season-processor-fixes.R:422:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | season-processor                                               
+⠏ |          0 | Season Processor - Team Data Carryover                         Team 168 ( Bayer Leverkusen ): Using final ELO 1800 
+Team 167 ( Hoffenheim ): Using final ELO 1650 
+Team 165 ( Borussia Dortmund ): Using final ELO 1900 
+Team 168 ( Bayer Leverkusen ): Using final ELO 1800 
+
+--- New Team Detected ---
+Team ID: 1320 
+Team Name: Energie Cottbus 
+League: Bundesliga 
+Team 168 ( Bayer Leverkusen ): Using final ELO 1823 
+
+✔ |          7 | Season Processor - Team Data Carryover
+
+⠏ |          0 | Season Processor - ELO Baseline Passing                        
+--- New Team Detected ---
+Team ID: 1320 
+Team Name: Energie Cottbus 
+League: 3. Liga 
+
+✔ |          1 | Season Processor - ELO Baseline Passing
+
+⠏ |          0 | Season Processor - Season Validation                           
+=== Processing Season 2025 ===
+Validating previous season completion
+
+✔ |          2 | Season Processor - Season Validation
+
+⠏ |          0 | Team Data Carryover Module                                     
+✔ |         15 | Team Data Carryover Module
+
+⠏ |          0 | season-transition-regression                                   
+⠏ |          0 | Regression Tests - Magical 1046 Issue                          Liga3 relegation baseline for season 2023 : 1050 
+Based on relegated teams (positions 5 - 8 ):
+  Position 5 : Team 1002 - Final ELO: 1200 
+  Position 6 : Team 1004 - Final ELO: 1100 
+  Position 7 : Team 1006 - Final ELO: 1000 
+  Position 8 : Team 1008 - Final ELO: 900 
+Liga3 relegation baseline for season 2024 : 1150 
+Based on relegated teams (positions 5 - 8 ):
+  Position 5 : Team 2003 - Final ELO: 1300 
+  Position 7 : Team 2004 - Final ELO: 1100 
+  Position 6 : Team 2007 - Final ELO: 1200 
+  Position 8 : Team 2008 - Final ELO: 1000 
+
+--- New Team Detected ---
+Team ID: 9999 
+Team Name: New Liga3 Team 
+League: 3. Liga 
+
+✔ |          6 | Regression Tests - Magical 1046 Issue
+
+⠏ |          0 | Regression Tests - ELO Carryover Issue                         Team 168 ( Bayer Leverkusen ): Using final ELO 1823 
+Team 168 ( Bayer Leverkusen ): Using final ELO 1650 
+Team 168 ( Bayer Leverkusen ): Using final ELO 1720 
+
+✔ |          7 | Regression Tests - ELO Carryover Issue
+
+⠏ |          0 | Regression Tests - File Merge Issue                            Merging 2 league files
+Reading: TeamList_2025_League78_temp.csv 
+Reading: TeamList_2025_League80_temp.csv 
+Total teams to merge: 4 
+Generating final merged file for season 2025 
+Merged file created: /var/folders/st/p5_ht0ps1rl71ld700_14gfh0000gn/T//RtmpTDXShk/TeamList_2025.csv 
+Removed temp file: TeamList_2025_League78_temp.csv 
+Removed temp file: TeamList_2025_League80_temp.csv 
+
+File already exists: existing_file.csv 
+Running in non-interactive mode. Allowing overwrite.
+
+✔ |          6 | Regression Tests - File Merge Issue
+
+⠏ |          0 | Regression Tests - Duplicate Prompts Issue                     Team 1320 ( Energie Cottbus ): Using final ELO 1123 
+Team 1320 ( Energie Cottbus ): Using final ELO 1100 
+Team 4259 ( Alemannia Aachen ): Using final ELO 1080 
+Team 168 ( Bayer Leverkusen ): Using final ELO 1823 
+
+✔ |          6 | Regression Tests - Duplicate Prompts Issue
+
+⠏ |          0 | Regression Tests - System Integration                          Merging 3 league files
+Reading: TeamList_2025_League78_temp.csv 
+Reading: TeamList_2025_League79_temp.csv 
+Reading: TeamList_2025_League80_temp.csv 
+Total teams to merge: 56 
+Generating final merged file for season 2025 
+Merged file created: /var/folders/st/p5_ht0ps1rl71ld700_14gfh0000gn/T//RtmpTDXShk/TeamList_2025.csv 
+Removed temp file: TeamList_2025_League78_temp.csv 
+Removed temp file: TeamList_2025_League79_temp.csv 
+Removed temp file: TeamList_2025_League80_temp.csv 
+Using temporary files for ELO calculation in season 2024 
+Processing ELO updates for league 78 season 2024 
+No matches found for league 78 season 2024 - ELO values will remain unchanged
+Processing ELO updates for league 79 season 2024 
+No matches found for league 79 season 2024 - ELO values will remain unchanged
+Processing ELO updates for league 80 season 2024 
+No matches found for league 80 season 2024 - ELO values will remain unchanged
+ELO Summary - Initial total: 7615 Final total: 7615 
+Team 168 ELO change: 1765 -> 1765 ( 0 )
+Team 1320 ELO change: 1100 -> 1100 ( 0 )
+Liga3 relegation baseline for season 2024 : 925 
+Based on relegated teams (positions 3 - 6 ):
+  Position 3 : Team 1002 - Final ELO: 1000 
+  Position 4 : Team 1003 - Final ELO: 950 
+  Position 5 : Team 1004 - Final ELO: 900 
+  Position 6 : Team 1005 - Final ELO: 850 
+
+✔ |          9 | Regression Tests - System Integration
+
+⠏ |          0 | season-validation                                              
+⠏ |          0 | Season Validation                                              Checking if season 2024 is complete...
+Checking if season 2024 is complete...
+Checking if season 2024 is complete...
+Checking if season 2024 is complete...
+
+✔ |   8      4 | Season Validation
+────────────────────────────────────────────────────────────────────────────────
+Warning ('test-season-validation.R:63:3'): validate_season_completion handles API failures gracefully
+Failed to fetch matches for league 78
+Backtrace:
+    ▆
+ 1. ├─testthat::expect_false(validate_season_completion(2024)) at test-season-validation.R:63:3
+ 2. │ └─testthat::quasi_label(enquo(object), label, arg = "object")
+ 3. │   └─rlang::eval_bare(expr, quo_get_env(quo))
+ 4. └─validate_season_completion(2024)
+ 5.   └─base::tryCatch(...)
+ 6.     └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 7.       └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 8.         └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+
+Warning ('test-season-validation.R:63:3'): validate_season_completion handles API failures gracefully
+Failed to fetch matches for league 79
+Backtrace:
+    ▆
+ 1. ├─testthat::expect_false(validate_season_completion(2024)) at test-season-validation.R:63:3
+ 2. │ └─testthat::quasi_label(enquo(object), label, arg = "object")
+ 3. │   └─rlang::eval_bare(expr, quo_get_env(quo))
+ 4. └─validate_season_completion(2024)
+ 5.   └─base::tryCatch(...)
+ 6.     └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 7.       └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 8.         └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+
+Warning ('test-season-validation.R:63:3'): validate_season_completion handles API failures gracefully
+Failed to fetch matches for league 80
+Backtrace:
+    ▆
+ 1. ├─testthat::expect_false(validate_season_completion(2024)) at test-season-validation.R:63:3
+ 2. │ └─testthat::quasi_label(enquo(object), label, arg = "object")
+ 3. │   └─rlang::eval_bare(expr, quo_get_env(quo))
+ 4. └─validate_season_completion(2024)
+ 5.   └─base::tryCatch(...)
+ 6.     └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 7.       └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 8.         └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+
+Warning ('test-season-validation.R:63:3'): validate_season_completion handles API failures gracefully
+Could not validate any leagues due to API failures
+Backtrace:
+    ▆
+ 1. ├─testthat::expect_false(validate_season_completion(2024)) at test-season-validation.R:63:3
+ 2. │ └─testthat::quasi_label(enquo(object), label, arg = "object")
+ 3. │   └─rlang::eval_bare(expr, quo_get_env(quo))
+ 4. └─validate_season_completion(2024)
+ 5.   └─base::tryCatch(...)
+ 6.     └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 7.       └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 8.         └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+
+Warning ('test-season-validation.R:77:3'): validate_season_completion handles empty response
+No matches found for league 78 season 2024
+Backtrace:
+    ▆
+ 1. ├─testthat::expect_false(validate_season_completion(2024)) at test-season-validation.R:77:3
+ 2. │ └─testthat::quasi_label(enquo(object), label, arg = "object")
+ 3. │   └─rlang::eval_bare(expr, quo_get_env(quo))
+ 4. └─validate_season_completion(2024)
+ 5.   └─base::tryCatch(...)
+ 6.     └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 7.       └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 8.         └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+
+Warning ('test-season-validation.R:77:3'): validate_season_completion handles empty response
+No matches found for league 79 season 2024
+Backtrace:
+    ▆
+ 1. ├─testthat::expect_false(validate_season_completion(2024)) at test-season-validation.R:77:3
+ 2. │ └─testthat::quasi_label(enquo(object), label, arg = "object")
+ 3. │   └─rlang::eval_bare(expr, quo_get_env(quo))
+ 4. └─validate_season_completion(2024)
+ 5.   └─base::tryCatch(...)
+ 6.     └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 7.       └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 8.         └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+
+Warning ('test-season-validation.R:77:3'): validate_season_completion handles empty response
+No matches found for league 80 season 2024
+Backtrace:
+    ▆
+ 1. ├─testthat::expect_false(validate_season_completion(2024)) at test-season-validation.R:77:3
+ 2. │ └─testthat::quasi_label(enquo(object), label, arg = "object")
+ 3. │   └─rlang::eval_bare(expr, quo_get_env(quo))
+ 4. └─validate_season_completion(2024)
+ 5.   └─base::tryCatch(...)
+ 6.     └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 7.       └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 8.         └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+
+Warning ('test-season-validation.R:77:3'): validate_season_completion handles empty response
+Could not validate any leagues due to API failures
+Backtrace:
+    ▆
+ 1. ├─testthat::expect_false(validate_season_completion(2024)) at test-season-validation.R:77:3
+ 2. │ └─testthat::quasi_label(enquo(object), label, arg = "object")
+ 3. │   └─rlang::eval_bare(expr, quo_get_env(quo))
+ 4. └─validate_season_completion(2024)
+ 5.   └─base::tryCatch(...)
+ 6.     └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 7.       └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 8.         └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | Season Range Validation                                        
+✔ |   2     10 | Season Range Validation
+────────────────────────────────────────────────────────────────────────────────
+Warning ('test-season-validation.R:84:3'): validate_season_range validates year format
+NAs durch Umwandlung erzeugt
+Backtrace:
+    ▆
+ 1. ├─testthat::expect_error(...) at test-season-validation.R:84:3
+ 2. │ └─testthat:::quasi_capture(...)
+ 3. │   ├─testthat (local) .capture(...)
+ 4. │   │ └─base::withCallingHandlers(...)
+ 5. │   └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+ 6. └─global validate_season_range("20XX", "2025")
+
+Warning ('test-season-validation.R:89:3'): validate_season_range validates year format
+NAs durch Umwandlung erzeugt
+Backtrace:
+    ▆
+ 1. ├─testthat::expect_error(...) at test-season-validation.R:89:3
+ 2. │ └─testthat:::quasi_capture(...)
+ 3. │   ├─testthat (local) .capture(...)
+ 4. │   │ └─base::withCallingHandlers(...)
+ 5. │   └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+ 6. └─global validate_season_range("2024", "20YY")
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | API Access Validation                                          
+✔ |   1      3 | API Access Validation
+────────────────────────────────────────────────────────────────────────────────
+Warning ('test-season-validation.R:193:3'): validate_api_access handles API errors
+API test failed with status 403
+Backtrace:
+    ▆
+ 1. ├─testthat::expect_false(validate_api_access()) at test-season-validation.R:193:3
+ 2. │ └─testthat::quasi_label(enquo(object), label, arg = "object")
+ 3. │   └─rlang::eval_bare(expr, quo_get_env(quo))
+ 4. └─validate_api_access()
+ 5.   └─base::tryCatch(...)
+ 6.     └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 7.       └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 8.         └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | Helper Functions                                               
+✔ |          5 | Helper Functions
+
+⠏ |          0 | second-team-conversion                                         
+✔ |         27 | second-team-conversion
+
+⠏ |          0 | simulationsCPP                                                 
+✖ | 8        0 | simulationsCPP
+────────────────────────────────────────────────────────────────────────────────
+Error ('test-simulationsCPP.R:15:3'): simulationsCPP handles fully played season correctly
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ToreHeim = ToreHeim, 
+    ToreGast = ToreGast, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global simulationsCPP_wrapper(...) at test-simulationsCPP.R:15:3
+ 2.   └─global simulationsCPP(...)
+ 3.     └─global SaisonSimulierenCPP(...)
+
+Error ('test-simulationsCPP.R:48:3'): simulationsCPP handles empty season correctly
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ZufallHeim = Zufall1, 
+    ZufallGast = Zufall2, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil, 
+    Simulieren = TRUE)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global simulationsCPP_wrapper(...) at test-simulationsCPP.R:48:3
+ 2.   └─global simulationsCPP(...)
+ 3.     └─global SaisonSimulierenCPP(...)
+
+Error ('test-simulationsCPP.R:79:3'): simulationsCPP handles partial season correctly
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ToreHeim = ToreHeim, 
+    ToreGast = ToreGast, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global simulationsCPP_wrapper(...) at test-simulationsCPP.R:79:3
+ 2.   └─global simulationsCPP(...)
+ 3.     └─global SaisonSimulierenCPP(...)
+
+Error ('test-simulationsCPP.R:113:3'): simulationsCPP applies point adjustments correctly
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ToreHeim = ToreHeim, 
+    ToreGast = ToreGast, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global simulationsCPP_wrapper(...) at test-simulationsCPP.R:113:3
+ 2.   └─global simulationsCPP(...)
+ 3.     └─global SaisonSimulierenCPP(...)
+
+Error ('test-simulationsCPP.R:147:5'): simulationsCPP handles different iteration counts
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ToreHeim = ToreHeim, 
+    ToreGast = ToreGast, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global simulationsCPP_wrapper(...) at test-simulationsCPP.R:147:5
+ 2.   └─global simulationsCPP(...)
+ 3.     └─global SaisonSimulierenCPP(...)
+
+Error ('test-simulationsCPP.R:177:3'): simulationsCPP handles goal adjustments correctly
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ToreHeim = ToreHeim, 
+    ToreGast = ToreGast, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global simulationsCPP_wrapper(...) at test-simulationsCPP.R:177:3
+ 2.   └─global simulationsCPP(...)
+ 3.     └─global SaisonSimulierenCPP(...)
+
+Error ('test-simulationsCPP.R:206:3'): simulationsCPP produces consistent results with same seed
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ToreHeim = ToreHeim, 
+    ToreGast = ToreGast, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global simulationsCPP_wrapper(...) at test-simulationsCPP.R:206:3
+ 2.   └─global simulationsCPP(...)
+ 3.     └─global SaisonSimulierenCPP(...)
+
+Error ('test-simulationsCPP.R:247:3'): simulationsCPP handles extreme ELO differences
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ZufallHeim = Zufall1, 
+    ZufallGast = Zufall2, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil, 
+    Simulieren = TRUE)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global simulationsCPP_wrapper(...) at test-simulationsCPP.R:247:3
+ 2.   └─global simulationsCPP(...)
+ 3.     └─global SaisonSimulierenCPP(...)
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | SpielCPP                                                       
+✖ | 10        0 | SpielCPP
+────────────────────────────────────────────────────────────────────────────────
+Error ('test-SpielCPP.R:7:3'): SpielCPP calculates ELO correctly for actual results
+Error in `SpielNichtSimulieren(ELOHeim, ELOGast, ToreHeim, ToreGast, ModFaktor, 
+    Heimvorteil)`: konnte Funktion "SpielNichtSimulieren" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SpielCPP_wrapper(...) at test-SpielCPP.R:7:3
+ 2.   └─global SpielCPP(...)
+
+Error ('test-SpielCPP.R:42:3'): SpielCPP simulates match results correctly
+Error in `SpielNichtSimulieren(ELOHeim, ELOGast, ToreHeim, ToreGast, ModFaktor, 
+    Heimvorteil)`: konnte Funktion "SpielNichtSimulieren" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SpielCPP_wrapper(...) at test-SpielCPP.R:42:3
+ 2.   └─global SpielCPP(...)
+
+Error ('test-SpielCPP.R:72:3'): SpielCPP handles draws correctly
+Error in `SpielNichtSimulieren(ELOHeim, ELOGast, ToreHeim, ToreGast, ModFaktor, 
+    Heimvorteil)`: konnte Funktion "SpielNichtSimulieren" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SpielCPP_wrapper(...) at test-SpielCPP.R:72:3
+ 2.   └─global SpielCPP(...)
+
+Error ('test-SpielCPP.R:99:3'): SpielCPP handles extreme ELO differences
+Error in `SpielNichtSimulieren(ELOHeim, ELOGast, ToreHeim, ToreGast, ModFaktor, 
+    Heimvorteil)`: konnte Funktion "SpielNichtSimulieren" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SpielCPP_wrapper(...) at test-SpielCPP.R:99:3
+ 2.   └─global SpielCPP(...)
+
+Error ('test-SpielCPP.R:132:5'): SpielCPP respects home advantage
+Error in `SpielNichtSimulieren(ELOHeim, ELOGast, ToreHeim, ToreGast, ModFaktor, 
+    Heimvorteil)`: konnte Funktion "SpielNichtSimulieren" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SpielCPP_wrapper(...) at test-SpielCPP.R:132:5
+ 2.   └─global SpielCPP(...)
+
+Error ('test-SpielCPP.R:158:3'): SpielCPP handles large goal differences
+Error in `SpielNichtSimulieren(ELOHeim, ELOGast, ToreHeim, ToreGast, ModFaktor, 
+    Heimvorteil)`: konnte Funktion "SpielNichtSimulieren" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SpielCPP_wrapper(...) at test-SpielCPP.R:158:3
+ 2.   └─global SpielCPP(...)
+
+Error ('test-SpielCPP.R:193:3'): SpielCPP produces consistent simulations with same random values
+Error in `SpielNichtSimulieren(ELOHeim, ELOGast, ToreHeim, ToreGast, ModFaktor, 
+    Heimvorteil)`: konnte Funktion "SpielNichtSimulieren" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SpielCPP_wrapper(...) at test-SpielCPP.R:193:3
+ 2.   └─global SpielCPP(...)
+
+Error ('test-SpielCPP.R:243:5'): SpielCPP correctly applies home advantage through SpielNichtSimulieren
+Error in `SpielNichtSimulieren(ELOHeim, ELOGast, ToreHeim, ToreGast, ModFaktor, 
+    Heimvorteil)`: konnte Funktion "SpielNichtSimulieren" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SpielCPP_wrapper(...) at test-SpielCPP.R:243:5
+ 2.   └─global SpielCPP(...)
+
+Error ('test-SpielCPP.R:314:3'): SpielCPP handles zero goals correctly
+Error in `SpielNichtSimulieren(ELOHeim, ELOGast, ToreHeim, ToreGast, ModFaktor, 
+    Heimvorteil)`: konnte Funktion "SpielNichtSimulieren" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SpielCPP_wrapper(...) at test-SpielCPP.R:314:3
+ 2.   └─global SpielCPP(...)
+
+Error ('test-SpielCPP.R:343:5'): SpielCPP handles different mod factors correctly
+Error in `SpielNichtSimulieren(ELOHeim, ELOGast, ToreHeim, ToreGast, ModFaktor, 
+    Heimvorteil)`: konnte Funktion "SpielNichtSimulieren" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SpielCPP_wrapper(...) at test-SpielCPP.R:343:5
+ 2.   └─global SpielCPP(...)
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | SpielNichtSimulieren                                           
+⠋ |          1 | SpielNichtSimulieren                                           
+✔ |         48 | SpielNichtSimulieren [1.7s]
+
+⠏ |          0 | Tabelle                                                        
+✔ |      1  59 | Tabelle
+
+⠏ |          0 | team-count-validation                                          
+✖ | 1       13 | team-count-validation
+────────────────────────────────────────────────────────────────────────────────
+Failure ('test-team-count-validation.R:79:3'): validate_team_count handles file errors
+grepl("Error reading file", result$message) is not TRUE
+
+`actual`:   FALSE
+`expected`: TRUE 
+────────────────────────────────────────────────────────────────────────────────
+
+⠏ |          0 | transform_data                                                 
+⠋ |          1 | transform_data                                                 
+⠇ |         19 | transform_data                                                 
+⠋ |         31 | transform_data                                                 
+⠏ |         50 | transform_data                                                 
+✔ |         52 | transform_data
+
+══ Results ═════════════════════════════════════════════════════════════════════
+Duration: 4.8 s
+
+── Skipped tests (23) ──────────────────────────────────────────────────────────
+• Mocking issues with nested function calls (2):
+  'test-interactive-prompts.R:85:3', 'test-interactive-prompts.R:133:3'
+• Set RUN_PERFORMANCE_TESTS=true to run performance tests (17):
+  'test-performance-matrix.R:34:3', 'test-performance-matrix.R:111:3',
+  'test-performance-matrix.R:154:3', 'test-performance-matrix.R:212:3',
+  'test-performance-matrix.R:255:3', 'test-performance-regression.R:41:3',
+  'test-performance-regression.R:95:3', 'test-performance-regression.R:121:3',
+  'test-performance-regression.R:159:3', 'test-performance-regression.R:197:3',
+  'test-performance-regression.R:230:3', 'test-performance-scaling.R:34:3',
+  'test-performance-scaling.R:95:3', 'test-performance-scaling.R:146:3',
+  'test-performance-scaling.R:181:3', 'test-performance-scaling.R:205:3',
+  'test-performance-scaling.R:242:3'
+• Skipping interactive test in non-interactive environment (1):
+  'test-input-handler.R:9:3'
+• Test needs refactoring for new file structure (1):
+  'test-elo-aggregation.R:424:3'
+• Write protection test only applicable in ConfigMap environment (1):
+  'test-configmap-integration.R:153:5'
+• empty test (1): 'test-Tabelle.R:206:1'
+
+── Failed tests ────────────────────────────────────────────────────────────────
+Error ('test-csv-generation-fixes.R:13:3'): confirm_overwrite allows overwrite in non-interactive mode
+Error in `eval(code, test_env)`: Objekt 'confirm_overwrite' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(confirm_overwrite, "check_interactive_mode", function() FALSE) at test-csv-generation-fixes.R:13:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-csv-generation-fixes.R:24:3'): confirm_overwrite prompts user in interactive mode
+Error in `eval(code, test_env)`: Objekt 'confirm_overwrite' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(confirm_overwrite, "check_interactive_mode", function() TRUE) at test-csv-generation-fixes.R:24:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-csv-generation-fixes.R:38:3'): confirm_overwrite handles user rejection in interactive mode
+Error in `eval(code, test_env)`: Objekt 'confirm_overwrite' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(confirm_overwrite, "check_interactive_mode", function() TRUE) at test-csv-generation-fixes.R:38:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-csv-generation-fixes.R:52:3'): confirm_overwrite handles empty response with default
+Error in `eval(code, test_env)`: Objekt 'confirm_overwrite' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(confirm_overwrite, "check_interactive_mode", function() TRUE) at test-csv-generation-fixes.R:52:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-csv-generation-fixes.R:79:3'): generate_team_list_csv creates file successfully
+Error in `eval(code, test_env)`: Objekt 'generate_team_list_csv' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(generate_team_list_csv, "format_team_data", function(data) data) at test-csv-generation-fixes.R:79:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-csv-generation-fixes.R:106:3'): generate_team_list_csv handles existing file with confirmation
+Error in `eval(code, test_env)`: Objekt 'generate_team_list_csv' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(generate_team_list_csv, "format_team_data", function(data) data) at test-csv-generation-fixes.R:106:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-csv-generation-fixes.R:135:3'): generate_team_list_csv fails when user rejects overwrite
+Error in `eval(code, test_env)`: Objekt 'generate_team_list_csv' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(generate_team_list_csv, "format_team_data", function(data) data) at test-csv-generation-fixes.R:135:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-csv-generation-fixes.R:160:3'): generate_team_list_csv handles validation failures
+Error in `eval(code, test_env)`: Objekt 'generate_team_list_csv' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(generate_team_list_csv, "format_team_data", function(data) data) at test-csv-generation-fixes.R:160:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Failure ('test-csv-generation-fixes.R:351:3'): generate_team_list_csv handles empty data
+`generate_team_list_csv(empty_data, "2025", temp_dir)` threw an error with unexpected message.
+Expected match: "No team data provided"
+Actual message: "konnte Funktion \"generate_team_list_csv\" nicht finden"
+Backtrace:
+    ▆
+ 1. └─testthat::expect_error(...) at test-csv-generation-fixes.R:351:3
+ 2.   └─testthat:::quasi_capture(...)
+ 3.     ├─testthat (local) .capture(...)
+ 4.     │ └─base::withCallingHandlers(...)
+ 5.     └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+
+Failure ('test-csv-generation-fixes.R:362:3'): generate_team_list_csv handles NULL data
+`generate_team_list_csv(NULL, "2025", temp_dir)` threw an error with unexpected message.
+Expected match: "No team data provided"
+Actual message: "konnte Funktion \"generate_team_list_csv\" nicht finden"
+Backtrace:
+    ▆
+ 1. └─testthat::expect_error(...) at test-csv-generation-fixes.R:362:3
+ 2.   └─testthat:::quasi_capture(...)
+ 3.     ├─testthat (local) .capture(...)
+ 4.     │ └─base::withCallingHandlers(...)
+ 5.     └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+
+Error ('test-csv-generation-fixes.R:381:3'): generate_team_list_csv handles write failures
+Error in `eval(code, test_env)`: Objekt 'generate_team_list_csv' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(generate_team_list_csv, "format_team_data", function(data) data) at test-csv-generation-fixes.R:381:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-csv-generation-fixes.R:408:3'): generate_team_list_csv handles integrity verification failure
+Error in `eval(code, test_env)`: Objekt 'generate_team_list_csv' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(generate_team_list_csv, "format_team_data", function(data) data) at test-csv-generation-fixes.R:408:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-csv-generation-fixes.R:452:3'): CSV generation integrates properly with merge process
+Error in `eval(code, test_env)`: Objekt 'merge_league_files' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-csv-generation-fixes.R:452:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-elo-aggregation.R:91:3'): calculate_liga3_relegation_baseline returns different values for different seasons
+Error in `eval(code, test_env)`: Objekt 'calculate_liga3_relegation_baseline' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-elo-aggregation.R:91:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-elo-aggregation.R:131:3'): calculate_liga3_relegation_baseline falls back to 1046 on error
+Error in `eval(code, test_env)`: Objekt 'calculate_liga3_relegation_baseline' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-elo-aggregation.R:131:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-elo-aggregation.R:155:3'): calculate_liga3_relegation_baseline handles insufficient teams
+Error in `eval(code, test_env)`: Objekt 'calculate_liga3_relegation_baseline' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-elo-aggregation.R:155:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-elo-aggregation.R:194:3'): calculate_final_elos uses temporary files when regular file doesn't exist
+Error in `eval(code, test_env)`: Objekt 'calculate_final_elos' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-elo-aggregation.R:194:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-elo-aggregation.R:243:3'): calculate_final_elos processes matches and updates ELOs
+Error in `eval(code, test_env)`: Objekt 'calculate_final_elos' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(calculate_final_elos, "file.exists", function(...) TRUE) at test-elo-aggregation.R:243:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-elo-aggregation.R:294:3'): update_elos_for_match handles missing teams gracefully
+Error in `update_elos_for_match(current_elos, match)`: konnte Funktion "update_elos_for_match" nicht finden
+
+Error ('test-elo-aggregation.R:316:3'): update_elos_for_match uses SpielNichtSimulieren when available
+Error in `eval(code, test_env)`: Objekt 'update_elos_for_match' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-elo-aggregation.R:316:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-elo-aggregation.R:375:3'): Liga3 baseline calculation works with temporary files
+Error in `eval(code, test_env)`: Objekt 'calculate_liga3_relegation_baseline' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-elo-aggregation.R:375:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-input-handler.R:26:3'): get_user_input works in Rscript mode with terminal
+Error in `get_user_input("Enter value: ")`: konnte Funktion "get_user_input" nicht finden
+
+Error ('test-input-handler.R:38:3'): get_user_input uses default in non-TTY environment
+Error in `get_user_input("Enter value: ", default = "default_value")`: konnte Funktion "get_user_input" nicht finden
+
+Failure ('test-input-handler.R:50:3'): get_user_input errors without default in non-TTY environment
+`get_user_input("Enter value: ")` threw an error with unexpected message.
+Expected match: "Cannot read input in non-interactive, non-TTY environment without default value"
+Actual message: "konnte Funktion \"get_user_input\" nicht finden"
+Backtrace:
+    ▆
+ 1. └─testthat::expect_error(get_user_input("Enter value: "), "Cannot read input in non-interactive, non-TTY environment without default value") at test-input-handler.R:50:3
+ 2.   └─testthat:::quasi_capture(...)
+ 3.     ├─testthat (local) .capture(...)
+ 4.     │ └─base::withCallingHandlers(...)
+ 5.     └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+
+Error ('test-input-handler.R:59:5'): confirm_action handles various inputs correctly
+Error in `dev_package()`: No packages loaded with pkgload
+Backtrace:
+    ▆
+ 1. └─testthat::local_mocked_bindings(get_user_input = function(...) response) at test-input-handler.R:59:5
+ 2.   ├─.package %||% dev_package()
+ 3.   └─testthat:::dev_package()
+ 4.     └─cli::cli_abort("No packages loaded with pkgload")
+ 5.       └─rlang::abort(...)
+
+Error ('test-input-handler.R:76:3'): get_numeric_input validates numeric input
+Error in `dev_package()`: No packages loaded with pkgload
+Backtrace:
+    ▆
+ 1. └─testthat::local_mocked_bindings(get_user_input = function(...) "42") at test-input-handler.R:76:3
+ 2.   ├─.package %||% dev_package()
+ 3.   └─testthat:::dev_package()
+ 4.     └─cli::cli_abort("No packages loaded with pkgload")
+ 5.       └─rlang::abort(...)
+
+Error ('test-input-handler.R:99:3'): get_numeric_input respects min/max constraints
+Error in `dev_package()`: No packages loaded with pkgload
+Backtrace:
+    ▆
+ 1. └─testthat::local_mocked_bindings(...) at test-input-handler.R:99:3
+ 2.   ├─.package %||% dev_package()
+ 3.   └─testthat:::dev_package()
+ 4.     └─cli::cli_abort("No packages loaded with pkgload")
+ 5.       └─rlang::abort(...)
+
+Error ('test-input-handler.R:126:3'): get_choice_input handles choice selection
+Error in `dev_package()`: No packages loaded with pkgload
+Backtrace:
+    ▆
+ 1. └─testthat::local_mocked_bindings(get_user_input = function(...) "2") at test-input-handler.R:126:3
+ 2.   ├─.package %||% dev_package()
+ 3.   └─testthat:::dev_package()
+ 4.     └─cli::cli_abort("No packages loaded with pkgload")
+ 5.       └─rlang::abort(...)
+
+Error ('test-input-handler.R:143:3'): non-interactive mode with flag works correctly
+Error in `get_user_input("Enter value: ", default = "non_interactive_default")`: konnte Funktion "get_user_input" nicht finden
+
+Error ('test-input-handler.R:161:3'): can_accept_input correctly detects input capability
+Error in `can_accept_input()`: konnte Funktion "can_accept_input" nicht finden
+Backtrace:
+    ▆
+ 1. └─testthat::expect_true(can_accept_input()) at test-input-handler.R:161:3
+ 2.   └─testthat::quasi_label(enquo(object), label, arg = "object")
+ 3.     └─rlang::eval_bare(expr, quo_get_env(quo))
+
+Failure ('test-integration-e2e.R:215:3'): Functions handle invalid inputs gracefully
+`generate_season_fixtures(character(0))` did not throw an error.
+
+Error ('test-multi-season-integration.R:52:3'): 2023→2024→2025 workflow carries over team data correctly
+Error in `eval(code, test_env)`: Objekt 'process_league_teams' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-multi-season-integration.R:52:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-multi-season-integration.R:266:3'): temporary files are properly created and used in multi-season workflow
+Error in `eval(code, test_env)`: Objekt 'load_previous_team_list' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-multi-season-integration.R:266:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-multi-season-integration.R:456:3'): teams processed in 2024 are not prompted again in 2025
+Error in `eval(code, test_env)`: Objekt 'process_league_teams' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(process_league_teams, "prompt_for_team_info", mock_prompt) at test-multi-season-integration.R:456:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-multi-season-integration.R:512:3'): genuinely new teams in 2025 are still prompted
+Error in `eval(code, test_env)`: Objekt 'process_league_teams' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(process_league_teams, "prompt_for_team_info", mock_prompt) at test-multi-season-integration.R:512:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-SaisonSimulierenCPP.R:11:3'): SaisonSimulierenCPP simulates unplayed games correctly
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ZufallHeim = Zufall1, 
+    ZufallGast = Zufall2, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil, 
+    Simulieren = TRUE)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SaisonSimulierenCPP(...) at test-SaisonSimulierenCPP.R:11:3
+
+Error ('test-SaisonSimulierenCPP.R:48:3'): SaisonSimulierenCPP preserves played games
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ToreHeim = ToreHeim, 
+    ToreGast = ToreGast, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SaisonSimulierenCPP(...) at test-SaisonSimulierenCPP.R:48:3
+
+Error ('test-SaisonSimulierenCPP.R:78:3'): SaisonSimulierenCPP handles fully played season
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ToreHeim = ToreHeim, 
+    ToreGast = ToreGast, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SaisonSimulierenCPP(...) at test-SaisonSimulierenCPP.R:78:3
+
+Error ('test-SaisonSimulierenCPP.R:102:3'): SaisonSimulierenCPP updates ELO values through season
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ZufallHeim = Zufall1, 
+    ZufallGast = Zufall2, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil, 
+    Simulieren = TRUE)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SaisonSimulierenCPP(...) at test-SaisonSimulierenCPP.R:102:3
+
+Error ('test-SaisonSimulierenCPP.R:138:5'): SaisonSimulierenCPP respects home advantage
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ZufallHeim = Zufall1, 
+    ZufallGast = Zufall2, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil, 
+    Simulieren = TRUE)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SaisonSimulierenCPP(...) at test-SaisonSimulierenCPP.R:138:5
+
+Error ('test-SaisonSimulierenCPP.R:164:3'): SaisonSimulierenCPP produces consistent results with same seed
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ToreHeim = ToreHeim, 
+    ToreGast = ToreGast, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SaisonSimulierenCPP(...) at test-SaisonSimulierenCPP.R:164:3
+
+Error ('test-SaisonSimulierenCPP.R:193:3'): SaisonSimulierenCPP handles different mod factors
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ZufallHeim = Zufall1, 
+    ZufallGast = Zufall2, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil, 
+    Simulieren = TRUE)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SaisonSimulierenCPP(...) at test-SaisonSimulierenCPP.R:193:3
+
+Error ('test-SaisonSimulierenCPP.R:234:3'): SaisonSimulierenCPP handles extreme ELO differences
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ZufallHeim = Zufall1, 
+    ZufallGast = Zufall2, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil, 
+    Simulieren = TRUE)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SaisonSimulierenCPP(...) at test-SaisonSimulierenCPP.R:234:3
+
+Error ('test-SaisonSimulierenCPP.R:297:3'): SaisonSimulierenCPP maintains matrix structure
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ToreHeim = ToreHeim, 
+    ToreGast = ToreGast, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SaisonSimulierenCPP(...) at test-SaisonSimulierenCPP.R:297:3
+
+Error ('test-season-processor-fixes.R:34:3'): process_league_teams prioritizes previous_team_list over final_elos
+Error in `eval(code, test_env)`: Objekt 'process_league_teams' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-season-processor-fixes.R:34:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-season-processor-fixes.R:78:3'): process_league_teams uses final_elos when available
+Error in `eval(code, test_env)`: Objekt 'process_league_teams' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-season-processor-fixes.R:78:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-season-processor-fixes.R:119:3'): process_league_teams falls back to prompting for genuinely new teams
+Error in `eval(code, test_env)`: Objekt 'process_league_teams' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(process_league_teams, "prompt_for_team_info", mock_prompt) at test-season-processor-fixes.R:119:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-season-processor-fixes.R:168:3'): merge_league_files creates final TeamList file
+Error in `eval(code, test_env)`: Objekt 'merge_league_files' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(merge_league_files, "generate_team_list_csv", mock_generate_csv) at test-season-processor-fixes.R:168:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-season-processor-fixes.R:213:3'): merge_league_files handles empty league files gracefully
+Error in `eval(code, test_env)`: Objekt 'merge_league_files' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(merge_league_files, "generate_team_list_csv", mock_generate_csv) at test-season-processor-fixes.R:213:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-season-processor-fixes.R:253:3'): merge_league_files sorts teams by TeamID
+Error in `eval(code, test_env)`: Objekt 'merge_league_files' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(merge_league_files, "generate_team_list_csv", mock_generate_csv) at test-season-processor-fixes.R:253:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-season-processor-fixes.R:290:5'): process_league_teams logs ELO decisions
+Error in `process_league_teams(api_teams, "78", "2025", final_elos, 1500, 
+    previous_team_list)`: konnte Funktion "process_league_teams" nicht finden
+Backtrace:
+    ▆
+ 1. └─utils::capture.output(...) at test-season-processor-fixes.R:289:3
+ 2.   └─base::withVisible(...elt(i))
+
+Error ('test-season-processor-fixes.R:320:3'): process_league_teams logs baseline ELO usage
+Error in `eval(code, test_env)`: Objekt 'process_league_teams' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-season-processor-fixes.R:320:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-season-processor-fixes.R:345:3'): merge_league_files handles missing temp files gracefully
+Error in `merge_league_files(non_existent_files, "2025")`: konnte Funktion "merge_league_files" nicht finden
+
+Error ('test-season-processor-fixes.R:367:3'): merge_league_files handles CSV generation failure
+Error in `eval(code, test_env)`: Objekt 'merge_league_files' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-season-processor-fixes.R:367:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-season-processor-fixes.R:422:3'): load_previous_team_list prioritizes temporary files
+Error in `eval(code, test_env)`: Objekt 'load_previous_team_list' nicht gefunden
+Backtrace:
+    ▆
+ 1. └─mockery::stub(...) at test-season-processor-fixes.R:422:3
+ 2.   └─mockery:::build_function_tree(test_env, where, where_name, depth)
+
+Error ('test-simulationsCPP.R:15:3'): simulationsCPP handles fully played season correctly
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ToreHeim = ToreHeim, 
+    ToreGast = ToreGast, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global simulationsCPP_wrapper(...) at test-simulationsCPP.R:15:3
+ 2.   └─global simulationsCPP(...)
+ 3.     └─global SaisonSimulierenCPP(...)
+
+Error ('test-simulationsCPP.R:48:3'): simulationsCPP handles empty season correctly
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ZufallHeim = Zufall1, 
+    ZufallGast = Zufall2, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil, 
+    Simulieren = TRUE)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global simulationsCPP_wrapper(...) at test-simulationsCPP.R:48:3
+ 2.   └─global simulationsCPP(...)
+ 3.     └─global SaisonSimulierenCPP(...)
+
+Error ('test-simulationsCPP.R:79:3'): simulationsCPP handles partial season correctly
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ToreHeim = ToreHeim, 
+    ToreGast = ToreGast, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global simulationsCPP_wrapper(...) at test-simulationsCPP.R:79:3
+ 2.   └─global simulationsCPP(...)
+ 3.     └─global SaisonSimulierenCPP(...)
+
+Error ('test-simulationsCPP.R:113:3'): simulationsCPP applies point adjustments correctly
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ToreHeim = ToreHeim, 
+    ToreGast = ToreGast, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global simulationsCPP_wrapper(...) at test-simulationsCPP.R:113:3
+ 2.   └─global simulationsCPP(...)
+ 3.     └─global SaisonSimulierenCPP(...)
+
+Error ('test-simulationsCPP.R:147:5'): simulationsCPP handles different iteration counts
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ToreHeim = ToreHeim, 
+    ToreGast = ToreGast, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global simulationsCPP_wrapper(...) at test-simulationsCPP.R:147:5
+ 2.   └─global simulationsCPP(...)
+ 3.     └─global SaisonSimulierenCPP(...)
+
+Error ('test-simulationsCPP.R:177:3'): simulationsCPP handles goal adjustments correctly
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ToreHeim = ToreHeim, 
+    ToreGast = ToreGast, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global simulationsCPP_wrapper(...) at test-simulationsCPP.R:177:3
+ 2.   └─global simulationsCPP(...)
+ 3.     └─global SaisonSimulierenCPP(...)
+
+Error ('test-simulationsCPP.R:206:3'): simulationsCPP produces consistent results with same seed
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ToreHeim = ToreHeim, 
+    ToreGast = ToreGast, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global simulationsCPP_wrapper(...) at test-simulationsCPP.R:206:3
+ 2.   └─global simulationsCPP(...)
+ 3.     └─global SaisonSimulierenCPP(...)
+
+Error ('test-simulationsCPP.R:247:3'): simulationsCPP handles extreme ELO differences
+Error in `SpielCPP(ELOHeim = ELOHeim, ELOGast = ELOGast, ZufallHeim = Zufall1, 
+    ZufallGast = Zufall2, ModFaktor = ModFaktor, Heimvorteil = Heimvorteil, 
+    Simulieren = TRUE)`: konnte Funktion "SpielCPP" nicht finden
+Backtrace:
+    ▆
+ 1. └─global simulationsCPP_wrapper(...) at test-simulationsCPP.R:247:3
+ 2.   └─global simulationsCPP(...)
+ 3.     └─global SaisonSimulierenCPP(...)
+
+Error ('test-SpielCPP.R:7:3'): SpielCPP calculates ELO correctly for actual results
+Error in `SpielNichtSimulieren(ELOHeim, ELOGast, ToreHeim, ToreGast, ModFaktor, 
+    Heimvorteil)`: konnte Funktion "SpielNichtSimulieren" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SpielCPP_wrapper(...) at test-SpielCPP.R:7:3
+ 2.   └─global SpielCPP(...)
+
+Error ('test-SpielCPP.R:42:3'): SpielCPP simulates match results correctly
+Error in `SpielNichtSimulieren(ELOHeim, ELOGast, ToreHeim, ToreGast, ModFaktor, 
+    Heimvorteil)`: konnte Funktion "SpielNichtSimulieren" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SpielCPP_wrapper(...) at test-SpielCPP.R:42:3
+ 2.   └─global SpielCPP(...)
+
+Error ('test-SpielCPP.R:72:3'): SpielCPP handles draws correctly
+Error in `SpielNichtSimulieren(ELOHeim, ELOGast, ToreHeim, ToreGast, ModFaktor, 
+    Heimvorteil)`: konnte Funktion "SpielNichtSimulieren" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SpielCPP_wrapper(...) at test-SpielCPP.R:72:3
+ 2.   └─global SpielCPP(...)
+
+Error ('test-SpielCPP.R:99:3'): SpielCPP handles extreme ELO differences
+Error in `SpielNichtSimulieren(ELOHeim, ELOGast, ToreHeim, ToreGast, ModFaktor, 
+    Heimvorteil)`: konnte Funktion "SpielNichtSimulieren" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SpielCPP_wrapper(...) at test-SpielCPP.R:99:3
+ 2.   └─global SpielCPP(...)
+
+Error ('test-SpielCPP.R:132:5'): SpielCPP respects home advantage
+Error in `SpielNichtSimulieren(ELOHeim, ELOGast, ToreHeim, ToreGast, ModFaktor, 
+    Heimvorteil)`: konnte Funktion "SpielNichtSimulieren" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SpielCPP_wrapper(...) at test-SpielCPP.R:132:5
+ 2.   └─global SpielCPP(...)
+
+Error ('test-SpielCPP.R:158:3'): SpielCPP handles large goal differences
+Error in `SpielNichtSimulieren(ELOHeim, ELOGast, ToreHeim, ToreGast, ModFaktor, 
+    Heimvorteil)`: konnte Funktion "SpielNichtSimulieren" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SpielCPP_wrapper(...) at test-SpielCPP.R:158:3
+ 2.   └─global SpielCPP(...)
+
+Error ('test-SpielCPP.R:193:3'): SpielCPP produces consistent simulations with same random values
+Error in `SpielNichtSimulieren(ELOHeim, ELOGast, ToreHeim, ToreGast, ModFaktor, 
+    Heimvorteil)`: konnte Funktion "SpielNichtSimulieren" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SpielCPP_wrapper(...) at test-SpielCPP.R:193:3
+ 2.   └─global SpielCPP(...)
+
+Error ('test-SpielCPP.R:243:5'): SpielCPP correctly applies home advantage through SpielNichtSimulieren
+Error in `SpielNichtSimulieren(ELOHeim, ELOGast, ToreHeim, ToreGast, ModFaktor, 
+    Heimvorteil)`: konnte Funktion "SpielNichtSimulieren" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SpielCPP_wrapper(...) at test-SpielCPP.R:243:5
+ 2.   └─global SpielCPP(...)
+
+Error ('test-SpielCPP.R:314:3'): SpielCPP handles zero goals correctly
+Error in `SpielNichtSimulieren(ELOHeim, ELOGast, ToreHeim, ToreGast, ModFaktor, 
+    Heimvorteil)`: konnte Funktion "SpielNichtSimulieren" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SpielCPP_wrapper(...) at test-SpielCPP.R:314:3
+ 2.   └─global SpielCPP(...)
+
+Error ('test-SpielCPP.R:343:5'): SpielCPP handles different mod factors correctly
+Error in `SpielNichtSimulieren(ELOHeim, ELOGast, ToreHeim, ToreGast, ModFaktor, 
+    Heimvorteil)`: konnte Funktion "SpielNichtSimulieren" nicht finden
+Backtrace:
+    ▆
+ 1. └─global SpielCPP_wrapper(...) at test-SpielCPP.R:343:5
+ 2.   └─global SpielCPP(...)
+
+Failure ('test-team-count-validation.R:79:3'): validate_team_count handles file errors
+grepl("Error reading file", result$message) is not TRUE
+
+`actual`:   FALSE
+`expected`: TRUE 
+
+[ FAIL 74 | WARN 14 | SKIP 23 | PASS 566 ]
+Fehler: Test failures
+Ausführung angehalten

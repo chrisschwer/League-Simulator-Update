@@ -7,11 +7,10 @@ metadataTest:
       value: 'League Simulator - Shiny Updater'
     - key: 'org.opencontainers.image.licenses'
       value: 'MIT'
-
-# Environment variable tests
-envVars:
-  - key: 'TZ'
-    value: 'Europe/Berlin'
+  # Environment variable tests
+  envVars:
+    - key: 'TZ'
+      value: 'Europe/Berlin'
 
 # File existence tests
 fileExistenceTests:
