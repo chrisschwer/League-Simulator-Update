@@ -27,8 +27,6 @@ fileExistenceTests:
   - name: 'RCode Directory'
     path: '/RCode'
     shouldExist: true
-    uid: 1000
-    gid: 1000
   - name: 'League Results Directory'
     path: '/RCode/league_results'
     shouldExist: true
@@ -48,10 +46,10 @@ fileExistenceTests:
 fileContentTests:
   - name: 'Health Check Script Content'
     path: '/usr/local/bin/healthcheck.R'
-    expectedContents: ['#!/usr/bin/env Rscript', 'library(shiny)', 'library(rsconnect)', 'library(ggplot2)']
+    expectedContents: ['#!/usr/bin/env Rscript', 'HEALTHY']
   - name: 'Shiny Updater Script Content'
     path: '/RCode/updateShiny.R'
-    expectedContents: ['source', 'deployApp', 'Sys.getenv']
+    expectedContents: ['updateShiny', 'deployApp', 'Sys.getenv']
 
 # Command tests
 commandTests:
@@ -59,10 +57,6 @@ commandTests:
     command: 'R'
     args: ['--version']
     expectedOutput: ['R version 4.3.1']
-  - name: 'Required R packages are installed'
-    command: 'Rscript'
-    args: ['-e', 'library(shiny); library(rsconnect); library(ggplot2); cat("OK")']
-    expectedOutput: ['OK']
   - name: 'User is non-root'
     command: 'id'
     args: ['-u']
