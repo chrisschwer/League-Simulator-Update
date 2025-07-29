@@ -71,8 +71,30 @@ RUN useradd -m -u 1000 -s /bin/bash appuser
 # Copy installed R packages from builder
 COPY --from=builder /usr/local/lib/R/site-library /usr/local/lib/R/site-library
 
-# Copy R scripts with correct ownership
-COPY --chown=appuser:appuser RCode/ /RCode/
+# Copy deployment file list
+COPY RCode/deployment_files_league.txt /tmp/
+
+# Copy only required R scripts with correct ownership
+RUN mkdir -p /RCode
+COPY --chown=appuser:appuser RCode/SpielNichtSimulieren.cpp /RCode/
+COPY --chown=appuser:appuser RCode/leagueSimulatorCPP.R /RCode/
+COPY --chown=appuser:appuser RCode/prozent.R /RCode/
+COPY --chown=appuser:appuser RCode/retrieveResults.R /RCode/
+COPY --chown=appuser:appuser RCode/SaisonSimulierenCPP.R /RCode/
+COPY --chown=appuser:appuser RCode/simulationsCPP.R /RCode/
+COPY --chown=appuser:appuser RCode/SpielCPP.R /RCode/
+COPY --chown=appuser:appuser RCode/Tabelle.R /RCode/
+COPY --chown=appuser:appuser RCode/transform_data.R /RCode/
+COPY --chown=appuser:appuser RCode/RcppExports.R /RCode/
+COPY --chown=appuser:appuser RCode/cpp_wrappers.R /RCode/
+COPY --chown=appuser:appuser RCode/league_scheduler.R /RCode/
+COPY --chown=appuser:appuser RCode/update_league.R /RCode/
+COPY --chown=appuser:appuser RCode/api_service.R /RCode/
+COPY --chown=appuser:appuser RCode/api_helpers.R /RCode/
+COPY --chown=appuser:appuser RCode/error_handling.R /RCode/
+COPY --chown=appuser:appuser RCode/retry_handler.R /RCode/
+COPY --chown=appuser:appuser RCode/logging.R /RCode/
+COPY --chown=appuser:appuser RCode/TeamList_*.csv /RCode/
 
 # Create results directory
 RUN mkdir -p /RCode/league_results && chown -R appuser:appuser /RCode/league_results

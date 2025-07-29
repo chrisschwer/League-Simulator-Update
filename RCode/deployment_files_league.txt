@@ -1,0 +1,29 @@
+# Files required for league update container
+# Core simulation files
+SpielNichtSimulieren.cpp
+leagueSimulatorCPP.R
+prozent.R
+retrieveResults.R
+SaisonSimulierenCPP.R
+simulationsCPP.R
+SpielCPP.R
+Tabelle.R
+transform_data.R
+RcppExports.R
+cpp_wrappers.R
+
+# Scheduler and update files
+league_scheduler.R
+update_league.R
+
+# API and error handling
+api_service.R
+api_helpers.R
+error_handling.R
+retry_handler.R
+logging.R
+
+# Team data files (will be copied separately)
+TeamList_2023.csv
+TeamList_2024.csv
+TeamList_2025.csv

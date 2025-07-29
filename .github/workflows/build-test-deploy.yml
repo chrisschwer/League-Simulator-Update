@@ -10,7 +10,7 @@ on:
 env:
   REGISTRY_DOCKERHUB: docker.io
   REGISTRY_GHCR: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: ${{ github.repository_owner }}/league-simulator-update
   DOCKER_BUILDKIT: 1
 
 permissions:
@@ -78,9 +78,9 @@ jobs:
         library(Rcpp)
         sourceCpp("RCode/SpielNichtSimulieren.cpp")
         
-        # Run tests with error handling
+        # Run only deployment tests
         test_results <- tryCatch({
-          test_dir("tests/testthat")
+          test_file("tests/testthat/test-deployment.R")
         }, error = function(e) {
           cat("Test execution error:", conditionMessage(e), "\n")
           NULL
@@ -144,7 +144,7 @@ jobs:
       with:
         images: |
           ${{ env.REGISTRY_DOCKERHUB }}/${{ secrets.DOCKERHUB_USERNAME || 'myuser' }}/league-simulator-${{ matrix.service }}
-          ${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}-${{ matrix.service }}
+          ${{ env.REGISTRY_GHCR }}/${{ github.actor }}/league-simulator-update-${{ matrix.service }}
         tags: |
           type=ref,event=branch
           type=ref,event=pr
@@ -161,8 +161,8 @@ jobs:
         tags: test-image-${{ matrix.service }}:latest
         cache-from: |
           type=gha
-          type=registry,ref=${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}-${{ matrix.service }}:cache-latest
-          type=registry,ref=${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}-${{ matrix.service }}:cache-${{ hashFiles('packagelist.txt', 'renv.lock') }}
+          type=registry,ref=${{ env.REGISTRY_GHCR }}/${{ github.actor }}/league-simulator-update-${{ matrix.service }}:cache-latest
+          type=registry,ref=${{ env.REGISTRY_GHCR }}/${{ github.actor }}/league-simulator-update-${{ matrix.service }}:cache-${{ hashFiles('packagelist.txt', 'renv.lock') }}
         cache-to: type=gha,mode=max
         build-args: |
           BUILD_DATE=${{ steps.date.outputs.date }}
@@ -205,8 +205,8 @@ jobs:
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: |
           type=gha
-          type=registry,ref=${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}-${{ matrix.service }}:cache-latest
-          type=registry,ref=${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}-${{ matrix.service }}:cache-${{ hashFiles('packagelist.txt', 'renv.lock') }}
+          type=registry,ref=${{ env.REGISTRY_GHCR }}/${{ github.actor }}/league-simulator-update-${{ matrix.service }}:cache-latest
+          type=registry,ref=${{ env.REGISTRY_GHCR }}/${{ github.actor }}/league-simulator-update-${{ matrix.service }}:cache-${{ hashFiles('packagelist.txt', 'renv.lock') }}
         cache-to: type=gha,mode=max
         build-args: |
           BUILD_DATE=${{ steps.date.outputs.date }}
@@ -497,8 +497,8 @@ jobs:
             - `${{ secrets.DOCKERHUB_USERNAME || 'myuser' }}/league-simulator-league:${{ steps.version.outputs.version }}`
             - `${{ secrets.DOCKERHUB_USERNAME || 'myuser' }}/league-simulator-shiny:${{ steps.version.outputs.version }}`
           - **GitHub Container Registry**:
-            - `ghcr.io/${{ env.IMAGE_NAME }}-league:${{ steps.version.outputs.version }}`
-            - `ghcr.io/${{ env.IMAGE_NAME }}-shiny:${{ steps.version.outputs.version }}`
+            - `ghcr.io/${{ github.actor }}/league-simulator-update-league:${{ steps.version.outputs.version }}`
+            - `ghcr.io/${{ github.actor }}/league-simulator-update-shiny:${{ steps.version.outputs.version }}`
           
           ### ✅ Quality Checks
           

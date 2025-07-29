@@ -1,0 +1,17 @@
+# Files required for shiny update container
+# Shiny scheduler and update files
+shiny_scheduler.R
+update_shiny_from_files.R
+updateShiny.R
+
+# API and error handling (needed by updateShiny)
+api_service.R
+api_helpers.R
+error_handling.R
+retry_handler.R
+logging.R
+
+# Team data files (needed for app display)
+TeamList_2023.csv
+TeamList_2024.csv
+TeamList_2025.csv
