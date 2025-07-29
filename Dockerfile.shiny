@@ -2,7 +2,7 @@
 # Multi-stage build for minimal image size
 
 # Build arguments for flexibility
-ARG R_VERSION=4.3.1
+ARG R_VERSION=4.4.3
 ARG NCPUS=4
 ARG BUILD_DATE
 
@@ -53,8 +53,9 @@ LABEL org.opencontainers.image.title="League Simulator - Shiny Updater" \
       org.opencontainers.image.version="${R_VERSION}" \
       org.opencontainers.image.created="${BUILD_DATE}"
 
-# Install only runtime system dependencies
+# Install only runtime system dependencies and security updates
 RUN apt-get update && \
+    apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
     libcurl4 \
     libxml2 \

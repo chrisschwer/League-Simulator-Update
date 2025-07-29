@@ -48,7 +48,7 @@ commandTests:
   - name: 'R is installed'
     command: 'R'
     args: ['--version']
-    expectedOutput: ['R version 4.3.1']
+    expectedOutput: ['R version 4.4.3']
   - name: 'Required R packages are installed'
     command: 'Rscript'
     args: ['-e', 'library(httr); library(jsonlite); library(dplyr); cat("OK")']
