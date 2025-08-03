@@ -74,11 +74,11 @@ for (i in 1:loops) {
   
   adjPoints_Liga3_Aufstieg <- rep(0, dim(Liga3)[2]-4) # initialize to 0
   
-  for (i in 5:dim(Liga3)[2]) {
-    team_short <- names(Liga3)[i]
+  for (j in 5:dim(Liga3)[2]) {
+    team_short <- names(Liga3)[j]
     last_char_team <- substr(team_short, nchar(team_short), nchar(team_short))
     if (last_char_team == "2") {
-      adjPoints_Liga3_Aufstieg[i-4] <- -50 # if team name ends in "2", penalize
+      adjPoints_Liga3_Aufstieg[j-4] <- -50 # if team name ends in "2", penalize
     }
   }
   
