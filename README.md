@@ -2,12 +2,40 @@
 
 This repository contains R scripts and a Shiny application for simulating football leagues.
 
+## Quick Start - Simple Deployment
+
+The simplest way to deploy the League Simulator:
+
+```bash
+# Build the container
+docker build -f Dockerfile.simple -t league-simulator:simple .
+
+# Run with Docker Compose
+docker-compose -f docker-compose.simple.yml up -d
+
+# Or run directly with Docker
+docker run -d \
+  --name league-simulator \
+  -e RAPIDAPI_KEY=your_api_key \
+  -e SHINYAPPS_IO_SECRET=your_shiny_secret \
+  league-simulator:simple
+```
+
+This runs a single container that:
+- Executes simulations daily at 14:45 Berlin time
+- Runs 32 loops over 480 minutes during normal operation
+- Implements crash recovery with only 3 loops to prevent API limit violations
+- Waits until next day if started after 22:45
+
+For detailed documentation, see [Simple Monolithic Deployment](docs/deployment/simple-monolithic.md).
+
 ## Architecture Overview
 
-The system now supports two deployment modes:
+The system supports three deployment modes:
 
-1. **Monolithic Mode** (Original): Single container that handles all leagues and updates Shiny directly
-2. **Microservices Mode** (New): Separate containers for each league with shared persistent storage
+1. **Simple Monolithic Mode** (Recommended): Single container with simplified scheduling
+2. **Original Monolithic Mode**: Single container that handles all leagues and updates Shiny directly
+3. **Microservices Mode**: Separate containers for each league with shared persistent storage
 
 ## Scripts
 
@@ -20,9 +48,10 @@ The system now supports two deployment modes:
 - `transform_data.R`: Data transformation utilities
 
 ### Deployment Scripts
-- `updateScheduler.R`: Runs regular update loops inside the container (monolithic mode)
+- `updateSchedulerSimple.R`: Simple daily scheduler with smart timing logic (simple mode)
+- `updateScheduler.R`: Runs regular update loops inside the container (original monolithic mode)
 - `updateShiny.R`: Deploys the Shiny App via rsconnect
-- `update_all_leagues_loop.R`: Loops through all league updates (monolithic mode)
+- `update_all_leagues_loop.R`: Loops through all league updates (used by all modes)
 
 ### Microservices Scripts (New)
 - `update_league.R`: Updates a single league and saves results to files
@@ -46,7 +75,32 @@ The containers expect the following variables at runtime:
 
 ## Deployment Options
 
-### Option 1: Monolithic Docker Deployment
+### Option 1: Simple Monolithic Deployment (Recommended)
+
+The easiest and most reliable deployment option:
+
+```bash
+# Build the simple container
+docker build -f Dockerfile.simple -t league-simulator:simple .
+
+# Deploy with Docker Compose
+docker-compose -f docker-compose.simple.yml up -d
+
+# Or run directly
+docker run -d \
+  --name league-simulator \
+  -e RAPIDAPI_KEY=your_api_key \
+  -e SHINYAPPS_IO_SECRET=your_shiny_secret \
+  league-simulator:simple
+```
+
+Features:
+- Runs daily at 14:45 Berlin time
+- Smart crash recovery (3 loops only)
+- Automatic season detection if SEASON not set
+- Minimal complexity
+
+### Option 2: Original Monolithic Deployment
 
 Build and run a single container that handles all leagues:
 
@@ -60,7 +114,7 @@ docker run -e RAPIDAPI_KEY=your_api_key \
            league-simulator
 ```
 
-### Option 2: Kubernetes Microservices Deployment
+### Option 3: Kubernetes Microservices Deployment
 
 Deploy separate containers for each league with shared storage:
 
@@ -101,18 +155,23 @@ This will create:
 ```
 League-Simulator-Update/
 ├── RCode/                      # R scripts
-│   ├── update_league.R         # Single league updater (new)
-│   ├── update_shiny_from_files.R # Shiny updater from files (new)
+│   ├── updateSchedulerSimple.R # Simple daily scheduler (new)
+│   ├── update_league.R         # Single league updater
+│   ├── update_shiny_from_files.R # Shiny updater from files
 │   └── ...                     # Other R scripts
 ├── ShinyApp/                   # Shiny application
 │   └── app.R
+├── docs/deployment/            # Deployment documentation
+│   ├── simple-monolithic.md    # Simple deployment guide
+│   └── simplified-microservices.md # Microservices reference
 ├── k8s/                        # Kubernetes configurations
 │   └── k8s-deployment.yaml
-├── Dockerfile                  # Monolithic container
+├── Dockerfile                  # Original monolithic container
+├── Dockerfile.simple           # Simple monolithic container (new)
 ├── Dockerfile.league           # League updater container
 ├── Dockerfile.shiny           # Shiny updater container
+├── docker-compose.simple.yml   # Simple deployment compose (new)
 └── README.md
-
 ```
 
 ## Scheduling and Time Windows
