@@ -10,7 +10,7 @@ script_dir <- dirname(normalizePath(sub("--file=", "",
                       grep("--file=", commandArgs(trailingOnly = FALSE), value = TRUE)[1])))
 
 # Set working directory to project root
-setwd(script_dir)
+setwd('/Users/christophschwerdtfeger/Library/CloudStorage/Dropbox-CSDataScience/Christoph Schwerdtfeger/Coding Projects/LeagueSimulator_Claude/League-Simulator-Update')
 
 # Create modified version of update function with relative paths
 update_all_leagues_single <- function(n = 10000, saison = "2025", 
