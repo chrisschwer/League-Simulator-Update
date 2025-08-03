@@ -73,20 +73,28 @@ If `SEASON` is not set, the system automatically determines the season:
 
 ## Scheduling Logic
 
-The scheduler implements smart timing logic:
+The scheduler implements dynamic timing logic based on API limits:
 
 ```
 Current Time          Action
 ------------          ------
-Before 14:45      →   Wait until 14:45, then run 32 loops (480 min)
-14:45 - 22:45     →   Run 3 loops immediately (crash recovery mode)
+Before 14:45      →   Wait until 14:45, then run up to 96 loops (every 5 min)
+14:45 - 22:45     →   Calculate loops based on time remaining and API limits
 After 22:45       →   Wait until tomorrow's 14:45
 ```
 
-This ensures:
-- Normal operation runs the full simulation suite
-- Crash recovery respects API rate limits
-- No wasted API calls during off-hours
+### Dynamic Loop Calculation
+
+The system now:
+1. Calculates ideal loops: `minutes_until_22:45 / 5`
+2. Checks your API rate limit via headers
+3. Runs `min(ideal_loops, remaining_api_calls / 3)`
+
+Benefits:
+- **Free plan (100 calls/day)**: Automatically limits to ~33 loops
+- **Paid plan (7,500 calls/day)**: Can run full 96 loops (every 5 minutes)
+- **Smart recovery**: After crash, uses actual API quota instead of fixed 3 loops
+- **No overages**: Always respects your plan's limits
 
 ## Container Architecture
 
@@ -95,7 +103,8 @@ The container includes only essential files:
 ```
 /
 ├── RCode/
-│   ├── updateSchedulerSimple.R      # Main scheduler
+│   ├── updateSchedulerSimple.R      # Main scheduler with dynamic timing
+│   ├── checkAPILimits.R            # API rate limit checker
 │   ├── update_all_leagues_loop.R   # Core simulation loop
 │   ├── SpielNichtSimulieren.cpp    # C++ performance code
 │   ├── [simulation modules]         # Core R modules
@@ -135,7 +144,9 @@ Before 14:45 - waiting for scheduled run time
 Current time: 2025-01-15 08:30:00
 Next run at: 2025-01-15 14:45:00
 Waiting 22500 seconds (6.2 hours)
-Starting simulation with 32 loops at 2025-01-15 14:45:00
+API Rate Limit: 7423/7500 requests remaining
+Planning to run 96 loops (ideal: 96)
+Starting simulation with 96 loops at 2025-01-15 14:45:00
 Simulation completed successfully
 Waiting for next scheduled run
 ```
@@ -156,10 +167,10 @@ Common issues:
 
 ### API Rate Limit Errors
 
-The 3-loop recovery mode should prevent this, but if it occurs:
-1. Stop the container
-2. Wait 1 hour for rate limit reset
-3. Restart after 22:45 to ensure clean start
+The dynamic loop calculation prevents this by checking actual limits. If you see rate limit warnings:
+1. Check logs for "API Rate Limit: X/Y requests remaining"
+2. System automatically reduces loops to stay within limits
+3. No manual intervention needed - it self-adjusts
 
 ### No Simulation Results
 

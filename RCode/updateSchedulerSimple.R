@@ -3,6 +3,7 @@
 
 # Source required functions
 source("/RCode/update_all_leagues_loop.R")
+source("/RCode/checkAPILimits.R")
 
 # Helper function to calculate seconds until next 14:45 Berlin time
 wait_until_1445 <- function() {
@@ -54,22 +55,38 @@ repeat {
   current_hour <- berlin_now$hour
   current_min <- berlin_now$min
   
+  # Helper to create POSIXct for today in Berlin
+  today_str <- format(now, "%Y-%m-%d")
+  make_time <- function(hm) {
+    as.POSIXct(paste(today_str, hm), tz = "Europe/Berlin")
+  }
+  
+  # Define end time (22:45)
+  end_time <- make_time("22:45:00")
+  
   # Determine number of loops based on current time
   if (current_hour < 14 || (current_hour == 14 && current_min < 45)) {
-    # Before 14:45 - wait and run full 32 loops
+    # Before 14:45 - wait and calculate loops for full window
     message("Before 14:45 - waiting for scheduled run time")
     wait_until_1445()
-    loops <- 32
+    # After waiting, we'll be at 14:45, so 8 hours = 480 minutes until 22:45
+    ideal_loops <- 96  # 480 minutes / 5 minutes per loop
   } else if (current_hour < 23) {
-    # Between 14:45 and 22:45 - recovery mode, 3 loops only
-    message("Recovery mode - running 3 loops only to respect API limits")
-    loops <- 3
+    # Between 14:45 and 22:45 - calculate loops for remaining time
+    minutes_to_end <- as.numeric(difftime(end_time, Sys.time(), units = "mins"))
+    minutes_remaining <- min(minutes_to_end, 480)  # Cap at 480 minutes
+    ideal_loops <- max(1, floor(minutes_remaining / 5))
+    message(sprintf("Time remaining until 22:45: %.1f minutes", minutes_remaining))
   } else {
     # After 22:45 - wait until tomorrow
     message("After 22:45 - waiting for tomorrow's scheduled run")
     wait_until_1445()
-    loops <- 32
+    ideal_loops <- 96  # Will run full window tomorrow
   }
+  
+  # Check API limits and adjust loops if necessary
+  loops <- checkAPILimits(ideal_loops)
+  message(sprintf("Planning to run %d loops (ideal: %d)", loops, ideal_loops))
   
   # Get file path
   teamlist_file <- paste0("/RCode/TeamList_", season, ".csv")

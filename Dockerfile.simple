@@ -27,6 +27,9 @@ COPY RCode/Tabelle.R /RCode/
 COPY RCode/transform_data.R /RCode/
 COPY RCode/updateShiny.R /RCode/
 
+# API limit checking (sourced by updateSchedulerSimple.R)
+COPY RCode/checkAPILimits.R /RCode/
+
 # TeamList CSV files (required by update_all_leagues_loop.R)
 COPY RCode/TeamList_*.csv /RCode/
 

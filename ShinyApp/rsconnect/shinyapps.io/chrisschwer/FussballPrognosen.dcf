@@ -1,0 +1,10 @@
+name: FussballPrognosen
+title:
+username: chrisschwer
+account: chrisschwer
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 93672
+bundleId: 10720929
+url: https://chrisschwer.shinyapps.io/FussballPrognosen/
+version: 1
