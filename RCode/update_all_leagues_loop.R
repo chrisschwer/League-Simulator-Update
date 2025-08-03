@@ -43,6 +43,8 @@ TeamList <- read.csv(TeamList_file, sep=";")
 
 for (i in 1:loops) {
   
+  message(sprintf("\n=== Starting loop %d of %d at %s ===", i, loops, format(Sys.time(), "%Y-%m-%d %H:%M:%S")))
+  
   # reset simulation_executed
   simulation_executed <- FALSE
   
@@ -77,19 +79,23 @@ for (i in 1:loops) {
   # Run the models
   # On first iteration (i == 1), always run all simulations to ensure objects exist
   if (FT_BL != FT_BL_new || i == 1) {
+    message(sprintf("Loop %d: Simulating Bundesliga with %d simulations", i, n))
     Ergebnis <- leagueSimulatorCPP(BL, n = n)
     FT_BL <- FT_BL_new
     simulation_executed <- TRUE
     }
   
   if (FT_BL2 != FT_BL2_new || i == 1) {
+    message(sprintf("Loop %d: Simulating 2. Bundesliga with %d simulations", i, n))
     Ergebnis2 <- leagueSimulatorCPP(BL2, n = n)
     FT_BL2 <- FT_BL2_new
     simulation_executed <- TRUE
     }
   
   if (FT_Liga3 != FT_Liga3_new || i == 1) {
+    message(sprintf("Loop %d: Simulating 3. Liga with %d simulations", i, n))
     Ergebnis3 <- leagueSimulatorCPP(Liga3, n = n)
+    message(sprintf("Loop %d: Simulating 3. Liga Aufstieg with %d simulations", i, n))
     Ergebnis3_Aufstieg <- leagueSimulatorCPP(Liga3, n = n, 
                                              adjPoints = adjPoints_Liga3_Aufstieg)
     FT_Liga3 <- FT_Liga3_new
@@ -99,11 +105,20 @@ for (i in 1:loops) {
   # update Shiny
   
   if (simulation_executed) {
+    message(sprintf("Loop %d: Updating Shiny app with new results", i))
     updateShiny(Ergebnis, Ergebnis2, Ergebnis3, Ergebnis3_Aufstieg, 
                 directory = shiny_directory)
+    message(sprintf("Loop %d: Shiny update completed", i))
+    } else {
+    message(sprintf("Loop %d: No new match results - skipping simulations", i))
     }
   
-  Sys.sleep(waittime)
+  if (i < loops) {
+    message(sprintf("Loop %d completed. Waiting %.1f minutes until next loop...", i, waittime/60))
+    Sys.sleep(waittime)
+  } else {
+    message(sprintf("Loop %d completed. All loops finished!", i))
+  }
   
 }
   
