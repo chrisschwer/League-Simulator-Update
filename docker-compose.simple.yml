@@ -1,0 +1,16 @@
+version: '3'
+
+services:
+  league-simulator:
+    image: chrisschwer/league-simulator:simple
+    container_name: league-simulator
+    environment:
+      - RAPIDAPI_KEY=${RAPIDAPI_KEY}
+      - SHINYAPPS_IO_SECRET=${SHINYAPPS_IO_SECRET}
+      - SEASON=${SEASON}  # Optional - auto-detects based on current month if not set
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

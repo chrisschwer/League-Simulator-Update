@@ -1,0 +1,40 @@
+# Simple monolithic Dockerfile for League Simulator
+FROM rocker/tidyverse:4.3.1
+
+# Install R packages
+COPY packagelist.txt .
+RUN while read pkg; do R -e "install.packages('$pkg', repos='https://cloud.r-project.org')"; done < packagelist.txt
+
+# Create directory structure
+RUN mkdir -p /RCode /ShinyApp/data
+
+# Copy only required R code files (based on dependency analysis)
+# Entry point
+COPY RCode/updateSchedulerSimple.R /RCode/
+
+# Main loop
+COPY RCode/update_all_leagues_loop.R /RCode/
+
+# Core simulation files (sourced by update_all_leagues_loop.R)
+COPY RCode/SpielNichtSimulieren.cpp /RCode/
+COPY RCode/leagueSimulatorCPP.R /RCode/
+COPY RCode/prozent.R /RCode/
+COPY RCode/retrieveResults.R /RCode/
+COPY RCode/SaisonSimulierenCPP.R /RCode/
+COPY RCode/simulationsCPP.R /RCode/
+COPY RCode/SpielCPP.R /RCode/
+COPY RCode/Tabelle.R /RCode/
+COPY RCode/transform_data.R /RCode/
+COPY RCode/updateShiny.R /RCode/
+
+# TeamList CSV files (required by update_all_leagues_loop.R)
+COPY RCode/TeamList_*.csv /RCode/
+
+# Shiny app (required by updateShiny.R)
+COPY ShinyApp/ /ShinyApp/
+
+# Set working directory
+WORKDIR /
+
+# Run the simple scheduler
+CMD ["Rscript", "/RCode/updateSchedulerSimple.R"]
