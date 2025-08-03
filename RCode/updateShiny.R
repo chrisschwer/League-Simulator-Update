@@ -12,9 +12,22 @@ updateShiny <- function (Ergebnis, Ergebnis2, Ergebnis3,
   rsconnect::setAccountInfo(name = account_name, token = account_token, secret = account_secret)
 
   curr_wd <- getwd()
+  message(sprintf("Changing to directory: %s", directory))
   setwd(directory)
+  
+  # Check if data directory exists
+  if (!dir.exists("data")) {
+    message("Creating data directory")
+    dir.create("data", showWarnings = FALSE)
+  }
+  
+  message("Saving simulation results to data/Ergebnis.Rds")
   save(Ergebnis, Ergebnis2, Ergebnis3, Ergebnis3_Aufstieg, file = "data/Ergebnis.Rds")
+  
+  message("Deploying app to ShinyApps.io")
   deployApp (appFiles = c ("app.R", "data/Ergebnis.Rds"),
              appName = "FussballPrognosen", forceUpdate = forceUpdate)
+  
+  message("Deployment completed, returning to original directory")
   setwd(curr_wd)
 }

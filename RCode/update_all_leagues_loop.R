@@ -39,6 +39,12 @@ source("RCode/updateShiny.R")
 # Import Team Data
 TeamList <- read.csv(TeamList_file, sep=";")
 
+# Initialize result objects to ensure they exist
+Ergebnis <- NULL
+Ergebnis2 <- NULL
+Ergebnis3 <- NULL
+Ergebnis3_Aufstieg <- NULL
+
 # Start main loop
 
 for (i in 1:loops) {
