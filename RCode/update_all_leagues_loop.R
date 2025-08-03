@@ -2,7 +2,8 @@
 
 update_all_leagues_loop <- function (duration = 480, loops = 31, initial_wait = 0,
                                      n = 10000, saison = "2023", 
-                                     TeamList_file = "RCode/TeamList_2023.csv")
+                                     TeamList_file = "RCode/TeamList_2023.csv",
+                                     shiny_directory = "/Users/christophschwerdtfeger/Library/CloudStorage/Dropbox-CSDataScience/Christoph Schwerdtfeger/Coding Projects/LeagueSimulator_Claude/League-Simulator-Update/ShinyApp")
 
 {
 
@@ -97,7 +98,8 @@ for (i in 1:loops) {
   # update Shiny
   
   if (simulation_executed) {
-    updateShiny(Ergebnis, Ergebnis2, Ergebnis3, Ergebnis3_Aufstieg)
+    updateShiny(Ergebnis, Ergebnis2, Ergebnis3, Ergebnis3_Aufstieg, 
+                directory = shiny_directory)
     }
   
   Sys.sleep(waittime)
