@@ -75,19 +75,20 @@ for (i in 1:loops) {
   }
   
   # Run the models
-  if (FT_BL != FT_BL_new) {
+  # On first iteration (i == 1), always run all simulations to ensure objects exist
+  if (FT_BL != FT_BL_new || i == 1) {
     Ergebnis <- leagueSimulatorCPP(BL, n = n)
     FT_BL <- FT_BL_new
     simulation_executed <- TRUE
     }
   
-  if (FT_BL2 != FT_BL2_new) {
+  if (FT_BL2 != FT_BL2_new || i == 1) {
     Ergebnis2 <- leagueSimulatorCPP(BL2, n = n)
     FT_BL2 <- FT_BL2_new
     simulation_executed <- TRUE
     }
   
-  if (FT_Liga3 != FT_Liga3_new) {
+  if (FT_Liga3 != FT_Liga3_new || i == 1) {
     Ergebnis3 <- leagueSimulatorCPP(Liga3, n = n)
     Ergebnis3_Aufstieg <- leagueSimulatorCPP(Liga3, n = n, 
                                              adjPoints = adjPoints_Liga3_Aufstieg)

@@ -25,7 +25,7 @@ wait_until_1445 <- function() {
   
   message(sprintf("Current time: %s", format(berlin_now, "%Y-%m-%d %H:%M:%S")))
   message(sprintf("Next run at: %s", format(target, "%Y-%m-%d %H:%M:%S")))
-  message(sprintf("Waiting %d seconds (%.1f hours)", wait_seconds, wait_seconds/3600))
+  message(sprintf("Waiting %.0f seconds (%.1f hours)", wait_seconds, wait_seconds/3600))
   
   Sys.sleep(wait_seconds)
 }
