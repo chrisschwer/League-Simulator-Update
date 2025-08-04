@@ -584,30 +584,34 @@ export_team_comparison <- function(season1, season2, output_file = NULL) {
   })
 }
 
-merge_league_files <- function(season, output_dir) {
-  # Merge individual league CSV files into final TeamList
-  # Combines Liga1, Liga2, Liga3 files
-  
-  file_paths <- file.path(output_dir, c(
-    paste0("TeamList_", season, "_Liga1.csv"),
-    paste0("TeamList_", season, "_Liga2.csv"),
-    paste0("TeamList_", season, "_Liga3.csv")
-  ))
-  
-  # Check all files exist
-  if (!all(file.exists(file_paths))) {
-    missing <- file_paths[!file.exists(file_paths)]
-    stop(paste("Missing league files:", paste(missing, collapse = ", ")))
-  }
-  
-  # Read and combine
-  all_data <- do.call(rbind, lapply(file_paths, function(f) {
-    read.csv(f, sep = ";", stringsAsFactors = FALSE)
-  }))
-  
-  # Write merged file
-  output_file <- file.path(output_dir, paste0("TeamList_", season, ".csv"))
-  write_team_list_safely(all_data, output_file)
-  
-  return(output_file)
-}
+# DEPRECATED: Remove after August 15, 2026 if not reactivated
+# This function was commented out to resolve namespace collision with season_processor.R
+# The season transition process uses the season_processor.R version of merge_league_files
+# No production code uses this Liga1/Liga2/Liga3 file pattern
+# merge_league_files <- function(season, output_dir) {
+#   # Merge individual league CSV files into final TeamList
+#   # Combines Liga1, Liga2, Liga3 files
+#   
+#   file_paths <- file.path(output_dir, c(
+#     paste0("TeamList_", season, "_Liga1.csv"),
+#     paste0("TeamList_", season, "_Liga2.csv"),
+#     paste0("TeamList_", season, "_Liga3.csv")
+#   ))
+#   
+#   # Check all files exist
+#   if (!all(file.exists(file_paths))) {
+#     missing <- file_paths[!file.exists(file_paths)]
+#     stop(paste("Missing league files:", paste(missing, collapse = ", ")))
+#   }
+#   
+#   # Read and combine
+#   all_data <- do.call(rbind, lapply(file_paths, function(f) {
+#     read.csv(f, sep = ";", stringsAsFactors = FALSE)
+#   }))
+#   
+#   # Write merged file
+#   output_file <- file.path(output_dir, paste0("TeamList_", season, ".csv"))
+#   write_team_list_safely(all_data, output_file)
+#   
+#   return(output_file)
+# }

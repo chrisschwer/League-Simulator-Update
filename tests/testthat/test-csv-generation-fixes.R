@@ -420,62 +420,66 @@ test_that("generate_team_list_csv handles integrity verification failure", {
 
 context("CSV Generation Fixes - Integration with Season Processing")
 
-test_that("CSV generation integrates properly with merge process", {
-  # Test the integration between merge_league_files and generate_team_list_csv
-  temp_dir <- tempdir()
-  
-  # Create mock league files
-  league_file1 <- file.path(temp_dir, "TeamList_2025_League78_temp.csv")
-  league_file2 <- file.path(temp_dir, "TeamList_2025_League80_temp.csv")
-  
-  bundesliga_data <- data.frame(
-    TeamID = c(168, 167),
-    ShortText = c("B04", "HOF"),
-    Promotion = c(0, 0),
-    InitialELO = c(1765, 1628),
-    stringsAsFactors = FALSE
-  )
-  
-  liga3_data <- data.frame(
-    TeamID = c(1320, 4259),
-    ShortText = c("FCE", "AAC"),
-    Promotion = c(0, 0),
-    InitialELO = c(1046, 1050),
-    stringsAsFactors = FALSE
-  )
-  
-  write.table(bundesliga_data, league_file1, sep = ";", row.names = FALSE, quote = FALSE)
-  write.table(liga3_data, league_file2, sep = ";", row.names = FALSE, quote = FALSE)
-  
-  # Mock generate_team_list_csv to avoid actual file operations
-  expected_output <- file.path(temp_dir, "TeamList_2025.csv")
-  stub(merge_league_files, "generate_team_list_csv", function(data, season, output_dir) {
-    # Verify data is combined correctly
-    expect_equal(nrow(data), 4)
-    expect_true(all(c(168, 167, 1320, 4259) %in% data$TeamID))
-    return(expected_output)
-  })
-  
-  # Create Liga files with proper naming convention
-  liga1_file <- file.path(temp_dir, "TeamList_2025_Liga1.csv")
-  liga2_file <- file.path(temp_dir, "TeamList_2025_Liga2.csv")
-  liga3_file <- file.path(temp_dir, "TeamList_2025_Liga3.csv")
-  
-  # Copy test data to properly named files
-  file.copy(league_file1, liga1_file)
-  file.copy(league_file2, liga3_file)
-  
-  # Create empty Liga2 file
-  write.table(data.frame(TeamID=integer(), ShortText=character(), 
-                        Promotion=numeric(), InitialELO=numeric()), 
-              liga2_file, sep=";", row.names=FALSE, quote=FALSE)
-  
-  # Test integration with correct parameters
-  result <- merge_league_files("2025", temp_dir)
-  
-  # Should return the expected file path
-  expect_equal(result, expected_output)
-  
-  # Cleanup
-  unlink(c(league_file1, league_file2, liga1_file, liga2_file, liga3_file, expected_output))
-})
+# DEPRECATED: Remove after August 15, 2026 if not reactivated
+# This test was commented out because it uses the csv_generation.R version of merge_league_files
+# which was commented out to resolve namespace collision with season_processor.R
+# The season transition process uses the season_processor.R version
+# test_that("CSV generation integrates properly with merge process", {
+#   # Test the integration between merge_league_files and generate_team_list_csv
+#   temp_dir <- tempdir()
+#   
+#   # Create mock league files
+#   league_file1 <- file.path(temp_dir, "TeamList_2025_League78_temp.csv")
+#   league_file2 <- file.path(temp_dir, "TeamList_2025_League80_temp.csv")
+#   
+#   bundesliga_data <- data.frame(
+#     TeamID = c(168, 167),
+#     ShortText = c("B04", "HOF"),
+#     Promotion = c(0, 0),
+#     InitialELO = c(1765, 1628),
+#     stringsAsFactors = FALSE
+#   )
+#   
+#   liga3_data <- data.frame(
+#     TeamID = c(1320, 4259),
+#     ShortText = c("FCE", "AAC"),
+#     Promotion = c(0, 0),
+#     InitialELO = c(1046, 1050),
+#     stringsAsFactors = FALSE
+#   )
+#   
+#   write.table(bundesliga_data, league_file1, sep = ";", row.names = FALSE, quote = FALSE)
+#   write.table(liga3_data, league_file2, sep = ";", row.names = FALSE, quote = FALSE)
+#   
+#   # Mock generate_team_list_csv to avoid actual file operations
+#   expected_output <- file.path(temp_dir, "TeamList_2025.csv")
+#   stub(merge_league_files, "generate_team_list_csv", function(data, season, output_dir) {
+#     # Verify data is combined correctly
+#     expect_equal(nrow(data), 4)
+#     expect_true(all(c(168, 167, 1320, 4259) %in% data$TeamID))
+#     return(expected_output)
+#   })
+#   
+#   # Create Liga files with proper naming convention
+#   liga1_file <- file.path(temp_dir, "TeamList_2025_Liga1.csv")
+#   liga2_file <- file.path(temp_dir, "TeamList_2025_Liga2.csv")
+#   liga3_file <- file.path(temp_dir, "TeamList_2025_Liga3.csv")
+#   
+#   # Copy test data to properly named files
+#   file.copy(league_file1, liga1_file)
+#   file.copy(league_file2, liga3_file)
+#   
+#   # Create empty Liga2 file
+#   write.table(data.frame(TeamID=integer(), ShortText=character(), 
+#                         Promotion=numeric(), InitialELO=numeric()), 
+#               liga2_file, sep=";", row.names=FALSE, quote=FALSE)
+#   
+#   # Test integration with correct parameters
+#   result <- merge_league_files("2025", temp_dir)
+#   
+#   # Should return the expected file path
+#   expect_equal(result, expected_output)
+#   
+#   # Cleanup
+#   unlink(c(league_file1, league_file2, liga1_file, liga2_file, liga3_file, expected_output))
+# })
