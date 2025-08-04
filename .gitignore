@@ -7,3 +7,11 @@ CLAUDE.local.md
 
 # Test results
 api_test_results.json
+
+# R session files
+.RData
+.Rhistory
+
+# Shiny deployment files
+ShinyApp/data/Ergebnis.Rds
+ShinyApp/rsconnect/shinyapps.io/chrisschwer/FussballPrognosen.dcf
