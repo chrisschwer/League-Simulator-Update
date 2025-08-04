@@ -1,9 +1,12 @@
-# Simple daily scheduler for League Simulator
+# Simple daily scheduler for League Simulator - LOCAL VERSION
 # Runs once daily at 14:45 Berlin time with appropriate loop counts
 
-# Source required functions
-source("/RCode/update_all_leagues_loop.R")
-source("/RCode/checkAPILimits.R")
+# Get the project root directory
+project_root <- "/Users/christophschwerdtfeger/Library/CloudStorage/Dropbox-CSDataScience/Christoph Schwerdtfeger/Coding Projects/LeagueSimulator_Claude/League-Simulator-Update"
+
+# Source required functions with local paths
+source(file.path(project_root, "RCode/update_all_leagues_loop.R"))
+source(file.path(project_root, "RCode/checkAPILimits.R"))
 
 # Helper function to calculate seconds until next 14:45 Berlin time
 wait_until_1445 <- function() {
@@ -46,7 +49,7 @@ if (season == "") {
 }
 
 # Main scheduler loop
-message("League Simulator Simple Scheduler Starting")
+message("League Simulator Simple Scheduler Starting (LOCAL VERSION)")
 message(sprintf("Season: %s", season))
 
 repeat {
@@ -91,8 +94,8 @@ repeat {
   loops <- checkAPILimits(ideal_loops)
   message(sprintf("Planning to run %d loops (ideal: %d)", loops, ideal_loops))
   
-  # Get file path
-  teamlist_file <- paste0("/RCode/TeamList_", season, ".csv")
+  # Get file path - use local path
+  teamlist_file <- file.path(project_root, paste0("RCode/TeamList_", season, ".csv"))
   
   # Run the simulation
   message(sprintf("Starting simulation with %d loops at %s", 
@@ -106,7 +109,7 @@ repeat {
       n = 10000,
       saison = season,
       TeamList_file = teamlist_file,
-      shiny_directory = "/ShinyApp"  # Docker container path
+      shiny_directory = file.path(project_root, "ShinyApp")  # Local path
     )
     message("Simulation completed successfully")
   }, error = function(e) {
