@@ -1,96 +1,123 @@
 # Test Organization Guide
 
-This document explains how tests are organized between deployment and development contexts.
+This document explains the current test organization after simplification for a hobbyist project.
 
 ## Overview
 
-To speed up CI/CD pipelines and focus on what's actually deployed, tests are divided into two categories:
+The test suite has been simplified from 640+ tests to 130 tests across 17 files, focusing on core functionality while removing over-engineered tests.
 
-1. **Deployment Tests** - Run in CI/CD, test components that are deployed to k8s
-2. **Development Tests** - Run locally, test maintenance scripts and utilities
+## Test Statistics
 
-## Deployment Tests (Run in CI/CD)
+- **Total Tests**: 130 (down from 640+)
+- **Test Files**: 17 (down from 25+)
+- **Removed**: 13 files containing ~510 tests
 
-These tests verify components that are actually deployed to Kubernetes:
+### Test Distribution
+- **Core Tests (in run_all_tests.R)**: 48 tests across 6 files (37%)
+- **Other Tests**: 82 tests across 11 files (63%)
 
-### Core Functionality
-- `test-prozent.R` - Percentage formatting utility
-- `test-simulationsCPP.R` - Core simulation engine
-- `test-SpielCPP.R` - Match simulation logic
-- `test-SpielNichtSimulieren.R` - ELO update logic
-- `test-Tabelle.R` - League table calculations
-- `test-transform_data.R` - Data transformation utilities
+## Core Tests (48 tests)
 
-### API & Integration
-- `test-api/` - All API interaction tests
-- `test-e2e-simulation-workflow.R` - End-to-end workflow tests
-- `test-integration-e2e.R` - Integration tests
+These are the essential tests that verify core functionality:
 
-### Schedulers & Updates
-- `test-schedulers/` - Update scheduler tests
-- `test-performance-*.R` - Performance benchmarks
+### Simulation Engine
+- `test-SpielNichtSimulieren.R` - 11 tests for match simulation
+- `test-Tabelle.R` - 5 tests for league table calculations (reduced from 59)
+- `test-prozent.R` - 2 tests for percentage formatting
 
-### Shiny Application
-- `test-shiny/` - All Shiny app tests
+### Validation & Data
+- `test-team-count-validation.R` - 5 tests for league team counts
+- `test-season-validation.R` - 15 tests for season validation
+- `test-transform_data.R` - 10 tests for data transformation
 
-## Development Tests (Skip in CI/CD)
+## Additional Tests (82 tests)
 
-These tests are for local tools and utilities not deployed to k8s:
+### C++ Integration
+- `test-SaisonSimulierenCPP.R` - 10 tests for season simulation
+- `test-simulationsCPP.R` - 8 tests for Monte Carlo simulations
+- `test-SpielCPP.R` - 10 tests for match simulation wrapper
+
+### Integration & E2E
+- `test-integration-e2e.R` - 3 tests (reduced from 134)
+- `test-simple-integration.R` - 5 tests (newly created)
+- `test-e2e-simulation-workflow.R` - 5 tests
+- `test-elo-basic.R` - 5 tests (newly created)
 
 ### Season Management
-- `test-season-transition*.R` - Season transition scripts
-- `test-season-processor*.R` - Season processing logic
-- `test-season-validation.R` - Season data validation
-- `test-multi-season-integration.R` - Multi-season workflows
+- `test-season-processor.R` - 9 tests
+- `test-season-transition-regression.R` - 10 tests
 
-### Data Management
-- `test-csv-generation*.R` - CSV file generation
-- `test-team-count-validation.R` - Team count validation
-- `test-second-team-conversion.R` - Second team handling
-- `test-elo-aggregation.R` - ELO aggregation utilities
+### Other
+- `test-deployment.R` - 6 tests
+- `test-interactive-prompts.R` - 11 tests (may hang on input)
 
-### Interactive Tools
-- `test-interactive-prompts.R` - User interaction prompts
-- `test-input-handler.R` - Input handling utilities
-- `test-cli-arguments.R` - Command line argument parsing
+## Removed Tests
 
-### Configuration
-- `test-configmap-*.R` - ConfigMap generation (done locally, not in k8s)
+The following over-engineered tests were removed:
 
-## CI/CD Configuration
+### Infrastructure Tests (Removed)
+- All ConfigMap tests (3 files, 63 tests) - Kubernetes-specific
+- All performance tests (3 files, 17 tests) - Premature optimization
+- CLI argument tests (25 tests) - Over-detailed
 
-The GitHub Actions workflows are configured to:
+### Non-Existent Function Tests (Removed)
+- `test-csv-generation-fixes.R` - Functions don't exist
+- `test-season-processor-fixes.R` - Functions don't exist
+- `test-input-handler.R` - Over-engineered mocking
+- `test-elo-aggregation.R` - Functions don't exist
+- `test-multi-season-integration.R` - Too complex
+- `test-second-team-conversion.R` - Edge case
 
-1. Set `CI_ENVIRONMENT=true` and `RUN_DEPLOYMENT_TESTS_ONLY=true`
-2. Skip tests matching patterns defined in the workflow
-3. Run with a 10-minute timeout (reduced from 15)
-4. Allow up to 20 test failures (reduced from 40)
+## Running Tests
 
-## Running Tests Locally
-
-To run all tests locally (including development tests):
+### Prerequisites
 ```r
-testthat::test_dir("tests/testthat")
+# Must compile C++ code first
+library(Rcpp)
+sourceCpp('RCode/SpielNichtSimulieren.cpp')
 ```
 
-To simulate CI/CD environment and run only deployment tests:
-```r
-Sys.setenv(CI_ENVIRONMENT = "true")
-Sys.setenv(RUN_DEPLOYMENT_TESTS_ONLY = "true")
-testthat::test_dir("tests/testthat")
+### Option 1: Core Tests Only
+```bash
+Rscript run_all_tests.R  # 48 tests, reliable
 ```
 
-## Adding New Tests
+### Option 2: All Tests
+```bash
+Rscript run_all_tests_fixed.R  # 130 tests, some may fail
+```
 
-When adding new tests, consider:
+### Option 3: Specific Test File
+```r
+testthat::test_file('tests/testthat/test-SpielNichtSimulieren.R')
+```
 
-1. **Is this functionality deployed to k8s?** → Deployment test
-2. **Is this a maintenance script or utility?** → Development test
-3. **Update the skip patterns** in `.github/workflows/R-tests.yml` if needed
+## Known Issues
 
-## Benefits
+1. **C++ Compilation Required**: Tests fail without `sourceCpp()` first
+2. **Parameter Mismatches**: Mix of German (ModFaktor) vs English (modFactor)
+3. **Interactive Tests**: Some tests hang waiting for user input
+4. **Test Infrastructure**: Tests expect package namespace but we don't have one
 
-- **Faster CI/CD**: ~50% reduction in test execution time
-- **Focused testing**: Only test what's actually deployed
-- **Better resource usage**: Prevents timeouts on resource-limited runners
-- **Clear separation**: Explicit distinction between production and development code
+## Test Philosophy
+
+For this hobbyist project, we focus on:
+
+✅ **Essential Tests**:
+- Core simulation algorithms
+- Basic data integrity
+- Critical calculations (ELO, tables)
+- Simple integration tests
+
+❌ **Avoided Tests**:
+- Infrastructure complexity
+- Performance benchmarks
+- Every edge case
+- Non-existent functionality
+
+## Benefits of Simplification
+
+1. **Maintainability**: 80% fewer tests to maintain
+2. **Speed**: Core tests run in seconds
+3. **Focus**: Tests reflect actual functionality
+4. **Clarity**: Easy to understand what's being tested
