@@ -97,13 +97,20 @@ repeat {
   # Get file path - use local path
   teamlist_file <- file.path(project_root, paste0("RCode/TeamList_", season, ".csv"))
   
+  # Calculate actual duration based on current time and end time
+  if (exists("minutes_remaining")) {
+    actual_duration <- minutes_remaining
+  } else {
+    actual_duration <- 480  # Default for full window
+  }
+  
   # Run the simulation
-  message(sprintf("Starting simulation with %d loops at %s", 
-                  loops, format(as.POSIXct(berlin_now), "%Y-%m-%d %H:%M:%S", tz = "Europe/Berlin")))
+  message(sprintf("Starting simulation with %d loops over %.1f minutes at %s", 
+                  loops, actual_duration, format(as.POSIXct(berlin_now), "%Y-%m-%d %H:%M:%S", tz = "Europe/Berlin")))
   
   tryCatch({
     update_all_leagues_loop(
-      duration = 480,
+      duration = actual_duration,  # Pass actual remaining time
       loops = loops,
       initial_wait = 0,
       n = 10000,
