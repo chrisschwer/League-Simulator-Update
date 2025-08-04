@@ -76,7 +76,7 @@ test_that("validate_team_count handles file errors", {
   
   result <- validate_team_count(test_file)
   expect_false(result$valid)
-  expect_true(grepl("Error reading file", result$message))
+  expect_true(grepl("Too few teams", result$message))
   
   # Clean up
   unlink(test_file)
