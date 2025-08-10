@@ -11,36 +11,58 @@ WORKDIR /build
 # Copy Rust source
 COPY league-simulator-rust/Cargo.toml .
 COPY league-simulator-rust/src/ ./src/
+COPY league-simulator-rust/test_data/ ./test_data/
 
 # Build optimized binary
 RUN cargo build --release
 RUN strip target/release/league-simulator-rust
 
 # Stage 2: Build complete application
-FROM r-base:4.3.2
+FROM rocker/tidyverse:4.3.1
 
-# Install system dependencies
+# Install system dependencies and curl for healthcheck
 RUN apt-get update && apt-get install -y \
     libcurl4-openssl-dev \
     libssl-dev \
     libxml2-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install R packages
-RUN R -e "install.packages(c('Rcpp', 'httr', 'jsonlite', 'rsconnect', 'dplyr', 'tidyr'), repos='https://cloud.r-project.org/')"
+# Install R packages from packagelist.txt
+COPY packagelist.txt /tmp/
+RUN while read pkg; do \
+    R -e "if (!require('$pkg', character.only=TRUE)) install.packages('$pkg', repos='https://cloud.r-project.org')" || true; \
+    done < /tmp/packagelist.txt
 
 # Copy Rust binary from builder
 COPY --from=rust-builder /build/target/release/league-simulator-rust /usr/local/bin/league-simulator-rust
 
-# Create application directory
+# Create application directory structure
 WORKDIR /app
+RUN mkdir -p /app/RCode /app/ShinyApp/data
 
-# Copy R code
+# Copy R code and data
 COPY RCode/ ./RCode/
 COPY ShinyApp/ ./ShinyApp/
 
-# Create startup script
+# Compile C++ code (fallback when Rust unavailable)
+RUN cd /app/RCode && \
+    R -e "Rcpp::sourceCpp('SpielNichtSimulieren.cpp')" || \
+    echo "Warning: C++ compilation failed, will rely on Rust engine"
+
+# Create startup script with better error handling
 RUN echo '#!/bin/sh\n\
+set -e\n\
+\n\
+# Function to cleanup on exit\n\
+cleanup() {\n\
+    echo "Cleaning up..."\n\
+    if [ ! -z "$RUST_PID" ]; then\n\
+        kill $RUST_PID 2>/dev/null || true\n\
+    fi\n\
+}\n\
+trap cleanup EXIT\n\
+\n\
 # Start Rust REST API server in background\n\
 echo "Starting Rust simulation engine..."\n\
 /usr/local/bin/league-simulator-rust --api &\n\
@@ -48,23 +70,25 @@ RUST_PID=$!\n\
 \n\
 # Wait for Rust server to be ready\n\
 echo "Waiting for Rust server to start..."\n\
-sleep 3\n\
+for i in 1 2 3 4 5; do\n\
+    if curl -s http://localhost:8080/health > /dev/null 2>&1; then\n\
+        echo "Rust server ready on port 8080"\n\
+        break\n\
+    fi\n\
+    if [ $i -eq 5 ]; then\n\
+        echo "ERROR: Rust server failed to start after 5 attempts"\n\
+        exit 1\n\
+    fi\n\
+    sleep 1\n\
+done\n\
 \n\
-# Check if Rust server is running\n\
-if ! kill -0 $RUST_PID 2>/dev/null; then\n\
-    echo "ERROR: Rust server failed to start"\n\
-    exit 1\n\
-fi\n\
-\n\
-echo "Rust server ready on port 8080"\n\
+# Change to app directory for relative paths\n\
+cd /app\n\
 \n\
 # Start R scheduler with Rust backend\n\
 echo "Starting R scheduler with Rust backend..."\n\
 export RUST_API_URL=http://localhost:8080\n\
 Rscript RCode/updateSchedulerRust.R\n\
-\n\
-# Cleanup on exit\n\
-kill $RUST_PID 2>/dev/null\n\
 ' > /app/start.sh && chmod +x /app/start.sh
 
 # Environment variables
