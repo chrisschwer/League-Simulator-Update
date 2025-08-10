@@ -44,8 +44,9 @@ if (!file.exists(team_list_file)) {
   }
 }
 
-# Source the Rust-enabled update function
+# Source required functions
 source("RCode/update_all_leagues_loop_rust.R")
+source("RCode/checkAPILimits.R")
 
 # Dynamic loop calculation based on current time
 calculate_loops <- function() {
@@ -70,7 +71,12 @@ calculate_loops <- function() {
     
     # After waiting, recalculate for full run
     minutes_available <- DURATION
-    loops <- floor(minutes_available / 5) + 1  # Run every 5 minutes
+    ideal_loops <- floor(minutes_available / 2) + 1  # Every 2 minutes with Rust
+    
+    # Check API limits
+    loops <- checkAPILimits(ideal_loops)
+    message(sprintf("Planning to run %d loops (ideal: %d)", loops, ideal_loops))
+    
     return(list(loops = loops, initial_wait = 0))
   }
   
@@ -85,7 +91,12 @@ calculate_loops <- function() {
     Sys.sleep(wait_minutes * 60)
     
     # After waiting, run full duration
-    loops <- floor(DURATION / 5) + 1
+    ideal_loops <- floor(DURATION / 2) + 1  # Every 2 minutes with Rust
+    
+    # Check API limits
+    loops <- checkAPILimits(ideal_loops)
+    message(sprintf("Planning to run %d loops (ideal: %d)", loops, ideal_loops))
+    
     return(list(loops = loops, initial_wait = 0))
   }
   
@@ -94,12 +105,14 @@ calculate_loops <- function() {
   
   # With Rust engine, we can run more frequent updates (every 2 minutes instead of 5)
   # due to 50-100x performance improvement
-  loops <- floor(minutes_remaining / 2) + 1  # More frequent with Rust!
+  ideal_loops <- floor(minutes_remaining / 2) + 1  # More frequent with Rust!
   
   # Cap at reasonable maximum
-  if (loops > 200) loops <- 200
+  if (ideal_loops > 200) ideal_loops <- 200
   
-  message(sprintf("Planning to run %d loops (every 2 minutes with Rust engine)", loops))
+  # Check API limits and adjust loops if necessary
+  loops <- checkAPILimits(ideal_loops)
+  message(sprintf("Planning to run %d loops (ideal: %d)", loops, ideal_loops))
   
   return(list(loops = loops, initial_wait = 0))
 }
