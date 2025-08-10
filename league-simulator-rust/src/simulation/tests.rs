@@ -1,4 +1,5 @@
 use super::*;
+use crate::models::{Match, Season};
 use approx::assert_relative_eq;
 use serde_json;
 use std::fs;
@@ -53,16 +54,14 @@ fn test_match_simulation_matches_r() {
             result.new_elo_home,
             test_case.expected[0],
             epsilon = 0.001,
-            max_relative = 0.001,
-            "{}: New ELO home mismatch", test_case.name
+            max_relative = 0.001
         );
         
         assert_relative_eq!(
             result.new_elo_away,
             test_case.expected[1],
             epsilon = 0.001,
-            max_relative = 0.001,
-            "{}: New ELO away mismatch", test_case.name
+            max_relative = 0.001
         );
         
         // Check goals

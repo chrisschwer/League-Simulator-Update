@@ -10,9 +10,9 @@ WORKDIR /build
 COPY Cargo.toml .
 COPY src/ ./src/
 
-# Build release binary with optimizations
-RUN cargo build --release --target x86_64-unknown-linux-musl
-RUN strip target/x86_64-unknown-linux-musl/release/league-simulator-rust
+# Build release binary with optimizations (native architecture)
+RUN cargo build --release
+RUN strip target/release/league-simulator-rust
 
 # Final minimal image
 FROM alpine:3.19
@@ -21,7 +21,7 @@ FROM alpine:3.19
 RUN apk add --no-cache libgcc
 
 # Copy binary from builder
-COPY --from=builder /build/target/x86_64-unknown-linux-musl/release/league-simulator-rust /usr/local/bin/league-simulator
+COPY --from=builder /build/target/release/league-simulator-rust /usr/local/bin/league-simulator
 
 # Create non-root user
 RUN adduser -D -u 1000 simulator

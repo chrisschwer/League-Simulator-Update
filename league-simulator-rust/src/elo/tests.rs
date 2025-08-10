@@ -54,16 +54,14 @@ fn test_elo_calculations_match_r_implementation() {
             result.new_elo_home,
             test_case.expected[0],
             epsilon = 0.0001,
-            max_relative = 0.0001,
-            "{}: ELO home mismatch", test_case.name
+            max_relative = 0.0001
         );
         
         assert_relative_eq!(
             result.new_elo_away,
             test_case.expected[1],
             epsilon = 0.0001,
-            max_relative = 0.0001,
-            "{}: ELO away mismatch", test_case.name
+            max_relative = 0.0001
         );
         
         assert_eq!(
@@ -82,8 +80,7 @@ fn test_elo_calculations_match_r_implementation() {
             result.win_probability_home,
             test_case.expected[4],
             epsilon = 0.0001,
-            max_relative = 0.0001,
-            "{}: Win probability mismatch", test_case.name
+            max_relative = 0.0001
         );
     }
 }
@@ -107,8 +104,7 @@ fn test_elo_conservation() {
     assert_relative_eq!(
         home_change + away_change,
         0.0,
-        epsilon = 0.0001,
-        "ELO changes should sum to zero"
+        epsilon = 0.0001
     );
 }
 

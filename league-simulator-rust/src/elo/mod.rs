@@ -33,6 +33,3 @@ pub fn calculate_elo_change(params: &EloParams) -> EloResult {
 
 #[cfg(test)]
 mod tests;
-
-#[cfg(test)]
-pub use tests::*;

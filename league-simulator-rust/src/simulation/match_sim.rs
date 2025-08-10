@@ -1,6 +1,5 @@
 use crate::elo::calculate_elo_change;
 use crate::models::{EloParams, EloResult};
-use rand_distr::Poisson;
 
 /// Simulates a match between two teams based on their ELO ratings
 /// Matches the logic in SpielCPP.R
