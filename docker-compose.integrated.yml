@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  league-simulator-integrated:
+    build:
+      context: .
+      dockerfile: Dockerfile.integrated
+    container_name: league-simulator-integrated
+    environment:
+      - RAPIDAPI_KEY=${RAPIDAPI_KEY}
+      - SHINYAPPS_IO_SECRET=${SHINYAPPS_IO_SECRET}
+      - SHINYAPPS_IO_NAME=${SHINYAPPS_IO_NAME:-chrisschwer}
+      - SHINYAPPS_IO_TOKEN=${SHINYAPPS_IO_TOKEN:-3EBFA2C60C1438DAAA98FE4C0CAEC9AC}
+      - SEASON=${SEASON}
+      - DURATION=${DURATION:-480}
+      - RUST_API_URL=http://localhost:8080
+    ports:
+      - "8080:8080"  # Rust API port for monitoring
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  # Optional: Separate Rust service for development/debugging
+  rust-simulator:
+    build:
+      context: league-simulator-rust
+      dockerfile: Dockerfile
+    container_name: rust-simulator
+    ports:
+      - "8081:8080"  # Different port to avoid conflicts
+    profiles:
+      - debug  # Only starts with --profile debug
+    environment:
+      - PORT=8080
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+networks:
+  default:
+    name: league-simulator-network

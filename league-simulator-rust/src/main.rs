@@ -1,11 +1,41 @@
 use league_simulator_rust::*;
 use std::time::Instant;
+use std::env;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     println!("League Simulator Rust - High Performance Monte Carlo Engine");
     println!("============================================================");
     
-    // Example usage - will be replaced with REST API server
+    // Check if we should run in API mode or demo mode
+    let args: Vec<String> = env::args().collect();
+    let api_mode = args.get(1).map(|s| s == "--api").unwrap_or(true);
+    
+    if api_mode {
+        // Start REST API server
+        let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
+        let addr = format!("0.0.0.0:{}", port);
+        
+        println!("\nStarting REST API server on {}", addr);
+        println!("Endpoints:");
+        println!("  GET  /health              - Health check");
+        println!("  POST /simulate            - Simulate single league");
+        println!("  POST /simulate/batch      - Simulate multiple leagues");
+        println!("\nPerformance: 370,000+ simulations/second");
+        
+        let app = api::create_router();
+        
+        let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+        println!("\n✅ Server ready and listening on {}", addr);
+        
+        axum::serve(listener, app).await.unwrap();
+    } else {
+        // Run demo mode
+        demo_simulation();
+    }
+}
+
+fn demo_simulation() {
     let season = Season {
         matches: vec![
             Match { team_home: 0, team_away: 1, goals_home: Some(2), goals_away: Some(1) },

@@ -1,0 +1,79 @@
+# Integrated League Simulator with Rust Engine
+# Combines high-performance Rust simulation with R orchestration
+
+# Stage 1: Build Rust binary
+FROM rust:1.81-alpine AS rust-builder
+
+RUN apk add --no-cache musl-dev
+
+WORKDIR /build
+
+# Copy Rust source
+COPY league-simulator-rust/Cargo.toml .
+COPY league-simulator-rust/src/ ./src/
+
+# Build optimized binary
+RUN cargo build --release
+RUN strip target/release/league-simulator-rust
+
+# Stage 2: Build complete application
+FROM r-base:4.3.2
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    libcurl4-openssl-dev \
+    libssl-dev \
+    libxml2-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install R packages
+RUN R -e "install.packages(c('Rcpp', 'httr', 'jsonlite', 'rsconnect', 'dplyr', 'tidyr'), repos='https://cloud.r-project.org/')"
+
+# Copy Rust binary from builder
+COPY --from=rust-builder /build/target/release/league-simulator-rust /usr/local/bin/league-simulator-rust
+
+# Create application directory
+WORKDIR /app
+
+# Copy R code
+COPY RCode/ ./RCode/
+COPY ShinyApp/ ./ShinyApp/
+
+# Create startup script
+RUN echo '#!/bin/sh\n\
+# Start Rust REST API server in background\n\
+echo "Starting Rust simulation engine..."\n\
+/usr/local/bin/league-simulator-rust --api &\n\
+RUST_PID=$!\n\
+\n\
+# Wait for Rust server to be ready\n\
+echo "Waiting for Rust server to start..."\n\
+sleep 3\n\
+\n\
+# Check if Rust server is running\n\
+if ! kill -0 $RUST_PID 2>/dev/null; then\n\
+    echo "ERROR: Rust server failed to start"\n\
+    exit 1\n\
+fi\n\
+\n\
+echo "Rust server ready on port 8080"\n\
+\n\
+# Start R scheduler with Rust backend\n\
+echo "Starting R scheduler with Rust backend..."\n\
+export RUST_API_URL=http://localhost:8080\n\
+Rscript RCode/updateSchedulerRust.R\n\
+\n\
+# Cleanup on exit\n\
+kill $RUST_PID 2>/dev/null\n\
+' > /app/start.sh && chmod +x /app/start.sh
+
+# Environment variables
+ENV RUST_API_URL=http://localhost:8080
+ENV SEASON=2025
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# Run the integrated application
+CMD ["/app/start.sh"]
