@@ -1,0 +1,37 @@
+{
+  "schedule": [
+    {
+      "team_home": 1,
+      "team_away": 2,
+      "goals_home": 2,
+      "goals_away": 1
+    },
+    {
+      "team_home": 2,
+      "team_away": 3,
+      "goals_home": 1,
+      "goals_away": 1
+    },
+    {
+      "team_home": 3,
+      "team_away": 1
+    },
+    {
+      "team_home": 1,
+      "team_away": 3
+    },
+    {
+      "team_home": 2,
+      "team_away": 1
+    },
+    {
+      "team_home": 3,
+      "team_away": 2
+    }
+  ],
+  "initial_elos": [1500, 1600, 1400],
+  "number_teams": 3,
+  "number_games": 6,
+  "mod_factor": 20,
+  "home_advantage": 65
+}

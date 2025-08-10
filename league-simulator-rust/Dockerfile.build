@@ -1,0 +1,22 @@
+# Build environment for testing Rust implementation
+FROM rust:1.81-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache musl-dev
+
+WORKDIR /app
+
+# Copy source files
+COPY Cargo.toml .
+COPY src/ ./src/
+COPY test_data/ ./test_data/
+
+# Build and test
+RUN cargo build --release
+RUN cargo test --release
+
+# Show binary size
+RUN ls -lh target/release/league-simulator-rust
+
+# Run the compiled binary
+CMD ["./target/release/league-simulator-rust"]

@@ -1,0 +1,55 @@
+[package]
+name = "league-simulator-rust"
+version = "0.1.0"
+edition = "2021"
+authors = ["League Simulator Team"]
+description = "High-performance football league Monte Carlo simulator"
+
+[dependencies]
+# Core dependencies
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rand = "0.8"
+rand_distr = "0.4"
+rayon = "1.8"
+
+# Web framework for REST API
+axum = "0.7"
+tokio = { version = "1.35", features = ["full"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors"] }
+
+# Numerical computation
+statrs = "0.16"  # Statistical distributions
+approx = "0.5"   # Floating point comparisons
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+[dev-dependencies]
+# Testing utilities
+criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1.4"
+assert_approx_eq = "1.1"
+tempfile = "3.8"
+
+# Benchmarks disabled for initial build
+# [[bench]]
+# name = "simulation_bench"
+# harness = false
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true

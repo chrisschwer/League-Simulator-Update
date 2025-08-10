@@ -1,0 +1,100 @@
+{
+  "test_cases": [
+    {
+      "name": "home_win_equal_elo",
+      "input": {
+        "elo_home": 1500,
+        "elo_away": 1500,
+        "goals_home": 2,
+        "goals_away": 1,
+        "mod_factor": 40,
+        "home_advantage": 0
+      },
+      "expected": [1520, 1480, 2, 1, 0.5]
+    },
+    {
+      "name": "away_win_equal_elo",
+      "input": {
+        "elo_home": 1500,
+        "elo_away": 1500,
+        "goals_home": 0,
+        "goals_away": 2,
+        "mod_factor": 40,
+        "home_advantage": 0
+      },
+      "expected": [1471.7157287525, 1528.2842712475, 0, 2, 0.5]
+    },
+    {
+      "name": "draw_equal_elo",
+      "input": {
+        "elo_home": 1500,
+        "elo_away": 1500,
+        "goals_home": 1,
+        "goals_away": 1,
+        "mod_factor": 40,
+        "home_advantage": 0
+      },
+      "expected": [1500, 1500, 1, 1, 0.5]
+    },
+    {
+      "name": "stronger_home_wins",
+      "input": {
+        "elo_home": 1700,
+        "elo_away": 1300,
+        "goals_home": 3,
+        "goals_away": 0,
+        "mod_factor": 40,
+        "home_advantage": 0
+      },
+      "expected": [1706.298366573, 1293.701633427, 3, 0, 0.90909090909]
+    },
+    {
+      "name": "underdog_away_wins",
+      "input": {
+        "elo_home": 1700,
+        "elo_away": 1300,
+        "goals_home": 1,
+        "goals_away": 2,
+        "mod_factor": 40,
+        "home_advantage": 0
+      },
+      "expected": [1663.6363636364, 1336.3636363636, 1, 2, 0.90909090909]
+    },
+    {
+      "name": "with_home_advantage",
+      "input": {
+        "elo_home": 1500,
+        "elo_away": 1500,
+        "goals_home": 2,
+        "goals_away": 1,
+        "mod_factor": 20,
+        "home_advantage": 65
+      },
+      "expected": [1508.1506753883, 1491.8493246117, 2, 1, 0.59246623058]
+    },
+    {
+      "name": "large_goal_difference",
+      "input": {
+        "elo_home": 1500,
+        "elo_away": 1500,
+        "goals_home": 5,
+        "goals_away": 0,
+        "mod_factor": 40,
+        "home_advantage": 0
+      },
+      "expected": [1544.72135955, 1455.27864045, 5, 0, 0.5]
+    },
+    {
+      "name": "different_mod_factor",
+      "input": {
+        "elo_home": 1600,
+        "elo_away": 1400,
+        "goals_home": 2,
+        "goals_away": 2,
+        "mod_factor": 20,
+        "home_advantage": 0
+      },
+      "expected": [1594.805061467, 1405.194938533, 2, 2, 0.75974692665]
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "poisson_lambda_home_equal": 1.4379,
+  "poisson_lambda_away_equal": 1.2058,
+  "elo_k_factor": 400,
+  "goal_mod_sqrt": true,
+  "iterations_default": 10000
+}
