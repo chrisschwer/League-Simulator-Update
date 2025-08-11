@@ -67,6 +67,14 @@ pub struct SimulationParams {
     pub iterations: usize,
     pub tore_slope: f64,
     pub tore_intercept: f64,
+    /// Optional point adjustments per team (e.g., penalties)
+    pub adj_points: Option<Vec<i32>>,
+    /// Optional goals scored adjustments per team
+    pub adj_goals: Option<Vec<i32>>,
+    /// Optional goals against adjustments per team
+    pub adj_goals_against: Option<Vec<i32>>,
+    /// Optional goal difference adjustments per team
+    pub adj_goal_diff: Option<Vec<i32>>,
 }
 
 impl Default for SimulationParams {
@@ -77,6 +85,10 @@ impl Default for SimulationParams {
             iterations: 10000,
             tore_slope: 0.0017854953143549,
             tore_intercept: 1.3218390804597700,
+            adj_points: None,
+            adj_goals: None,
+            adj_goals_against: None,
+            adj_goal_diff: None,
         }
     }
 }

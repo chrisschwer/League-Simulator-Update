@@ -8,8 +8,6 @@ use crate::{
     Season, Match, SimulationParams,
     run_monte_carlo_simulation,
 };
-use std::sync::Arc;
-use tokio::sync::Mutex;
 
 #[derive(Serialize)]
 pub struct HealthResponse {

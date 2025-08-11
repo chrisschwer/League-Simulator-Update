@@ -22,14 +22,17 @@ pub fn run_monte_carlo_simulation(
         // Create RNG with unique seed for each iteration
         let mut rng = StdRng::seed_from_u64(iteration as u64);
         
-        // Simulate season
+        // Simulate season with adjustments if provided
         let (table, _) = process_season(
             season,
             params.mod_factor,
             params.home_advantage,
             params.tore_slope,
             params.tore_intercept,
-            None, None, None, None,  // No adjustments for now
+            params.adj_points.as_deref(),
+            params.adj_goals.as_deref(),
+            params.adj_goals_against.as_deref(),
+            params.adj_goal_diff.as_deref(),
             &mut rng,
         );
         
