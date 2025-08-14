@@ -141,17 +141,44 @@ leagueSimulatorRust <- function(season, n = 10000,
                               adjGoalsAgainst, adjGoalDiff))
   }
   
+  # Convert tibble to data.frame if needed (transform_data returns tibble)
+  if ("tbl_df" %in% class(season)) {
+    season <- as.data.frame(season)
+  }
+  
   # Extract data from season dataframe
   numberTeams <- dim(season)[2] - 4
   numberGames <- dim(season)[1]
   ELOValues <- as.double(season[1, 5:dim(season)[2]])
   teamNames <- colnames(season)[5:dim(season)[2]]
   
+  # Debug: Check team names and data
+  message("DEBUG: Team names from columns: ", paste(teamNames, collapse = ", "))
+  message("DEBUG: Unique TeamHeim values: ", paste(unique(season$TeamHeim), collapse = ", "))
+  message("DEBUG: Unique TeamGast values: ", paste(unique(season$TeamGast), collapse = ", "))
+  
+  # Ensure all team names in data match column names
+  home_teams_in_cols <- all(season$TeamHeim %in% teamNames)
+  away_teams_in_cols <- all(season$TeamGast %in% teamNames)
+  
+  if (!home_teams_in_cols || !away_teams_in_cols) {
+    missing_home <- setdiff(season$TeamHeim, teamNames)
+    missing_away <- setdiff(season$TeamGast, teamNames)
+    stop(sprintf("Team name mismatch - Missing home: %s, Missing away: %s", 
+                 paste(missing_home, collapse = ", "), 
+                 paste(missing_away, collapse = ", ")))
+  }
+  
   # Convert team names to factors and then to integers (1-indexed)
   season$TeamHeim <- factor(season$TeamHeim, levels = teamNames, ordered = TRUE)
   season$TeamGast <- factor(season$TeamGast, levels = teamNames, ordered = TRUE)
   season$TeamHeim <- as.integer(season$TeamHeim)
   season$TeamGast <- as.integer(season$TeamGast)
+  
+  # Validate integer conversion
+  if (any(is.na(season$TeamHeim)) || any(is.na(season$TeamGast))) {
+    stop("Factor to integer conversion failed - got NA values")
+  }
   
   # Create schedule matrix
   schedule <- as.matrix(season[, 1:4])
