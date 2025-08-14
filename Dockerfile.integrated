@@ -50,46 +50,9 @@ RUN cd /app/RCode && \
     R -e "Rcpp::sourceCpp('SpielNichtSimulieren.cpp')" || \
     echo "Warning: C++ compilation failed, will rely on Rust engine"
 
-# Create startup script with better error handling
-RUN echo '#!/bin/sh\n\
-set -e\n\
-\n\
-# Function to cleanup on exit\n\
-cleanup() {\n\
-    echo "Cleaning up..."\n\
-    if [ ! -z "$RUST_PID" ]; then\n\
-        kill $RUST_PID 2>/dev/null || true\n\
-    fi\n\
-}\n\
-trap cleanup EXIT\n\
-\n\
-# Start Rust REST API server in background\n\
-echo "Starting Rust simulation engine..."\n\
-/usr/local/bin/league-simulator-rust --api &\n\
-RUST_PID=$!\n\
-\n\
-# Wait for Rust server to be ready\n\
-echo "Waiting for Rust server to start..."\n\
-for i in 1 2 3 4 5; do\n\
-    if curl -s http://localhost:8080/health > /dev/null 2>&1; then\n\
-        echo "Rust server ready on port 8080"\n\
-        break\n\
-    fi\n\
-    if [ $i -eq 5 ]; then\n\
-        echo "ERROR: Rust server failed to start after 5 attempts"\n\
-        exit 1\n\
-    fi\n\
-    sleep 1\n\
-done\n\
-\n\
-# Change to app directory for relative paths\n\
-cd /app\n\
-\n\
-# Start R scheduler with Rust backend\n\
-echo "Starting R scheduler with Rust backend..."\n\
-export RUST_API_URL=http://localhost:8080\n\
-Rscript RCode/updateSchedulerRust.R\n\
-' > /app/start.sh && chmod +x /app/start.sh
+# Copy robust startup script
+COPY docker-integrated-start.sh /app/start.sh
+RUN chmod +x /app/start.sh
 
 # Environment variables
 ENV RUST_API_URL=http://localhost:8080
