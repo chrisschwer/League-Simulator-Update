@@ -146,50 +146,19 @@ leagueSimulatorRust <- function(season, n = 10000,
     season <- as.data.frame(season)
   }
   
-  # Extract data from season dataframe
+  # Extract data from season dataframe - keep it simple like the C++ version
   numberTeams <- dim(season)[2] - 4
   numberGames <- dim(season)[1]
+  ELOValues <- as.double(season[1, 5:dim(season)[2]])
+  teamNames <- colnames(season)[5:dim(season)[2]]
   
-  # Get team names in the same order as transform_data.R creates them (sorted)
-  unique_teams_sorted <- sort(unique(c(season$TeamHeim, season$TeamGast)))
+  # The core issue: teamNames (columns) are alphabetically sorted, 
+  # but season data has teams in API order. We need to map data teams to column positions.
   
-  # Match column order to sorted team order
-  elo_cols <- 5:dim(season)[2]
-  column_names <- colnames(season)[elo_cols]
+  message("DEBUG: Column team order: ", paste(teamNames, collapse = ", "))
+  message("DEBUG: Data team order: ", paste(unique(c(season$TeamHeim, season$TeamGast)), collapse = ", "))
   
-  # Create mapping from sorted teams to ELO values
-  ELOValues <- numeric(length(unique_teams_sorted))
-  teamNames <- unique_teams_sorted
-  
-  for (i in seq_along(unique_teams_sorted)) {
-    team <- unique_teams_sorted[i]
-    col_index <- which(column_names == team)
-    if (length(col_index) > 0) {
-      ELOValues[i] <- as.double(season[1, elo_cols[col_index]])
-    } else {
-      stop(sprintf("Team %s not found in columns", team))
-    }
-  }
-  
-  # Debug: Check team names and data
-  message("DEBUG: Team names from columns: ", paste(teamNames, collapse = ", "))
-  message("DEBUG: Unique TeamHeim values: ", paste(unique(season$TeamHeim), collapse = ", "))
-  message("DEBUG: Unique TeamGast values: ", paste(unique(season$TeamGast), collapse = ", "))
-  
-  # Ensure all team names in data match column names
-  home_teams_in_cols <- all(season$TeamHeim %in% teamNames)
-  away_teams_in_cols <- all(season$TeamGast %in% teamNames)
-  
-  if (!home_teams_in_cols || !away_teams_in_cols) {
-    missing_home <- setdiff(season$TeamHeim, teamNames)
-    missing_away <- setdiff(season$TeamGast, teamNames)
-    stop(sprintf("Team name mismatch - Missing home: %s, Missing away: %s", 
-                 paste(missing_home, collapse = ", "), 
-                 paste(missing_away, collapse = ", ")))
-  }
-  
-  # Convert team names to factors using the sorted team order
-  # This matches how transform_data.R sorts the columns and our ELO mapping
+  # Convert team names to factors using column order (alphabetically sorted)
   season$TeamHeim <- factor(season$TeamHeim, levels = teamNames, ordered = TRUE)
   season$TeamGast <- factor(season$TeamGast, levels = teamNames, ordered = TRUE)
   season$TeamHeim <- as.integer(season$TeamHeim)
