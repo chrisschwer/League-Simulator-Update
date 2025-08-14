@@ -26,13 +26,15 @@ start_rust_server() {
     RUST_PID=$!
     
     echo "Waiting for Rust server to start (PID: $RUST_PID)..."
-    for i in $(seq 1 $RUST_HEALTH_CHECK_RETRIES); do
+    i=1
+    while [ $i -le $RUST_HEALTH_CHECK_RETRIES ]; do
         if curl -s http://localhost:8080/health > /dev/null 2>&1; then
             echo "✅ Rust server ready on port 8080"
             return 0
         fi
         echo "  Attempt $i/$RUST_HEALTH_CHECK_RETRIES - waiting..."
         sleep 1
+        i=$((i + 1))
     done
     
     echo "❌ ERROR: Rust server failed to start after $RUST_HEALTH_CHECK_RETRIES attempts"
@@ -43,7 +45,8 @@ start_rust_server() {
 run_scheduler() {
     cd /app
     
-    for attempt in $(seq 1 $MAX_RETRIES); do
+    attempt=1
+    while [ $attempt -le $MAX_RETRIES ]; do
         echo ""
         echo "========================================="
         echo "Starting R scheduler (attempt $attempt/$MAX_RETRIES)"
@@ -83,6 +86,8 @@ run_scheduler() {
                 sleep $RETRY_DELAY
             fi
         fi
+        
+        attempt=$((attempt + 1))
     done
     
     echo "❌ ERROR: Scheduler failed after $MAX_RETRIES attempts"
@@ -94,7 +99,7 @@ echo "==================================================="
 echo "League Simulator Integrated - Rust + R"
 echo "==================================================="
 echo "Season: ${SEASON:-auto-detect}"
-echo "API Key: ${RAPIDAPI_KEY:0:10}..."
+echo "API Key: $(echo $RAPIDAPI_KEY | cut -c1-10)..."
 echo ""
 
 # Start Rust server
