@@ -149,8 +149,27 @@ leagueSimulatorRust <- function(season, n = 10000,
   # Extract data from season dataframe
   numberTeams <- dim(season)[2] - 4
   numberGames <- dim(season)[1]
-  ELOValues <- as.double(season[1, 5:dim(season)[2]])
-  teamNames <- colnames(season)[5:dim(season)[2]]
+  
+  # Get team names in the same order as transform_data.R creates them (sorted)
+  unique_teams_sorted <- sort(unique(c(season$TeamHeim, season$TeamGast)))
+  
+  # Match column order to sorted team order
+  elo_cols <- 5:dim(season)[2]
+  column_names <- colnames(season)[elo_cols]
+  
+  # Create mapping from sorted teams to ELO values
+  ELOValues <- numeric(length(unique_teams_sorted))
+  teamNames <- unique_teams_sorted
+  
+  for (i in seq_along(unique_teams_sorted)) {
+    team <- unique_teams_sorted[i]
+    col_index <- which(column_names == team)
+    if (length(col_index) > 0) {
+      ELOValues[i] <- as.double(season[1, elo_cols[col_index]])
+    } else {
+      stop(sprintf("Team %s not found in columns", team))
+    }
+  }
   
   # Debug: Check team names and data
   message("DEBUG: Team names from columns: ", paste(teamNames, collapse = ", "))
@@ -169,7 +188,8 @@ leagueSimulatorRust <- function(season, n = 10000,
                  paste(missing_away, collapse = ", ")))
   }
   
-  # Convert team names to factors and then to integers (1-indexed)
+  # Convert team names to factors using the sorted team order
+  # This matches how transform_data.R sorts the columns and our ELO mapping
   season$TeamHeim <- factor(season$TeamHeim, levels = teamNames, ordered = TRUE)
   season$TeamGast <- factor(season$TeamGast, levels = teamNames, ordered = TRUE)
   season$TeamHeim <- as.integer(season$TeamHeim)
