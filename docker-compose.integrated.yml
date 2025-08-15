@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   league-simulator-integrated:
     image: chrisschwer/league-simulator:integrated-rust-clean
@@ -12,6 +10,7 @@ services:
       - SEASON=${SEASON}
       - DURATION=${DURATION:-480}
       - RUST_API_URL=http://localhost:8080
+      - TZ=Europe/Berlin
     ports:
       - "8080:8080"  # Rust API port for monitoring
     restart: unless-stopped
