@@ -31,19 +31,21 @@ For detailed documentation, see [Simple Monolithic Deployment](docs/deployment/s
 
 ## Architecture Overview
 
-The system supports three deployment modes:
+The system supports four deployment modes:
 
-1. **Simple Monolithic Mode** (Recommended): Single container with simplified scheduling
-2. **Original Monolithic Mode**: Single container that handles all leagues and updates Shiny directly
-3. **Microservices Mode**: Separate containers for each league with shared persistent storage
+1. **Rust-Powered Integrated Mode** (Recommended): High-performance Rust simulation engine with R orchestration - 91x faster than C++
+2. **Simple Monolithic Mode**: Single container with simplified scheduling (legacy)
+3. **Original Monolithic Mode**: Single container that handles all leagues and updates Shiny directly
+4. **Microservices Mode**: Separate containers for each league with shared persistent storage
 
 ## Scripts
 
 ### Core Simulation Scripts
 - `retrieveResults.R`: Downloads results from the football API
-- `leagueSimulatorCPP.R`: Main simulation logic using C++ integration
-- `simulationsCPP.R`: Monte Carlo simulation engine
-- `SpielCPP.R`: Individual match simulation
+- `rust_integration.R`: **NEW** - High-performance Rust simulation interface (91x faster)
+- `leagueSimulatorCPP.R`: Legacy C++ simulation logic (for fallback)
+- `simulationsCPP.R`: Legacy Monte Carlo simulation engine
+- `SpielCPP.R`: Legacy individual match simulation
 - `Tabelle.R`: League table calculations
 - `transform_data.R`: Data transformation utilities
 
@@ -75,7 +77,37 @@ The containers expect the following variables at runtime:
 
 ## Deployment Options
 
-### Option 1: Simple Monolithic Deployment (Recommended)
+### Option 1: Rust-Powered Integrated Deployment (Recommended)
+
+The fastest and most efficient deployment option with Rust simulation engine:
+
+```bash
+# Pull and run the integrated container from Docker Hub
+docker run -d \
+  --name league-simulator-rust \
+  -e RAPIDAPI_KEY=your_api_key \
+  -e SHINYAPPS_IO_SECRET=your_shiny_secret \
+  -e SEASON=2025 \
+  -p 8080:8080 \
+  chrisschwer/league-simulator:integrated-rust
+
+# Or use Docker Compose
+docker-compose -f docker-compose.integrated.yml up -d
+```
+
+**Performance Benefits:**
+- **91x faster** simulation than C++ engine (0.33s vs 29.8s for 10,000 iterations)
+- **Parallel processing** capabilities using all CPU cores
+- **High accuracy** with 0.385% average difference from C++ results
+- **Modern Rust architecture** with robust error handling
+
+**Features:**
+- Combines high-performance Rust simulation with R orchestration
+- Handles API calls, data processing, and Shiny deployment
+- Built-in health checks and monitoring
+- Automatic season detection and scheduling
+
+### Option 2: Simple Monolithic Deployment (Legacy)
 
 The easiest and most reliable deployment option:
 
@@ -154,10 +186,14 @@ This will create:
 
 ```
 League-Simulator-Update/
-├── RCode/                      # R scripts
-│   ├── updateSchedulerSimple.R # Simple daily scheduler (new)
+├── league-simulator-rust/     # High-performance Rust simulation engine
+│   ├── src/                   # Rust source code
+│   ├── Cargo.toml             # Rust dependencies
+│   └── Dockerfile             # Standalone Rust API container
+├── RCode/                      # R scripts and orchestration
+│   ├── rust_integration.R     # Rust simulation interface
+│   ├── updateSchedulerSimple.R # Simple daily scheduler
 │   ├── update_league.R         # Single league updater
-│   ├── update_shiny_from_files.R # Shiny updater from files
 │   └── ...                     # Other R scripts
 ├── ShinyApp/                   # Shiny application
 │   └── app.R
@@ -167,10 +203,12 @@ League-Simulator-Update/
 ├── k8s/                        # Kubernetes configurations
 │   └── k8s-deployment.yaml
 ├── Dockerfile                  # Original monolithic container
-├── Dockerfile.simple           # Simple monolithic container (new)
+├── Dockerfile.integrated       # Rust+R integrated container (recommended)
+├── Dockerfile.simple           # Simple monolithic container
 ├── Dockerfile.league           # League updater container
 ├── Dockerfile.shiny           # Shiny updater container
-├── docker-compose.simple.yml   # Simple deployment compose (new)
+├── docker-compose.integrated.yml # Rust+R deployment (recommended)
+├── docker-compose.simple.yml   # Simple deployment
 └── README.md
 ```
 

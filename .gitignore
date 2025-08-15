@@ -16,3 +16,23 @@ api_test_results.json
 # Shiny deployment files
 ShinyApp/data/Ergebnis.Rds
 ShinyApp/rsconnect/shinyapps.io/chrisschwer/FussballPrognosen.dcf
+
+# Rust build artifacts
+league-simulator-rust/target/
+league-simulator-rust/Cargo.lock
+
+# Test artifacts and analysis files
+tests/rust/
+MATCH_PROCESSING_ANALYSIS.md
+RUST_RNG_FIX_RESULTS.md
+UNIT_TEST_SUMMARY.md
+compare_rust_cpp.R
+compare_working.R
+debug_*.R
+elv_*.R
+fix_rust_poisson.patch
+get_elv_*.R
+poisson_test_cases.csv
+show_bl2_results.R
+single_match_test_cases.csv
+test_*.R

@@ -1,7 +1,7 @@
 use crate::models::{Season, SimulationParams, SimulationResult};
 use crate::simulation::process_season;
 use rayon::prelude::*;
-use rand::{SeedableRng, rngs::StdRng};
+use rand::{SeedableRng, rngs::StdRng, thread_rng, Rng};
 use std::sync::Mutex;
 
 /// Run Monte Carlo simulations in parallel to get probability distribution
@@ -18,9 +18,12 @@ pub fn run_monte_carlo_simulation(
         .collect();
     
     // Run simulations in parallel
-    (0..params.iterations).into_par_iter().for_each(|iteration| {
-        // Create RNG with unique seed for each iteration
-        let mut rng = StdRng::seed_from_u64(iteration as u64);
+    (0..params.iterations).into_par_iter().for_each(|_iteration| {
+        // Create RNG with truly random seed for each iteration
+        // This matches the R/C++ behavior which uses fresh random state each time
+        let mut thread_rng = thread_rng();
+        let seed: u64 = thread_rng.gen();
+        let mut rng = StdRng::seed_from_u64(seed);
         
         // Simulate season with adjustments if provided
         let (table, _) = process_season(
@@ -110,8 +113,11 @@ pub fn run_monte_carlo_with_adjustments(
     let adj_goals_against_ref = adj_goals_against.as_deref();
     let adj_goal_diff_ref = adj_goal_diff.as_deref();
     
-    (0..params.iterations).into_par_iter().for_each(|iteration| {
-        let mut rng = StdRng::seed_from_u64(iteration as u64);
+    (0..params.iterations).into_par_iter().for_each(|_iteration| {
+        // Use truly random seed instead of deterministic one
+        let mut thread_rng = thread_rng();
+        let seed: u64 = thread_rng.gen();
+        let mut rng = StdRng::seed_from_u64(seed);
         
         let (table, _) = process_season(
             season,

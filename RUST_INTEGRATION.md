@@ -101,6 +101,24 @@ leagues <- list(
 results <- simulate_leagues_batch_rust(leagues)
 ```
 
+## Indexing Convention
+
+**IMPORTANT**: The Rust API expects **1-based team indices** from R:
+
+- R should send team indices as 1, 2, 3, ..., N (natural R indexing)
+- Rust internally converts to 0-based indices for internal processing
+- Do NOT convert to 0-based in R code before sending to Rust
+
+### Example
+```r
+# Correct: Send 1-based indices to Rust
+schedule <- matrix(c(1, 2, NA, NA,    # Team 1 vs Team 2
+                     2, 3, 1, 0), ... # Team 2 vs Team 3 (played)
+                   ncol = 4, byrow = TRUE)
+
+# Rust API will internally convert 1→0, 2→1, 3→2 etc.
+```
+
 ## REST API Endpoints
 
 ### Health Check
@@ -133,6 +151,8 @@ Request body:
   "home_advantage": 65
 }
 ```
+
+**Note**: Team indices in schedule are 1-based (1, 2, 3, ...) as shown above.
 
 ### Batch Simulation
 ```

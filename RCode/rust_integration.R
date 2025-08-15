@@ -160,70 +160,31 @@ leagueSimulatorRust <- function(season, n = 10000,
     season <- as.data.frame(season)
   }
   
-  # Extract data from season dataframe - keep it simple like the C++ version
+  # Extract data from season dataframe - EXACTLY like the C++ version
   numberTeams <- dim(season)[2] - 4
   numberGames <- dim(season)[1]
   ELOValues <- as.double(season[1, 5:dim(season)[2]])
   teamNames <- colnames(season)[5:dim(season)[2]]
   
-  # FIX: teamNames (columns) are alphabetically sorted, but season data has teams in API order
-  # We need to use the actual data team order, not the column order
+  # Replace team names in season with corresponding numbers - EXACTLY like C++ version
+  season$TeamHeim <- factor(season$TeamHeim, levels = teamNames, ordered = TRUE)
+  season$TeamGast <- factor(season$TeamGast, levels = teamNames, ordered = TRUE)
+  season$TeamHeim <- as.integer(season$TeamHeim)
+  season$TeamGast <- as.integer(season$TeamGast)
   
-  # Get unique teams from the actual data in the order they appear
-  dataTeamOrder <- unique(c(season$TeamHeim, season$TeamGast))
-  
-  message("DEBUG: Column team order: ", paste(teamNames, collapse = ", "))
-  message("DEBUG: Data team order: ", paste(dataTeamOrder, collapse = ", "))
-  
-  # Convert team names to factors using data order (not column order)
-  season$TeamHeim <- factor(season$TeamHeim, levels = dataTeamOrder, ordered = TRUE)
-  season$TeamGast <- factor(season$TeamGast, levels = dataTeamOrder, ordered = TRUE)
-  
-  # Convert to 0-based indices for Rust API (R factors are 1-based)
-  season$TeamHeim <- as.integer(season$TeamHeim) - 1
-  season$TeamGast <- as.integer(season$TeamGast) - 1
-  
-  # Now we need to reorder ELO values to match the data team order
-  # Create mapping from data order to column order
-  eloReordered <- numeric(length(dataTeamOrder))
-  for (i in seq_along(dataTeamOrder)) {
-    columnIndex <- which(teamNames == dataTeamOrder[i])
-    eloReordered[i] <- ELOValues[columnIndex]
-  }
-  ELOValues <- eloReordered
-  
-  # Update team names to match data order for the Rust API
-  teamNames <- dataTeamOrder
-  
-  # Validate integer conversion
+  # Validate that all team indices are valid (no NAs)
   if (any(is.na(season$TeamHeim)) || any(is.na(season$TeamGast))) {
-    stop("Factor to integer conversion failed - got NA values")
-  }
-  
-  # Additional validation: Check that team indices are in valid range (0-based for Rust)
-  min_idx <- min(c(season$TeamHeim, season$TeamGast), na.rm = TRUE)
-  max_idx <- max(c(season$TeamHeim, season$TeamGast), na.rm = TRUE)
-  message("DEBUG: Team index range after conversion: ", min_idx, " to ", max_idx)
-  message("DEBUG: Expected range: 0 to ", length(dataTeamOrder) - 1)
-  
-  if (min_idx < 0 || max_idx >= length(dataTeamOrder)) {
-    stop(sprintf("Team indices out of range: got %d-%d, expected 0-%d", 
-                 min_idx, max_idx, length(dataTeamOrder) - 1))
+    missing_teams <- unique(c(
+      season$TeamHeim[is.na(as.integer(factor(season$TeamHeim, levels = teamNames)))],
+      season$TeamGast[is.na(as.integer(factor(season$TeamGast, levels = teamNames)))]
+    ))
+    stop(sprintf("Team names not found in columns: %s", paste(missing_teams, collapse = ", ")))
   }
   
   # Create schedule matrix
   schedule <- as.matrix(season[, 1:4])
   
-  # Debug output
-  message("DEBUG: Schedule matrix sample (first 5 rows):")
-  for (i in 1:min(5, nrow(schedule))) {
-    message(sprintf("  Row %d: TeamHeim=%d, TeamGast=%d, ToreHeim=%s, ToreGast=%s", 
-                    i, schedule[i,1], schedule[i,2], 
-                    ifelse(is.na(schedule[i,3]), "NA", schedule[i,3]),
-                    ifelse(is.na(schedule[i,4]), "NA", schedule[i,4])))
-  }
-  message("DEBUG: ELO values sample: ", paste(round(ELOValues[1:min(5, length(ELOValues))], 1), collapse=", "))
-  message("DEBUG: Team names: ", paste(teamNames[1:min(5, length(teamNames))], collapse=", "))
+  # Keep 1-based indexing - Rust API expects 1-based indices and converts internally
   
   # Call Rust simulator
   start_time <- Sys.time()

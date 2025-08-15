@@ -2,9 +2,7 @@ version: '3.8'
 
 services:
   league-simulator-integrated:
-    build:
-      context: .
-      dockerfile: Dockerfile.integrated
+    image: chrisschwer/league-simulator:integrated-rust
     container_name: league-simulator-integrated
     environment:
       - RAPIDAPI_KEY=${RAPIDAPI_KEY}
