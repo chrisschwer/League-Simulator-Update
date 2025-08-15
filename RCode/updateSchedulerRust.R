@@ -69,15 +69,22 @@ calculate_loops <- function() {
     message(sprintf("Before 14:45 - waiting %.1f hours for scheduled run time", wait_seconds / 3600))
     Sys.sleep(wait_seconds)
     
-    # After waiting, recalculate for full run
-    minutes_available <- DURATION
+    # After waiting, calculate time from 14:45 to 22:45 (8 hours = 480 minutes)
+    minutes_available <- target_minutes - scheduled_start  # Should be 480
+    
+    # Cap at DURATION if specified
+    if (DURATION > 0 && minutes_available > DURATION) {
+      minutes_available <- DURATION
+    }
+    
     ideal_loops <- floor(minutes_available / 2) + 1  # Every 2 minutes with Rust
     
     # Check API limits
     loops <- checkAPILimits(ideal_loops)
     message(sprintf("Planning to run %d loops (ideal: %d)", loops, ideal_loops))
+    message(sprintf("Time available: %.1f minutes", minutes_available))
     
-    return(list(loops = loops, initial_wait = 0))
+    return(list(loops = loops, initial_wait = 0, duration = minutes_available))
   }
   
   # If after 22:45, wait until tomorrow
@@ -90,18 +97,31 @@ calculate_loops <- function() {
     message(sprintf("After 22:45 - waiting %.1f hours until tomorrow's scheduled run", wait_minutes / 60))
     Sys.sleep(wait_minutes * 60)
     
-    # After waiting, run full duration
-    ideal_loops <- floor(DURATION / 2) + 1  # Every 2 minutes with Rust
+    # After waiting, calculate time from 14:45 to 22:45 (8 hours = 480 minutes)
+    minutes_available <- target_minutes - scheduled_start  # Should be 480
+    
+    # Cap at DURATION if specified
+    if (DURATION > 0 && minutes_available > DURATION) {
+      minutes_available <- DURATION
+    }
+    
+    ideal_loops <- floor(minutes_available / 2) + 1  # Every 2 minutes with Rust
     
     # Check API limits
     loops <- checkAPILimits(ideal_loops)
     message(sprintf("Planning to run %d loops (ideal: %d)", loops, ideal_loops))
+    message(sprintf("Time available: %.1f minutes", minutes_available))
     
-    return(list(loops = loops, initial_wait = 0))
+    return(list(loops = loops, initial_wait = 0, duration = minutes_available))
   }
   
   # Calculate remaining time until 22:45
   minutes_remaining <- target_minutes - current_minutes
+  
+  # Cap at DURATION if specified (but use actual remaining time)
+  if (DURATION > 0 && minutes_remaining > DURATION) {
+    minutes_remaining <- DURATION
+  }
   
   # With Rust engine, we can run more frequent updates (every 2 minutes instead of 5)
   # due to 50-100x performance improvement
@@ -113,8 +133,9 @@ calculate_loops <- function() {
   # Check API limits and adjust loops if necessary
   loops <- checkAPILimits(ideal_loops)
   message(sprintf("Planning to run %d loops (ideal: %d)", loops, ideal_loops))
+  message(sprintf("Time remaining: %.1f minutes", minutes_remaining))
   
-  return(list(loops = loops, initial_wait = 0))
+  return(list(loops = loops, initial_wait = 0, duration = minutes_remaining))
 }
 
 # Main execution
@@ -141,7 +162,7 @@ main <- function() {
   
   # Run the update loop with Rust engine
   update_all_leagues_loop_rust(
-    duration = DURATION,
+    duration = loop_config$duration,  # Use actual time remaining, not DURATION
     loops = loop_config$loops,
     initial_wait = loop_config$initial_wait,
     n = 10000,  # Can handle more iterations with Rust
