@@ -17,3 +17,10 @@ Rcpp
 digest
 xtable
 here
+# Additional dependencies required for rsconnect/shiny deployment
+crayon
+ellipsis
+httpuv
+DT
+htmltools
+promises

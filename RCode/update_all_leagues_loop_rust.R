@@ -73,6 +73,12 @@ update_all_leagues_loop_rust <- function(duration = 480, loops = 31, initial_wai
     fixturesBL2 <- retrieveResults(league = "79", season = saison)
     fixturesLiga3 <- retrieveResults(league = "80", season = saison)
     
+    # Check if API calls failed
+    if (is.null(fixturesBL) || is.null(fixturesBL2) || is.null(fixturesLiga3)) {
+      message(sprintf("Loop %d: ERROR - One or more API calls failed. Skipping this iteration.", i))
+      next
+    }
+    
     # New count of games
     FT_BL_new <-  sum(fixturesBL$fixture$status$short=="FT")
     FT_BL2_new <-  sum(fixturesBL2$fixture$status$short=="FT")

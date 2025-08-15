@@ -17,8 +17,8 @@ COPY league-simulator-rust/test_data/ ./test_data/
 RUN cargo build --release
 RUN strip target/release/league-simulator-rust
 
-# Stage 2: Build complete application
-FROM rocker/tidyverse:4.3.1
+# Stage 2: Build complete application  
+FROM rocker/r-ver:4.3.1
 
 # Install system dependencies and curl for healthcheck
 RUN apt-get update && apt-get install -y \
@@ -27,13 +27,65 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     curl \
     tzdata \
+    build-essential \
+    cmake \
+    libuv1-dev \
+    libfontconfig1-dev \
+    libcairo2-dev \
+    libfreetype6-dev \
+    libpng-dev \
+    libtiff5-dev \
+    libjpeg-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install R packages from packagelist.txt
+# Install critical R packages first (core dependencies)
+RUN R --slave --no-restore -e " \
+    options(repos = c(CRAN = 'https://cloud.r-project.org')); \
+    core_pkgs <- c('Rcpp', 'httr', 'jsonlite', 'dplyr', 'tidyr', 'magrittr'); \
+    for (pkg in core_pkgs) { \
+        if (!require(pkg, character.only=TRUE, quietly=TRUE)) { \
+            install.packages(pkg, dependencies=TRUE); \
+            if (!require(pkg, character.only=TRUE, quietly=TRUE)) { \
+                stop(paste('Failed to install core package:', pkg)); \
+            } \
+        } \
+    }"
+
+# Install Shiny ecosystem packages with retries
+RUN R --slave --no-restore -e " \
+    options(repos = c(CRAN = 'https://cloud.r-project.org')); \
+    shiny_pkgs <- c('htmltools', 'httpuv', 'promises', 'shiny', 'rsconnect'); \
+    for (pkg in shiny_pkgs) { \
+        cat('Installing Shiny package:', pkg, '\n'); \
+        if (!require(pkg, character.only=TRUE, quietly=TRUE)) { \
+            install.packages(pkg, dependencies=TRUE, type='source'); \
+            if (!require(pkg, character.only=TRUE, quietly=TRUE)) { \
+                cat('WARNING: Failed to install', pkg, '- will try binary\n'); \
+                install.packages(pkg, dependencies=TRUE, type='binary'); \
+                if (!require(pkg, character.only=TRUE, quietly=TRUE)) { \
+                    stop(paste('Failed to install Shiny package:', pkg)); \
+                } \
+            } \
+        } \
+    }"
+
+# Install remaining packages from packagelist.txt
 COPY packagelist.txt /tmp/
-RUN while read pkg; do \
-    R -e "if (!require('$pkg', character.only=TRUE)) install.packages('$pkg', repos='https://cloud.r-project.org')" || true; \
-    done < /tmp/packagelist.txt
+RUN R --slave --no-restore -e " \
+    options(repos = c(CRAN = 'https://cloud.r-project.org')); \
+    pkgs <- readLines('/tmp/packagelist.txt'); \
+    pkgs <- pkgs[!grepl('^#|^[[:space:]]*$', pkgs)]; \
+    already_installed <- c('Rcpp', 'httr', 'jsonlite', 'dplyr', 'tidyr', 'magrittr', 'htmltools', 'httpuv', 'promises', 'shiny', 'rsconnect'); \
+    remaining_pkgs <- pkgs[!pkgs %in% already_installed]; \
+    for (pkg in remaining_pkgs) { \
+        if (!require(pkg, character.only=TRUE, quietly=TRUE)) { \
+            cat('Installing remaining package:', pkg, '\n'); \
+            install.packages(pkg, dependencies=TRUE); \
+            if (!require(pkg, character.only=TRUE, quietly=TRUE)) { \
+                cat('WARNING: Failed to install', pkg, '\n'); \
+            } \
+        } \
+    }"
 
 # Copy Rust binary from builder
 COPY --from=rust-builder /build/target/release/league-simulator-rust /usr/local/bin/league-simulator-rust

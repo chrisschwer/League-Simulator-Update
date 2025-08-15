@@ -110,8 +110,8 @@ simulate_league_rust <- function(schedule, elo_values, team_names,
   
   result <- content(response, "parsed")
   
-  # Convert probability matrix to R matrix
-  prob_matrix <- do.call(rbind, result$probability_matrix)
+  # Convert probability matrix to R matrix with proper numeric conversion
+  prob_matrix <- do.call(rbind, lapply(result$probability_matrix, as.numeric))
   rownames(prob_matrix) <- result$team_names
   colnames(prob_matrix) <- 1:ncol(prob_matrix)
   
@@ -274,7 +274,7 @@ simulate_leagues_batch_rust <- function(leagues) {
   # Process results
   output <- list()
   for (league_result in result$results) {
-    prob_matrix <- do.call(rbind, league_result$response$probability_matrix)
+    prob_matrix <- do.call(rbind, lapply(league_result$response$probability_matrix, as.numeric))
     rownames(prob_matrix) <- league_result$response$team_names
     colnames(prob_matrix) <- 1:ncol(prob_matrix)
     

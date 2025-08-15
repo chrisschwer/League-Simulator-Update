@@ -5,8 +5,8 @@ transform_data <- function(fixtures, teams) {
   
   temp_ELO <- 0
   
-  fixtures_flat <- fixtures %>% unnest(cols = c(teams, goals, fixture), names_sep = "_")
-  fixtures_flat <- fixtures_flat %>% unnest(cols = c(teams_home, teams_away, fixture_status), names_sep = "_")
+  fixtures_flat <- fixtures %>% unnest(cols = c("teams", "goals", "fixture"), names_sep = "_")
+  fixtures_flat <- fixtures_flat %>% unnest(cols = c("teams_home", "teams_away", "fixture_status"), names_sep = "_")
   fixtures_flat$fixture_status_short <- replace_na(fixtures_flat$fixture_status_short, "NA")
   fixtures_flat <- fixtures_flat %>% mutate(OriginalOrder = row_number())
   
@@ -32,7 +32,7 @@ transform_data <- function(fixtures, teams) {
   
    
   df_final <- df_final %>%
-    select(TeamHeim, TeamGast, ToreHeim, ToreGast, sort(unique(c(df_final$TeamHeim, df_final$TeamGast))), OriginalOrder) %>%
+    select(TeamHeim, TeamGast, ToreHeim, ToreGast, all_of(sort(unique(c(df_final$TeamHeim, df_final$TeamGast)))), OriginalOrder) %>%
     arrange(OriginalOrder) %>%
     select(-OriginalOrder)  # remove the OriginalOrder column
   

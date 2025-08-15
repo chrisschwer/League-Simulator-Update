@@ -35,34 +35,8 @@ retrieveResults <- function (league = "78", season = "2022") {
     return(NULL)
   }
   
-  # Get the fixtures
-  fixtures <- parsed_content$response
+  # Return the nested structure as expected by the main loops
+  retrieveResults <- parsed_content$response
   
-  # Flatten the nested structure to create the expected column names
-  # This converts nested lists into flat columns with underscore separators
-  if (nrow(fixtures) > 0) {
-    # Create flattened data frame with the columns expected by elo_aggregation.R
-    retrieveResults <- data.frame(
-      fixture_id = fixtures$fixture$id,
-      fixture_date = fixtures$fixture$date,
-      fixture_status_short = fixtures$fixture$status$short,
-      fixture_status_long = fixtures$fixture$status$long,
-      fixture_elapsed = fixtures$fixture$status$elapsed,
-      teams_home_id = as.character(fixtures$teams$home$id),
-      teams_home_name = fixtures$teams$home$name,
-      teams_away_id = as.character(fixtures$teams$away$id),
-      teams_away_name = fixtures$teams$away$name,
-      goals_home = fixtures$goals$home,
-      goals_away = fixtures$goals$away,
-      stringsAsFactors = FALSE
-    )
-    
-    # Handle any NA values in goals (for matches not yet played)
-    retrieveResults$goals_home[is.na(retrieveResults$goals_home)] <- 0
-    retrieveResults$goals_away[is.na(retrieveResults$goals_away)] <- 0
-    
-    return(retrieveResults)
-  } else {
-    return(NULL)
-  }
+  return(retrieveResults)
 }

@@ -1,6 +1,6 @@
 services:
   league-simulator-integrated:
-    image: chrisschwer/league-simulator:integrated-rust-fixed
+    image: chrisschwer/league-simulator:integrated-system-deps
     container_name: league-simulator-integrated
     environment:
       - RAPIDAPI_KEY=${RAPIDAPI_KEY}

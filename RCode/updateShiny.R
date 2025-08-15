@@ -3,6 +3,16 @@ updateShiny <- function (Ergebnis, Ergebnis2, Ergebnis3,
                          directory = "/Users/christophschwerdtfeger/Library/CloudStorage/Dropbox-CSDataScience/Christoph Schwerdtfeger/Coding Projects/LeagueSimulator_Claude/League-Simulator-Update/ShinyApp",
                          forceUpdate = TRUE) {
   
+  # Ensure all required packages are loaded
+  required_packages <- c("rsconnect", "shiny", "crayon", "ellipsis", "httpuv")
+  
+  for (pkg in required_packages) {
+    if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
+      stop(paste("Required package not available:", pkg, 
+                 "\nPlease ensure all dependencies are installed in the Docker container"))
+    }
+  }
+  
   library(rsconnect)
   
   # Use packrat mode to avoid "reproducible location" errors
