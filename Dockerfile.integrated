@@ -2,7 +2,7 @@
 # Combines high-performance Rust simulation with R orchestration
 
 # Stage 1: Build Rust binary
-FROM --platform=linux/amd64 rust:1.81-alpine AS rust-builder
+FROM rust:1.81-alpine AS rust-builder
 
 RUN apk add --no-cache musl-dev
 
@@ -18,7 +18,7 @@ RUN cargo build --release
 RUN strip target/release/league-simulator-rust
 
 # Stage 2: Build complete application
-FROM --platform=linux/amd64 rocker/tidyverse:4.3.1
+FROM rocker/tidyverse:4.3.1
 
 # Install system dependencies and curl for healthcheck
 RUN apt-get update && apt-get install -y \
