@@ -100,10 +100,12 @@ test_that("loop fails fast with RUST_API_URL message when Rust is down (post-ref
                               shiny_directory = tempdir()),
       error = function(e) e
     )
-    # Post-refactor: error message must mention RUST_API_URL.
+    # Post-refactor: error message must mention "Rust simulator not available"
+    # and include the unreachable URL the test pointed at (http://127.0.0.1:1).
     # Pre-refactor: today's code logs a warning and silently sources C++ (no error).
     # So this assertion intentionally fails until Tasks 3–5 land.
     expect_s3_class(err, "error")
-    expect_match(conditionMessage(err), "RUST_API_URL", fixed = TRUE)
+    expect_match(conditionMessage(err), "Rust simulator not available", fixed = TRUE)
+    expect_match(conditionMessage(err), "127.0.0.1:1", fixed = TRUE)
   })
 })
