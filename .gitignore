@@ -6,6 +6,9 @@ RCode/.Renviron
 # Claude Code local memory
 CLAUDE.local.md
 
+# Git worktrees
+.worktrees/
+
 # Test results
 api_test_results.json
 
