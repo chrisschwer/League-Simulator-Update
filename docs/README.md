@@ -47,6 +47,5 @@
 
 ### 📋 Project Management
 - [Version Management](VERSION_MANAGEMENT.md) - Package versioning
-- [Test Organization](TEST_ORGANIZATION.md) - Test structure
 - [Deployment Safety](DEPLOYMENT_SAFETY.md) - Safety checks
 - [API Key Setup](API_KEY_SETUP.md) - API configuration
