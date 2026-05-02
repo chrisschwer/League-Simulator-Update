@@ -43,17 +43,6 @@ RAPIDAPI_KEY=your_api_key  # Required for API-Football access
 
 For all environment variables, see @docs/deployment/quick-start.md
 
-## Workflow
-
-This project uses the Claude Code development workflow with human approval gates.
-
-Key commands:
-- `/newissue` - Create GitHub issue
-- `/makeprogress` - Advance issue through workflow
-- `/list_human_todo` - Show issues awaiting review
-
-For complete workflow documentation, see @.claude/workflow.md
-
 ## Current Status
 
 - **Test Suite**: 🚧 38 tests failing - repair in progress (see @docs/TEST_FIX_PLAN.md)

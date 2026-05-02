@@ -59,12 +59,3 @@ Rscript scripts/season_transition.R 2024 2025 --config examples/team_config.json
 # Run season transition non-interactively
 Rscript scripts/season_transition.R 2024 2025 --non-interactive
 ```
-
-## Workflow Commands
-
-For detailed workflow commands, see `.claude/workflow.md`. Key commands:
-- `/newissue` - Create GitHub issue
-- `/makeprogress` - Advance issue through workflow
-- `/analyze` - Technical analysis
-- `/plan` - Implementation planning
-- `/implement` - Code implementation
