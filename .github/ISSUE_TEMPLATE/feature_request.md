@@ -2,17 +2,9 @@
 name: Feature Request
 about: Suggest a new feature or enhancement
 title: '[FEATURE] '
-labels: 'type:feature, status:new'
+labels: 'enhancement'
 assignees: ''
 ---
-
-## Priority Assessment
-<!-- Select ONE priority label to add to this issue:
-- P0-Critical: System down, data loss risk, or security vulnerability
-- P1-High: Major functionality broken, significant user impact  
-- P2-Medium: Important features or bugs affecting subset of users
-- P3-Low: Nice-to-have improvements, minor issues
--->
 
 ## Feature Description
 <!-- Clear, concise description of the feature -->
@@ -38,6 +30,3 @@ assignees: ''
 
 ## Additional Context
 <!-- Any other information, mockups, examples, etc. -->
-
----
-*For automated PRD generation, use: `/newissue "feature description"`*
