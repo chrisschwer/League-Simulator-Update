@@ -40,7 +40,7 @@ All of `.claude/commands/`: `analyze.md`, `approve_issue.md`, `branch-status.md`
 ## User-level deletions
 
 - `~/.claude/commands/eod.md` — DELETED (older variant, predated even the repo workflow).
-- `~/.claude/commands/getissues.md` — [DELETED / KEPT] (decision recorded after Task 9 verification).
+- `~/.claude/commands/getissues.md` — DELETED. Cross-project usage check (Task 9) found 23 hits in `~/.claude/projects/` (read-only session histories, not active usage) and zero hits in any other project's source tree under `~/Library/CloudStorage/Dropbox/Coding Projects/`.
 - `~/.claude/agents/` — did not exist; no action.
 - `~/.claude/skills/schwerdtfeger-design/` — KEPT (per issue body).
 
@@ -59,6 +59,16 @@ cp ~/.claude/backups/prune-2026-05-02/repo/docs/COMMANDS.md docs/COMMANDS.md
 cp -a ~/.claude/backups/prune-2026-05-02/user/. ~/.claude/
 ```
 
+## Sweep verification (Task 8)
+
+After Tasks 3–7, ran the recursive grep for the old workflow's vocabulary across the repo. Hits in non-excluded files:
+
+- `DEPENDENCY_ANALYSIS.md:11` — references `tests:approved, plan:approved` in a status note about issue #31. Already in scope of the follow-up issue (analysis-dump pile), so left alone.
+- `.github/issues/issue-31.md` — frozen workflow-stage tracker for closed issue #31; already in scope of the follow-up issue. Left alone.
+- `.claude/session_notes/2025-07-15.md`, `2025-07-16.md`, `2025-07-18.md` — historical notes describing live workflow runs at the time. Plan explicitly keeps `.claude/session_notes/`; legitimate historical record.
+
+No live references to the deleted workflow remain in code, docs, or templates. Every hit is either an intentional historical record or already captured in the follow-up issue.
+
 ## Stale artifacts flagged for follow-up (NOT deleted in this plan)
 
 These contradict the current architecture or are unrelated clutter; they need their own issue rather than expanding this one mid-flight:
@@ -69,3 +79,7 @@ These contradict the current architecture or are unrelated clutter; they need th
 - `docs/COMMANDS.md` after the Workflow section is removed: mostly duplicates `CLAUDE.md` Quick Commands; consider merging.
 
 Captured as follow-up issue (see Task 11).
+
+## Operational note
+
+Claude Code loads the available skills/commands at session start. After this prune, the deleted commands (`/newissue`, `/makeprogress`, `/eod`, etc.) will continue to appear in the current session's skill list until the session restarts. They are deleted from disk and will not be re-loaded. Open a new session to see the cleaned list.
