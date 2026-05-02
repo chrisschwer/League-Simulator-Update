@@ -67,7 +67,7 @@ run_scheduler() {
         
         # Run the scheduler
         export RUST_API_URL=http://localhost:8080
-        Rscript RCode/updateSchedulerRust.R
+        Rscript RCode/updateScheduler.R
         EXIT_CODE=$?
         
         if [ $EXIT_CODE -eq 0 ]; then
