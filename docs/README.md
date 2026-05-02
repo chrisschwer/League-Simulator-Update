@@ -14,11 +14,10 @@
 - [Pod Lifecycle](architecture/pod-lifecycle-management.md) - Kubernetes management
 
 ### 🚀 Deployment
+- [Deployment Overview](deployment/README.md) - The single-container production stack
 - [Quick Start](deployment/quick-start.md) - 5-minute deployment guide
-- [Detailed Guide](deployment/detailed-guide.md) - Comprehensive deployment
-- [Local Development](deployment/local-development.md) - Developer setup
-- [Production](deployment/production.md) - Production best practices
-- [Rollback](deployment/rollback.md) - Recovery procedures
+- [Local Development](deployment/local-development.md) - Run the simulator outside Docker
+- [Rollback](deployment/rollback.md) - Roll back to a previous image or git tag
 
 ### 🔧 Operations
 - [Daily Operations](operations/daily-operations.md) - Day-to-day tasks

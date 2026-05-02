@@ -406,7 +406,7 @@ cache_api_response <- function(endpoint, params, ttl = 3600) {
 #### Multi-stage Build
 
 ```dockerfile
-# Dockerfile.optimized
+# Example multi-stage build pattern (illustrative, not the production Dockerfile)
 # Build stage
 FROM rocker/r-ver:4.2.3 AS builder
 
