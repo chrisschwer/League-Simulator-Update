@@ -1,448 +1,103 @@
-# Local Development Setup
+# Local Development
 
-Guide for setting up the League Simulator development environment on your local machine.
+Run, edit, and iterate on parts of the League Simulator outside the production container.
 
-## Overview
-
-This guide covers setting up a local development environment for:
-- Making code changes
-- Running tests
-- Debugging issues
-- Contributing to the project
+> **Production is a single Docker container that runs continuously on a Linux server.** Local development is *not* about running the production scheduler on your machine. It's about iterating on individual pieces — the R modules, the Rust simulation engine, the Shiny app, the season-transition operator workflow — without rebuilding and redeploying the container.
+>
+> See [Quick Start](quick-start.md) for the actual deployment path. See [Deployment Overview](README.md) for what runs in production.
 
 ## Prerequisites
 
-- Git
-- Docker and Docker Compose
-- R 4.2+ (for native development)
-- RStudio (recommended)
-- Text editor (VS Code, Sublime, etc.)
+- **R 4.3.x** (the production container uses 4.3.1 via `rocker/r-ver:4.3.1`)
+- **Rust 1.81+** (only if you'll iterate on the simulation engine)
+- A **RapidAPI key** in `RAPIDAPI_KEY` if you'll exercise api-football
 
-## Development Setup Options
+## 1. Install R dependencies
 
-### Option 1: Docker-based Development (Recommended)
-
-Best for consistency and isolation.
-
-#### Setup Steps
-
-```bash
-# Clone repository
-git clone https://github.com/chrisschwer/League-Simulator-Update.git
-cd League-Simulator-Update
-
-# Create development environment file
-cp .env.example .env.development
-echo "ENVIRONMENT=development" >> .env.development
-
-# Build development images with optimizations
-DOCKER_BUILDKIT=1 docker-compose -f docker-compose.dev.yml build
-
-# Or with custom build arguments
-docker-compose -f docker-compose.dev.yml build \
-  --build-arg R_VERSION=4.4.0 \
-  --build-arg NCPUS=8
-```
-
-#### Development Docker Compose
-
-Create `docker-compose.dev.yml`:
-
-```yaml
-version: '3.8'
-
-services:
-  league-simulator-dev:
-    build:
-      context: .
-      dockerfile: Dockerfile.league
-      args:
-        - BUILD_ENV=development
-        - R_VERSION=4.3.1
-        - NCPUS=4
-        - BUILD_DATE=${BUILD_DATE:-$(date -u +'%Y-%m-%dT%H:%M:%SZ')}
-    environment:
-      - RAPIDAPI_KEY=${RAPIDAPI_KEY}
-      - SEASON=${SEASON}
-      - ENVIRONMENT=development
-    volumes:
-      - ./RCode:/app/RCode
-      - ./ShinyApp:/app/ShinyApp
-      - ./tests:/app/tests
-      - ./logs:/app/logs
-    command: tail -f /dev/null  # Keep container running
-    
-  shiny-dev:
-    build:
-      context: .
-      dockerfile: Dockerfile.shiny
-    ports:
-      - "3838:3838"
-    volumes:
-      - ./ShinyApp:/app/ShinyApp
-    environment:
-      - SHINY_LOG_LEVEL=debug
-```
-
-#### Running Development Environment
-
-```bash
-# Start development containers
-docker-compose -f docker-compose.dev.yml up -d
-
-# Enter development container
-docker-compose -f docker-compose.dev.yml exec league-simulator-dev bash
-
-# Run R interactively
-R
-
-# Or run specific scripts
-Rscript test_api_connection.R
-```
-
-### Option 2: Native R Development
-
-Best for R package development and debugging.
-
-#### Setup Steps
-
-```bash
-# Install R dependencies
-Rscript -e "install.packages('renv')"
-Rscript -e "renv::restore()"
-
-# Or install from packagelist.txt
+```r
 packages <- readLines("packagelist.txt")
 install.packages(packages[!packages %in% installed.packages()[,"Package"]])
-
-# Set up environment variables
-cp .env.example .Renviron
-# Edit .Renviron with your API keys
 ```
 
-#### RStudio Configuration
+This installs every package the production container installs at build time. Idempotent; running it again is cheap.
 
-1. Open RStudio
-2. File → Open Project → Navigate to repository
-3. Tools → Project Options → Build Tools → Enable Rcpp compilation
+## 2. Run the test suite
 
-## Development Workflow
+```r
+testthat::test_dir("tests/testthat")
+```
 
-### 1. Create Feature Branch
+Some tests target deleted infrastructure and are being cleaned up in a separate effort. Look for failures in the files that protect the production loop or the season-transition workflow — those are the signal-bearing ones.
+
+## 3. Iterate on the Rust simulation engine
 
 ```bash
-# Create new branch
-git checkout -b feature/your-feature-name
+cd league-simulator-rust
 
-# Or for bug fixes
-git checkout -b fix/issue-description
+# Run unit tests
+cargo test
+
+# Build a release binary (matches the production image's stage 1)
+cargo build --release
+# Binary at: target/release/league-simulator-server
+
+# Run the server locally for manual integration testing
+cargo run --release
+# Listens on localhost:8080 by default
 ```
 
-### 2. Make Changes
+To exercise the R-side integration against this locally-running server:
 
-Common development tasks:
-
-#### Modifying Simulation Logic
-
-```r
-# Edit simulation files
-# RCode/simulationsCPP.R - Main simulation logic
-# RCode/SpielNichtSimulieren.cpp - ELO calculations
-# RCode/leagueSimulatorCPP.R - League processing
-
-# Test changes
-source("RCode/simulationsCPP.R")
-# Run test simulation
+```bash
+RUST_API_URL=http://localhost:8080 Rscript -e '
+  source("RCode/rust_integration.R")
+  source("RCode/update_all_leagues_loop.R")
+  # ...one league pass against your local Rust server...
+'
 ```
 
-#### Updating Shiny App
+## 4. Run the Shiny app locally
 
 ```r
-# Edit ShinyApp/app.R
-
-# Test locally
 shiny::runApp("ShinyApp/app.R", port = 3838)
-
-# Access at http://localhost:3838
+# http://localhost:3838
 ```
 
-#### Adding New Features
+Reads `ShinyApp/data/Ergebnis.Rds` — same file the production scheduler writes when it pushes to ShinyApps.io.
 
-```r
-# Create new module
-# RCode/your_new_module.R
+## 5. Season transition (operator workflow)
 
-# Add tests
-# tests/testthat/test-your_new_module.R
-
-# Update documentation
-```
-
-### 3. Running Tests
-
-#### Unit Tests
+The season-transition script runs **on your local machine, on host R**. It does not require Docker, the production container, or the Rust simulation server. It uses the C++ simulation engine via Rcpp, which is sufficient because season transition isn't time-critical and the speed gain from Rust isn't needed here.
 
 ```bash
-# Run all tests
-Rscript tests/testthat.R
-
-# Run specific test file
-Rscript -e "testthat::test_file('tests/testthat/test-prozent.R')"
-
-# Run with coverage
-Rscript -e "covr::package_coverage()"
-```
-
-#### Integration Tests
-
-```bash
-# API integration test
-Rscript test_api_connection.R
-
-# Full simulation test
-Rscript run_single_update_2025.R
-
-# Season transition test
+# From the repo root, with a valid RAPIDAPI_KEY in the environment:
 Rscript scripts/season_transition.R 2024 2025 --non-interactive
 ```
 
-### 4. Debugging
+The script writes `RCode/TeamList_<year>.csv`, which is then committed to the repo and picked up by the next container rebuild.
 
-#### R Debugging
+The Rcpp build happens automatically when the script sources `SpielCPP.R` and friends — `Rcpp::sourceCpp("RCode/SpielNichtSimulieren.cpp")`. The C++ source files are intentionally kept in the repo for this workflow even though the production container uses Rust.
 
-```r
-# Add breakpoints in RStudio
-browser()  # Add this line where you want to break
+For the canonical operator guide, see [`docs/user-guide/season-transition.md`](../user-guide/season-transition.md). Issue [#74](https://github.com/chrisschwer/League-Simulator-Update/issues/74) tracks discoverability of the validation/report/cleanup helpers.
 
-# Or use debug()
-debug(simulationsCPP)
-# Run function to start debugging
+## Building Docker images
 
-# Trace function calls
-trace(retrieveResults, tracer = browser)
-```
+> **You don't build production Docker images on macOS. You build them on a Linux machine** — historically by hand on a server you control. The Mac-side workflow is R + Rust + Shiny iteration only.
 
-#### Docker Debugging
+A future goal is to **move image-build to CI**: a GitHub Actions workflow that builds and (optionally) pushes to a registry on pushes to `main`. That work is tracked in issue [#76](https://github.com/chrisschwer/League-Simulator-Update/issues/76) (CI rebuild). Until #76 lands, treat `docker build` / `docker-compose build` as a Linux-only operation.
 
-```bash
-# View container logs
-docker-compose logs -f league-simulator
+## Environment variables
 
-# Enter container for debugging
-docker-compose exec league-simulator bash
+The full table is in [Deployment Overview](README.md#required-environment-variables). For local iteration you typically only need:
 
-# Check R session info
-R -e "sessionInfo()"
-```
+- `RAPIDAPI_KEY` — required if you're hitting api-football
+- `RUST_API_URL=http://localhost:8080` — only if you're running the Rust server outside the container
 
-#### Common Debugging Commands
+`SHINYAPPS_IO_SECRET` and friends only matter if you're testing the deploy step against a real ShinyApps.io account.
 
-```r
-# Check API connectivity
-source("RCode/api_helpers.R")
-test_api_connection()
+## Related
 
-# Verify team data
-teams <- read.csv("RCode/TeamList_2025.csv")
-str(teams)
-
-# Test ELO calculations
-source("RCode/SpielNichtSimulieren.cpp")
-# Run test match
-```
-
-## Development Environment Variables
-
-Create `.env.development`:
-
-```env
-# Development API key (with higher limits)
-RAPIDAPI_KEY=your_dev_api_key
-
-# Development settings
-ENVIRONMENT=development
-LOG_LEVEL=debug
-SIMULATION_ITERATIONS=100  # Fewer for faster testing
-
-# Local Shiny settings
-SHINY_PORT=3838
-SHINY_HOST=0.0.0.0
-```
-
-## Code Style Guidelines
-
-### R Code Style
-
-```r
-# Function names: snake_case
-calculate_elo_rating <- function(rating_a, rating_b) {
-  # Implementation
-}
-
-# Variable names: snake_case
-team_elo <- 1500
-match_result <- "home_win"
-
-# Constants: UPPER_CASE
-DEFAULT_ELO <- 1500
-K_FACTOR <- 32
-```
-
-### File Organization
-
-```
-RCode/
-├── Core functionality (*.R)
-├── Rcpp files (*.cpp)
-├── Helper modules (*_helpers.R)
-├── API modules (api_*.R)
-└── Data files (TeamList_*.csv)
-
-tests/
-├── testthat/
-│   ├── test-*.R (test files)
-│   └── fixtures/ (test data)
-└── integration tests (standalone)
-```
-
-## Development Tools
-
-### Recommended VS Code Extensions
-
-```json
-{
-  "recommendations": [
-    "REditorSupport.r",
-    "ms-vscode-remote.remote-containers",
-    "yzhang.markdown-all-in-one"
-  ]
-}
-```
-
-### Useful R Packages for Development
-
-```r
-# Install development tools
-install.packages(c(
-  "devtools",    # Package development
-  "testthat",    # Testing framework
-  "covr",        # Code coverage
-  "lintr",       # Code linting
-  "profvis",     # Performance profiling
-  "bench"        # Benchmarking
-))
-```
-
-## Performance Profiling
-
-```r
-# Profile simulation performance
-library(profvis)
-profvis({
-  source("RCode/simulationsCPP.R")
-  simulate_season(league_id = 78, iterations = 1000)
-})
-
-# Benchmark different approaches
-library(bench)
-bench::mark(
-  original = simulate_v1(),
-  optimized = simulate_v2(),
-  iterations = 10
-)
-```
-
-## Contributing Guidelines
-
-1. **Fork the repository**
-2. **Create feature branch**
-3. **Write tests first** (TDD)
-4. **Implement feature**
-5. **Run all tests**
-6. **Update documentation**
-7. **Submit pull request**
-
-### Pre-commit Checklist
-
-- [ ] All tests pass
-- [ ] Code follows style guide
-- [ ] Documentation updated
-- [ ] No hardcoded values
-- [ ] API keys not committed
-- [ ] Performance impact assessed
-
-## Troubleshooting Development Issues
-
-| Issue | Solution |
-|-------|----------|
-| Package installation fails | Check R version, use `renv::restore()` |
-| Rcpp compilation errors | Install build tools (Xcode/build-essential) |
-| API rate limits in dev | Use mock data or separate dev API key |
-| Shiny app not refreshing | Clear browser cache, restart R session |
-| Docker volume not syncing | Check Docker Desktop settings, restart Docker |
-
-## Docker Build Optimizations
-
-### Binary Package Installation
-
-The Dockerfiles now use RStudio Package Manager (RSPM) for pre-compiled R binaries:
-
-```dockerfile
-# Configured automatically in Dockerfiles
-RUN R -e "options(repos = c(RSPM = 'https://packagemanager.rstudio.com/all/latest'))"
-```
-
-This provides:
-- 30-50% faster package installation
-- Reduced build times
-- Consistent package versions
-
-### BuildKit Cache Mounts
-
-Enable BuildKit for better caching:
-
-```bash
-# Enable BuildKit globally
-export DOCKER_BUILDKIT=1
-
-# Or per command
-DOCKER_BUILDKIT=1 docker build .
-```
-
-Benefits:
-- Persistent package cache between builds
-- Faster rebuilds
-- Reduced bandwidth usage
-
-### Custom Build Arguments
-
-Customize builds with arguments:
-
-```bash
-# Build with specific R version
-docker build --build-arg R_VERSION=4.4.0 -f Dockerfile.league .
-
-# Use more CPU cores for faster installation
-docker build --build-arg NCPUS=8 -f Dockerfile.shiny .
-
-# Add build metadata
-docker build --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') .
-```
-
-### Health Check Scripts
-
-Health checks are now external scripts in `docker/`:
-- `docker/healthcheck-league.R` - League updater health check
-- `docker/healthcheck-shiny.R` - Shiny app health check
-
-To modify health checks:
-1. Edit the script in `docker/`
-2. Rebuild the image
-3. Test with: `docker inspect --format='{{.State.Health.Status}}' container_name`
-
-## Related Documentation
-
-- [Testing Guide](../troubleshooting/debugging.md)
-- [API Documentation](../architecture/api-reference.md)
-- [Contributing Guidelines](../../CONTRIBUTING.md)
-- [Code Style Guide](../../STYLE_GUIDE.md)
+- [Quick Start](quick-start.md) — get a deployed container running
+- [Deployment Overview](README.md) — what runs in production
+- [`CLAUDE.md`](../../CLAUDE.md) — common commands cheat-sheet
+- [Season Transition](../user-guide/season-transition.md) — operator guide
