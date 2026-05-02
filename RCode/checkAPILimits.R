@@ -10,7 +10,7 @@ checkAPILimits <- function(ideal_loops, num_leagues = 3, safety_margin = 0.9) {
     return(ideal_loops)
   }
   
-  # Get season using same logic as updateSchedulerSimple.R
+  # Get season using same logic as updateScheduler.R
   season <- Sys.getenv("SEASON")
   if (season == "") {
     current_month <- as.numeric(format(Sys.Date(), "%m"))
