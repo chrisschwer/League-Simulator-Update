@@ -15,9 +15,9 @@ source("tests/testthat.R")
 # Run single update
 Rscript run_single_update_2025.R
 
-# Build and run Docker (simple version)
-docker build -f Dockerfile.simple -t league-simulator:simple .
-docker-compose -f docker-compose.simple.yml up -d
+# Build and run the production Docker stack
+docker build -t league-simulator:latest .
+docker-compose up -d
 
 # Season transition
 Rscript scripts/season_transition.R 2024 2025 --non-interactive
@@ -67,7 +67,7 @@ For complete workflow documentation, see @.claude/workflow.md
 - **Commands**: @docs/COMMANDS.md
 - **Architecture**: @docs/architecture/
 - **Deployment**: @docs/deployment/
-  - **Simple Deployment** (Recommended): @docs/deployment/simple-monolithic.md
+  - **Production Deployment**: @docs/deployment/README.md
   - **Quick Start**: @docs/deployment/quick-start.md
 - **Operations**: @docs/operations/
 - **Troubleshooting**: @docs/troubleshooting/
