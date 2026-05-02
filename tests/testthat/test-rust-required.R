@@ -16,8 +16,12 @@ rust_binary <- function() {
 start_rust_server <- function(port = 18080L) {
   bin <- rust_binary()
   log <- tempfile(fileext = ".log")
-  pid <- sys::exec_background(bin, args = "--api", std_out = log, std_err = log,
-                              env = c(PORT = as.character(port)))
+  # Pass PORT via the parent environment (sys::exec_background inherits env from
+  # the caller and has no env= parameter as of sys 3.4.3).
+  old_port <- Sys.getenv("PORT", unset = NA)
+  Sys.setenv(PORT = as.character(port))
+  pid <- sys::exec_background(bin, args = "--api", std_out = log, std_err = log)
+  if (is.na(old_port)) Sys.unsetenv("PORT") else Sys.setenv(PORT = old_port)
   Sys.setenv(RUST_API_URL = sprintf("http://localhost:%d", port))
   # Wait up to 10 s for the server to become healthy.
   ok <- FALSE
