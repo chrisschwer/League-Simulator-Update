@@ -1,7 +1,6 @@
 # League Simulator Documentation
 
 ## Quick Links
-- [Commands Reference](COMMANDS.md) - All available commands
 - [Known Issues](KNOWN_ISSUES.md) - Current and resolved issues
 - [Quick Start](deployment/quick-start.md) - Get up and running in 5 minutes
 
