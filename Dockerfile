@@ -98,11 +98,6 @@ RUN mkdir -p /app/RCode /app/ShinyApp/data
 COPY RCode/ ./RCode/
 COPY ShinyApp/ ./ShinyApp/
 
-# Compile C++ code (fallback when Rust unavailable)
-RUN cd /app/RCode && \
-    R -e "Rcpp::sourceCpp('SpielNichtSimulieren.cpp')" || \
-    echo "Warning: C++ compilation failed, will rely on Rust engine"
-
 # Copy robust startup script
 COPY docker-start.sh /app/start.sh
 RUN chmod +x /app/start.sh

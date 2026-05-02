@@ -147,14 +147,10 @@ leagueSimulatorRust <- function(season, n = 10000,
                                adjGoalsAgainst = rep_len(0, numberTeams),
                                adjGoalDiff = rep_len(0, numberTeams)) {
   
-  # Check Rust connection
-  if (!connect_rust_simulator()) {
-    message("Falling back to C++ implementation...")
-    return(leagueSimulatorCPP(season, n, modFactor, homeAdvantage,
-                              numberTeams, adjPoints, adjGoals,
-                              adjGoalsAgainst, adjGoalDiff))
-  }
-  
+  # Caller (update_all_leagues_loop) has already asserted Rust availability.
+  # Per-call connection checks were removed in issue #77 Phase 1; a Rust API
+  # call failure surfaces via stop() in simulate_league_rust() below.
+
   # Convert tibble to data.frame if needed (transform_data returns tibble)
   if ("tbl_df" %in% class(season)) {
     season <- as.data.frame(season)

@@ -148,28 +148,30 @@ main <- function() {
   message(sprintf("Rust API: %s", RUST_API_URL))
   message("")
   
-  # Test Rust connection
+  # Assert Rust availability at scheduler startup. Issue #77 Phase 1: there is
+  # no in-process fallback to C++. A missing Rust server fails the scheduler
+  # here so the operator sees the real cause; the loop's own assertion is the
+  # second-tier guard against the server dying mid-run.
   source("RCode/rust_integration.R")
-  rust_available <- connect_rust_simulator()
-  
-  if (!rust_available) {
-    message("WARNING: Rust engine not available, will use C++ fallback")
-    message("Performance will be significantly reduced")
+  if (!connect_rust_simulator()) {
+    stop(sprintf(
+      "Rust simulator not available at %s. Start the Rust server before invoking this scheduler.",
+      RUST_API_URL
+    ))
   }
-  
+
   # Calculate optimal number of loops
   loop_config <- calculate_loops()
-  
-  # Run the update loop with Rust engine
+
+  # Run the update loop. Rust availability has already been asserted above.
   update_all_leagues_loop(
     duration = loop_config$duration,  # Use actual time remaining, not DURATION
     loops = loop_config$loops,
     initial_wait = loop_config$initial_wait,
-    n = 10000,  # Can handle more iterations with Rust
+    n = 10000,
     saison = SEASON,
     TeamList_file = team_list_file,
-    shiny_directory = "ShinyApp",
-    use_rust = rust_available
+    shiny_directory = "ShinyApp"
   )
   
   message("Scheduler completed successfully")
