@@ -78,7 +78,7 @@ These contradict the current architecture or are unrelated clutter; they need th
 - Tracked build logs: `build.log` (700KB), `build2.log` (850KB)
 - `docs/COMMANDS.md` after the Workflow section is removed: mostly duplicates `CLAUDE.md` Quick Commands; consider merging.
 
-Captured as follow-up issue (see Task 11).
+Captured as follow-up issue **#81** (https://github.com/chrisschwer/League-Simulator-Update/issues/81).
 
 ## Operational note
 
