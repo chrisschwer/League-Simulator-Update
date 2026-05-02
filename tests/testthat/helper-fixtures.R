@@ -38,13 +38,6 @@ create_test_season <- function(games_played = 0) {
   return(season)
 }
 
-# Create test ELO values for teams
-create_test_elo_values <- function(num_teams = 4) {
-  # Different ELO values to test various scenarios
-  elo_values <- c(1500, 1450, 1550, 1400)
-  return(elo_values[1:num_teams])
-}
-
 # Create test adjustments
 create_test_adjustments <- function(num_teams = 4, type = "none") {
   if (type == "none") {
@@ -112,12 +105,6 @@ create_test_teams_api <- function() {
   return(teams)
 }
 
-# Helper to compare matrices with tolerance for floating point
-expect_matrix_equal <- function(actual, expected, tolerance = 1e-6) {
-  expect_equal(dim(actual), dim(expected))
-  expect_true(all(abs(actual - expected) < tolerance | (is.na(actual) & is.na(expected))))
-}
-
 # Helper to create a completed season for table testing
 create_completed_season <- function() {
   season <- create_test_season(12)
@@ -125,24 +112,3 @@ create_completed_season <- function() {
   return(season)
 }
 
-# Calculate expected points manually for verification
-calculate_expected_points <- function(season, team_id) {
-  points <- 0
-  games <- 0
-  
-  for (i in 1:nrow(season)) {
-    if (!is.na(season[i, 3]) && !is.na(season[i, 4])) {
-      if (season[i, 1] == team_id) {
-        games <- games + 1
-        if (season[i, 3] > season[i, 4]) points <- points + 3
-        else if (season[i, 3] == season[i, 4]) points <- points + 1
-      } else if (season[i, 2] == team_id) {
-        games <- games + 1
-        if (season[i, 4] > season[i, 3]) points <- points + 3
-        else if (season[i, 3] == season[i, 4]) points <- points + 1
-      }
-    }
-  }
-  
-  return(list(points = points, games = games))
-}
