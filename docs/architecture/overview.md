@@ -331,6 +331,8 @@ health_check <- function() {
 
 ### Microservices Migration
 
+> **Historical context (2026-05-02):** A microservices split was attempted (see git tag `pre-deployment-cleanup-2026-05-02` for the full multi-Dockerfile + `k8s/` tree) and reverted in favor of a single integrated container that runs the Rust simulation engine and the R scheduler in one process group. The diagram below documents the rejected design; it is **not** the current or planned architecture. See `docs/deployment/README.md` for what's actually deployed.
+
 ```mermaid
 graph TB
     GW[API Gateway] --> SIM[Simulation Service]
