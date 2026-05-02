@@ -55,7 +55,6 @@ For all environment variables, see @docs/deployment/quick-start.md
 
 ## Current Status
 
-- **Test Suite**: 🚧 38 tests failing - repair in progress (see @docs/TEST_FIX_PLAN.md)
 - **Season**: 2024-2025
 - **API**: api-football via RapidAPI
 
