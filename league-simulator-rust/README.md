@@ -291,7 +291,7 @@ services:
 ```bash
 # Build integrated container (R + Rust)
 cd ..
-docker build -f Dockerfile.integrated -t league-simulator:integrated .
+docker build -t league-simulator:integrated .
 
 # Run with environment variables
 docker run -d \
