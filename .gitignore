@@ -29,6 +29,14 @@ tests/rust/
 MATCH_PROCESSING_ANALYSIS.md
 RUST_RNG_FIX_RESULTS.md
 UNIT_TEST_SUMMARY.md
+
+# Build logs (issue #81)
+build.log
+build2.log
+
+# Recovery folder for working-tree-only deletions (issue #81)
+removed/
+
 compare_rust_cpp.R
 compare_working.R
 debug_*.R
