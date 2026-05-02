@@ -8,11 +8,23 @@ League Simulator is a football league prediction system using Monte Carlo simula
 
 ## Quick Commands
 
-```bash
-# Run tests
+```r
+# Run all tests
 source("tests/testthat.R")
 
-# Run single update
+# Run a single test file
+testthat::test_file("tests/testthat/test-prozent.R")
+
+# Install R dependencies from packagelist.txt
+packages <- readLines("packagelist.txt")
+install.packages(packages[!packages %in% installed.packages()[,"Package"]])
+
+# Run the Shiny app locally
+shiny::runApp("ShinyApp/app.R")
+```
+
+```bash
+# Run a single update
 Rscript run_single_update_2025.R
 
 # Build and run the production Docker stack
@@ -22,8 +34,6 @@ docker-compose up -d
 # Season transition
 Rscript scripts/season_transition.R 2024 2025 --non-interactive
 ```
-
-For complete command reference, see @docs/COMMANDS.md
 
 ## Architecture
 
@@ -49,18 +59,3 @@ For all environment variables, see @docs/deployment/quick-start.md
 - **Season**: 2024-2025
 - **API**: api-football via RapidAPI
 
-## Documentation
-
-- **Documentation Index**: @docs/README.md
-- **Known Issues**: @docs/KNOWN_ISSUES.md
-- **Commands**: @docs/COMMANDS.md
-- **Architecture**: @docs/architecture/
-- **Deployment**: @docs/deployment/
-  - **Production Deployment**: @docs/deployment/README.md
-  - **Quick Start**: @docs/deployment/quick-start.md
-- **Operations**: @docs/operations/
-- **Troubleshooting**: @docs/troubleshooting/
-
-## Note on Documentation
-
-This file is intentionally concise. Detailed information is lazy-loaded via @mentions from the docs/ directory to improve Claude Code performance and context management.
