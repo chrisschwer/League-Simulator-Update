@@ -104,7 +104,7 @@ RUN cd /app/RCode && \
     echo "Warning: C++ compilation failed, will rely on Rust engine"
 
 # Copy robust startup script
-COPY docker-integrated-start.sh /app/start.sh
+COPY docker-start.sh /app/start.sh
 RUN chmod +x /app/start.sh
 
 # Environment variables
