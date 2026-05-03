@@ -117,11 +117,16 @@ jobs:
       - name: Run testthat inside the image
         run: |
           mkdir -p ci-out
+          # Bind-mount tests/ into the prod image (image doesn't ship with tests).
+          # Install testthat + test deps inline (production image only ships runtime deps).
           docker run --rm \
+            -v "$PWD/tests:/app/tests:ro" \
             -v "$PWD/ci-out:/out" \
+            -w /app \
             -e RAPIDAPI_KEY=test_key_for_ci \
             ${{ steps.meta.outputs.tag }} \
-            Rscript -e 'options(testthat.progress.max_fails = Inf);
+            Rscript -e 'install.packages(c("testthat", "mockery"), repos = "https://cloud.r-project.org");
+                        options(testthat.progress.max_fails = Inf);
                         res <- testthat::test_dir("tests/testthat", stop_on_failure = FALSE, reporter = "summary");
                         df <- as.data.frame(res);
                         writeLines(capture.output(print(df)), "/out/testthat-summary.txt");
