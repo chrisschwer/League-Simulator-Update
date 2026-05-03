@@ -140,27 +140,24 @@ When adding tests, ensure they're properly categorized for optimal sharding.
 
 ### Automated Checks
 
-All pull requests trigger automated checks:
+All pull requests targeting `main` trigger `.github/workflows/ci.yml`. The workflow has five jobs:
 
-1. **R Tests**: Full test suite across multiple R versions
-2. **Container Tests**: Docker build and structure validation
-3. **Linting**: Code style and quality checks
-4. **Documentation**: Ensure docs are updated
+1. **rust-quality**: `cargo fmt --check` + `cargo clippy --all-targets -- -D warnings` + `cargo test --release` on the runner
+2. **r-lint**: `lintr::lint_dir("RCode")` (advisory; never blocks the PR)
+3. **image-build-and-test**: builds the production Docker image and runs the testthat suite inside it
+4. **push-image** (main only): tags the verified image as `:latest` + `:<short-sha>` and pushes to Docker Hub
+5. **report-failure** (main only): if the in-image testthat run fails, opens (or comments on) a `ci-failure`-labeled GitHub issue
 
-### Test Execution
+`rust-quality` and `image-build-and-test` run in parallel. The image is published only when both pass.
 
-Our CI pipeline features:
+### Security and dependencies
 
-- **Parallel Execution**: Tests run in 4 parallel shards
-- **Incremental Testing**: Only affected tests run for faster feedback
-- **Retry Logic**: Automatic retry for transient failures
-- **Flaky Test Management**: Unstable tests are quarantined
+- `.github/workflows/codeql.yml` scans GitHub Actions workflow files weekly (Mondays) and on every PR/push to `main`. Results appear in the Security tab.
+- `.github/dependabot.yml` opens weekly grouped PRs for Cargo, GitHub Actions, and Docker base-image updates.
 
-### Performance Monitoring
+### Iteration
 
-- Build times are tracked and should stay under 15 minutes
-- Test success rate should remain above 95%
-- Resource usage is monitored to prevent waste
+Use `gh workflow run ci.yml` to trigger a manual run from any branch. CI runs on every PR to `main`; feature-branch pushes do not trigger CI (run tests locally with `Rscript -e 'testthat::test_dir("tests/testthat")'` and `cargo test` in `league-simulator-rust/`).
 
 ## Pull Request Process
 
