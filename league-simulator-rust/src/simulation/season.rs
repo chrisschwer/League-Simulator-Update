@@ -1,6 +1,6 @@
 use crate::elo::calculate_elo_change;
 use crate::models::EloParams;
-use crate::models::{Match, Season, LeagueTable, TeamStanding};
+use crate::models::{LeagueTable, Match, Season, TeamStanding};
 use crate::simulation::match_sim::simulate_match_random;
 use rand::Rng;
 
@@ -16,11 +16,11 @@ pub fn simulate_season<R: Rng>(
 ) -> (Vec<Match>, Vec<f64>) {
     let mut matches = season.matches.clone();
     let mut elos = season.team_elos.clone();
-    
+
     for match_data in &mut matches {
         let team_home = match_data.team_home;
         let team_away = match_data.team_away;
-        
+
         // Check if match needs to be simulated
         if match_data.goals_home.is_none() {
             // Simulate the match
@@ -33,11 +33,11 @@ pub fn simulate_season<R: Rng>(
                 tore_intercept,
                 rng,
             );
-            
+
             // Update match results
             match_data.goals_home = Some(result.goals_home);
             match_data.goals_away = Some(result.goals_away);
-            
+
             // Update ELO values
             elos[team_home] = result.new_elo_home;
             elos[team_away] = result.new_elo_away;
@@ -51,13 +51,13 @@ pub fn simulate_season<R: Rng>(
                 mod_factor,
                 home_advantage,
             };
-            
+
             let result = calculate_elo_change(&params);
             elos[team_home] = result.new_elo_home;
             elos[team_away] = result.new_elo_away;
         }
     }
-    
+
     (matches, elos)
 }
 
@@ -85,27 +85,28 @@ pub fn calculate_table(
             position: 0,
         })
         .collect();
-    
+
     // Process all matches
     for match_data in matches {
-        if let (Some(goals_home), Some(goals_away)) = (match_data.goals_home, match_data.goals_away) {
+        if let (Some(goals_home), Some(goals_away)) = (match_data.goals_home, match_data.goals_away)
+        {
             let home_idx = match_data.team_home;
             let away_idx = match_data.team_away;
-            
+
             // Update games played
             standings[home_idx].played += 1;
             standings[away_idx].played += 1;
-            
+
             // Update goals
             standings[home_idx].goals_for += goals_home;
             standings[home_idx].goals_against += goals_away;
             standings[away_idx].goals_for += goals_away;
             standings[away_idx].goals_against += goals_home;
-            
+
             // Update goal difference
             standings[home_idx].goal_difference += goals_home - goals_away;
             standings[away_idx].goal_difference += goals_away - goals_home;
-            
+
             // Update points and W/D/L
             if goals_home > goals_away {
                 standings[home_idx].won += 1;
@@ -123,19 +124,20 @@ pub fn calculate_table(
             }
         }
     }
-    
+
     // Sort by points (descending), then goal difference, then goals for
     standings.sort_by(|a, b| {
-        b.points.cmp(&a.points)
+        b.points
+            .cmp(&a.points)
             .then_with(|| b.goal_difference.cmp(&a.goal_difference))
             .then_with(|| b.goals_for.cmp(&a.goals_for))
     });
-    
+
     // Update positions
     for (pos, standing) in standings.iter_mut().enumerate() {
         standing.position = pos + 1;
     }
-    
+
     LeagueTable { standings }
 }
 
@@ -162,7 +164,7 @@ pub fn process_season<R: Rng>(
         tore_intercept,
         rng,
     );
-    
+
     // Calculate the table
     let table = calculate_table(
         &completed_matches,
@@ -172,6 +174,6 @@ pub fn process_season<R: Rng>(
         adj_goals_against,
         adj_goal_diff,
     );
-    
+
     (table, final_elos)
 }
