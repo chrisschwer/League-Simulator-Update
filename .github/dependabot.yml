@@ -1,26 +1,43 @@
-# Dependabot configuration for automated dependency updates
+# Dependabot configuration — opens weekly grouped dependency-update PRs.
+# - Cargo: scans league-simulator-rust/Cargo.toml + Cargo.lock
+# - GitHub Actions: scans .github/workflows/*.yml action versions
+# - Docker: scans Dockerfile, Dockerfile.build, league-simulator-rust/Dockerfile FROM lines
+# Schedule: every Monday so updates land at the start of the week and operators
+# can review them with the rest of the week's work.
 version: 2
 updates:
-  # Enable version updates for R packages via renv
+  - package-ecosystem: "cargo"
+    directory: "/league-simulator-rust"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "rust"
+    groups:
+      rust-deps:
+        patterns: ["*"]
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
     labels:
       - "dependencies"
       - "github-actions"
+    groups:
+      gh-actions:
+        patterns: ["*"]
 
-  # Docker base image updates
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
     labels:
       - "dependencies"
       - "docker"
-    # Only update patch versions automatically
-    versioning-strategy: "auto"
-
-  # Note: Dependabot doesn't natively support renv.lock files yet
-  # Consider using a custom GitHub Action to check for R package updates
-  # or manually run renv::update() monthly and review changes

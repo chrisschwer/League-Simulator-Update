@@ -4,11 +4,11 @@
 pub mod handlers;
 
 use axum::{
-    Router,
-    routing::{get, post},
     http::Method,
+    routing::{get, post},
+    Router,
 };
-use tower_http::cors::{CorsLayer, Any};
+use tower_http::cors::{Any, CorsLayer};
 
 pub fn create_router() -> Router {
     // Configure CORS for R client access
@@ -16,7 +16,7 @@ pub fn create_router() -> Router {
         .allow_methods([Method::GET, Method::POST])
         .allow_origin(Any)
         .allow_headers(Any);
-    
+
     Router::new()
         .route("/health", get(handlers::health_check))
         .route("/simulate", post(handlers::simulate_league))
