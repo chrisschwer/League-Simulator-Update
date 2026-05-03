@@ -2,7 +2,7 @@
 # Combines high-performance Rust simulation with R orchestration
 
 # Stage 1: Build Rust binary
-FROM rust:1.81-alpine AS rust-builder
+FROM rust:1.95-alpine AS rust-builder
 
 RUN apk add --no-cache musl-dev
 
