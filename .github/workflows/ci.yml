@@ -106,13 +106,18 @@ jobs:
 
       - name: Build production image
         uses: docker/build-push-action@v5
+        env:
+          # Compute cache-to dynamically: empty string disables export.
+          # Dependabot PRs and fork PRs don't get DOCKERHUB_TOKEN, so they
+          # can read the public cache but cannot write back.
+          CACHE_TO: ${{ secrets.DOCKERHUB_TOKEN != '' && format('type=registry,ref={0}:{1},mode=min', env.IMAGE_NAME, env.CACHE_TAG) || '' }}
         with:
           context: .
           file: Dockerfile
           load: true
           tags: ${{ steps.meta.outputs.tag }}
           cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:${{ env.CACHE_TAG }}
-          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:${{ env.CACHE_TAG }},mode=min
+          cache-to: ${{ env.CACHE_TO }}
 
       - name: Run testthat inside the image
         run: |
@@ -181,6 +186,8 @@ jobs:
       # ~2-3 min when only Rust source changed). Hobbyist project; conscious tradeoff.
       - name: Build and push (cached from previous job)
         uses: docker/build-push-action@v5
+        env:
+          CACHE_TO: ${{ secrets.DOCKERHUB_TOKEN != '' && format('type=registry,ref={0}:{1},mode=min', env.IMAGE_NAME, env.CACHE_TAG) || '' }}
         with:
           context: .
           file: Dockerfile
@@ -189,7 +196,7 @@ jobs:
             ${{ env.IMAGE_NAME }}:latest
             ${{ env.IMAGE_NAME }}:${{ steps.sha.outputs.short }}
           cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:${{ env.CACHE_TAG }}
-          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:${{ env.CACHE_TAG }},mode=min
+          cache-to: ${{ env.CACHE_TO }}
 
   report-failure:
     name: Open or update CI failure issue
