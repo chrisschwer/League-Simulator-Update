@@ -18,7 +18,7 @@ RUN cargo build --release
 RUN strip target/release/league-simulator-rust
 
 # Stage 2: Build complete application  
-FROM rocker/r-ver:4.3.1
+FROM rocker/r-ver:4.6.0
 
 # Install system dependencies and curl for healthcheck
 RUN apt-get update && apt-get install -y \
