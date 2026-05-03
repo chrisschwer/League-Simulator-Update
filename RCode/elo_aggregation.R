@@ -221,6 +221,16 @@ update_elos_for_match <- function(current_elos, match) {
     return(current_elos)
   }
   
+  # Test probe: when SEASON_TRANSITION_ENGINE_PROBE is set, write whether the C++
+  # primitive is available to that file path. Off by default; production unaffected.
+  # Removed during Phase-2 refactor along with the exists() guard below
+  # (see docs/prds/2026-05-03-simulation-engine-seam-phase-2.md and
+  # docs/superpowers/specs/2026-05-03-season-transition-test-coverage-design.md).
+  if (Sys.getenv("SEASON_TRANSITION_ENGINE_PROBE") != "") {
+    writeLines(as.character(exists("SpielNichtSimulieren")),
+               Sys.getenv("SEASON_TRANSITION_ENGINE_PROBE"))
+  }
+
   # Use existing ELO calculation if available
   if (exists("SpielNichtSimulieren")) {
     # Use standard parameters

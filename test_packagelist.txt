@@ -12,3 +12,5 @@ data.table
 readr
 stringr
 lubridate
+httptest
+withr
