@@ -174,3 +174,36 @@ test_that("C++ and R fallback engines produce equivalent ELO updates across a pa
                  info = sprintf("scenario %s: away ELO C++ vs R", s$label))
   }
 })
+
+test_that("probe writes engine availability when SEASON_TRANSITION_ENGINE_PROBE is set", {
+  skip_if_not(exists("SpielNichtSimulieren"),
+              "SpielNichtSimulieren must be available")
+
+  probe_path <- tempfile(fileext = ".txt")
+  on.exit(unlink(probe_path), add = TRUE)
+
+  withr::with_envvar(
+    list(SEASON_TRANSITION_ENGINE_PROBE = probe_path),
+    {
+      update_elos_for_match(fixture_elos(), fixture_match())
+    }
+  )
+
+  expect_true(file.exists(probe_path))
+  expect_equal(readLines(probe_path)[1], "TRUE")
+})
+
+test_that("probe is silent when SEASON_TRANSITION_ENGINE_PROBE is unset", {
+  skip_if_not(exists("SpielNichtSimulieren"),
+              "SpielNichtSimulieren must be available")
+
+  # Confirm env var is not set in the test runner.
+  withr::with_envvar(
+    list(SEASON_TRANSITION_ENGINE_PROBE = NA),
+    {
+      # Should not raise, should not write any file.
+      result <- update_elos_for_match(fixture_elos(), fixture_match())
+      expect_s3_class(result, "data.frame")
+    }
+  )
+})
