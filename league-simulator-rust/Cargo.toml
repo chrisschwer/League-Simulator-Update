@@ -63,3 +63,4 @@ manual_clamp = "allow"                    # use of min(max(x, lo), hi) pattern i
 too_many_arguments = "allow"              # 2 functions exceed default 7-arg threshold (8 and 10 args)
 manual_range_contains = "allow"           # x >= lo && x <= hi pattern instead of (lo..=hi).contains(&x)
 single_component_path_imports = "allow"   # bare `use serde_json;` in integration tests
+unnecessary_unwrap = "allow"              # .unwrap() after is_none() check (Option::expect would be clearer)
