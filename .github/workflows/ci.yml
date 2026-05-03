@@ -117,15 +117,24 @@ jobs:
       - name: Run testthat inside the image
         run: |
           mkdir -p ci-out
-          # Bind-mount tests/ into the prod image (image doesn't ship with tests).
-          # Install testthat + test deps inline (production image only ships runtime deps).
+          # Bind-mount tests/ + test_packagelist.txt into the prod image.
+          # Install test-only deps (full list from test_packagelist.txt) since
+          # the production image only ships runtime deps from packagelist.txt.
           docker run --rm \
             -v "$PWD/tests:/app/tests:ro" \
+            -v "$PWD/test_packagelist.txt:/app/test_packagelist.txt:ro" \
             -v "$PWD/ci-out:/out" \
             -w /app \
             -e RAPIDAPI_KEY=test_key_for_ci \
             ${{ steps.meta.outputs.tag }} \
-            Rscript -e 'install.packages(c("testthat", "mockery"), repos = "https://cloud.r-project.org");
+            Rscript -e 'pkgs <- readLines("test_packagelist.txt");
+                        pkgs <- pkgs[!grepl("^#|^[[:space:]]*$", pkgs)];
+                        pkgs <- trimws(pkgs);
+                        installed <- rownames(installed.packages());
+                        to_install <- setdiff(pkgs, installed);
+                        if (length(to_install) > 0) {
+                          install.packages(to_install, repos = "https://cloud.r-project.org");
+                        }
                         options(testthat.progress.max_fails = Inf);
                         res <- testthat::test_dir("tests/testthat", stop_on_failure = FALSE, reporter = "summary");
                         df <- as.data.frame(res);
