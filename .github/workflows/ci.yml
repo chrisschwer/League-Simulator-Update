@@ -222,7 +222,8 @@ jobs:
             FAILURES="(testthat-summary.txt artifact missing — image build may have failed before tests ran)"
           fi
 
-          BODY=$(cat <<EOF
+          BODY_FILE=$(mktemp)
+          cat > "$BODY_FILE" <<EOF
           testthat run failed on commit \`$SHORT_SHA\`.
 
           ## Failing tests
@@ -235,7 +236,6 @@ jobs:
 
           $RUN_URL
           EOF
-          )
 
           # Build issue title based on which job failed.
           if [ "${{ needs.rust-quality.result }}" = "failure" ] && [ "${{ needs.image-build-and-test.result }}" != "failure" ]; then
@@ -249,11 +249,13 @@ jobs:
           EXISTING=$(gh issue list --label ci-failure --state open --limit 1 --json number --jq '.[0].number // empty')
           if [ -n "$EXISTING" ]; then
             echo "Commenting on existing issue #$EXISTING"
-            gh issue comment "$EXISTING" --body "$BODY"
+            gh issue comment "$EXISTING" --body-file "$BODY_FILE"
           else
             echo "Opening new ci-failure issue"
             gh issue create \
               --title "$TITLE" \
               --label ci-failure \
-              --body "$BODY"
+              --body-file "$BODY_FILE"
           fi
+
+          rm -f "$BODY_FILE"
