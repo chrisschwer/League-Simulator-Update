@@ -124,8 +124,8 @@ grep "simulate" logs/*.log | grep -i error
 **Solutions:**
 
 ```r
-# Solution 1: Manual trigger
-docker-compose exec league-simulator Rscript run_single_update_2025.R
+# Solution 1: Restart the scheduler so it re-reads team data and waits for next active window
+docker-compose restart league-simulator-integrated
 
 # Solution 2: Fix team data
 # Verify team file exists and is valid
@@ -133,8 +133,8 @@ teams <- read.csv("RCode/TeamList_2025.csv")
 print(summary(teams))
 # Should show id, name, elo, liga, season columns
 
-# Solution 3: Reset scheduler
-docker-compose restart league-simulator
+# Solution 3: Tail logs for the next scheduled run
+docker-compose logs -f league-simulator-integrated
 ```
 
 ### 4. Shiny App Not Loading
@@ -238,8 +238,8 @@ docker inspect league-simulator | grep -A 5 Memory
 #           memory: 4G
 
 # Solution 2: Reduce simulation iterations
-# Edit run_single_update_2025.R
-# Change iterations from 10000 to 5000
+# Set the SIMULATION_ITERATIONS env var (or pass `n=` to leagueSimulatorRust)
+# Default is 10000; lowering to 5000 roughly halves memory and runtime.
 
 # Solution 3: Clean up Docker
 docker system prune -a
@@ -359,9 +359,8 @@ rm ShinyApp/data/Ergebnis_corrupted.Rds
 # Solution 2: Restore from backup
 cp /backups/latest/*.Rds ShinyApp/data/
 
-# Solution 3: Regenerate
-docker-compose exec league-simulator \
-  Rscript run_single_update_2025.R
+# Solution 3: Restart the scheduler — the next active window regenerates results
+docker-compose restart league-simulator-integrated
 ```
 
 ### 10. Performance Degradation

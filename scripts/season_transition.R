@@ -67,8 +67,7 @@ required_modules <- c(
 # Source existing modules that we'll use
 existing_modules <- c(
   "retrieveResults.R",
-  "transform_data.R",
-  "SpielCPP.R"
+  "transform_data.R"
 )
 
 # Source all modules
