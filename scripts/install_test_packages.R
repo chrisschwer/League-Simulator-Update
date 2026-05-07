@@ -45,13 +45,7 @@ tryCatch({
   install_if_missing(test_packages, "test dependencies")
   
   cat("\n✅ All dependencies successfully installed!\n")
-  
-  # Verify Rcpp compilation works
-  cat("\nVerifying Rcpp compilation...\n")
-  library(Rcpp)
-  sourceCpp("RCode/SpielNichtSimulieren.cpp")
-  cat("✅ Rcpp compilation successful!\n")
-  
+
 }, error = function(e) {
   cat("\n❌ Error during installation:\n")
   cat(paste(e$message, "\n"))

@@ -13,7 +13,6 @@ jsonlite
 reshape2
 rsconnect
 shiny
-Rcpp
 digest
 xtable
 here
