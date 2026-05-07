@@ -4,6 +4,8 @@
 **Date:** 2026-05-03
 **Source:** architecture-review-prd skill
 
+> **Outcome (2026-05-07):** Executed as **Option B** (delete the C++ engine in full), not the recommended Option A. PR #100's regression net (`tests/testthat/test-elo-aggregation-engine-selection.R` scenario sweep) proved C++ and R formulas produce byte-identical ELOs across 5 fixture scenarios, eliminating Option B's "divergence risk" trade-off and making the smaller-surface choice strictly better. See execution plan at `docs/superpowers/plans/2026-05-06-issue-102-retire-cpp-engine.md` and issue #102.
+
 > **Phase-1 framing was wrong in detail.** The Phase-1 PRD (`docs/prds/2026-05-02-simulation-engine-seam.md`) posed a binary open question: does season-transition use `SpielCPP.R` or not? Concrete grep against the post-Phase-1 tree shows the truth is layered. `SpielCPP.R` *is sourced* by `scripts/season_transition.R:71` but *never invoked* by any season-transition module. The function that the season-transition does call is `SpielNichtSimulieren` (the Rcpp-compiled C++ primitive in `SpielNichtSimulieren.cpp`), invoked from `RCode/elo_aggregation.R:231`. So Phase 2 is not "C++ engine: keep or delete?" — it is "delete the unused R-wrapper layer; keep the C++ primitive as the ELO calculation engine for season-transition."
 
 ## Goal
