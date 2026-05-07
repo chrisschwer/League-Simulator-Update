@@ -325,12 +325,11 @@ adjust_elo_by_position <- function(team_id, final_position, league_size) {
 ### First Simulation Test
 
 ```bash
-# Run test simulation
-docker-compose exec league-simulator \
-  Rscript run_single_update_2025.R
+# Watch the scheduler pick up new TeamList file at next active window
+docker-compose logs -f league-simulator-integrated
 
 # Check for errors
-docker-compose logs --tail=100 league-simulator | grep ERROR
+docker-compose logs --tail=100 league-simulator-integrated | grep -i error
 ```
 
 ### Update Configuration

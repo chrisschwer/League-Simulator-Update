@@ -258,16 +258,6 @@ curl https://league-simulator.prod/health
 
 ## Maintenance
 
-### Updating Baselines
-
-```r
-# Update performance baselines
-Rscript tests/performance/measure-baselines.R
-
-# Update security policies
-Rscript tests/security/update-policies.R
-```
-
 ### Adding New Tests
 
 1. Create test file in appropriate directory

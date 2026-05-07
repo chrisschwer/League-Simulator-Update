@@ -41,7 +41,7 @@ RUN apt-get update && apt-get install -y \
 # Install critical R packages first (core dependencies)
 RUN R --slave --no-restore -e " \
     options(repos = c(CRAN = 'https://cloud.r-project.org')); \
-    core_pkgs <- c('Rcpp', 'httr', 'jsonlite', 'dplyr', 'tidyr', 'magrittr'); \
+    core_pkgs <- c('httr', 'jsonlite', 'dplyr', 'tidyr', 'magrittr'); \
     for (pkg in core_pkgs) { \
         if (!require(pkg, character.only=TRUE, quietly=TRUE)) { \
             install.packages(pkg, dependencies=TRUE); \
@@ -75,7 +75,7 @@ RUN R --slave --no-restore -e " \
     options(repos = c(CRAN = 'https://cloud.r-project.org')); \
     pkgs <- readLines('/tmp/packagelist.txt'); \
     pkgs <- pkgs[!grepl('^#|^[[:space:]]*$', pkgs)]; \
-    already_installed <- c('Rcpp', 'httr', 'jsonlite', 'dplyr', 'tidyr', 'magrittr', 'htmltools', 'httpuv', 'promises', 'shiny', 'rsconnect'); \
+    already_installed <- c('httr', 'jsonlite', 'dplyr', 'tidyr', 'magrittr', 'htmltools', 'httpuv', 'promises', 'shiny', 'rsconnect'); \
     remaining_pkgs <- pkgs[!pkgs %in% already_installed]; \
     for (pkg in remaining_pkgs) { \
         if (!require(pkg, character.only=TRUE, quietly=TRUE)) { \

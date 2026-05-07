@@ -2,12 +2,10 @@
 # Invoked by tests/testthat/test-season-transition-csv-snapshot.R via Rscript.
 #
 # Usage:
-#   Rscript helpers/season-transition-snapshot-runner.R <project_root> <csv_dir> <probe_path> <fixture_dir>
+#   Rscript helpers/season-transition-snapshot-runner.R <project_root> <csv_dir> <fixture_dir>
 #
 # Environment vars expected:
 #   RAPIDAPI_KEY (any non-empty value; httptest intercepts before the key is sent)
-#   SEASON_TRANSITION_ENGINE_PROBE (set by the parent test; the script's elo_aggregation
-#     probe writes the engine availability to this path)
 
 suppressPackageStartupMessages({
   library(httptest)
@@ -18,11 +16,10 @@ suppressPackageStartupMessages({
 })
 
 args <- commandArgs(trailingOnly = TRUE)
-stopifnot(length(args) == 4)
+stopifnot(length(args) == 3)
 project_root <- args[1]
 csv_dir      <- args[2]
-probe_path   <- args[3]
-fixture_dir  <- args[4]
+fixture_dir  <- args[3]
 
 setwd(project_root)
 # Normalize fixture_dir to absolute path: httptest resolves cassettes relative to
@@ -30,7 +27,6 @@ setwd(project_root)
 # fixture_dir path ensures cassettes are always found regardless of cwd.
 fixture_dir <- normalizePath(fixture_dir, mustWork = FALSE)
 options(season_transition.non_interactive = TRUE)
-Sys.setenv(SEASON_TRANSITION_ENGINE_PROBE = probe_path)
 
 # Source the same module set scripts/season_transition.R uses, from the project root.
 modules <- c(
@@ -38,7 +34,7 @@ modules <- c(
   "interactive_prompts.R", "input_validation.R", "csv_generation.R", "file_operations.R",
   "season_processor.R", "league_processor.R", "error_handling.R", "logging.R",
   "input_handler.R", "team_config_loader.R", "team_data_carryover.R",
-  "retrieveResults.R", "transform_data.R", "SpielCPP.R"
+  "retrieveResults.R", "transform_data.R"
 )
 for (m in modules) {
   p <- file.path("RCode", m)

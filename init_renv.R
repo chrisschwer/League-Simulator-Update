@@ -20,7 +20,6 @@ packages_to_install <- c(
   "reshape2",
   "rsconnect",
   "shiny",
-  "Rcpp",
   "digest",
   "xtable"  # Keep for backward compatibility even if unused
 )

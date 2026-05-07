@@ -5,7 +5,6 @@
 # Load required packages
 suppressPackageStartupMessages({
   library(testthat)
-  library(Rcpp)
   library(data.table)
   library(dplyr)
   library(readr)
@@ -106,44 +105,6 @@ source_rcode_modules <- function() {
   }
 }
 
-# Compile C++ files
-compile_cpp_files <- function() {
-  # Look for C++ files in both src and RCode directories
-  cpp_paths <- c(
-    SRC_PATH,
-    RCODE_PATH
-  )
-  
-  cpp_files <- character()
-  for (path in cpp_paths) {
-    if (dir.exists(path)) {
-      files <- list.files(
-        path,
-        pattern = "\\.cpp$",
-        full.names = TRUE
-      )
-      cpp_files <- c(cpp_files, files)
-    }
-  }
-  
-  # Specifically compile SpielNichtSimulieren.cpp first as it's a dependency
-  spiel_cpp <- file.path(RCODE_PATH, "SpielNichtSimulieren.cpp")
-  if (file.exists(spiel_cpp)) {
-    tryCatch({
-      # Only rebuild if function doesn't exist
-      if (!exists("SpielNichtSimulieren")) {
-        message("Compiling: SpielNichtSimulieren.cpp")
-        Rcpp::sourceCpp(spiel_cpp)
-      }
-    }, error = function(e) {
-      message("Warning: Could not compile SpielNichtSimulieren.cpp: ", e$message)
-    })
-  }
-  
-  # Skip compilation of other C++ files - they should be loaded by sourcing the R wrappers
-  # This avoids the slow rebuild process during testing
-}
-
 # Helper function to create test data directories
 setup_test_directories <- function() {
   test_dirs <- c(
@@ -176,8 +137,7 @@ tryCatch({
   
   # Always use source method for tests to ensure all files are loaded
   source_rcode_modules()
-  
-  compile_cpp_files()
+
   message("Test environment setup complete")
 }, error = function(e) {
   message("Error during test setup: ", e$message)

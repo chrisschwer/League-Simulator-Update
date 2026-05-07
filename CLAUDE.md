@@ -24,9 +24,6 @@ shiny::runApp("ShinyApp/app.R")
 ```
 
 ```bash
-# Run a single update
-Rscript run_single_update_2025.R
-
 # Build and run the production Docker stack
 docker build -t league-simulator:latest .
 docker-compose up -d
