@@ -53,11 +53,7 @@ source_rcode_modules <- function() {
     "updateScheduler\\.R",
     "update_all_leagues_loop\\.R",
     "run_single_update",
-    "updateShiny\\.R",
-    "update_league\\.R",
-    "update_shiny_from_files\\.R",
-    "league_scheduler\\.R",
-    "shiny_scheduler\\.R"
+    "updateShiny\\.R"
   )
   
   for (pattern in exclude_patterns) {
