@@ -22,9 +22,16 @@ Procedure:
 ```bash
 export RAPIDAPI_KEY=your_key_here
 Rscript tests/testthat/fixtures/season-transition-2024-to-2025/_record.R
+
+# Minify the captured cassettes so the diff stays small. jq -c is
+# semantics-preserving — httptest reads minified JSON identically.
+for f in tests/testthat/fixtures/season-transition-2024-to-2025/**/*.json; do
+  jq -c . "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+done
 ```
 
 Then inspect the captured files (`grep -rni rapidapi .` should return nothing
-about the actual key value) and `git add` the changes. Note the printed probe
-value and update the assertion in `test-season-transition-csv-snapshot.R` if
-it differs from what the test currently asserts.
+about the actual key value) and `git add` the changes. Re-run
+`Rscript -e 'testthat::test_file("tests/testthat/test-season-transition-csv-snapshot.R")'`
+to confirm the byte-identical CSV assertion still holds against the new
+recording.
