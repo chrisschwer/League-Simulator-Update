@@ -50,3 +50,45 @@ build_carryover_team_record <- function(team, history, league_id, liga3_baseline
     promotion_value = promotion_value
   )
 }
+
+#' Build a team record for a team with no carryover history
+#'
+#' Pure function modulo the injected prompt: takes a team's API row, the
+#' league context, and a prompt function. The prompt function is the
+#' single side-effecting dependency; tests pass a stub closure.
+#'
+#' Extracted from process_league_teams in issue #73 to make new-team
+#' record construction testable without mockery::stub.
+#'
+#' @param team Named list from API: id, name, is_second_team.
+#' @param league_id League identifier ("78", "79", "80").
+#' @param liga3_baseline Baseline ELO for Liga 3.
+#' @param existing_short_names Character vector of already-assigned short
+#'   names; passed to prompt_fn so the prompt can warn on collisions.
+#' @param prompt_fn Function with the signature of prompt_for_team_info:
+#'   (team_name, league, existing_short_names, baseline, retry_count = 0)
+#'   returning list(short_name, initial_elo, promotion_value).
+#' @return Named list: id, name, short_name, initial_elo, promotion_value.
+#' @export
+build_new_team_record <- function(team, league_id, liga3_baseline, existing_short_names, prompt_fn) {
+  cat("\n--- New Team Detected ---\n")
+  cat("Team ID:", team$id, "\n")
+  cat("Team Name:", team$name, "\n")
+  cat("League:", get_league_name(league_id), "\n")
+
+  team_info <- prompt_fn(team$name, league_id, existing_short_names, liga3_baseline)
+
+  final_short_name <- convert_second_team_short_name(
+    team_info$short_name,
+    team$is_second_team,
+    team_info$promotion_value
+  )
+
+  list(
+    id = team$id,
+    name = team$name,
+    short_name = final_short_name,
+    initial_elo = team_info$initial_elo,
+    promotion_value = team_info$promotion_value
+  )
+}
