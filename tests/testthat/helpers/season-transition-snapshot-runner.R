@@ -34,7 +34,7 @@ modules <- c(
   "interactive_prompts.R", "input_validation.R", "csv_generation.R", "file_operations.R",
   "season_processor.R", "league_processor.R", "error_handling.R", "logging.R",
   "input_handler.R", "team_config_loader.R", "team_data_carryover.R",
-  "retrieveResults.R", "transform_data.R", "SpielCPP.R"
+  "retrieveResults.R", "transform_data.R"
 )
 for (m in modules) {
   p <- file.path("RCode", m)
