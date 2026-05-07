@@ -1,3 +1,17 @@
+#' League-baseline ELO when no carryover ELO is available.
+#'
+#' Liga 3 (league_id 80) uses the supplied liga3_baseline; every other
+#' league falls back to 1500. Accepts league_id as numeric or string.
+#'
+#' Single source of truth for the baseline formula — both the orchestrator's
+#' diagnostic `cat()` and the carryover record builder call this so the
+#' two stay in sync.
+#'
+#' @keywords internal
+league_baseline_elo <- function(league_id, liga3_baseline) {
+  if (league_id == 80 || league_id == "80") liga3_baseline else 1500
+}
+
 #' Build a team record from resolved history (carryover or fallback path)
 #'
 #' Pure function: takes a team's API row, its resolved history (from
@@ -39,7 +53,7 @@ build_carryover_team_record <- function(team, history, league_id, liga3_baseline
   initial_elo <- if (!is.null(history$team_elo) && length(history$team_elo) > 0) {
     history$team_elo[1]
   } else {
-    if (league_id == 80 || league_id == "80") liga3_baseline else 1500
+    league_baseline_elo(league_id, liga3_baseline)
   }
 
   list(

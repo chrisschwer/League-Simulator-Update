@@ -55,6 +55,8 @@ required_modules <- c(
   "input_validation.R",
   "csv_generation.R",
   "file_operations.R",
+  "team_history_resolver.R",
+  "team_record_builder.R",
   "season_processor.R",
   "league_processor.R",
   "error_handling.R",
