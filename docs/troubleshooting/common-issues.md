@@ -195,14 +195,11 @@ teams_after <- updateEloRatings(teams_before, result)
 **Solutions:**
 
 ```r
-# Solution 1: Recompile Rcpp code
-Rcpp::sourceCpp("RCode/SpielNichtSimulieren.cpp")
-
-# Solution 2: Verify match data
+# Solution 1: Verify match data
 matches <- retrieve_match_data(78, 2025)
 print(head(matches))  # Should have recent matches
 
-# Solution 3: Reset team data
+# Solution 2: Reset team data
 # Backup current
 write.csv(teams, "RCode/TeamList_2025_backup.csv", row.names = FALSE)
 # Restore from known good

@@ -200,97 +200,14 @@ retrieve_match_data <- function(league_id, season) {
 
 ### Stage 2: ELO Calculation
 
-```cpp
-// RCode/SpielNichtSimulieren.cpp
-#include <Rcpp.h>
-using namespace Rcpp;
+ELO updates split between two consumers, deliberately:
 
-// [[Rcpp::export]]
-List updateEloRatings(DataFrame teams, List match_result) {
-  // Extract match data
-  int home_id = match_result["home_team_id"];
-  int away_id = match_result["away_team_id"];
-  int home_goals = match_result["home_goals"];
-  int away_goals = match_result["away_goals"];
-  
-  // Get current ELO ratings
-  NumericVector elo_ratings = teams["elo"];
-  IntegerVector team_ids = teams["id"];
-  
-  // Find team indices
-  int home_idx = std::find(team_ids.begin(), team_ids.end(), home_id) - team_ids.begin();
-  int away_idx = std::find(team_ids.begin(), team_ids.end(), away_id) - team_ids.begin();
-  
-  double home_elo = elo_ratings[home_idx];
-  double away_elo = elo_ratings[away_idx];
-  
-  // Calculate expected scores
-  double expected_home = 1.0 / (1.0 + pow(10.0, (away_elo - home_elo) / 400.0));
-  double expected_away = 1.0 - expected_home;
-  
-  // Actual scores
-  double actual_home = (home_goals > away_goals) ? 1.0 : 
-                       (home_goals < away_goals) ? 0.0 : 0.5;
-  double actual_away = 1.0 - actual_home;
-  
-  // Update ELO ratings
-  double k_factor = 32.0;
-  elo_ratings[home_idx] += k_factor * (actual_home - expected_home);
-  elo_ratings[away_idx] += k_factor * (actual_away - expected_away);
-  
-  // Return updated teams
-  teams["elo"] = elo_ratings;
-  return List::create(
-    Named("teams") = teams,
-    Named("home_elo_change") = elo_ratings[home_idx] - home_elo,
-    Named("away_elo_change") = elo_ratings[away_idx] - away_elo
-  );
-}
-```
+- **Production loop** (called many times per active window): all ELO + simulation work happens inside the Rust crate at `league-simulator-rust/src/elo/`. R sends the current ELOs and remaining fixtures over the REST seam at `localhost:8080/simulate`; Rust returns the probability matrix. See [`league-simulator-rust/src/elo/mod.rs`](../../league-simulator-rust/src/elo/mod.rs) for the formula and [`league-simulator-rust/src/api/handlers.rs`](../../league-simulator-rust/src/api/handlers.rs) for the wire contract.
+- **Season-transition (run once per season, host R, no Rust server)**: pure-R `calculate_elo_update` in [`RCode/elo_aggregation.R`](../../RCode/elo_aggregation.R). Same formula as Rust, byte-identical results across the cross-engine sweep in `tests/testthat/test-elo-aggregation-engine-selection.R`.
 
 ### Stage 3: Monte Carlo Simulation
 
-```r
-# RCode/simulationsCPP.R
-run_monte_carlo_simulation <- function(teams, remaining_fixtures, iterations = 10000) {
-  # Initialize result matrix
-  n_teams <- nrow(teams)
-  position_matrix <- matrix(0, nrow = n_teams, ncol = n_teams)
-  
-  # Run iterations
-  for (iter in 1:iterations) {
-    # Copy current standings
-    sim_teams <- teams
-    
-    # Simulate remaining matches
-    for (fixture in remaining_fixtures) {
-      result <- simulate_match(
-        home_elo = sim_teams$elo[sim_teams$id == fixture$home_id],
-        away_elo = sim_teams$elo[sim_teams$id == fixture$away_id]
-      )
-      
-      # Update points
-      sim_teams <- update_standings(sim_teams, fixture, result)
-    }
-    
-    # Record final positions
-    final_positions <- order(sim_teams$points, 
-                            sim_teams$goal_diff, 
-                            sim_teams$goals_for,
-                            decreasing = TRUE)
-    
-    for (i in 1:n_teams) {
-      position_matrix[i, final_positions[i]] <- 
-        position_matrix[i, final_positions[i]] + 1
-    }
-  }
-  
-  # Convert to probabilities
-  position_matrix <- position_matrix / iterations
-  
-  return(position_matrix)
-}
-```
+The Monte Carlo loop is a pure Rust function (`run_monte_carlo_simulation` in [`league-simulator-rust/src/monte_carlo/mod.rs`](../../league-simulator-rust/src/monte_carlo/mod.rs)) parallelised with `rayon`. The R orchestrator calls it via [`RCode/rust_integration.R::leagueSimulatorRust()`](../../RCode/rust_integration.R), which marshals the request to JSON, POSTs it to `/simulate`, and re-shapes the returned matrix into the format the Shiny app expects.
 
 ### Stage 4: Result Aggregation
 

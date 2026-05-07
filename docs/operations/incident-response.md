@@ -239,7 +239,7 @@ diagnose_simulation_failure <- function(league_id) {
   cat("Memory status:\n", mem_info[2], "\n")
   
   # 4. Verify dependencies
-  required_packages <- c("Rcpp", "dplyr", "httr")
+  required_packages <- c("dplyr", "httr", "jsonlite")
   missing <- required_packages[!required_packages %in% installed.packages()[,"Package"]]
   
   if (length(missing) > 0) {

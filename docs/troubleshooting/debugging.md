@@ -132,58 +132,30 @@ last_error <- function() {
 }
 ```
 
-### 2. Debugging Rcpp Code
+### 2. Debugging the Rust Simulation Engine
 
-#### Print Debugging
-
-```cpp
-// SpielNichtSimulieren_debug.cpp
-#include <Rcpp.h>
-using namespace Rcpp;
-
-// [[Rcpp::export]]
-NumericVector updateEloDebug(NumericVector ratings, List match) {
-  Rcout << "=== ELO Update Debug ===" << std::endl;
-  Rcout << "Input ratings: " << ratings << std::endl;
-  
-  int home_id = match["home_id"];
-  int away_id = match["away_id"];
-  
-  Rcout << "Home ID: " << home_id << ", Away ID: " << away_id << std::endl;
-  
-  // Add validation
-  if (home_id < 0 || home_id >= ratings.size()) {
-    stop("Invalid home_id: " + std::to_string(home_id));
-  }
-  
-  // Continue with calculations...
-}
-```
-
-#### GDB Debugging
+The simulation hot loop lives in `league-simulator-rust/`. Debug it with the standard Rust toolchain:
 
 ```bash
-# Compile with debug symbols
-R CMD SHLIB -d -g SpielNichtSimulieren.cpp
+# Build with debug symbols
+cd league-simulator-rust
+cargo build
 
-# Run R under GDB
-R -d gdb
+# Run unit tests for the failing module (e.g. the Monte Carlo loop)
+cargo test --package league-simulator-rust monte_carlo -- --nocapture
 
-# In GDB:
-(gdb) run
-# In R:
-> library(Rcpp)
-> sourceCpp("SpielNichtSimulieren.cpp")
+# Run the binary under lldb (macOS) or gdb (Linux), then issue requests against
+# the local server with curl to reproduce the bug.
+lldb target/debug/league-simulator-rust
+(lldb) run
 
-# Set breakpoint
-(gdb) break updateEloRatings
-(gdb) continue
-
-# When breakpoint hits:
-(gdb) print home_id
-(gdb) print ratings
-(gdb) backtrace
+# In a second shell, hit the running server:
+curl -s -X POST http://localhost:8080/simulate \
+     -H 'Content-Type: application/json' \
+     --data @league-simulator-rust/tests/fixtures/example_request.json
 ```
+
+For a fast eyeball check that the engine is reachable from R, use `RCode/rust_integration.R::connect_rust_simulator()`. If the engine returns wrong numbers, prefer adding a unit test in `league-simulator-rust/src/...` that pins the expected output for the failing scenario rather than print-debugging through the R seam.
 
 ### 3. Debugging Data Issues
 
@@ -468,8 +440,8 @@ check_container_health <- function() {
   
   # Dependencies check
   health_checks$packages <- list(
-    rcpp_loaded = require(Rcpp, quietly = TRUE),
     httr_loaded = require(httr, quietly = TRUE),
+    jsonlite_loaded = require(jsonlite, quietly = TRUE),
     shiny_loaded = require(shiny, quietly = TRUE)
   )
   

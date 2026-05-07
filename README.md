@@ -33,7 +33,7 @@ The full setup, env-var table, and verification steps are in [`docs/deployment/R
 
 Common operator tasks:
 
-- **Season transition** (run before each new season starts): [`docs/user-guide/season-transition.md`](docs/user-guide/season-transition.md). Runs on host R with the C++ engine; does not require Docker or the Rust server.
+- **Season transition** (run before each new season starts): [`docs/user-guide/season-transition.md`](docs/user-guide/season-transition.md). Runs on host R; does not require Docker or the Rust server.
 - **Roll back to a previous version:** [`docs/deployment/rollback.md`](docs/deployment/rollback.md).
 - **Local development without the production container:** [`docs/deployment/local-development.md`](docs/deployment/local-development.md).
 - **Common commands:** [`CLAUDE.md`](CLAUDE.md) Quick Commands.
