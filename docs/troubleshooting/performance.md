@@ -116,92 +116,20 @@ for (i in 1:10000) {
 }
 ```
 
-### 2. Rcpp Optimization
+### 2. Rust Engine
 
-#### Optimize Critical Functions
+The simulation hot loop is implemented in Rust (`league-simulator-rust/`) and called from R over a REST seam at `localhost:8080`. To investigate or optimize the engine, work in that crate; it uses `axum` for the HTTP layer and `rayon` for per-iteration parallelism.
 
-```cpp
-// SpielNichtSimulieren_optimized.cpp
-#include <Rcpp.h>
-#include <unordered_map>
-using namespace Rcpp;
+```bash
+# Profile with cargo flamegraph (requires cargo-flamegraph + perf on Linux)
+cd league-simulator-rust
+cargo flamegraph --release --bench monte_carlo
 
-// [[Rcpp::export]]
-NumericVector updateEloRatingsOptimized(NumericVector elo_ratings, 
-                                        IntegerVector team_ids,
-                                        DataFrame matches) {
-  // Use hash map for O(1) lookups
-  std::unordered_map<int, int> team_index;
-  for (int i = 0; i < team_ids.size(); i++) {
-    team_index[team_ids[i]] = i;
-  }
-  
-  // Extract match data once
-  IntegerVector home_ids = matches["home_id"];
-  IntegerVector away_ids = matches["away_id"];
-  IntegerVector home_goals = matches["home_goals"];
-  IntegerVector away_goals = matches["away_goals"];
-  
-  // Clone ratings to avoid modifying input
-  NumericVector new_ratings = clone(elo_ratings);
-  
-  // Process all matches
-  const double K = 32.0;
-  for (int i = 0; i < home_ids.size(); i++) {
-    int home_idx = team_index[home_ids[i]];
-    int away_idx = team_index[away_ids[i]];
-    
-    double home_elo = new_ratings[home_idx];
-    double away_elo = new_ratings[away_idx];
-    
-    // Expected scores
-    double expected_home = 1.0 / (1.0 + pow(10.0, (away_elo - home_elo) / 400.0));
-    
-    // Actual scores
-    double actual_home = (home_goals[i] > away_goals[i]) ? 1.0 :
-                        (home_goals[i] < away_goals[i]) ? 0.0 : 0.5;
-    
-    // Update ratings
-    new_ratings[home_idx] += K * (actual_home - expected_home);
-    new_ratings[away_idx] += K * ((1.0 - actual_home) - (1.0 - expected_home));
-  }
-  
-  return new_ratings;
-}
+# Run the engine's bench suite
+cargo bench
 ```
 
-#### Parallel Processing with OpenMP
-
-```cpp
-// [[Rcpp::plugins(openmp)]]
-// [[Rcpp::export]]
-NumericMatrix simulateSeasonParallel(NumericVector elo_ratings,
-                                    DataFrame fixtures,
-                                    int iterations = 10000) {
-  int n_teams = elo_ratings.size();
-  NumericMatrix position_counts(n_teams, n_teams);
-  
-  #pragma omp parallel for
-  for (int iter = 0; iter < iterations; iter++) {
-    // Each thread gets its own workspace
-    NumericVector iter_points(n_teams);
-    NumericVector iter_elos = clone(elo_ratings);
-    
-    // Simulate season
-    // ... simulation code ...
-    
-    // Update position matrix (thread-safe)
-    #pragma omp critical
-    {
-      for (int i = 0; i < n_teams; i++) {
-        position_counts(i, final_positions[i])++;
-      }
-    }
-  }
-  
-  return position_counts / iterations;
-}
-```
+If the bottleneck is on the R side (data prep, ELO aggregation, JSON marshalling) rather than the engine, profile R as in section 1 above and optimize the R code; do not pull simulation work out of Rust back into R/C++.
 
 ### 3. Data Structure Optimization
 
@@ -403,45 +331,9 @@ cache_api_response <- function(endpoint, params, ttl = 3600) {
 
 ### 6. Docker Optimization
 
-#### Multi-stage Build
+The production image is a single integrated container that compiles the Rust crate and pre-installs the R package set in one image. See the actual [`Dockerfile`](../../Dockerfile) for the build recipe and [`docs/deployment/README.md`](../deployment/README.md) for what's deployed today.
 
-```dockerfile
-# Example multi-stage build pattern (illustrative, not the production Dockerfile)
-# Build stage
-FROM rocker/r-ver:4.2.3 AS builder
-
-# Install compilation dependencies
-RUN apt-get update && apt-get install -y \
-    libcurl4-openssl-dev \
-    libssl-dev \
-    build-essential
-
-# Install R packages
-COPY renv.lock .
-RUN R -e "install.packages('renv')" && \
-    R -e "renv::restore()"
-
-# Compile Rcpp code
-COPY RCode/*.cpp /tmp/
-RUN R CMD SHLIB /tmp/*.cpp
-
-# Runtime stage
-FROM rocker/r-ver:4.2.3-slim
-
-# Copy only necessary files
-COPY --from=builder /usr/local/lib/R/site-library /usr/local/lib/R/site-library
-COPY --from=builder /tmp/*.so /app/RCode/
-
-# Install only runtime dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libcurl4 \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY . /app
-WORKDIR /app
-
-CMD ["Rscript", "RCode/updateScheduler.R"]
-```
+If image rebuild time is a problem, the `Build production image` GitHub Actions step caches both Cargo and R-package layers; check the cache hit rate in the workflow run before optimizing the Dockerfile itself.
 
 #### Resource Limits
 
@@ -569,9 +461,9 @@ analyze_bottlenecks <- function() {
 - [ ] Profile and fix hot spots
 
 ### Major Optimizations (> 4 hours)
-- [ ] Rewrite critical functions in Rcpp
-- [ ] Implement parallel processing
-- [ ] Move to faster data structures
+- [ ] Profile and optimize the Rust simulation engine (`league-simulator-rust/`)
+- [ ] Tune `rayon` thread-pool sizing or partition strategy
+- [ ] Move to faster data structures on the R side (data.table, vectorization)
 - [ ] Database query optimization
 - [ ] Horizontal scaling setup
 

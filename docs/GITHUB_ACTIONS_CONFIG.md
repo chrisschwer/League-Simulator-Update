@@ -159,7 +159,6 @@ For production deployments, create an environment named `production` with approp
 4. **"Coverage analysis failed"**
    - This is non-blocking and can be ignored
    - Ensure covr package is installed
-   - Check for C++ compilation issues
 
 ### Viewing Logs
 

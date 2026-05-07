@@ -35,7 +35,7 @@ Rscript scripts/season_transition.R 2024 2025 --non-interactive
 ## Architecture
 
 Four main components:
-1. **Simulation Engine** - Rcpp-based Monte Carlo simulations with ELO ratings
+1. **Simulation Engine** - Rust-based Monte Carlo simulations with ELO ratings (REST seam at `localhost:8080`)
 2. **Scheduler** - Automated updates at match times (Berlin timezone)
 3. **Season Transition** - Handles promotions/relegations between seasons
 4. **Web Interface** - Shiny app displaying probability heatmaps
