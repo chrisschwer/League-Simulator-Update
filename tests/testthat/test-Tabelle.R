@@ -147,18 +147,20 @@ test_that("Tabelle handles empty season", {
 })
 
 test_that("Tabelle handles tie-breaking correctly", {
-  # Create a season where teams have same points but different goal differences
+  # Fixture engineered so two teams (T1, T4) finish on identical points but
+  # different goal differences, forcing the GD tiebreak to be exercised.
+  # Final standings: T3 7pts/+2, T4 4pts/+1, T1 4pts/-1, T2 1pt/-2.
   season <- matrix(c(
-    1, 2, 2, 1,  # Team 1 beats Team 2 2-1
-    3, 4, 3, 0,  # Team 3 beats Team 4 3-0
-    1, 3, 0, 0,  # Team 1 draws Team 3 0-0
-    2, 4, 1, 1,  # Team 2 draws Team 4 1-1
-    1, 4, 1, 1,  # Team 1 draws Team 4 1-1
-    2, 3, 1, 2   # Team 3 beats Team 2 2-1
+    1, 2, 1, 0,  # Team 1 beats Team 2 1-0
+    3, 4, 1, 0,  # Team 3 beats Team 4 1-0
+    1, 3, 1, 1,  # Team 1 draws Team 3 1-1
+    2, 4, 0, 0,  # Team 2 draws Team 4 0-0
+    1, 4, 0, 2,  # Team 1 loses to Team 4 0-2
+    2, 3, 0, 1   # Team 3 beats Team 2 1-0
   ), nrow = 6, byrow = TRUE)
-  
+
   adj_none <- create_test_adjustments(4, "none")
-  
+
   result <- Tabelle_presentation(
     season = season,
     numberTeams = 4,
@@ -168,8 +170,13 @@ test_that("Tabelle handles tie-breaking correctly", {
     AdjGoalsAgainst = adj_none,
     AdjGoalDiff = adj_none
   )
-  
-  # When points are equal, teams should be sorted by goal difference
+
+  # Guard: the fixture must actually contain a tie, otherwise the loop below
+  # would silently exercise nothing (the original failure mode of this test).
+  expect_true(any(diff(result[, "Pts"]) == 0),
+              info = "Fixture must produce at least one tie in points")
+
+  # When points are equal, teams should be sorted by goal difference.
   for (i in 1:(nrow(result) - 1)) {
     if (result[i, "Pts"] == result[i + 1, "Pts"]) {
       expect_true(result[i, "GD"] >= result[i + 1, "GD"])
