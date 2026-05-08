@@ -236,7 +236,9 @@ main <- function(args) {
       cat("\n=== Season Transition Complete ===\n")
       cat("Seasons processed:", result$seasons_processed, "\n")
       cat("Files created:", length(result$files_created), "\n")
-      cat("Intermediate files removed:", removed, "\n")
+      if (removed > 0) {
+        cat("Intermediate files removed:", removed, "\n")
+      }
       cat("All team lists have been generated successfully.\n")
     } else {
       stop(paste("Season transition failed:", result$error))
