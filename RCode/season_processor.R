@@ -196,7 +196,7 @@ process_single_season <- function(season, previous_season) {
         stop(team_count_validation$message)
       }
     } else {
-      warning("Failed to merge league files")
+      stop("Failed to merge league files")
     }
     
     return(list(

@@ -35,6 +35,26 @@ test_that("process_single_season fails when validate_team_count rejects merged f
   expect_match(result$error, "Too few teams", fixed = TRUE)
 })
 
+test_that("process_single_season fails when merge_league_files returns NULL", {
+  # Sibling defect to validate_team_count: a NULL return from merge_league_files
+  # used to fall through to success=TRUE with only a warning. After issue #74
+  # it must structurally fail.
+  stub(process_single_season, "validate_season_completion", TRUE)
+  stub(process_single_season, "load_previous_team_list", data.frame())
+  stub(process_single_season, "calculate_final_elos", data.frame())
+  stub(process_single_season, "calculate_liga3_relegation_baseline", 1100)
+  stub(process_single_season, "fetch_all_leagues_teams", list("78" = list(list(id = 1))))
+  stub(process_single_season, "process_league_teams", list(list(id = 1)))
+  stub(process_single_season, "generate_league_csv", "RCode/TeamList_2099_League78.csv")
+  stub(process_single_season, "merge_league_files", NULL)  # the failure mode
+  stub(process_single_season, "get_league_name", "Bundesliga")
+
+  result <- process_single_season("2099", "2098")
+
+  expect_false(result$success)
+  expect_match(result$error, "Failed to merge league files", fixed = TRUE)
+})
+
 test_that("process_season_transition fails when end-of-pipeline validate_season_processing rejects target season", {
   # Stub the inner pipeline so the loop succeeds, but make the new end-of-pipeline
   # validate_season_processing call return valid=FALSE.
