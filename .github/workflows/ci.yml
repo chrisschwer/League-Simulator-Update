@@ -122,11 +122,15 @@ jobs:
       - name: Run testthat inside the image
         run: |
           mkdir -p ci-out
-          # Bind-mount tests/ + test_packagelist.txt into the prod image.
+          # Bind-mount tests/ + scripts/ + test_packagelist.txt into the prod image.
+          # scripts/ contains operator-facing tools (e.g. season_transition/cleanup.R)
+          # that the test suite invokes via Rscript subprocess; they aren't in the
+          # production image because they're not part of the runtime call graph.
           # Install test-only deps (full list from test_packagelist.txt) since
           # the production image only ships runtime deps from packagelist.txt.
           docker run --rm \
             -v "$PWD/tests:/app/tests:ro" \
+            -v "$PWD/scripts:/app/scripts:ro" \
             -v "$PWD/test_packagelist.txt:/app/test_packagelist.txt:ro" \
             -v "$PWD/ci-out:/out" \
             -w /app \
