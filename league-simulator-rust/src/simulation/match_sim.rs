@@ -38,7 +38,7 @@ pub fn simulate_match(
 }
 
 /// Simulates a match with actual random number generation
-pub fn simulate_match_random<R: rand::Rng>(
+pub fn simulate_match_random<R: rand::Rng + rand::RngExt>(
     elo_home: f64,
     elo_away: f64,
     mod_factor: f64,
@@ -47,8 +47,8 @@ pub fn simulate_match_random<R: rand::Rng>(
     tore_intercept: f64,
     rng: &mut R,
 ) -> EloResult {
-    let random_home = rng.gen::<f64>();
-    let random_away = rng.gen::<f64>();
+    let random_home = rng.random::<f64>();
+    let random_away = rng.random::<f64>();
 
     simulate_match(
         elo_home,

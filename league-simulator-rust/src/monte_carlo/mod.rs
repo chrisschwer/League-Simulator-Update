@@ -1,6 +1,6 @@
 use crate::models::{Season, SimulationParams, SimulationResult};
 use crate::simulation::process_season;
-use rand::{rngs::StdRng, thread_rng, Rng, SeedableRng};
+use rand::{rngs::StdRng, RngExt, SeedableRng};
 use rayon::prelude::*;
 use std::sync::Mutex;
 
@@ -16,8 +16,8 @@ pub fn run_monte_carlo_simulation(
     params: &SimulationParams,
     team_names: Vec<String>,
 ) -> SimulationResult {
-    let mut rng = thread_rng();
-    let seeds: Vec<u64> = (0..params.iterations).map(|_| rng.gen()).collect();
+    let mut rng = rand::rng();
+    let seeds: Vec<u64> = (0..params.iterations).map(|_| rng.random()).collect();
     run_monte_carlo_simulation_with_seeds(season, params, team_names, &seeds)
 }
 
@@ -39,7 +39,7 @@ pub fn run_monte_carlo_simulation_seeded(
     master_seed: u64,
 ) -> SimulationResult {
     let mut master = StdRng::seed_from_u64(master_seed);
-    let seeds: Vec<u64> = (0..params.iterations).map(|_| master.gen()).collect();
+    let seeds: Vec<u64> = (0..params.iterations).map(|_| master.random()).collect();
     run_monte_carlo_simulation_with_seeds(season, params, team_names, &seeds)
 }
 
