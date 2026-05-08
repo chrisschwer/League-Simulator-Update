@@ -58,13 +58,20 @@ if (!confirm) {
 # Confirmed: delete and report.
 cat("Cleanup for season ", season, "\n", sep = "")
 removed <- character(0)
+failed_paths <- character(0)
 for (f in matches) {
   if (file.remove(f)) {
     removed <- c(removed, f)
   } else {
+    failed_paths <- c(failed_paths, f)
     warning(paste("Could not remove:", f))
   }
 }
 cat("Removed ", length(removed), " files:\n", sep = "")
 for (f in removed) cat("  ", f, "\n", sep = "")
+if (length(failed_paths) > 0L) {
+  cat("Failed to remove ", length(failed_paths), " files:\n", sep = "")
+  for (f in failed_paths) cat("  ", f, "\n", sep = "")
+  quit(status = 1)
+}
 quit(status = 0)
