@@ -82,7 +82,13 @@ process_season_transition <- function(source_season, target_season) {
         }
       }
     }
-    
+
+    # End-of-pipeline validation: assert the produced target season is well-formed
+    final_validation <- validate_season_processing(target_season)
+    if (!final_validation$valid) {
+      stop(final_validation$message)
+    }
+
     # Display completion message
     display_completion_message(seasons_processed, files_created)
     
