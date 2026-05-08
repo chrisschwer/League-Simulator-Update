@@ -38,9 +38,9 @@ setup_rcode <- function(files) {
 
 test_that("cleanup wrapper dry-run leaves files untouched", {
   tmp <- setup_rcode(c(
-    "TeamList_2099_League78.csv",
-    "TeamList_2099_League79.csv",
-    "TeamList_2099_League80.csv"
+    "TeamList_2099_League78_temp.csv",
+    "TeamList_2099_League79_temp.csv",
+    "TeamList_2099_League80_temp.csv"
   ))
   on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
 
@@ -49,16 +49,16 @@ test_that("cleanup wrapper dry-run leaves files untouched", {
   expect_equal(res$status, 0L)
   expect_match(res$output, "Would remove 3 files", fixed = TRUE)
   expect_match(res$output, "Use --confirm", fixed = TRUE)
-  expect_true(file.exists(file.path(tmp, "RCode", "TeamList_2099_League78.csv")))
-  expect_true(file.exists(file.path(tmp, "RCode", "TeamList_2099_League79.csv")))
-  expect_true(file.exists(file.path(tmp, "RCode", "TeamList_2099_League80.csv")))
+  expect_true(file.exists(file.path(tmp, "RCode", "TeamList_2099_League78_temp.csv")))
+  expect_true(file.exists(file.path(tmp, "RCode", "TeamList_2099_League79_temp.csv")))
+  expect_true(file.exists(file.path(tmp, "RCode", "TeamList_2099_League80_temp.csv")))
 })
 
 test_that("cleanup wrapper --confirm removes matched files", {
   tmp <- setup_rcode(c(
-    "TeamList_2099_League78.csv",
-    "TeamList_2099_League79.csv",
-    "TeamList_2099_League80.csv"
+    "TeamList_2099_League78_temp.csv",
+    "TeamList_2099_League79_temp.csv",
+    "TeamList_2099_League80_temp.csv"
   ))
   on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
 
@@ -66,22 +66,22 @@ test_that("cleanup wrapper --confirm removes matched files", {
 
   expect_equal(res$status, 0L)
   expect_match(res$output, "Removed 3 files", fixed = TRUE)
-  expect_false(file.exists(file.path(tmp, "RCode", "TeamList_2099_League78.csv")))
-  expect_false(file.exists(file.path(tmp, "RCode", "TeamList_2099_League79.csv")))
-  expect_false(file.exists(file.path(tmp, "RCode", "TeamList_2099_League80.csv")))
+  expect_false(file.exists(file.path(tmp, "RCode", "TeamList_2099_League78_temp.csv")))
+  expect_false(file.exists(file.path(tmp, "RCode", "TeamList_2099_League79_temp.csv")))
+  expect_false(file.exists(file.path(tmp, "RCode", "TeamList_2099_League80_temp.csv")))
 })
 
 test_that("cleanup wrapper does not touch foreign files even with --confirm", {
   tmp <- setup_rcode(c(
-    "TeamList_2099_League78.csv",
-    "TeamList_2099_League79.csv",
-    "TeamList_2099_League80.csv",
+    "TeamList_2099_League78_temp.csv",
+    "TeamList_2099_League79_temp.csv",
+    "TeamList_2099_League80_temp.csv",
     # Foreign files that must NOT be deleted:
     "TeamList_2099.csv",          # final season file
     "TeamList_2099_archive.csv",  # arbitrary non-pipeline name
     "stale.tmp",
     "active.lock",
-    "TeamList_2098_League78.csv"  # different season
+    "TeamList_2098_League78_temp.csv"  # different season
   ))
   on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
 
@@ -90,15 +90,15 @@ test_that("cleanup wrapper does not touch foreign files even with --confirm", {
   expect_equal(res$status, 0L)
   expect_match(res$output, "Removed 3 files", fixed = TRUE)
   # Pipeline-produced files for 2099 are gone:
-  expect_false(file.exists(file.path(tmp, "RCode", "TeamList_2099_League78.csv")))
-  expect_false(file.exists(file.path(tmp, "RCode", "TeamList_2099_League79.csv")))
-  expect_false(file.exists(file.path(tmp, "RCode", "TeamList_2099_League80.csv")))
+  expect_false(file.exists(file.path(tmp, "RCode", "TeamList_2099_League78_temp.csv")))
+  expect_false(file.exists(file.path(tmp, "RCode", "TeamList_2099_League79_temp.csv")))
+  expect_false(file.exists(file.path(tmp, "RCode", "TeamList_2099_League80_temp.csv")))
   # Foreign files survive:
   expect_true(file.exists(file.path(tmp, "RCode", "TeamList_2099.csv")))
   expect_true(file.exists(file.path(tmp, "RCode", "TeamList_2099_archive.csv")))
   expect_true(file.exists(file.path(tmp, "RCode", "stale.tmp")))
   expect_true(file.exists(file.path(tmp, "RCode", "active.lock")))
-  expect_true(file.exists(file.path(tmp, "RCode", "TeamList_2098_League78.csv")))
+  expect_true(file.exists(file.path(tmp, "RCode", "TeamList_2098_League78_temp.csv")))
 })
 
 test_that("cleanup wrapper prints explanatory message on zero matches", {

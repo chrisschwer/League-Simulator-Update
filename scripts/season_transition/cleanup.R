@@ -2,7 +2,7 @@
 
 # Cleanup-Wrapper for incomplete season transitions.
 #
-# Removes intermediate league CSVs (TeamList_<season>_League<78|79|80>.csv)
+# Removes intermediate league CSVs (TeamList_<season>_League<78|79|80>_temp.csv)
 # left behind when scripts/season_transition.R aborts before merging.
 #
 # When to use: only after a failed season transition. The successful path
@@ -33,7 +33,7 @@ if (!grepl("^[0-9]{4}$", season)) {
 # Narrow regex: match exactly the intermediate files the pipeline produces
 # via generate_league_csv for leagues 78 (Bundesliga), 79 (2. Bundesliga),
 # 80 (3. Liga). The final TeamList_<season>.csv is intentionally NOT matched.
-pattern <- paste0("^TeamList_", season, "_League(78|79|80)\\.csv$")
+pattern <- paste0("^TeamList_", season, "_League(78|79|80)_temp\\.csv$")
 search_dir <- "RCode"
 
 matches <- list.files(search_dir, pattern = pattern, full.names = TRUE)
@@ -41,13 +41,13 @@ matches <- list.files(search_dir, pattern = pattern, full.names = TRUE)
 if (length(matches) == 0) {
   cat("No cleanup files found for season ", season, ".\n", sep = "")
   cat("(Searched ", search_dir, "/ for TeamList_", season,
-      "_League(78|79|80).csv)\n", sep = "")
+      "_League(78|79|80)_temp.csv)\n", sep = "")
   quit(status = 0)
 }
 
 if (!confirm) {
   cat("Cleanup dry-run for season ", season, "\n", sep = "")
-  cat("Pattern: TeamList_", season, "_League(78|79|80).csv in ",
+  cat("Pattern: TeamList_", season, "_League(78|79|80)_temp.csv in ",
       search_dir, "/\n", sep = "")
   cat("Would remove ", length(matches), " files:\n", sep = "")
   for (f in matches) cat("  ", f, "\n", sep = "")

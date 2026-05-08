@@ -427,7 +427,7 @@ Rscript scripts/season_transition/cleanup.R 2025
 Rscript scripts/season_transition/cleanup.R 2025 --confirm
 ```
 
-The wrapper only matches files of the form `TeamList_<season>_League(78|79|80).csv` in `RCode/`. It does **not** touch:
+The wrapper only matches files of the form `TeamList_<season>_League(78|79|80)_temp.csv` in `RCode/`. It does **not** touch:
 
 - `RCode/TeamList_<season>.csv` (the final season file)
 - Any `.tmp` or `.lock` files
