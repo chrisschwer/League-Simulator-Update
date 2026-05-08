@@ -417,20 +417,24 @@ source("scripts/season_transition.R")
 
 ### Manual Recovery
 
-If transition fails partially:
+If `scripts/season_transition.R` aborts mid-run, intermediate per-league CSV files may remain in `RCode/`. Use the recovery wrapper to remove them:
 
-```r
-# Load partial results
-if (file.exists("RCode/TeamList_2025_partial.csv")) {
-  teams <- read.csv("RCode/TeamList_2025_partial.csv")
-  
-  # Complete missing steps manually
-  # ... make corrections ...
-  
-  # Save final version
-  write.csv(teams, "RCode/TeamList_2025.csv", row.names = FALSE)
-}
+```bash
+# Dry-run (default): list files that would be removed, do not delete
+Rscript scripts/season_transition/cleanup.R 2025
+
+# Actually delete
+Rscript scripts/season_transition/cleanup.R 2025 --confirm
 ```
+
+The wrapper only matches files of the form `TeamList_<season>_League(78|79|80).csv` in `RCode/`. It does **not** touch:
+
+- `RCode/TeamList_<season>.csv` (the final season file)
+- Any `.tmp` or `.lock` files
+- Anything outside `RCode/`
+- Files for other seasons
+
+You normally do not need to run this manually — the main script auto-cleans intermediate files on successful runs. This wrapper exists for the failure-recovery case.
 
 ### Rollback Procedure
 
@@ -465,24 +469,3 @@ docker-compose restart
 - [API Configuration](../deployment/quick-start.md#api-configuration)
 - [Backup Procedures](../operations/backup-recovery.md)
 - [Troubleshooting](../troubleshooting/common-issues.md#season-transition)
-
-## Recovery: Cleanup after a failed transition
-
-If `scripts/season_transition.R` aborts mid-run (network failure, validation rejection, manual interrupt), intermediate per-league CSV files may remain in `RCode/`. Use the recovery wrapper to remove them:
-
-```bash
-# Dry-run (default): list files that would be removed, do not delete
-Rscript scripts/season_transition/cleanup.R 2025
-
-# Actually delete
-Rscript scripts/season_transition/cleanup.R 2025 --confirm
-```
-
-The wrapper only matches files of the form `TeamList_<season>_League(78|79|80).csv` in `RCode/`. It does **not** touch:
-
-- `RCode/TeamList_<season>.csv` (the final season file)
-- Any `.tmp` or `.lock` files
-- Anything outside `RCode/`
-- Files for other seasons
-
-You normally do not need to run this manually — the main script auto-cleans intermediate files on successful runs. This wrapper exists for the failure-recovery case.
