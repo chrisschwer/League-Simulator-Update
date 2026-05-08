@@ -3,6 +3,9 @@
 
 pub mod handlers;
 
+#[cfg(test)]
+mod tests;
+
 use axum::{
     http::Method,
     routing::{get, post},
