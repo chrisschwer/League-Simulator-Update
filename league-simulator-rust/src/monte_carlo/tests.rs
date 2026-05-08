@@ -116,6 +116,8 @@ fn test_monte_carlo_with_adjustments() {
 
     let params = SimulationParams {
         iterations: 100,
+        // Penalize team 2 (like Liga 3 second teams)
+        adj_points: Some(vec![0, 0, -50]),
         ..Default::default()
     };
 
@@ -125,12 +127,7 @@ fn test_monte_carlo_with_adjustments() {
         "Team C (2nd)".to_string(),
     ];
 
-    // Penalize team 2 (like Liga 3 second teams)
-    let adj_points = Some(vec![0, 0, -50]);
-
-    let result = run_monte_carlo_with_adjustments(
-        &season, &params, team_names, adj_points, None, None, None,
-    );
+    let result = run_monte_carlo_simulation(&season, &params, team_names);
 
     // Team 2 should almost certainly finish last due to -50 points penalty
     // Find team 2 in the results (it might not be at index 2 due to sorting)
