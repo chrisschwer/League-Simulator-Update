@@ -193,7 +193,7 @@ process_single_season <- function(season, previous_season) {
       # Validate team count
       team_count_validation <- validate_team_count(merged_file)
       if (!team_count_validation$valid) {
-        warning(team_count_validation$message)
+        stop(team_count_validation$message)
       }
     } else {
       warning("Failed to merge league files")
