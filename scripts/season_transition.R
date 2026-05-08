@@ -218,9 +218,28 @@ main <- function(args) {
     result <- process_season_transition(source_season, target_season)
     
     if (result$success) {
+      # Auto-cleanup of intermediate league CSVs. The final TeamList is kept;
+      # everything else in result$files_created is removed. List-based deletion:
+      # we only touch files the pipeline reports as having created — no globs.
+      final_file <- file.path("RCode", paste0("TeamList_", target_season, ".csv"))
+      intermediates <- setdiff(result$files_created, final_file)
+      removed <- 0
+      for (f in intermediates) {
+        if (file.exists(f)) {
+          if (file.remove(f)) {
+            removed <- removed + 1
+          } else {
+            warning(paste("Could not remove intermediate file:", f))
+          }
+        }
+      }
+
       cat("\n=== Season Transition Complete ===\n")
       cat("Seasons processed:", result$seasons_processed, "\n")
       cat("Files created:", length(result$files_created), "\n")
+      if (removed > 0) {
+        cat("Intermediate files removed:", removed, "\n")
+      }
       cat("All team lists have been generated successfully.\n")
     } else {
       stop(paste("Season transition failed:", result$error))

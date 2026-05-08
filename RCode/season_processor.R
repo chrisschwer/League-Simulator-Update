@@ -82,7 +82,13 @@ process_season_transition <- function(source_season, target_season) {
         }
       }
     }
-    
+
+    # End-of-pipeline validation: assert the produced target season is well-formed
+    final_validation <- validate_season_processing(target_season)
+    if (!final_validation$valid) {
+      stop(final_validation$message)
+    }
+
     # Display completion message
     display_completion_message(seasons_processed, files_created)
     
@@ -193,10 +199,10 @@ process_single_season <- function(season, previous_season) {
       # Validate team count
       team_count_validation <- validate_team_count(merged_file)
       if (!team_count_validation$valid) {
-        warning(team_count_validation$message)
+        stop(team_count_validation$message)
       }
     } else {
-      warning("Failed to merge league files")
+      stop("Failed to merge league files")
     }
     
     return(list(
@@ -487,88 +493,5 @@ validate_season_processing <- function(season, team_count_expected = 60) {
       valid = FALSE,
       message = paste("Validation error:", e$message)
     ))
-  })
-}
-
-create_processing_report <- function(source_season, target_season, processing_results) {
-  # Create processing report for documentation
-  # Returns report data structure
-  
-  tryCatch({
-    report <- list(
-      timestamp = Sys.time(),
-      source_season = source_season,
-      target_season = target_season,
-      success = processing_results$success,
-      seasons_processed = processing_results$seasons_processed,
-      files_created = processing_results$files_created,
-      total_teams = 0
-    )
-    
-    # Count total teams across all files
-    if (!is.null(processing_results$files_created)) {
-      for (file in processing_results$files_created) {
-        if (file.exists(file)) {
-          data <- safe_file_read(file)
-          if (!is.null(data)) {
-            report$total_teams <- report$total_teams + nrow(data)
-          }
-        }
-      }
-    }
-    
-    # Add error information if failed
-    if (!processing_results$success) {
-      report$error = processing_results$error
-    }
-    
-    # Save report to file
-    report_file <- paste0("processing_report_", source_season, "_to_", target_season, ".json")
-    writeLines(jsonlite::toJSON(report, pretty = TRUE), report_file)
-    
-    cat("Processing report saved to:", report_file, "\n")
-    
-    return(report)
-    
-  }, error = function(e) {
-    warning("Error creating processing report:", e$message)
-    return(NULL)
-  })
-}
-
-cleanup_processing_artifacts <- function(season) {
-  # Clean up temporary files and artifacts
-  # Returns number of files cleaned
-  
-  tryCatch({
-    cleanup_patterns <- c(
-      paste0("TeamList_", season, "_.*\\.csv"),  # League-specific files
-      paste0(".*_backup_.*\\.csv"),              # Backup files
-      ".*\\.tmp",                                # Temporary files
-      ".*\\.lock"                                # Lock files
-    )
-    
-    total_cleaned <- 0
-    
-    for (pattern in cleanup_patterns) {
-      files <- list.files("RCode", pattern = pattern, full.names = TRUE)
-      
-      for (file in files) {
-        if (file.exists(file)) {
-          file.remove(file)
-          total_cleaned <- total_cleaned + 1
-        }
-      }
-    }
-    
-    if (total_cleaned > 0) {
-      cat("Cleaned up", total_cleaned, "temporary files\n")
-    }
-    
-    return(total_cleaned)
-    
-  }, error = function(e) {
-    warning("Error cleaning up artifacts:", e$message)
-    return(0)
   })
 }

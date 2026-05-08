@@ -50,6 +50,10 @@ RAPIDAPI_KEY=your_api_key  # Required for API-Football access
 
 For all environment variables, see @docs/deployment/quick-start.md
 
+## Conventions
+
+When adding helper functions in `RCode/` that operators run outside the production call graph: provide a `scripts/` wrapper, document it in `docs/user-guide/`, default destructive operations to dry-run with explicit `--confirm`.
+
 ## Current Status
 
 - **Season**: 2024-2025
