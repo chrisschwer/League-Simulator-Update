@@ -146,39 +146,66 @@ fn test_monte_carlo_with_adjustments() {
 }
 
 #[test]
-#[ignore = "flaky — see follow-up issue for determinism investigation"]
-fn test_monte_carlo_deterministic() {
+fn seeded_run_is_idempotent_and_sensitive_to_the_seed() {
+    // Pins two halves of the seeded contract — see issue #96.
+    //
+    // (1) Idempotence: same `master_seed` → identical probability matrix.
+    //     Catches "seed is silently ignored" (e.g. the function pulls from
+    //     `thread_rng()` instead of seeding from the parameter).
+    //
+    // (2) Sensitivity: different `master_seed` → different probability matrix.
+    //     Catches "seed is consumed but flattened to a constant" (e.g. someone
+    //     replaces `master_seed` with `0` or hard-codes the per-iteration seed
+    //     vector).
+    //
+    // Neither assertion is bit-exact against a recorded reference value, so
+    // refactoring how `process_season` consumes RNG values won't break this
+    // test as long as the seeded variant remains genuinely deterministic and
+    // genuinely seed-dependent.
     let season = Season {
-        matches: vec![Match {
-            team_home: 0,
-            team_away: 1,
-            goals_home: None,
-            goals_away: None,
-        }],
-        team_elos: vec![1500.0, 1500.0],
-        number_teams: 2,
+        matches: vec![
+            Match {
+                team_home: 0,
+                team_away: 1,
+                goals_home: None,
+                goals_away: None,
+            },
+            Match {
+                team_home: 1,
+                team_away: 2,
+                goals_home: None,
+                goals_away: None,
+            },
+            Match {
+                team_home: 2,
+                team_away: 0,
+                goals_home: None,
+                goals_away: None,
+            },
+        ],
+        team_elos: vec![1500.0, 1500.0, 1500.0],
+        number_teams: 3,
     };
 
     let params = SimulationParams {
-        iterations: 50,
+        iterations: 200,
         ..Default::default()
     };
 
-    let team_names = vec!["A".to_string(), "B".to_string()];
+    let team_names = vec!["A".to_string(), "B".to_string(), "C".to_string()];
 
-    // Run twice - should get same results due to seeded RNG
-    let result1 = run_monte_carlo_simulation(&season, &params, team_names.clone());
-    let result2 = run_monte_carlo_simulation(&season, &params, team_names.clone());
+    let same_a = run_monte_carlo_simulation_seeded(&season, &params, team_names.clone(), 42);
+    let same_b = run_monte_carlo_simulation_seeded(&season, &params, team_names.clone(), 42);
+    let other = run_monte_carlo_simulation_seeded(&season, &params, team_names.clone(), 43);
 
-    // Results should be identical
-    for i in 0..2 {
-        for j in 0..2 {
-            assert_eq!(
-                result1.probability_matrix[i][j], result2.probability_matrix[i][j],
-                "Results should be deterministic"
-            );
-        }
-    }
+    assert_eq!(
+        same_a.probability_matrix, same_b.probability_matrix,
+        "Same seed produced different probability matrices — the seed is being ignored"
+    );
+    assert_ne!(
+        same_a.probability_matrix, other.probability_matrix,
+        "Distinct seeds produced bit-identical probability matrices — the seed has no effect"
+    );
 }
 
 #[test]
