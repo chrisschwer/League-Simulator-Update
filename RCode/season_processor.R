@@ -84,6 +84,12 @@ process_season_transition <- function(source_season, target_season) {
         }
       }
 
+      # End-of-pipeline validation: assert the produced target season is well-formed
+      final_validation <- validate_season_processing(target_season)
+      if (!final_validation$valid) {
+        stop(final_validation$message)
+      }
+
       # Display completion message
       display_completion_message(seasons_processed, files_created)
 
@@ -196,10 +202,10 @@ process_single_season <- function(season, previous_season) {
         # Validate team count
         team_count_validation <- validate_team_count(merged_file)
         if (!team_count_validation$valid) {
-          warning(team_count_validation$message)
+          stop(team_count_validation$message)
         }
       } else {
-        warning("Failed to merge league files")
+        stop("Failed to merge league files")
       }
 
       return(list(
@@ -217,129 +223,59 @@ process_single_season <- function(season, previous_season) {
   )
 }
 
-#' Process teams for a specific league
+#' Process teams for a league
 #'
-#' Processes team data for a league including ELO assignment and name handling
+#' Thin orchestrator over resolve_team_history + build_*_team_record.
+#' Refactored in issue #73 from a 120-line mixed-concern implementation.
 #'
-#' @param teams The team data to process
-#' @param league_id The ID of the league
-#' @param season The season year
-#' @param final_elos Final ELO ratings from previous season
-#' @param liga3_baseline Baseline ELO for Liga 3 teams
-#' @param previous_team_list Previous season team list for carryover
-#' @return Processed team data frame
+#' @param teams List of team records from API
+#' @param league_id League ID ("78", "79", "80")
+#' @param season Season year (currently unused; kept for caller signature stability)
+#' @param final_elos Data frame of previous-season final ELOs
+#' @param liga3_baseline Baseline ELO for Liga 3
+#' @param previous_team_list Previous season's team list (or NULL on first season)
+#' @param prompt_fn Function used to prompt for new-team data; default
+#'   prompt_for_team_info. Tests can pass a stub closure to bypass I/O.
+#' @return List of team records, or NULL on error
 #' @export
-process_league_teams <- function(teams, league_id, season, final_elos, liga3_baseline, previous_team_list = NULL) {
-  # Process teams for a specific league
-  # Handles ELO assignment and user prompts with carryover from previous seasons
-
+process_league_teams <- function(teams, league_id, season, final_elos, liga3_baseline,
+                                 previous_team_list = NULL,
+                                 prompt_fn = prompt_for_team_info) {
   tryCatch(
     {
       processed_teams <- list()
-      existing_short_names <- c()
+      existing_short_names <- character()
 
       for (i in seq_along(teams)) {
         team <- teams[[i]]
+        history <- resolve_team_history(team$id, previous_team_list, final_elos)
 
-        # Check if team existed in previous season - prioritize previous_team_list over final_elos
-        team_exists <- FALSE
-        team_elo <- NULL
-        previous_data <- NULL
-
-        # First check previous_team_list (contains teams from current processing)
-        if (!is.null(previous_team_list)) {
-          previous_data <- get_existing_team_data(team$id, previous_team_list)
-          if (!is.null(previous_data)) {
-            team_exists <- TRUE
-            # Get final ELO if available
-            elo_row <- final_elos$FinalELO[final_elos$TeamID == team$id]
-            if (length(elo_row) > 0) {
-              team_elo <- elo_row[1]
-            }
-          }
-        }
-
-        # Fall back to final_elos check if not found in previous_team_list
-        if (!team_exists) {
-          team_elo <- final_elos$FinalELO[final_elos$TeamID == team$id]
-          if (length(team_elo) > 0) {
-            team_exists <- TRUE
-          }
-        }
-
-        if (!team_exists) {
-          # New team - need user input
-          cat("\n--- New Team Detected ---\n")
-          cat("Team ID:", team$id, "\n")
-          cat("Team Name:", team$name, "\n")
-          cat("League:", get_league_name(league_id), "\n")
-
-          # Get team information interactively, pass baseline for Liga3
-          team_info <- prompt_for_team_info(team$name, league_id, existing_short_names, liga3_baseline)
-
-          # Apply second team conversion if needed
-          final_short_name <- convert_second_team_short_name(
-            team_info$short_name,
-            team$is_second_team,
-            team_info$promotion_value
+        processed_team <- if (history$state == "new") {
+          build_new_team_record(
+            team, league_id, liga3_baseline,
+            existing_short_names, prompt_fn
           )
-
-          processed_team <- list(
-            id = team$id,
-            name = team$name,
-            short_name = final_short_name,
-            initial_elo = team_info$initial_elo,
-            promotion_value = team_info$promotion_value
-          )
-
-          existing_short_names <- c(existing_short_names, final_short_name)
         } else {
-          # Existing team - use data from previous season (already found above)
-          if (!is.null(previous_data)) {
-            # Use carryover data from previous season
-            short_name <- previous_data$short_name
-            promotion_value <- previous_data$promotion_value
-          } else {
-            # Fallback: generate new data if not found in previous season
-            warning(paste("Team", team$id, "-", team$name, "not found in previous season, generating new data"))
-            short_name <- get_team_short_name(team$name)
-
-            # Ensure uniqueness
-            if (short_name %in% existing_short_names) {
-              short_name <- generate_unique_short_name(short_name, existing_short_names)
+          if (history$state == "carryover") {
+            if (!is.null(history$team_elo)) {
+              cat(
+                "Team", team$id, "(", team$name, "): Using final ELO",
+                round(history$team_elo, 2), "\n"
+              )
+            } else {
+              cat(
+                "Team", team$id, "(", team$name, "): Using baseline ELO",
+                round(league_baseline_elo(league_id, liga3_baseline), 2), "\n"
+              )
             }
-
-            # Determine promotion value
-            promotion_value <- ifelse(team$is_second_team, -50, 0)
           }
-
-          # Apply second team conversion if needed
-          final_short_name <- convert_second_team_short_name(
-            short_name,
-            team$is_second_team,
-            promotion_value
+          build_carryover_team_record(
+            team, history, league_id,
+            liga3_baseline, existing_short_names
           )
-
-          # Use team_elo if available, otherwise use baseline
-          if (!is.null(team_elo) && length(team_elo) > 0) {
-            initial_elo <- team_elo[1]
-            cat("Team", team$id, "(", team$name, "): Using final ELO", round(initial_elo, 2), "\n")
-          } else {
-            initial_elo <- ifelse(league_id == 80, liga3_baseline, 1500)
-            cat("Team", team$id, "(", team$name, "): Using baseline ELO", round(initial_elo, 2), "\n")
-          }
-
-          processed_team <- list(
-            id = team$id,
-            name = team$name,
-            short_name = final_short_name,
-            initial_elo = initial_elo,
-            promotion_value = promotion_value
-          )
-
-          existing_short_names <- c(existing_short_names, final_short_name)
         }
 
+        existing_short_names <- c(existing_short_names, processed_team$short_name)
         processed_teams[[i]] <- processed_team
       }
 
@@ -577,93 +513,6 @@ validate_season_processing <- function(season, team_count_expected = 60) {
         valid = FALSE,
         message = paste("Validation error:", e$message)
       ))
-    }
-  )
-}
-
-create_processing_report <- function(source_season, target_season, processing_results) {
-  # Create processing report for documentation
-  # Returns report data structure
-
-  tryCatch(
-    {
-      report <- list(
-        timestamp = Sys.time(),
-        source_season = source_season,
-        target_season = target_season,
-        success = processing_results$success,
-        seasons_processed = processing_results$seasons_processed,
-        files_created = processing_results$files_created,
-        total_teams = 0
-      )
-
-      # Count total teams across all files
-      if (!is.null(processing_results$files_created)) {
-        for (file in processing_results$files_created) {
-          if (file.exists(file)) {
-            data <- safe_file_read(file)
-            if (!is.null(data)) {
-              report$total_teams <- report$total_teams + nrow(data)
-            }
-          }
-        }
-      }
-
-      # Add error information if failed
-      if (!processing_results$success) {
-        report$error <- processing_results$error
-      }
-
-      # Save report to file
-      report_file <- paste0("processing_report_", source_season, "_to_", target_season, ".json")
-      writeLines(jsonlite::toJSON(report, pretty = TRUE), report_file)
-
-      cat("Processing report saved to:", report_file, "\n")
-
-      return(report)
-    },
-    error = function(e) {
-      warning("Error creating processing report:", e$message)
-      return(NULL)
-    }
-  )
-}
-
-cleanup_processing_artifacts <- function(season) {
-  # Clean up temporary files and artifacts
-  # Returns number of files cleaned
-
-  tryCatch(
-    {
-      cleanup_patterns <- c(
-        paste0("TeamList_", season, "_.*\\.csv"), # League-specific files
-        paste0(".*_backup_.*\\.csv"), # Backup files
-        ".*\\.tmp", # Temporary files
-        ".*\\.lock" # Lock files
-      )
-
-      total_cleaned <- 0
-
-      for (pattern in cleanup_patterns) {
-        files <- list.files("RCode", pattern = pattern, full.names = TRUE)
-
-        for (file in files) {
-          if (file.exists(file)) {
-            file.remove(file)
-            total_cleaned <- total_cleaned + 1
-          }
-        }
-      }
-
-      if (total_cleaned > 0) {
-        cat("Cleaned up", total_cleaned, "temporary files\n")
-      }
-
-      return(total_cleaned)
-    },
-    error = function(e) {
-      warning("Error cleaning up artifacts:", e$message)
-      return(0)
     }
   )
 }

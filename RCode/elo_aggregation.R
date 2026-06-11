@@ -212,15 +212,14 @@ fetch_league_results <- function(league, season) {
 }
 
 update_elos_for_match <- function(current_elos, match) {
-  # Update ELO ratings based on a single match result
-  # Uses the existing SpielNichtSimulieren function if available
+  # Update ELO ratings based on a single match result.
+  # Calls calculate_elo_update, the sole ELO primitive.
 
   home_team_id <- match$teams_home_id
   away_team_id <- match$teams_away_id
   goals_home <- match$goals_home
   goals_away <- match$goals_away
 
-  # Get current ELOs
   home_elo <- current_elos$CurrentELO[current_elos$TeamID == home_team_id]
   away_elo <- current_elos$CurrentELO[current_elos$TeamID == away_team_id]
 
@@ -229,48 +228,17 @@ update_elos_for_match <- function(current_elos, match) {
     return(current_elos)
   }
 
-  # Test probe: when SEASON_TRANSITION_ENGINE_PROBE is set, write whether the C++
-  # primitive is available to that file path. Off by default; production unaffected.
-  # Removed during Phase-2 refactor along with the exists() guard below
-  # (see docs/prds/2026-05-03-simulation-engine-seam-phase-2.md and
-  # docs/superpowers/specs/2026-05-03-season-transition-test-coverage-design.md).
-  if (Sys.getenv("SEASON_TRANSITION_ENGINE_PROBE") != "") {
-    writeLines(
-      as.character(exists("SpielNichtSimulieren")),
-      Sys.getenv("SEASON_TRANSITION_ENGINE_PROBE")
-    )
-  }
+  new_elos <- calculate_elo_update(home_elo[1], away_elo[1], goals_home, goals_away)
 
-  # Use existing ELO calculation if available
-  if (exists("SpielNichtSimulieren")) {
-    # Use standard parameters
-    mod_factor <- 20 # Standard K-factor
-    home_advantage <- 100 # Standard home advantage
-
-    # Calculate new ELOs
-    elo_result <- SpielNichtSimulieren(
-      home_elo[1], away_elo[1],
-      goals_home, goals_away,
-      mod_factor, home_advantage
-    )
-
-    # Update current ELOs
-    current_elos$CurrentELO[current_elos$TeamID == home_team_id] <- elo_result[1]
-    current_elos$CurrentELO[current_elos$TeamID == away_team_id] <- elo_result[2]
-  } else {
-    # Fallback ELO calculation
-    new_elos <- calculate_elo_update(home_elo[1], away_elo[1], goals_home, goals_away)
-
-    current_elos$CurrentELO[current_elos$TeamID == home_team_id] <- new_elos$home_elo
-    current_elos$CurrentELO[current_elos$TeamID == away_team_id] <- new_elos$away_elo
-  }
+  current_elos$CurrentELO[current_elos$TeamID == home_team_id] <- new_elos$home_elo
+  current_elos$CurrentELO[current_elos$TeamID == away_team_id] <- new_elos$away_elo
 
   return(current_elos)
 }
 
 calculate_elo_update <- function(home_elo, away_elo, goals_home, goals_away) {
-  # Fallback ELO calculation function
-  # Implements standard ELO with goal difference modifier
+  # Primary ELO calculation function.
+  # Implements standard ELO with goal difference modifier.
 
   # Standard parameters
   k_factor <- 20
@@ -338,7 +306,7 @@ calculate_liga3_relegation_baseline <- function(season) {
         # Try temporary files if main file doesn't exist
         temp_files <- list.files(
           "RCode",
-          pattern = paste0("TeamList_", season, "_League80_temp\\.csv$"),
+          pattern = paste0("TeamList_", season, "_League.*_temp\\.csv$"),
           full.names = TRUE
         )
         if (length(temp_files) > 0 && file.exists(temp_files[1])) {

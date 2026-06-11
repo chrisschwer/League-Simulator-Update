@@ -83,8 +83,7 @@ required_modules <- c(
 
 existing_modules <- c(
   "retrieveResults.R",
-  "transform_data.R",
-  "SpielCPP.R"
+  "transform_data.R"
 )
 
 cat("Loading required modules from project root...\n")

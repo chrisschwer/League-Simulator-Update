@@ -1,5 +1,6 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use league_simulator_rust::*;
+use std::hint::black_box;
 
 fn create_bundesliga_season() -> Season {
     // Create a realistic Bundesliga season (18 teams, 306 matches)

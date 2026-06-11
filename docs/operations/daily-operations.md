@@ -172,14 +172,11 @@ docker-compose logs -f league-simulator | grep -E "(Starting|Completed|ERROR)"
 Manual intervention if needed:
 
 ```bash
-# Trigger manual update
-docker-compose exec league-simulator Rscript run_single_update_2025.R
+# Restart the scheduler so it re-enters the next active window
+docker-compose restart league-simulator-integrated
 
-# Check specific league
-docker-compose exec league-simulator Rscript -e "
-  source('RCode/update_league.R')
-  update_league(78) # Bundesliga
-"
+# Tail logs to watch the next scheduled run
+docker-compose logs -f league-simulator-integrated
 ```
 
 ### 3. Real-time Monitoring

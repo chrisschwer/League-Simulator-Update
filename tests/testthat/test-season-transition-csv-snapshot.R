@@ -5,8 +5,10 @@
 # replaying the api-football cassettes captured in
 # tests/testthat/fixtures/season-transition-2024-to-2025/, and asserts:
 #   (gap #2) the resulting RCode/TeamList_2025.csv matches the snapshot
-#   (gap #3) the engine-availability probe records "FALSE" (the subprocess
-#            does NOT have SpielNichtSimulieren loaded — confirms silent fallback)
+#
+# The engine-availability probe (gap #3) was retired alongside the silent
+# C++/R fallback in issue #102 / Option B; only the byte-identity check
+# remains as the load-bearing acceptance criterion.
 #
 # Note: processx::run is used instead of system2() because the project root
 # path contains spaces ("Coding Projects/"), and system2() runs a shell that
@@ -44,11 +46,8 @@ test_that("season_transition pipeline produces byte-identical CSV from cassettes
   dir.create(file.path(csv_dir, "RCode"), recursive = TRUE)
   file.copy(source_csv, file.path(csv_dir, "RCode", "TeamList_2024.csv"))
 
-  probe_path <- tempfile(fileext = ".txt")
-
   on.exit({
     unlink(csv_dir, recursive = TRUE)
-    unlink(probe_path)
   }, add = TRUE)
 
   # Build env for subprocess: merge parent env so R library paths are inherited,
@@ -59,15 +58,14 @@ test_that("season_transition pipeline produces byte-identical CSV from cassettes
   parent_env <- Sys.getenv()
   test_env <- c(
     parent_env,
-    RAPIDAPI_KEY             = "dummy-mock-key-not-real",
-    SEASON_TRANSITION_ENGINE_PROBE = probe_path
+    RAPIDAPI_KEY             = "dummy-mock-key-not-real"
   )
 
   rscript <- file.path(R.home("bin"), "Rscript")
 
   p <- processx::run(
     rscript,
-    args    = c(runner_path, project_root, csv_dir, probe_path, fixture_dir),
+    args    = c(runner_path, project_root, csv_dir, fixture_dir),
     env     = test_env,
     echo    = FALSE,
     error_on_status = FALSE
@@ -76,20 +74,6 @@ test_that("season_transition pipeline produces byte-identical CSV from cassettes
   expect_equal(p$status, 0L,
                info = paste("Subprocess output:", paste(tail(strsplit(p$stdout, "\n")[[1]], 20), collapse = "\n"),
                             "\nStderr:", paste(tail(strsplit(p$stderr, "\n")[[1]], 10), collapse = "\n")))
-
-  # Gap #3: probe assertion. Subprocess does NOT load SpielNichtSimulieren.cpp
-  # (the script's module list does not include the .cpp source). This pins
-  # current truth — Phase-2 must take this into account.
-  expect_true(file.exists(probe_path),
-              info = "probe file should be written by elo_aggregation.R")
-  engine_available <- readLines(probe_path)[1]
-  expect_true(engine_available %in% c("TRUE", "FALSE"),
-              info = "probe value must be TRUE or FALSE")
-  expect_equal(engine_available, "FALSE",
-    info = paste("Recorded current truth: scripts/season_transition.R does NOT",
-                 "source SpielNichtSimulieren.cpp, so the C++ primitive is",
-                 "unavailable in the script's process. If this changed, the",
-                 "Phase-2 PRD's plan must be revisited."))
 
   # Gap #2: byte-identical CSV.
   actual_csv <- file.path(csv_dir, "RCode", "TeamList_2025.csv")

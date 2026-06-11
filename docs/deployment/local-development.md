@@ -67,7 +67,7 @@ Reads `ShinyApp/data/Ergebnis.Rds` — same file the production scheduler writes
 
 ## 5. Season transition (operator workflow)
 
-The season-transition script runs **on your local machine, on host R**. It does not require Docker, the production container, or the Rust simulation server. It uses the C++ simulation engine via Rcpp, which is sufficient because season transition isn't time-critical and the speed gain from Rust isn't needed here.
+The season-transition script runs **on your local machine, on host R**. It does not require Docker, the production container, or the Rust simulation server. ELO updates are computed by the pure-R `calculate_elo_update` primitive in `RCode/elo_aggregation.R`, which is sufficient because the script is run once per season and the iteration speed of the production loop isn't needed here.
 
 ```bash
 # From the repo root, with a valid RAPIDAPI_KEY in the environment:
@@ -75,8 +75,6 @@ Rscript scripts/season_transition.R 2024 2025 --non-interactive
 ```
 
 The script writes `RCode/TeamList_<year>.csv`, which is then committed to the repo and picked up by the next container rebuild.
-
-The Rcpp build happens automatically when the script sources `SpielCPP.R` and friends — `Rcpp::sourceCpp("RCode/SpielNichtSimulieren.cpp")`. The C++ source files are intentionally kept in the repo for this workflow even though the production container uses Rust.
 
 For the canonical operator guide, see [`docs/user-guide/season-transition.md`](../user-guide/season-transition.md). Issue [#74](https://github.com/chrisschwer/League-Simulator-Update/issues/74) tracks discoverability of the validation/report/cleanup helpers.
 

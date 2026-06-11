@@ -24,9 +24,6 @@ shiny::runApp("ShinyApp/app.R")
 ```
 
 ```bash
-# Run a single update
-Rscript run_single_update_2025.R
-
 # Build and run the production Docker stack
 docker build -t league-simulator:latest .
 docker-compose up -d
@@ -38,7 +35,7 @@ Rscript scripts/season_transition.R 2024 2025 --non-interactive
 ## Architecture
 
 Four main components:
-1. **Simulation Engine** - Rcpp-based Monte Carlo simulations with ELO ratings
+1. **Simulation Engine** - Rust-based Monte Carlo simulations with ELO ratings (REST seam at `localhost:8080`)
 2. **Scheduler** - Automated updates at match times (Berlin timezone)
 3. **Season Transition** - Handles promotions/relegations between seasons
 4. **Web Interface** - Shiny app displaying probability heatmaps
@@ -52,6 +49,10 @@ RAPIDAPI_KEY=your_api_key  # Required for API-Football access
 ```
 
 For all environment variables, see @docs/deployment/quick-start.md
+
+## Conventions
+
+When adding helper functions in `RCode/` that operators run outside the production call graph: provide a `scripts/` wrapper, document it in `docs/user-guide/`, default destructive operations to dry-run with explicit `--confirm`.
 
 ## Current Status
 

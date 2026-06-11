@@ -11,8 +11,8 @@ graph TB
     end
     
     subgraph "Core Services"
-        SIM[League Simulator<br/>R/Rcpp Engine]
-        SCH[Scheduler<br/>Cron-like Service]
+        SIM[Rust Simulation Server<br/>localhost:8080]
+        SCH[R Scheduler<br/>Cron-like Service]
     end
     
     subgraph "Data Layer"
@@ -39,18 +39,18 @@ graph TB
 
 ### 1. League Simulator Engine
 
-The heart of the system, built with R and Rcpp for performance.
+The heart of the system, built as a Rust REST server (`league-simulator-rust/`) called from R via HTTP.
 
 **Key Features:**
 - Monte Carlo simulations (10,000 iterations default)
 - ELO-based match predictions
-- Parallel processing capabilities
+- Parallel processing via `rayon` work-stealing
 - Memory-efficient data structures
 
 **Technology Stack:**
-- R 4.2+ for orchestration
-- Rcpp for performance-critical calculations
-- OpenMP for parallelization
+- Rust for the simulation engine (`axum` HTTP server, `rayon` for parallelism)
+- R 4.3+ for orchestration via `httr`/`jsonlite` REST client (`RCode/rust_integration.R`)
+- The R-side season-transition path uses `calculate_elo_update` (pure-R primitive in `RCode/elo_aggregation.R`)
 
 ### 2. Scheduler Service
 
@@ -102,10 +102,10 @@ Each module has a single responsibility and clear interfaces.
 
 ### 2. Performance Optimization
 
-- **Rcpp Integration**: 100x speedup for critical paths
-- **Vectorized Operations**: Leverage R's strengths
-- **Lazy Loading**: Load data only when needed
-- **Caching**: Reuse expensive calculations
+- **Rust Engine**: ~100x speedup over the previous R/Rcpp implementation; called from R over HTTP at `localhost:8080`
+- **Rayon Parallelism**: per-iteration work distributed across cores by Rust's work-stealing pool
+- **Vectorized R Operations**: data prep on the R side stays in vector form before being marshalled to JSON
+- **Caching**: ELO history reused across simulations within an update cycle
 
 ### 3. Fault Tolerance
 
@@ -179,11 +179,11 @@ graph LR
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
-| Core Engine | R 4.2+ | Main programming language |
-| Performance | Rcpp | C++ integration for speed |
-| API Client | httr | HTTP requests |
+| Simulation Engine | Rust (`axum`, `rayon`) | Monte Carlo simulations over HTTP |
+| Orchestration | R 4.3+ | Scheduler, API ingestion, result transforms |
+| API Client | httr / jsonlite | HTTP requests (api-football and Rust seam) |
 | Data Processing | dplyr, tidyr | Data manipulation |
-| Scheduling | cronR (concept) | Time-based execution |
+| Scheduling | bespoke loop in `updateScheduler.R` | Time-based execution |
 
 ### Frontend
 
