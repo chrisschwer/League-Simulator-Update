@@ -182,18 +182,18 @@ test_that("transform_data handles different game statuses", {
   teams <- create_test_teams_api()
   
   result <- transform_data(fixtures, teams)
-  
-  # Only FT games should have results (not AET, PEN, etc. based on the code)
+
+  # FT, AET and PEN all count as finished games
   expect_equal(result$ToreHeim[1], 1)
   expect_equal(result$ToreGast[1], 0)
-  
-  # AET should have NA (not FT)
-  expect_true(is.na(result$ToreHeim[2]))
-  expect_true(is.na(result$ToreGast[2]))
-  
-  # PEN should have NA (not FT)
-  expect_true(is.na(result$ToreHeim[3]))
-  expect_true(is.na(result$ToreGast[3]))
+
+  # AET is finished (decided after extra time)
+  expect_equal(result$ToreHeim[2], 2)
+  expect_equal(result$ToreGast[2], 1)
+
+  # PEN is finished (decided on penalties)
+  expect_equal(result$ToreHeim[3], 1)
+  expect_equal(result$ToreGast[3], 1)
   
   # NS should have NA
   expect_true(is.na(result$ToreHeim[4]))
@@ -266,6 +266,65 @@ test_that("transform_data handles NULL goal values", {
   # NULL should be converted to NA
   expect_true(is.na(result$ToreHeim[1]))
   expect_true(is.na(result$ToreGast[1]))
+})
+
+test_that("transform_data drops non-regular-season rounds (relegation playoff)", {
+  # API-Football delivers the relegation playoff as round "Final" within the
+  # league fixture list (e.g. Bundesliga 16th vs. 2. Bundesliga 3rd). Those
+  # games must not enter the simulation: the lower-league team would appear
+  # as an extra team and the playoff results would distort the table.
+  fixtures <- tibble::tibble(
+    league = data.frame(
+      round = c("Regular Season - 33", "Regular Season - 34", "Final", "Final"),
+      stringsAsFactors = FALSE
+    ),
+    teams = list(
+      data.frame(
+        home = I(list(data.frame(id = 101, name = "Team A"))),
+        away = I(list(data.frame(id = 102, name = "Team B")))
+      ),
+      data.frame(
+        home = I(list(data.frame(id = 103, name = "Team C"))),
+        away = I(list(data.frame(id = 104, name = "Team D")))
+      ),
+      data.frame(  # playoff first leg: league team vs. playoff intruder
+        home = I(list(data.frame(id = 102, name = "Team B"))),
+        away = I(list(data.frame(id = 105, name = "Playoff Team")))
+      ),
+      data.frame(  # playoff second leg, decided after extra time
+        home = I(list(data.frame(id = 105, name = "Playoff Team"))),
+        away = I(list(data.frame(id = 102, name = "Team B")))
+      )
+    ),
+    goals = list(
+      data.frame(home = 2, away = 1),
+      data.frame(home = 1, away = 1),
+      data.frame(home = 0, away = 0),
+      data.frame(home = 2, away = 1)
+    ),
+    fixture = list(
+      data.frame(id = 1001, status = I(list(data.frame(short = "FT")))),
+      data.frame(id = 1002, status = I(list(data.frame(short = "FT")))),
+      data.frame(id = 1003, status = I(list(data.frame(short = "FT")))),
+      data.frame(id = 1004, status = I(list(data.frame(short = "AET"))))
+    )
+  )
+
+  teams <- data.frame(
+    TeamID = c(101, 102, 103, 104, 105),
+    ShortText = c("TEA", "TEB", "TEC", "TED", "PLT"),
+    InitialELO = c(1500, 1450, 1550, 1400, 1430),
+    stringsAsFactors = FALSE
+  )
+
+  result <- transform_data(fixtures, teams)
+
+  # Only the two regular-season games survive
+  expect_equal(nrow(result), 2)
+  expect_equal(result$TeamHeim, c("TEA", "TEC"))
+
+  # The playoff team must not appear as a team column
+  expect_false("PLT" %in% colnames(result))
 })
 
 test_that("transform_data creates proper data structure", {
