@@ -31,11 +31,10 @@
 #'
 #' @examples
 #' # Create a simple season
-#' season <- matrix(c(1,2,2,1, 2,1,1,1), nrow=2, byrow=TRUE)
+#' season <- matrix(c(1, 2, 2, 1, 2, 1, 1, 1), nrow = 2, byrow = TRUE)
 #' result <- Tabelle_presentation(season, 2, 2)
 #' print(result)
 #'
-
 Tabelle_presentation <- function(season,
                                  numberTeams, numberGames,
                                  AdjPoints = rep_len(0, numberTeams),
@@ -43,8 +42,10 @@ Tabelle_presentation <- function(season,
                                  AdjGoalsAgainst = rep_len(0, numberTeams),
                                  AdjGoalDiff = rep_len(0, numberTeams)) {
   # Call the original Tabelle function to get the base table
-  base_table <- Tabelle(season, numberTeams, numberGames,
-                        AdjPoints, AdjGoals, AdjGoalsAgainst, AdjGoalDiff)
+  base_table <- Tabelle(
+    season, numberTeams, numberGames,
+    AdjPoints, AdjGoals, AdjGoalsAgainst, AdjGoalDiff
+  )
   # Extract values from base table
   # Columns: [team_number, rank, goals_for, goals_against, goal_diff, points]
   team_numbers <- base_table[, 1]
@@ -53,26 +54,26 @@ Tabelle_presentation <- function(season,
   goals_against <- base_table[, 4]
   goal_diff <- base_table[, 5]
   points <- base_table[, 6]
-  
+
   # Handle NA values (can occur when numberGames > 0 but season has NA goals)
   goals_for[is.na(goals_for)] <- 0
   goals_against[is.na(goals_against)] <- 0
   goal_diff[is.na(goal_diff)] <- 0
   points[is.na(points)] <- 0
-  
+
   # Check if goal difference adjustments were applied
   # If no explicit goal diff adjustments, recalculate GD for consistency
   if (all(AdjGoalDiff == 0)) {
     # Recalculate goal difference to maintain GD = GF - GA
     goal_diff <- goals_for - goals_against
   }
-  
+
   # Calculate W/D/L for each team
   wins <- rep(0, numberTeams)
   draws <- rep(0, numberTeams)
   losses <- rep(0, numberTeams)
   games_played <- rep(0, numberTeams)
-  
+
   if (numberGames > 0 && nrow(season) > 0) {
     # Process each game to count W/D/L
     # Count actual games played (rows with non-NA goals)

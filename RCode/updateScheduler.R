@@ -21,13 +21,13 @@ if (SHINYAPPS_IO_SECRET == "") {
 if (SEASON == "") {
   current_month <- as.numeric(format(Sys.Date(), "%m"))
   current_year <- as.numeric(format(Sys.Date(), "%Y"))
-  
+
   if (current_month >= 7) {
     SEASON <- as.character(current_year)
   } else {
     SEASON <- as.character(current_year - 1)
   }
-  
+
   message(sprintf("Auto-detected season: %s", SEASON))
 }
 
@@ -53,88 +53,88 @@ calculate_loops <- function() {
   current_time <- Sys.time()
   current_hour <- as.numeric(format(current_time, "%H"))
   current_minute <- as.numeric(format(current_time, "%M"))
-  
+
   # Convert to minutes since midnight
   current_minutes <- current_hour * 60 + current_minute
-  
+
   # Target end time: 22:45 (1365 minutes)
   target_minutes <- 22 * 60 + 45
-  
+
   # Scheduled start time: 14:45 (885 minutes)
   scheduled_start <- 14 * 60 + 45
-  
+
   # If before scheduled time, wait and run full duration
   if (current_minutes < scheduled_start) {
     wait_seconds <- (scheduled_start - current_minutes) * 60
     message(sprintf("Before 14:45 - waiting %.1f hours for scheduled run time", wait_seconds / 3600))
     Sys.sleep(wait_seconds)
-    
+
     # After waiting, calculate time from 14:45 to 22:45 (8 hours = 480 minutes)
-    minutes_available <- target_minutes - scheduled_start  # Should be 480
-    
+    minutes_available <- target_minutes - scheduled_start # Should be 480
+
     # Cap at DURATION if specified
     if (DURATION > 0 && minutes_available > DURATION) {
       minutes_available <- DURATION
     }
-    
-    ideal_loops <- floor(minutes_available / 2) + 1  # Every 2 minutes with Rust
-    
+
+    ideal_loops <- floor(minutes_available / 2) + 1 # Every 2 minutes with Rust
+
     # Check API limits
     loops <- checkAPILimits(ideal_loops)
     message(sprintf("Planning to run %d loops (ideal: %d)", loops, ideal_loops))
     message(sprintf("Time available: %.1f minutes", minutes_available))
-    
+
     return(list(loops = loops, initial_wait = 0, duration = minutes_available))
   }
-  
+
   # If after 22:45, wait until tomorrow
   if (current_minutes > target_minutes) {
     # Calculate wait until tomorrow's 14:45
     minutes_until_midnight <- (24 * 60) - current_minutes
     minutes_after_midnight <- scheduled_start
     wait_minutes <- minutes_until_midnight + minutes_after_midnight
-    
+
     message(sprintf("After 22:45 - waiting %.1f hours until tomorrow's scheduled run", wait_minutes / 60))
     Sys.sleep(wait_minutes * 60)
-    
+
     # After waiting, calculate time from 14:45 to 22:45 (8 hours = 480 minutes)
-    minutes_available <- target_minutes - scheduled_start  # Should be 480
-    
+    minutes_available <- target_minutes - scheduled_start # Should be 480
+
     # Cap at DURATION if specified
     if (DURATION > 0 && minutes_available > DURATION) {
       minutes_available <- DURATION
     }
-    
-    ideal_loops <- floor(minutes_available / 2) + 1  # Every 2 minutes with Rust
-    
+
+    ideal_loops <- floor(minutes_available / 2) + 1 # Every 2 minutes with Rust
+
     # Check API limits
     loops <- checkAPILimits(ideal_loops)
     message(sprintf("Planning to run %d loops (ideal: %d)", loops, ideal_loops))
     message(sprintf("Time available: %.1f minutes", minutes_available))
-    
+
     return(list(loops = loops, initial_wait = 0, duration = minutes_available))
   }
-  
+
   # Calculate remaining time until 22:45
   minutes_remaining <- target_minutes - current_minutes
-  
+
   # Cap at DURATION if specified (but use actual remaining time)
   if (DURATION > 0 && minutes_remaining > DURATION) {
     minutes_remaining <- DURATION
   }
-  
+
   # With Rust engine, we can run more frequent updates (every 2 minutes instead of 5)
   # due to 50-100x performance improvement
-  ideal_loops <- floor(minutes_remaining / 2) + 1  # More frequent with Rust!
-  
+  ideal_loops <- floor(minutes_remaining / 2) + 1 # More frequent with Rust!
+
   # Cap at reasonable maximum
   if (ideal_loops > 200) ideal_loops <- 200
-  
+
   # Check API limits and adjust loops if necessary
   loops <- checkAPILimits(ideal_loops)
   message(sprintf("Planning to run %d loops (ideal: %d)", loops, ideal_loops))
   message(sprintf("Time remaining: %.1f minutes", minutes_remaining))
-  
+
   return(list(loops = loops, initial_wait = 0, duration = minutes_remaining))
 }
 
@@ -147,7 +147,7 @@ main <- function() {
   message(sprintf("Team list: %s", team_list_file))
   message(sprintf("Rust API: %s", RUST_API_URL))
   message("")
-  
+
   # Assert Rust availability at scheduler startup. Issue #77 Phase 1: there is
   # no in-process fallback to C++. A missing Rust server fails the scheduler
   # here so the operator sees the real cause; the loop's own assertion is the
@@ -165,7 +165,7 @@ main <- function() {
 
   # Run the update loop. Rust availability has already been asserted above.
   update_all_leagues_loop(
-    duration = loop_config$duration,  # Use actual time remaining, not DURATION
+    duration = loop_config$duration, # Use actual time remaining, not DURATION
     loops = loop_config$loops,
     initial_wait = loop_config$initial_wait,
     n = 10000,
@@ -173,14 +173,17 @@ main <- function() {
     TeamList_file = team_list_file,
     shiny_directory = "ShinyApp"
   )
-  
+
   message("Scheduler completed successfully")
 }
 
 # Run with error handling
-tryCatch({
-  main()
-}, error = function(e) {
-  message(sprintf("ERROR in scheduler: %s", e$message))
-  quit(status = 1)
-})
+tryCatch(
+  {
+    main()
+  },
+  error = function(e) {
+    message(sprintf("ERROR in scheduler: %s", e$message))
+    quit(status = 1)
+  }
+)
