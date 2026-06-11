@@ -2,9 +2,16 @@ library(dplyr)
 library(tidyr)
 
 transform_data <- function(fixtures, teams) {
-  
+
   temp_ELO <- 0
-  
+
+  # API-Football includes relegation playoff games as round "Final" in the
+  # league fixture list; only regular-season rounds belong in the simulation
+  rounds <- if ("league" %in% names(fixtures)) fixtures$league$round else NULL
+  if (!is.null(rounds)) {
+    fixtures <- fixtures[startsWith(as.character(rounds), "Regular Season"), ]
+  }
+
   fixtures_flat <- fixtures %>% unnest(cols = c("teams", "goals", "fixture"), names_sep = "_")
   fixtures_flat <- fixtures_flat %>% unnest(cols = c("teams_home", "teams_away", "fixture_status"), names_sep = "_")
   fixtures_flat$fixture_status_short <- replace_na(fixtures_flat$fixture_status_short, "NA")
@@ -21,10 +28,11 @@ transform_data <- function(fixtures, teams) {
                                ifelse(df_final$TeamGast == team, df_final$ELOAway, NA))
   }
   
-  # set goals to NA unless game is finished ("FT")
-  
+  # set goals to NA unless game is finished
+  # (FT = full time, AET = after extra time, PEN = decided on penalties)
+
   for (i in 1:dim(df_final)[1]) {
-    if (df_final$fixture_status_short[i] != "FT") {
+    if (!df_final$fixture_status_short[i] %in% c("FT", "AET", "PEN")) {
       df_final$ToreHeim[i] <- NA
       df_final$ToreGast[i] <- NA
     }
