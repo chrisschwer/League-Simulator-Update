@@ -62,11 +62,36 @@ pub fn simulate_match_random<R: rand::Rng + rand::RngExt>(
     )
 }
 
-/// Calculate the quantile of a Poisson distribution
-/// This matches R's qpois function behavior
+/// Calculate the quantile of a Poisson distribution.
+/// Matches R's qpois: smallest integer k with P(X <= k) >= p.
 fn poisson_quantile(p: f64, lambda: f64) -> f64 {
-    // For now, use the statrs implementation
-    poisson_quantile_statrs(p, lambda)
+    // Production lambdas are ~0.6-2.5 (ELO-derived goal averages), so the
+    // O(k) direct summation terminates after a handful of multiplications
+    // instead of ~5 regularized-gamma CDF evaluations per draw.
+    if lambda < 10.0 {
+        poisson_quantile_direct(p, lambda)
+    } else {
+        poisson_quantile_statrs(p, lambda)
+    }
+}
+
+/// Iterative CDF summation: P(X = k) = P(X = k-1) * lambda / k.
+pub fn poisson_quantile_direct(p: f64, lambda: f64) -> f64 {
+    if p <= 0.0 {
+        return 0.0;
+    }
+    if p >= 1.0 {
+        return f64::INFINITY;
+    }
+    let mut k: u64 = 0;
+    let mut prob = (-lambda).exp(); // P(X = 0)
+    let mut cumulative = prob;
+    while cumulative < p && k < 1000 {
+        k += 1;
+        prob *= lambda / (k as f64);
+        cumulative += prob;
+    }
+    k as f64
 }
 
 // Alternative implementation using statrs for better accuracy
@@ -98,4 +123,56 @@ pub fn poisson_quantile_statrs(p: f64, lambda: f64) -> f64 {
     }
 
     low as f64
+}
+
+#[cfg(test)]
+mod poisson_tests {
+    use super::*;
+
+    #[test]
+    fn direct_quantile_matches_r_qpois() {
+        // Expected values computed with R: qpois(p, 1.3218390805)
+        let lambda = 1.3218390805;
+        let cases = [
+            (0.1, 0.0),
+            (0.2, 0.0),
+            (0.3, 1.0),
+            (0.5, 1.0),
+            (0.7, 2.0),
+            (0.9, 3.0),
+        ];
+        for (p, expected) in cases {
+            assert_eq!(
+                poisson_quantile_direct(p, lambda),
+                expected,
+                "qpois({}, {})",
+                p,
+                lambda
+            );
+        }
+    }
+
+    #[test]
+    fn direct_quantile_agrees_with_binary_search() {
+        for &lambda in &[0.1, 0.5, 1.0, 1.3218390805, 2.0, 5.0, 9.9] {
+            let mut p = 0.001;
+            while p < 0.999 {
+                assert_eq!(
+                    poisson_quantile_direct(p, lambda),
+                    poisson_quantile_statrs(p, lambda),
+                    "divergence at p={}, lambda={}",
+                    p,
+                    lambda
+                );
+                p += 0.001;
+            }
+        }
+    }
+
+    #[test]
+    fn direct_quantile_edge_cases() {
+        assert_eq!(poisson_quantile_direct(0.0, 1.5), 0.0);
+        assert_eq!(poisson_quantile_direct(-0.1, 1.5), 0.0);
+        assert_eq!(poisson_quantile_direct(1.0, 1.5), f64::INFINITY);
+    }
 }
