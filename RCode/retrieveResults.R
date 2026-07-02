@@ -60,3 +60,43 @@ retrieveResults <- function(league = "78", season = "2022") {
 
   return(retrieveResults)
 }
+
+#' Poll currently-live fixtures across leagues in a single cheap request.
+#'
+#' A match can only newly reach full-time (FT) if it was live at the
+#' previous poll, so this 1-request check lets the caller skip the full
+#' 3-request fetch (retrieveResults() per league) on most loop iterations.
+#'
+#' @param league_ids Character vector of API-Football league IDs to check.
+#' @return Integer vector of live fixture IDs (integer(0) if none are live),
+#'   or NULL if the request failed - callers must treat NULL as "unknown"
+#'   and fall back to a full fetch.
+retrieveLiveFixtures <- function(league_ids = c("78", "79", "80")) {
+  require(httr)
+  require(jsonlite)
+
+  RAPIDAPI_KEY <- Sys.getenv("RAPIDAPI_KEY")
+
+  # One request covering all leagues: fixtures currently in play
+  response <- VERB("GET", "https://api-football-v1.p.rapidapi.com/v3/fixtures",
+    query = list(live = paste(league_ids, collapse = "-")),
+    add_headers(
+      "X-RapidAPI-Key" = RAPIDAPI_KEY,
+      "X-RapidAPI-Host" = "api-football-v1.p.rapidapi.com"
+    ),
+    content_type("application/octet-stream")
+  )
+
+  if (status_code(response) != 200) {
+    warning(paste("Live fixtures request failed with status:", status_code(response)))
+    return(NULL) # NULL = unknown; caller must fall back to a full fetch
+  }
+
+  .record_rate_limit_headers(response)
+
+  parsed <- fromJSON(content(response, "text", encoding = "UTF-8"))
+  if (is.null(parsed$response) || length(parsed$response) == 0) {
+    return(integer(0)) # nothing live right now
+  }
+  as.integer(parsed$response$fixture$id)
+}

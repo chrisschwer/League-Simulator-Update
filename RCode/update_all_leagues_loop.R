@@ -8,7 +8,8 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
                                       "/Users/christophschwerdtfeger/Library/CloudStorage/Dropbox-CSDataScience",
                                       "Christoph Schwerdtfeger/Coding Projects/LeagueSimulator_Claude",
                                       "League-Simulator-Update/ShinyApp"
-                                    )) {
+                                    ),
+                                    full_fetch_every = 30) {
   if (loops > 1) {
     waittime <- duration * 60 / (loops - 1) # time between loops
   } else {
@@ -29,6 +30,13 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
   if (!exists("FT_Liga3")) {
     FT_Liga3 <- 0
   }
+
+  # Live-poll gating state: a fixture can only newly reach FT if it was live
+  # at the previous poll, so a cheap 1-request live check replaces the full
+  # 3-request fetch on most iterations. full_fetch_every is the safety net
+  # for status changes that bypass "live" (awarded/postponed results).
+  prev_live_ids <- NULL # NULL = unknown (no live poll yet)
+  last_full_fetch_loop <- 0
 
   # Source the Rust REST client and assert the server is reachable before doing
   # any work. Phase 1 of issue #77: the production loop now requires Rust;
@@ -66,78 +74,104 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
     # reset simulation_executed
     simulation_executed <- FALSE
 
-    # get fixtures via API
-    fixturesBL <- retrieveResults(league = "78", season = saison)
-    fixturesBL2 <- retrieveResults(league = "79", season = saison)
-    fixturesLiga3 <- retrieveResults(league = "80", season = saison)
-
-    # Check if API calls failed
-    if (is.null(fixturesBL) || is.null(fixturesBL2) || is.null(fixturesLiga3)) {
-      message(sprintf("Loop %d: ERROR - One or more API calls failed. Skipping this iteration.", i))
-      next
-    }
-
-    # New count of games
-    FT_BL_new <- sum(fixturesBL$fixture$status$short == "FT")
-    FT_BL2_new <- sum(fixturesBL2$fixture$status$short == "FT")
-    FT_Liga3_new <- sum(fixturesLiga3$fixture$status$short == "FT")
-
-    # transform data
-    BL <- transform_data(fixturesBL, TeamList)
-    BL2 <- transform_data(fixturesBL2, TeamList)
-    Liga3 <- transform_data(fixturesLiga3, TeamList)
-
-    # Penalize second teams in Liga3, so that they cannot promote
-    adjPoints_Liga3_Aufstieg <- rep(0, dim(Liga3)[2] - 4) # initialize to 0
-
-    for (j in 5:dim(Liga3)[2]) {
-      team_short <- names(Liga3)[j]
-      last_char_team <- substr(team_short, nchar(team_short), nchar(team_short))
-      if (last_char_team == "2") {
-        adjPoints_Liga3_Aufstieg[j - 4] <- -50 # if team name ends in "2", penalize
+    # Decide whether the full 3-league fetch is needed this iteration
+    need_full_fetch <- TRUE
+    if (i > 1) {
+      live_ids <- retrieveLiveFixtures()
+      if (is.null(live_ids)) {
+        message(sprintf("Loop %d: live poll failed, falling back to full fetch", i))
+      } else {
+        finished_since_last <- !is.null(prev_live_ids) &&
+          length(setdiff(prev_live_ids, live_ids)) > 0
+        due_safety_fetch <- (i - last_full_fetch_loop) >= full_fetch_every
+        if (!finished_since_last && !due_safety_fetch) {
+          need_full_fetch <- FALSE
+        }
+        prev_live_ids <- live_ids
       }
     }
 
-    # On first iteration (i == 1), always run all simulations to ensure objects exist
-    if (FT_BL != FT_BL_new || i == 1) {
-      message(sprintf(
-        "Loop %d: Simulating Bundesliga with %d simulations (Rust engine)",
-        i, n
-      ))
-      Ergebnis <- leagueSimulatorRust(BL, n = n)
-      FT_BL <- FT_BL_new
-      simulation_executed <- TRUE
-    }
+    if (need_full_fetch) {
+      last_full_fetch_loop <- i
 
-    if (FT_BL2 != FT_BL2_new || i == 1) {
-      message(sprintf(
-        "Loop %d: Simulating 2. Bundesliga with %d simulations (Rust engine)",
-        i, n
-      ))
-      Ergebnis2 <- leagueSimulatorRust(BL2, n = n)
-      FT_BL2 <- FT_BL2_new
-      simulation_executed <- TRUE
-    }
+      # get fixtures via API
+      fixturesBL <- retrieveResults(league = "78", season = saison)
+      fixturesBL2 <- retrieveResults(league = "79", season = saison)
+      fixturesLiga3 <- retrieveResults(league = "80", season = saison)
 
-    if (FT_Liga3 != FT_Liga3_new || i == 1) {
-      message(sprintf(
-        "Loop %d: Simulating 3. Liga with %d simulations (Rust engine)",
-        i, n
-      ))
-      Ergebnis3 <- leagueSimulatorRust(Liga3, n = n)
-      FT_Liga3 <- FT_Liga3_new
+      # Check if API calls failed
+      if (is.null(fixturesBL) || is.null(fixturesBL2) || is.null(fixturesLiga3)) {
+        message(sprintf("Loop %d: ERROR - One or more API calls failed. Skipping this iteration.", i))
+        next
+      }
 
-      # calculate promotion table
-      Ergebnis3_Aufstieg <- leagueSimulatorRust(Liga3, n = n, adjPoints = adjPoints_Liga3_Aufstieg)
-      simulation_executed <- TRUE
-    }
+      # New count of games
+      FT_BL_new <- sum(fixturesBL$fixture$status$short == "FT")
+      FT_BL2_new <- sum(fixturesBL2$fixture$status$short == "FT")
+      FT_Liga3_new <- sum(fixturesLiga3$fixture$status$short == "FT")
 
-    # Update Shiny if simulations have been executed
-    if (simulation_executed && !is.null(Ergebnis)) {
-      message(sprintf("Loop %d: Updating Shiny app with new results", i))
-      updateShiny(Ergebnis, Ergebnis2, Ergebnis3, Ergebnis3_Aufstieg, directory = shiny_directory)
+      # transform data
+      BL <- transform_data(fixturesBL, TeamList)
+      BL2 <- transform_data(fixturesBL2, TeamList)
+      Liga3 <- transform_data(fixturesLiga3, TeamList)
+
+      # Penalize second teams in Liga3, so that they cannot promote
+      adjPoints_Liga3_Aufstieg <- rep(0, dim(Liga3)[2] - 4) # initialize to 0
+
+      for (j in 5:dim(Liga3)[2]) {
+        team_short <- names(Liga3)[j]
+        last_char_team <- substr(team_short, nchar(team_short), nchar(team_short))
+        if (last_char_team == "2") {
+          adjPoints_Liga3_Aufstieg[j - 4] <- -50 # if team name ends in "2", penalize
+        }
+      }
+
+      # On first iteration (i == 1), always run all simulations to ensure objects exist
+      if (FT_BL != FT_BL_new || i == 1) {
+        message(sprintf(
+          "Loop %d: Simulating Bundesliga with %d simulations (Rust engine)",
+          i, n
+        ))
+        Ergebnis <- leagueSimulatorRust(BL, n = n)
+        FT_BL <- FT_BL_new
+        simulation_executed <- TRUE
+      }
+
+      if (FT_BL2 != FT_BL2_new || i == 1) {
+        message(sprintf(
+          "Loop %d: Simulating 2. Bundesliga with %d simulations (Rust engine)",
+          i, n
+        ))
+        Ergebnis2 <- leagueSimulatorRust(BL2, n = n)
+        FT_BL2 <- FT_BL2_new
+        simulation_executed <- TRUE
+      }
+
+      if (FT_Liga3 != FT_Liga3_new || i == 1) {
+        message(sprintf(
+          "Loop %d: Simulating 3. Liga with %d simulations (Rust engine)",
+          i, n
+        ))
+        Ergebnis3 <- leagueSimulatorRust(Liga3, n = n)
+        FT_Liga3 <- FT_Liga3_new
+
+        # calculate promotion table
+        Ergebnis3_Aufstieg <- leagueSimulatorRust(Liga3, n = n, adjPoints = adjPoints_Liga3_Aufstieg)
+        simulation_executed <- TRUE
+      }
+
+      # Update Shiny if simulations have been executed
+      if (simulation_executed && !is.null(Ergebnis)) {
+        message(sprintf("Loop %d: Updating Shiny app with new results", i))
+        updateShiny(Ergebnis, Ergebnis2, Ergebnis3, Ergebnis3_Aufstieg, directory = shiny_directory)
+      } else {
+        message(sprintf("Loop %d: No updates needed, skipping Shiny deployment", i))
+      }
     } else {
-      message(sprintf("Loop %d: No updates needed, skipping Shiny deployment", i))
+      message(sprintf(
+        "Loop %d: %d fixture(s) live, none finished since last poll - skipping full fetch",
+        i, length(prev_live_ids)
+      ))
     }
 
     # Wait if not last iteration
