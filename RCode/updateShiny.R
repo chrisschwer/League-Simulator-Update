@@ -51,7 +51,7 @@ updateShiny <- function(Ergebnis, Ergebnis2, Ergebnis3,
 
   message("Deploying app to ShinyApps.io")
   deployApp(
-    appFiles = c("app.R", "data/Ergebnis.Rds"),
+    appFiles = c("app.R", "app_helpers.R", "data/Ergebnis.Rds"),
     appName = "FussballPrognosen", forceUpdate = forceUpdate
   )
 
