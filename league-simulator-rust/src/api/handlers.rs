@@ -2,6 +2,59 @@ use crate::{run_monte_carlo_simulation, Match, Season, SimulationParams};
 use axum::{http::StatusCode, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 
+/// Server-side ceiling on Monte Carlo iterations (production uses 10,000).
+const MAX_ITERATIONS: usize = 100_000;
+
+fn validate_request(payload: &SimulateRequest) -> Result<(), String> {
+    if payload.schedule.is_empty() {
+        return Err("schedule must not be empty".to_string());
+    }
+    let number_teams = payload.elo_values.len();
+    if number_teams == 0 {
+        return Err("elo_values must not be empty".to_string());
+    }
+    if let Some(iterations) = payload.iterations {
+        if iterations == 0 || iterations > MAX_ITERATIONS {
+            return Err(format!(
+                "iterations must be between 1 and {}, got {}",
+                MAX_ITERATIONS, iterations
+            ));
+        }
+    }
+    for (i, row) in payload.schedule.iter().enumerate() {
+        for (name, value) in [("team_home", row[0]), ("team_away", row[1])] {
+            match value {
+                Some(v) if v >= 1 && (v as usize) <= number_teams => {}
+                Some(v) => {
+                    return Err(format!(
+                        "schedule row {}: {} index {} out of range 1..={}",
+                        i, name, v, number_teams
+                    ))
+                }
+                None => return Err(format!("schedule row {}: {} must not be null", i, name)),
+            }
+        }
+    }
+    for (name, adj) in [
+        ("adj_points", &payload.adj_points),
+        ("adj_goals", &payload.adj_goals),
+        ("adj_goals_against", &payload.adj_goals_against),
+        ("adj_goal_diff", &payload.adj_goal_diff),
+    ] {
+        if let Some(v) = adj {
+            if v.len() != number_teams {
+                return Err(format!(
+                    "{} has length {}, expected {} (one per team)",
+                    name,
+                    v.len(),
+                    number_teams
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 #[derive(Serialize)]
 pub struct HealthResponse {
     status: String,
@@ -69,30 +122,24 @@ pub struct SimulateResponse {
 
 pub async fn simulate_league(
     Json(payload): Json<SimulateRequest>,
-) -> Result<Json<SimulateResponse>, StatusCode> {
+) -> Result<Json<SimulateResponse>, (StatusCode, String)> {
     let start = std::time::Instant::now();
 
-    // Validate input
-    if payload.schedule.is_empty() {
-        return Err(StatusCode::BAD_REQUEST);
-    }
+    validate_request(&payload).map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 
     let number_teams = payload.elo_values.len();
-    if number_teams == 0 {
-        return Err(StatusCode::BAD_REQUEST);
-    }
 
     // Convert schedule to Match structs
     let matches: Vec<Match> = payload
         .schedule
         .iter()
-        .map(|row| {
-            Match {
-                team_home: row[0].unwrap_or(0) as usize - 1, // R uses 1-indexed, Rust uses 0-indexed
-                team_away: row[1].unwrap_or(0) as usize - 1,
-                goals_home: row[2],
-                goals_away: row[3],
-            }
+        .map(|row| Match {
+            // Validated above: indices are Some and within 1..=number_teams.
+            // R uses 1-indexed, Rust uses 0-indexed.
+            team_home: row[0].unwrap() as usize - 1,
+            team_away: row[1].unwrap() as usize - 1,
+            goals_home: row[2],
+            goals_away: row[3],
         })
         .collect();
 
@@ -162,7 +209,7 @@ pub struct LeagueResult {
 
 pub async fn simulate_batch(
     Json(payload): Json<BatchSimulateRequest>,
-) -> Result<Json<BatchSimulateResponse>, StatusCode> {
+) -> Result<Json<BatchSimulateResponse>, (StatusCode, String)> {
     let start = std::time::Instant::now();
     let mut results = Vec::new();
 
@@ -181,10 +228,18 @@ pub async fn simulate_batch(
     // Collect results
     for task in tasks {
         match task.await {
-            Ok((name, response)) => {
+            Ok((name, Ok(response))) => {
                 results.push(LeagueResult { name, response });
             }
-            Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+            Ok((name, Err((status, msg)))) => {
+                return Err((status, format!("league '{}': {}", name, msg)));
+            }
+            Err(_) => {
+                return Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "batch task panicked".to_string(),
+                ));
+            }
         }
     }
 
@@ -197,14 +252,8 @@ pub async fn simulate_batch(
 }
 
 // Internal helper function for batch processing
-async fn simulate_league_internal(request: SimulateRequest) -> SimulateResponse {
-    match simulate_league(Json(request)).await {
-        Ok(Json(response)) => response,
-        Err(_) => SimulateResponse {
-            probability_matrix: vec![],
-            team_names: vec![],
-            simulations_performed: 0,
-            time_ms: 0,
-        },
-    }
+async fn simulate_league_internal(
+    request: SimulateRequest,
+) -> Result<SimulateResponse, (StatusCode, String)> {
+    simulate_league(Json(request)).await.map(|Json(r)| r)
 }

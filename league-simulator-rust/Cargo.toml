@@ -17,7 +17,6 @@ rayon = "1.8"
 axum = "0.8"
 tokio = { version = "1.35", features = ["full"] }
 tower = "0.5"
-tower-http = { version = "0.7", features = ["cors"] }
 
 # Numerical computation
 statrs = "0.18"  # Statistical distributions

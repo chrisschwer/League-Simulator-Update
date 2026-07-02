@@ -7,22 +7,16 @@ pub mod handlers;
 mod tests;
 
 use axum::{
-    http::Method,
+    extract::DefaultBodyLimit,
     routing::{get, post},
     Router,
 };
-use tower_http::cors::{Any, CorsLayer};
 
 pub fn create_router() -> Router {
-    // Configure CORS for R client access
-    let cors = CorsLayer::new()
-        .allow_methods([Method::GET, Method::POST])
-        .allow_origin(Any)
-        .allow_headers(Any);
-
     Router::new()
         .route("/health", get(handlers::health_check))
         .route("/simulate", post(handlers::simulate_league))
         .route("/simulate/batch", post(handlers::simulate_batch))
-        .layer(cors)
+        // Payloads are ~306 fixture rows (<100 KB); 2 MB is generous headroom.
+        .layer(DefaultBodyLimit::max(2 * 1024 * 1024))
 }
