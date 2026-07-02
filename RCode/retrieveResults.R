@@ -1,3 +1,18 @@
+# Last-seen API-Football rate-limit headers, shared across callers so
+# checkAPILimits() can avoid spending a request just to read them.
+.api_rate_limit <- new.env(parent = emptyenv())
+
+.record_rate_limit_headers <- function(response) {
+  hdrs <- httr::headers(response)
+  remaining <- suppressWarnings(as.numeric(hdrs[["x-ratelimit-requests-remaining"]]))
+  if (!is.na(remaining)) {
+    .api_rate_limit$remaining <- remaining
+    .api_rate_limit$limit <- suppressWarnings(as.numeric(hdrs[["x-ratelimit-requests-limit"]]))
+    .api_rate_limit$as_of <- Sys.time()
+  }
+  invisible(NULL)
+}
+
 retrieveResults <- function(league = "78", season = "2022") {
   require(httr)
   require(jsonlite)
@@ -25,6 +40,8 @@ retrieveResults <- function(league = "78", season = "2022") {
     warning(paste("API request failed with status:", status_code(response)))
     return(NULL)
   }
+
+  .record_rate_limit_headers(response)
 
   # get the content as text
   json_content <- content(response, "text", encoding = "UTF-8")
