@@ -6,6 +6,17 @@ updateShiny <- function(Ergebnis, Ergebnis2, Ergebnis3,
                           "League-Simulator-Update/ShinyApp"
                         ),
                         forceUpdate = TRUE) {
+  account_name <- Sys.getenv("SHINYAPPS_IO_NAME", "chrisschwer")
+  account_token <- Sys.getenv("SHINYAPPS_IO_TOKEN")
+  account_secret <- Sys.getenv("SHINYAPPS_IO_SECRET")
+
+  if (account_token == "") {
+    stop("ERROR: SHINYAPPS_IO_TOKEN environment variable not set")
+  }
+  if (account_secret == "") {
+    stop("ERROR: SHINYAPPS_IO_SECRET environment variable not set")
+  }
+
   # Ensure all required packages are loaded
   required_packages <- c("rsconnect", "shiny", "crayon", "ellipsis", "httpuv")
 
@@ -22,10 +33,6 @@ updateShiny <- function(Ergebnis, Ergebnis2, Ergebnis3,
 
   # Use packrat mode to avoid "reproducible location" errors
   options(rsconnect.packrat = TRUE)
-
-  account_name <- "chrisschwer"
-  account_token <- "3EBFA2C60C1438DAAA98FE4C0CAEC9AC"
-  account_secret <- Sys.getenv("SHINYAPPS_IO_SECRET")
 
   rsconnect::setAccountInfo(name = account_name, token = account_token, secret = account_secret)
 
