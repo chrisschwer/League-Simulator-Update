@@ -140,7 +140,9 @@ jobs:
             -w /app \
             -e RAPIDAPI_KEY=test_key_for_ci \
             ${{ steps.meta.outputs.tag }} \
-            Rscript -e 'pkgs <- readLines("test_packagelist.txt");
+            Rscript -e 'dir.create("/tmp/Rlib", recursive = TRUE, showWarnings = FALSE);
+                        .libPaths(c("/tmp/Rlib", .libPaths()));
+                        pkgs <- readLines("test_packagelist.txt");
                         pkgs <- pkgs[!grepl("^#|^[[:space:]]*$", pkgs)];
                         pkgs <- trimws(pkgs);
                         installed <- rownames(installed.packages());
