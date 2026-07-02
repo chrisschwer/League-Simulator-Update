@@ -22,7 +22,7 @@ The League Simulator runs as a single Docker container that combines the Rust si
 | `RAPIDAPI_KEY` | yes | — | api-football access via RapidAPI |
 | `SHINYAPPS_IO_SECRET` | yes | — | ShinyApps.io deployment auth |
 | `SHINYAPPS_IO_NAME` | no | `chrisschwer` | ShinyApps.io account name |
-| `SHINYAPPS_IO_TOKEN` | no | (set in compose) | ShinyApps.io token |
+| `SHINYAPPS_IO_TOKEN` | yes | — | ShinyApps.io account token (rotate if ever exposed; no default) |
 | `SEASON` | no | auto-detect | Season year (e.g., `2025`); auto-detects from current month if unset |
 | `DURATION` | no | `480` | Cap on scheduler runtime in minutes |
 | `RUST_API_URL` | no | `http://localhost:8080` | Rust server endpoint inside the container |

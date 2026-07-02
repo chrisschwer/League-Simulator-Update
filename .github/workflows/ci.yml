@@ -38,8 +38,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             league-simulator-rust/target
-          # Hash Cargo.toml (Cargo.lock is gitignored — see project .gitignore).
-          key: ${{ runner.os }}-cargo-${{ hashFiles('league-simulator-rust/Cargo.toml') }}
+          # Hash Cargo.lock so the cache key changes whenever resolved
+          # dependency versions change (Cargo.lock is committed in this repo).
+          key: ${{ runner.os }}-cargo-${{ hashFiles('league-simulator-rust/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
 

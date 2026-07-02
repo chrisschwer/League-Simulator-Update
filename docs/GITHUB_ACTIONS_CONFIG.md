@@ -12,7 +12,7 @@ The following secrets must be configured in your repository settings (Settings â
 |------------|-------------|----------|---------|
 | `RAPIDAPI_KEY` | API key for accessing football data via RapidAPI | Yes | `abc123def456...` |
 | `SHINYAPPS_IO_SECRET` | Secret for deploying to shinyapps.io | Optional | `xyz789...` |
-| `SHINYAPPS_IO_TOKEN` | Token for shinyapps.io deployment | Optional | `token123...` |
+| `SHINYAPPS_IO_TOKEN` | Token for shinyapps.io deployment | Yes | `token123...` |
 | `SHINYAPPS_IO_NAME` | Username for shinyapps.io | Optional | `yourusername` |
 | `DOCKERHUB_TOKEN` | Docker Hub access token for pushing images | Optional | `dckr_pat_...` |
 | `DOCKERHUB_USERNAME` | Docker Hub username (deprecated - use variables) | No | Use repository variables instead |

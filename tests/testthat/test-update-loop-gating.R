@@ -145,7 +145,7 @@ test_that("full_fetch_every forces a periodic safety-net fetch even with a stabl
   })
 
   # Loop 1: full fetch (first iteration). Loop 2: live poll, stable -> skip.
-  # Loop 3: (3 - 1) >= full_fetch_every(3) -> safety-net full fetch. Loop 4: skip again.
+  # Loop 3: (3 - 1) = 2 < full_fetch_every(3) -> skip. Loop 4: (4 - 1) >= 3 -> safety-net full fetch.
   # -> 2 full fetches x 3 leagues = 6 retrieveResults calls
   expect_length(full_fetch_leagues, 6)
   expect_equal(live_poll_count, 3) # loops 2-4
