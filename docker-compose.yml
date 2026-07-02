@@ -12,7 +12,7 @@ services:
       - RUST_API_URL=http://localhost:8080
       - TZ=Europe/Berlin
     ports:
-      - "8081:8080"  # Rust API port for monitoring
+      - "127.0.0.1:8081:8080"  # Rust API, host-local only (monitoring via curl on the host)
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -36,7 +36,7 @@ services:
       dockerfile: Dockerfile
     container_name: rust-simulator
     ports:
-      - "8081:8080"  # Different port to avoid conflicts
+      - "127.0.0.1:8081:8080"  # Rust API, host-local only (monitoring via curl on the host)
     profiles:
       - debug  # Only starts with --profile debug
     environment:
