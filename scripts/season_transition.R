@@ -123,7 +123,15 @@ parse_arguments <- function(args) {
   
   # Validate season arguments
   if (length(season_args) != 2) {
-    return(list(valid = FALSE, error = "Two season arguments required"))
+    received <- if (length(season_args) == 0) {
+      "none"
+    } else {
+      paste(shQuote(season_args), collapse = ", ")
+    }
+    return(list(valid = FALSE, error = sprintf(
+      "Two season arguments required, got %d (%s)",
+      length(season_args), received
+    )))
   }
   
   parsed$from_season <- season_args[1]
@@ -138,6 +146,7 @@ main <- function(args) {
   parsed_args <- parse_arguments(args)
   
   if (!parsed_args$valid) {
+    cat("Error:", parsed_args$error, "\n\n")
     cat("Usage: Rscript season_transition.R <source_season> <target_season> [options]\n")
     cat("Example: Rscript season_transition.R 2023 2024\n")
     cat("Example: Rscript season_transition.R 2023 2024 --non-interactive\n")
