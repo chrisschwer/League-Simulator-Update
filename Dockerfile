@@ -117,6 +117,7 @@ COPY --from=rust-builder /build/target/release/league-simulator-rust /usr/local/
 
 WORKDIR /app
 RUN mkdir -p /app/RCode /app/ShinyApp/data
+RUN touch /app/.here
 
 COPY RCode/ ./RCode/
 COPY ShinyApp/ ./ShinyApp/
