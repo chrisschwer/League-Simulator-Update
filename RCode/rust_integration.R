@@ -87,9 +87,7 @@ simulate_league_rust <- function(schedule, elo_values, team_names,
   if (!is.null(adj_goals_against)) payload$adj_goals_against <- as.integer(adj_goals_against)
   if (!is.null(adj_goal_diff)) payload$adj_goal_diff <- as.integer(adj_goal_diff)
 
-  # Debug JSON payload
   json_body <- toJSON(payload, auto_unbox = TRUE, null = "null")
-  message("DEBUG: First schedule entry JSON: ", substr(json_body, 1, 200))
 
   # Make API request
   response <- POST(

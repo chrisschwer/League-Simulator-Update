@@ -15,7 +15,12 @@ use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use tower::ServiceExt;
 
-/// Send `req` through the router and return (status, parsed JSON body).
+/// Send `req` through the router and return (status, body).
+///
+/// Success responses are JSON and are parsed as such. Error responses (e.g.
+/// validation failures) are plain text — `(StatusCode, String)` rejections
+/// render as a text body, not JSON — so those are wrapped as a JSON string
+/// instead of failing the parse.
 async fn send(req: Request<Body>) -> (StatusCode, Value) {
     let response = create_router()
         .oneshot(req)
@@ -32,7 +37,8 @@ async fn send(req: Request<Body>) -> (StatusCode, Value) {
     let body: Value = if bytes.is_empty() {
         Value::Null
     } else {
-        serde_json::from_slice(&bytes).expect("response body should be valid JSON")
+        serde_json::from_slice(&bytes)
+            .unwrap_or_else(|_| Value::String(String::from_utf8_lossy(&bytes).into_owned()))
     };
 
     (status, body)
@@ -196,4 +202,67 @@ async fn simulate_defaults_iterations_to_10000_when_not_provided() {
         10_000,
         "default iterations should be 10000 when caller omits the field"
     );
+}
+
+#[tokio::test]
+async fn simulate_rejects_team_index_zero() {
+    // team index 0 previously underflowed to usize::MAX and aborted the process
+    let req = post_simulate_json(json!({
+        "schedule": [[0, 2, null, null]],
+        "elo_values": [1500.0, 1500.0]
+    }));
+
+    let (status, _body) = send(req).await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn simulate_rejects_null_team_index() {
+    let req = post_simulate_json(json!({
+        "schedule": [[null, 2, null, null]],
+        "elo_values": [1500.0, 1500.0]
+    }));
+
+    let (status, _body) = send(req).await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn simulate_rejects_out_of_range_team_index() {
+    let req = post_simulate_json(json!({
+        "schedule": [[1, 3, null, null]],
+        "elo_values": [1500.0, 1500.0]
+    }));
+
+    let (status, _body) = send(req).await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn simulate_rejects_excessive_iterations() {
+    let req = post_simulate_json(json!({
+        "schedule": [[1, 2, null, null]],
+        "elo_values": [1500.0, 1500.0],
+        "iterations": 100_000_000
+    }));
+
+    let (status, _body) = send(req).await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn simulate_rejects_mismatched_adjustment_length() {
+    let req = post_simulate_json(json!({
+        "schedule": [[1, 2, null, null]],
+        "elo_values": [1500.0, 1500.0],
+        "adj_points": [0, 0, 0]
+    }));
+
+    let (status, _body) = send(req).await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
 }

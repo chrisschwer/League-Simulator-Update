@@ -1,31 +1,31 @@
 # Integrated League Simulator with Rust Engine
-# Combines high-performance Rust simulation with R orchestration
+# Stage 1: Rust binary | Stage 2: R build (compilers) | Stage 3: slim runtime
 
-# Stage 1: Build Rust binary
+# ---- Stage 1: Build Rust binary ----
 FROM rust:1.96-alpine AS rust-builder
 
 RUN apk add --no-cache musl-dev
 
 WORKDIR /build
 
-# Copy Rust source
-COPY league-simulator-rust/Cargo.toml .
+# Dependency layer: build with a dummy main so crate compilation is cached
+# and re-runs only when Cargo.toml/Cargo.lock change, not on every code edit.
+COPY league-simulator-rust/Cargo.toml league-simulator-rust/Cargo.lock ./
+RUN mkdir src && echo 'fn main() {}' > src/main.rs \
+    && cargo build --release \
+    && rm -rf src target/release/league-simulator-rust* target/release/deps/league_simulator_rust*
+
 COPY league-simulator-rust/src/ ./src/
 COPY league-simulator-rust/test_data/ ./test_data/
+RUN cargo build --release && strip target/release/league-simulator-rust
 
-# Build optimized binary
-RUN cargo build --release
-RUN strip target/release/league-simulator-rust
+# ---- Stage 2: Build R library (needs compilers for source packages) ----
+FROM rocker/r-ver:4.6.1 AS r-builder
 
-# Stage 2: Build complete application  
-FROM rocker/r-ver:4.6.1
-
-# Install system dependencies and curl for healthcheck
 RUN apt-get update && apt-get install -y \
     libcurl4-openssl-dev \
     libssl-dev \
     libxml2-dev \
-    curl \
     tzdata \
     build-essential \
     cmake \
@@ -87,28 +87,52 @@ RUN R --slave --no-restore -e " \
         } \
     }"
 
-# Copy Rust binary from builder
+# ---- Stage 3: Runtime (no compilers, non-root) ----
+FROM rocker/r-ver:4.6.1
+
+# Runtime (non -dev) libraries for the compiled R packages + curl for healthchecks.
+# rocker/r-ver:4.6.1 is Ubuntu 24.04 (Noble); several libs use the 64-bit-time_t
+# ("t64") package names introduced in Noble, verified via:
+#   docker run --rm rocker/r-ver:4.6.1 bash -c "apt-get update -qq && apt-cache policy <pkg>"
+RUN apt-get update && apt-get install -y \
+    libcurl4t64 \
+    libssl3t64 \
+    libxml2 \
+    curl \
+    tzdata \
+    libuv1t64 \
+    libfontconfig1 \
+    libcairo2 \
+    libfreetype6 \
+    libpng16-16t64 \
+    libtiff6 \
+    libjpeg-turbo8 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Compiled R packages from the build stage
+COPY --from=r-builder /usr/local/lib/R/site-library /usr/local/lib/R/site-library
+
+# Rust binary
 COPY --from=rust-builder /build/target/release/league-simulator-rust /usr/local/bin/league-simulator-rust
 
-# Create application directory structure
 WORKDIR /app
 RUN mkdir -p /app/RCode /app/ShinyApp/data
+RUN touch /app/.here
 
-# Copy R code and data
 COPY RCode/ ./RCode/
 COPY ShinyApp/ ./ShinyApp/
-
-# Copy robust startup script
 COPY docker-start.sh /app/start.sh
 RUN chmod +x /app/start.sh
 
-# Environment variables
+# Run as non-root; scheduler writes ShinyApp/data and rsconnect config in $HOME
+RUN useradd --system --create-home --uid 1001 appuser \
+    && chown -R appuser:appuser /app
+USER appuser
+
 ENV RUST_API_URL=http://localhost:8080
 ENV SEASON=2025
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
     CMD curl -f http://localhost:8080/health || exit 1
 
-# Run the integrated application
 CMD ["/app/start.sh"]

@@ -22,7 +22,6 @@ ShinyApp/rsconnect/shinyapps.io/chrisschwer/FussballPrognosen.dcf
 
 # Rust build artifacts
 league-simulator-rust/target/
-league-simulator-rust/Cargo.lock
 
 # Test artifacts and analysis files
 tests/rust/

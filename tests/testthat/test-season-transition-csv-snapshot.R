@@ -55,10 +55,17 @@ test_that("season_transition pipeline produces byte-identical CSV from cassettes
   # processx::run uses exec() (no shell) so spaces in arg values are safe.
   # Dummy RAPIDAPI_KEY satisfies the script's pre-flight check; httptest
   # intercepts before the key is ever sent.
+  #
+  # R_LIBS must be passed explicitly: in the in-image CI run, test-only
+  # packages (httptest, mockery, ...) are installed at runtime into a
+  # writable library (e.g. /tmp/Rlib) added to the parent session's
+  # .libPaths() — an R-session-level setting that Sys.getenv() cannot see
+  # and therefore would not otherwise propagate to this subprocess.
   parent_env <- Sys.getenv()
   test_env <- c(
     parent_env,
-    RAPIDAPI_KEY             = "dummy-mock-key-not-real"
+    RAPIDAPI_KEY             = "dummy-mock-key-not-real",
+    R_LIBS                   = paste(.libPaths(), collapse = .Platform$path.sep)
   )
 
   rscript <- file.path(R.home("bin"), "Rscript")

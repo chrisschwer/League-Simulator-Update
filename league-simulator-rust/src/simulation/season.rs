@@ -2,22 +2,21 @@ use crate::elo::calculate_elo_change;
 use crate::models::EloParams;
 use crate::models::{LeagueTable, Match, Season, TeamStanding};
 use crate::simulation::match_sim::simulate_match_random;
-use rand::Rng;
+use rand::{Rng, RngExt};
 
-/// Simulates a complete season, updating ELO values as matches are played
+/// In-place variant: operates on caller-owned buffers so Monte Carlo
+/// iterations can reuse allocations instead of cloning per iteration.
 /// Matches the logic in SaisonSimulierenCPP.R
-pub fn simulate_season<R: Rng>(
-    season: &Season,
+pub fn simulate_season_in_place<R: Rng + RngExt>(
+    matches: &mut [Match],
+    elos: &mut [f64],
     mod_factor: f64,
     home_advantage: f64,
     tore_slope: f64,
     tore_intercept: f64,
     rng: &mut R,
-) -> (Vec<Match>, Vec<f64>) {
-    let mut matches = season.matches.clone();
-    let mut elos = season.team_elos.clone();
-
-    for match_data in &mut matches {
+) {
+    for match_data in matches.iter_mut() {
         let team_home = match_data.team_home;
         let team_away = match_data.team_away;
 
@@ -57,6 +56,30 @@ pub fn simulate_season<R: Rng>(
             elos[team_away] = result.new_elo_away;
         }
     }
+}
+
+/// Simulates a complete season, updating ELO values as matches are played
+/// Matches the logic in SaisonSimulierenCPP.R
+pub fn simulate_season<R: Rng + RngExt>(
+    season: &Season,
+    mod_factor: f64,
+    home_advantage: f64,
+    tore_slope: f64,
+    tore_intercept: f64,
+    rng: &mut R,
+) -> (Vec<Match>, Vec<f64>) {
+    let mut matches = season.matches.clone();
+    let mut elos = season.team_elos.clone();
+
+    simulate_season_in_place(
+        &mut matches,
+        &mut elos,
+        mod_factor,
+        home_advantage,
+        tore_slope,
+        tore_intercept,
+        rng,
+    );
 
     (matches, elos)
 }
@@ -143,7 +166,7 @@ pub fn calculate_table(
 
 /// Process a season with played and unplayed matches
 /// Returns the final table after simulating remaining matches
-pub fn process_season<R: Rng>(
+pub fn process_season<R: Rng + RngExt>(
     season: &Season,
     mod_factor: f64,
     home_advantage: f64,

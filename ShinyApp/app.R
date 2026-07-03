@@ -14,8 +14,19 @@ library(reshape2)
 library(ggplot2)
 
 
-load ("data/Ergebnis.Rds")
-updatetime <- as.POSIXlt(file.mtime("data/Ergebnis.Rds"), tz = "Europe/Berlin")
+source("app_helpers.R", local = TRUE)
+
+data_loaded <- load_results("data/Ergebnis.Rds", environment())
+updatetime <- if (data_loaded) {
+  as.POSIXlt(file.mtime("data/Ergebnis.Rds"), tz = "Europe/Berlin")
+} else {
+  NULL
+}
+stale_message <- if (data_loaded) {
+  stale_warning_text(data_age_hours(updatetime))
+} else {
+  NULL
+}
 
 display_result <- function (result, colour = "grey", 
                             low = "white", high = "steelblue",
@@ -112,36 +123,57 @@ groupResultsDF <- function (results,
 
 # Define UI for application that draws a histogram
 ui <- shinyUI(fluidPage(
-   
+
    # Application title
    titlePanel("Fußball-Prognosen von 30Punkte"),
-   
-   # Sidebar with a slider input for number of bins 
-   verticalLayout(
+
+   if (!data_loaded) {
      mainPanel(
-       selectInput (inputId = "Liga", choices = c ("Bundesliga", "2. Bundesliga", "Dritte Liga"),
-                    label = "Welche Liga soll dargestellt werden?", selected = "Bundesliga"),
-       plotOutput(outputId = "Plot"),
-       tableOutput(outputId = "Oben"),
-       tableOutput(outputId = "Unten"),
-       helpText("Alle Prognosen als Wahrscheinlichkeiten in Prozent angegeben. Nähere Infos unter ",
-                a ("30punkte.wordpress.com", href = "http://30punkte.wordpress.com", target = "blank_"),
-                paste("Letztes Update: ",
-                      format(updatetime, "%d.%m.%Y %H:%M"),
-                      " ",
-                      # isdst: >0 = DST (MESZ), 0 = standard (MEZ), <0 = unknown -> falls through to MEZ
-                      if (updatetime$isdst > 0) "MESZ" else "MEZ",
-                      sep = "")
-       )
-       
+       h3("Noch keine Prognosedaten verfügbar"),
+       p("Die Simulationsergebnisse wurden noch nicht erzeugt oder konnten",
+         "nicht geladen werden. Bitte versuchen Sie es später erneut."),
+       helpText("Nähere Infos unter ",
+                a("30punkte.wordpress.com",
+                  href = "http://30punkte.wordpress.com", target = "blank_"))
      )
-   )
+   } else {
+     verticalLayout(
+       mainPanel(
+         if (!is.null(stale_message)) {
+           div(
+             style = paste(
+               "background-color:#f8d7da; color:#721c24;",
+               "padding:10px; border-radius:4px; margin-bottom:12px;"
+             ),
+             stale_message
+           )
+         },
+         selectInput(inputId = "Liga",
+                     choices = c("Bundesliga", "2. Bundesliga", "Dritte Liga"),
+                     label = "Welche Liga soll dargestellt werden?",
+                     selected = "Bundesliga"),
+         plotOutput(outputId = "Plot"),
+         tableOutput(outputId = "Oben"),
+         tableOutput(outputId = "Unten"),
+         helpText("Alle Prognosen als Wahrscheinlichkeiten in Prozent angegeben. Nähere Infos unter ",
+                  a("30punkte.wordpress.com", href = "http://30punkte.wordpress.com", target = "blank_"),
+                  paste("Letztes Update: ",
+                        format(updatetime, "%d.%m.%Y %H:%M"),
+                        " ",
+                        # isdst: >0 = DST (MESZ), 0 = standard (MEZ), <0 = unknown -> falls through to MEZ
+                        if (updatetime$isdst > 0) "MESZ" else "MEZ",
+                        sep = "")
+         )
+       )
+     )
+   }
 ))
 
 # Define server logic required to draw a histogram
 server <- shinyServer(function(input, output) {
     
     output$Oben <- renderTable({
+    req(data_loaded)
     if (input$Liga == "Bundesliga") {
       apply (groupResultsDF(Ergebnis[rowSums(Ergebnis[,1:6])>=0.01,],
                               labels = c ("Meister", "Champions League",
@@ -163,6 +195,7 @@ server <- shinyServer(function(input, output) {
   }, digits = 0, rownames = TRUE)
 
   output$Unten <- renderTable({
+    req(data_loaded)
     if (input$Liga == "Bundesliga") {
       apply (groupResultsDF(Ergebnis[rowSums(Ergebnis[,16:18])>=0.01,],
                             labels = c ("Relegation", "Abstieg"),
@@ -174,12 +207,15 @@ server <- shinyServer(function(input, output) {
                              groups = cbind (c(16,16), c(17,18))),
              c (1,2), prozent)
     } else {
-      apply (data.frame(Abstieg = rowSums(Ergebnis3[rowSums(Ergebnis3[,17:20])>=0.01,17:20])),
+      apply (groupResultsDF (Ergebnis3[rowSums(Ergebnis3[,17:20])>=0.01,],
+                             labels = c("Abstieg"),
+                             groups = cbind (c(17,20))),
              c (1,2), prozent)
     }
   }, digits = 0, rownames = TRUE)
 
   output$Plot <- renderPlot({
+    req(data_loaded)
     if (input$Liga == "Bundesliga") {
       display_result (Ergebnis, Titel = "Saisonprognose Bundesliga")
     } else if (input$Liga == "2. Bundesliga") {

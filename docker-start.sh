@@ -99,7 +99,7 @@ echo "==================================================="
 echo "League Simulator Integrated - Rust + R"
 echo "==================================================="
 echo "Season: ${SEASON:-auto-detect}"
-echo "API Key: $(echo $RAPIDAPI_KEY | cut -c1-10)..."
+echo "API Key: $([ -n "$RAPIDAPI_KEY" ] && echo "SET" || echo "NOT SET")"
 echo ""
 
 # Start Rust server

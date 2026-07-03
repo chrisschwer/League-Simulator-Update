@@ -1,7 +1,7 @@
 # Function to check API rate limits and determine safe number of loops
 # Returns the maximum number of loops that can be safely run without exceeding limits
 
-checkAPILimits <- function(ideal_loops, num_leagues = 3, safety_margin = 0.9) {
+checkAPILimits <- function(ideal_loops, avg_calls_per_loop = 2, safety_margin = 0.9) {
   # Try to make a simple API call to check headers
   api_key <- Sys.getenv("RAPIDAPI_KEY")
   if (api_key == "") {
@@ -20,6 +20,21 @@ checkAPILimits <- function(ideal_loops, num_leagues = 3, safety_margin = 0.9) {
     } else {
       season <- as.character(current_year - 1)
     }
+  }
+
+  # Reuse rate-limit headers captured by a recent retrieveResults() call
+  # instead of spending a request on a dedicated probe.
+  if (exists(".api_rate_limit") &&
+        !is.null(.api_rate_limit$remaining) &&
+        difftime(Sys.time(), .api_rate_limit$as_of, units = "mins") < 10) {
+    remaining <- .api_rate_limit$remaining
+    limit <- .api_rate_limit$limit
+    message(sprintf(
+      "API Rate Limit (cached): %d/%d requests remaining",
+      remaining, limit
+    ))
+    safe_loops <- floor((remaining * safety_margin) / avg_calls_per_loop)
+    return(min(ideal_loops, safe_loops))
   }
 
   # Make a lightweight API call (e.g., get current round for one league)
@@ -54,9 +69,8 @@ checkAPILimits <- function(ideal_loops, num_leagues = 3, safety_margin = 0.9) {
       message(sprintf("API Rate Limit: %d/%d requests remaining", remaining, limit))
 
       # Calculate safe number of loops
-      # Each loop makes 3 API calls (one per league)
       # Apply safety margin to avoid hitting exact limit
-      safe_loops <- floor((remaining * safety_margin) / num_leagues)
+      safe_loops <- floor((remaining * safety_margin) / avg_calls_per_loop)
 
       # Return minimum of ideal and safe loops
       actual_loops <- min(ideal_loops, safe_loops)

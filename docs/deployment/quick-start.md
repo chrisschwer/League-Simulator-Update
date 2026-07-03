@@ -19,9 +19,9 @@ cd League-Simulator-Update
 cat > .env <<'EOF'
 RAPIDAPI_KEY=your_rapidapi_key_here
 SHINYAPPS_IO_SECRET=your_shiny_secret_here
+SHINYAPPS_IO_TOKEN=your_shiny_token_here
 # Optional — see deployment/README.md for the full list:
 # SHINYAPPS_IO_NAME=chrisschwer
-# SHINYAPPS_IO_TOKEN=your_shiny_token
 # SEASON=2025
 # DURATION=480
 EOF
@@ -71,7 +71,7 @@ docker-compose exec league-simulator-integrated \
 | Container exits immediately | `docker-compose logs league-simulator-integrated` — usually a missing required env var |
 | `curl localhost:8081/health` hangs | Rust server didn't start — check container logs for cargo/build errors |
 | No simulation results landing in ShinyApps.io | Check `SHINYAPPS_IO_SECRET` and the deploy step in the scheduler logs |
-| Empty `.env` | Required vars are `RAPIDAPI_KEY` and `SHINYAPPS_IO_SECRET`; everything else has defaults |
+| Empty `.env` | Required vars are `RAPIDAPI_KEY`, `SHINYAPPS_IO_SECRET` and `SHINYAPPS_IO_TOKEN`; everything else has defaults |
 
 ## Next steps
 

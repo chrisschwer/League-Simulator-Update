@@ -24,22 +24,23 @@ jobs:
         working-directory: league-simulator-rust
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30  # stable
         with:
           components: rustfmt, clippy
 
       - name: Cache cargo registry and target
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             league-simulator-rust/target
-          # Hash Cargo.toml (Cargo.lock is gitignored — see project .gitignore).
-          key: ${{ runner.os }}-cargo-${{ hashFiles('league-simulator-rust/Cargo.toml') }}
+          # Hash Cargo.lock so the cache key changes whenever resolved
+          # dependency versions change (Cargo.lock is committed in this repo).
+          key: ${{ runner.os }}-cargo-${{ hashFiles('league-simulator-rust/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
 
@@ -58,10 +59,10 @@ jobs:
     continue-on-error: true   # advisory only — never blocks the PR
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7
 
       - name: Set up R
-        uses: r-lib/actions/setup-r@v2
+        uses: r-lib/actions/setup-r@d3c5be51b12e724e68f33216ca3c148b66d5f0b6  # v2
         with:
           r-version: '4.3.1'
           use-public-rspm: true
@@ -86,14 +87,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c  # v4
 
+      # Fork/Dependabot PRs get empty secrets from GitHub, so this step is
+      # skipped there by the env guard below — they build without registry
+      # login and can only READ the public build cache. Do not remove the guard.
       - name: Log in to Docker Hub (read-only for cache)
         if: ${{ env.DOCKERHUB_USERNAME != '' }}
-        uses: docker/login-action@v4
+        uses: docker/login-action@c99871dec2022cc055c062a10cc1a1310835ceb4  # v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -105,7 +109,7 @@ jobs:
         run: echo "tag=${{ env.IMAGE_NAME }}:ci-${{ github.sha }}" >> "$GITHUB_OUTPUT"
 
       - name: Build production image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a  # v7
         env:
           # Compute cache-to dynamically: empty string disables export.
           # Dependabot PRs and fork PRs don't get DOCKERHUB_TOKEN, so they
@@ -136,7 +140,9 @@ jobs:
             -w /app \
             -e RAPIDAPI_KEY=test_key_for_ci \
             ${{ steps.meta.outputs.tag }} \
-            Rscript -e 'pkgs <- readLines("test_packagelist.txt");
+            Rscript -e 'dir.create("/tmp/Rlib", recursive = TRUE, showWarnings = FALSE);
+                        .libPaths(c("/tmp/Rlib", .libPaths()));
+                        pkgs <- readLines("test_packagelist.txt");
                         pkgs <- pkgs[!grepl("^#|^[[:space:]]*$", pkgs)];
                         pkgs <- trimws(pkgs);
                         installed <- rownames(installed.packages());
@@ -155,7 +161,7 @@ jobs:
 
       - name: Upload testthat summary
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
         with:
           name: testthat-summary
           path: ci-out/testthat-summary.txt
@@ -168,13 +174,13 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c  # v4
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v4
+        uses: docker/login-action@c99871dec2022cc055c062a10cc1a1310835ceb4  # v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -189,7 +195,7 @@ jobs:
       # The Docker layer cache makes this rebuild cheap (~30s when nothing changed,
       # ~2-3 min when only Rust source changed). Hobbyist project; conscious tradeoff.
       - name: Build and push (cached from previous job)
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a  # v7
         env:
           CACHE_TO: ${{ secrets.DOCKERHUB_TOKEN != '' && format('type=registry,ref={0}:{1},mode=min', env.IMAGE_NAME, env.CACHE_TAG) || '' }}
         with:
@@ -209,10 +215,10 @@ jobs:
     if: failure() && github.event_name == 'push' && github.ref == 'refs/heads/main' && (needs.image-build-and-test.result == 'failure' || needs.rust-quality.result == 'failure')
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7
 
       - name: Download testthat summary
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
         with:
           name: testthat-summary
           path: ci-out

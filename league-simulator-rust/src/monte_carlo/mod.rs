@@ -1,8 +1,7 @@
 use crate::models::{Season, SimulationParams, SimulationResult};
-use crate::simulation::process_season;
+use crate::simulation::{calculate_table, simulate_season_in_place};
 use rand::{rngs::StdRng, RngExt, SeedableRng};
 use rayon::prelude::*;
-use std::sync::Mutex;
 
 /// Run Monte Carlo simulations in parallel to get probability distribution.
 /// Matches the logic in simulationsCPP.R and leagueSimulatorCPP.R.
@@ -29,9 +28,9 @@ pub fn run_monte_carlo_simulation(
 /// [`run_monte_carlo_simulation`] (non-deterministic, matches R/C++ behavior).
 ///
 /// Note: bit-exact equality across calls is *not* a stable contract under
-/// refactoring of how `process_season` consumes RNG values. The guarantee this
-/// function gives is "the seed is consumed and influences the result" — see
-/// the dedicated test in `tests.rs`.
+/// refactoring of how `simulate_season_in_place` consumes RNG values. The
+/// guarantee this function gives is "the seed is consumed and influences the
+/// result" — see the dedicated test in `tests.rs`.
 pub fn run_monte_carlo_simulation_seeded(
     season: &Season,
     params: &SimulationParams,
@@ -59,39 +58,74 @@ fn run_monte_carlo_simulation_with_seeds(
     );
 
     let n_teams = season.number_teams;
-    let position_counts: Vec<Mutex<Vec<usize>>> =
-        (0..n_teams).map(|_| Mutex::new(vec![0; n_teams])).collect();
 
-    seeds.par_iter().for_each(|&seed| {
-        let mut rng = StdRng::seed_from_u64(seed);
+    // Per-thread fold state: reusable simulation buffers + local counts.
+    // No locks; rayon reduces the per-thread counts at the end (addition is
+    // commutative, so scheduling order cannot affect the result).
+    struct IterState {
+        matches: Vec<crate::models::Match>,
+        elos: Vec<f64>,
+        counts: Vec<Vec<usize>>,
+    }
 
-        let (table, _) = process_season(
-            season,
-            params.mod_factor,
-            params.home_advantage,
-            params.tore_slope,
-            params.tore_intercept,
-            params.adj_points.as_deref(),
-            params.adj_goals.as_deref(),
-            params.adj_goals_against.as_deref(),
-            params.adj_goal_diff.as_deref(),
-            &mut rng,
+    let position_counts: Vec<Vec<usize>> = seeds
+        .par_iter()
+        .fold(
+            || IterState {
+                matches: Vec::with_capacity(season.matches.len()),
+                elos: Vec::with_capacity(n_teams),
+                counts: vec![vec![0usize; n_teams]; n_teams],
+            },
+            |mut state, &seed| {
+                let mut rng = StdRng::seed_from_u64(seed);
+
+                state.matches.clear();
+                state.matches.extend_from_slice(&season.matches);
+                state.elos.clear();
+                state.elos.extend_from_slice(&season.team_elos);
+
+                simulate_season_in_place(
+                    &mut state.matches,
+                    &mut state.elos,
+                    params.mod_factor,
+                    params.home_advantage,
+                    params.tore_slope,
+                    params.tore_intercept,
+                    &mut rng,
+                );
+
+                let table = calculate_table(
+                    &state.matches,
+                    n_teams,
+                    params.adj_points.as_deref(),
+                    params.adj_goals.as_deref(),
+                    params.adj_goals_against.as_deref(),
+                    params.adj_goal_diff.as_deref(),
+                );
+
+                for standing in &table.standings {
+                    state.counts[standing.team_id][standing.position - 1] += 1;
+                }
+                state
+            },
+        )
+        .map(|state| state.counts)
+        .reduce(
+            || vec![vec![0usize; n_teams]; n_teams],
+            |mut a, b| {
+                for (row_a, row_b) in a.iter_mut().zip(b) {
+                    for (cell_a, cell_b) in row_a.iter_mut().zip(row_b) {
+                        *cell_a += cell_b;
+                    }
+                }
+                a
+            },
         );
-
-        for standing in &table.standings {
-            let team_id = standing.team_id;
-            let position = standing.position - 1; // Convert to 0-indexed
-
-            let mut counts = position_counts[team_id].lock().unwrap();
-            counts[position] += 1;
-        }
-    });
 
     // Convert counts to probabilities
     let mut probability_matrix = vec![vec![0.0; n_teams]; n_teams];
 
-    for (team_id, counts_mutex) in position_counts.iter().enumerate() {
-        let counts = counts_mutex.lock().unwrap();
+    for (team_id, counts) in position_counts.iter().enumerate() {
         for (position, &count) in counts.iter().enumerate() {
             probability_matrix[team_id][position] = count as f64 / params.iterations as f64;
         }

@@ -35,7 +35,7 @@ Best for: Administrators who can respond to prompts
 
 ```bash
 # Run interactively
-docker-compose exec -it league-simulator \
+docker-compose exec -it league-simulator-integrated \
   Rscript scripts/season_transition.R 2024 2025
 
 # You will be prompted for:
@@ -52,7 +52,7 @@ Best for: Automated deployments or CI/CD pipelines
 
 ```bash
 # Run without prompts (uses defaults)
-docker-compose exec league-simulator \
+docker-compose exec league-simulator-integrated \
   Rscript scripts/season_transition.R 2024 2025 --non-interactive
 
 # Note: New teams will get default values
@@ -84,7 +84,7 @@ cat > team_config.json << EOF
 EOF
 
 # Run with config
-docker-compose exec league-simulator \
+docker-compose exec league-simulator-integrated \
   Rscript scripts/season_transition.R 2024 2025 --config team_config.json
 ```
 
@@ -94,14 +94,14 @@ docker-compose exec league-simulator \
 
 ```bash
 # Check current season data
-docker-compose exec league-simulator Rscript -e "
+docker-compose exec league-simulator-integrated Rscript -e "
   teams <- read.csv('RCode/TeamList_2024.csv')
   cat('Current teams:', nrow(teams), '\n')
   table(teams\$liga)
 "
 
 # Backup current data
-./scripts/backup_season.sh 2024
+tar -czf "backup_season_2024_$(date +%Y%m%d).tar.gz" RCode/TeamList_2024.csv
 ```
 
 ### 2. Identify Team Changes
@@ -131,20 +131,15 @@ For each promoted team, collect:
 - Correct team name spelling
 - Previous season performance (for ELO calculation)
 
-```bash
-# Check API for team information
-docker-compose exec league-simulator Rscript -e "
-  source('RCode/api_helpers.R')
-  # Search for team
-  search_team('Holstein Kiel')
-"
-```
+Team IDs can be looked up in the API-Football dashboard
+(<https://dashboard.api-football.com>) or via the `/teams?search=<name>`
+endpoint documented at <https://www.api-football.com/documentation-v3>.
 
 ### 4. Run Season Transition
 
 ```bash
 # Execute transition
-docker-compose exec -it league-simulator \
+docker-compose exec -it league-simulator-integrated \
   Rscript scripts/season_transition.R 2024 2025
 
 # Monitor output for:
@@ -158,7 +153,7 @@ docker-compose exec -it league-simulator \
 
 ```bash
 # Check new team file
-docker-compose exec league-simulator Rscript -e "
+docker-compose exec league-simulator-integrated Rscript -e "
   teams_new <- read.csv('RCode/TeamList_2025.csv')
   teams_old <- read.csv('RCode/TeamList_2024.csv')
   
@@ -236,14 +231,9 @@ teams <- rbind(teams, new_team)
 
 **Solution**: Verify final standings and adjust
 
-```bash
-# Check final standings
-docker-compose exec league-simulator Rscript -e "
-  source('RCode/get_final_standings.R')
-  standings <- get_final_standings(78, 2024)
-  print(tail(standings, 5))  # Bottom 5 teams
-"
-```
+Verify the final standings against an official source (e.g. kicker.de or
+the API-Football dashboard) before re-running the transition with a
+corrected configuration file.
 
 ### Issue: ELO Ratings Seem Wrong
 
@@ -365,35 +355,19 @@ tar -czf "backup_season_${OLD_SEASON}.tar.gz" RCode/TeamList_${OLD_SEASON}.csv
 
 # 2. Run transition
 echo "Running transition..."
-docker-compose exec -T league-simulator \
+docker-compose exec -T league-simulator-integrated \
   Rscript scripts/season_transition.R $OLD_SEASON $NEW_SEASON --non-interactive
 
 # 3. Verify
 echo "Verifying..."
-if docker-compose exec -T league-simulator test -f "RCode/TeamList_${NEW_SEASON}.csv"; then
+if docker-compose exec -T league-simulator-integrated test -f "RCode/TeamList_${NEW_SEASON}.csv"; then
   echo "✓ New team file created"
 else
   echo "✗ ERROR: Team file not created"
   exit 1
 fi
 
-# 4. Test simulation
-echo "Testing simulation..."
-docker-compose exec -T league-simulator \
-  timeout 300 Rscript -e "
-    Sys.setenv(SEASON = '$NEW_SEASON')
-    source('RCode/leagueSimulatorCPP.R')
-    simulate_league(78, iterations = 100)
-  "
-
-if [ $? -eq 0 ]; then
-  echo "✓ Test simulation successful"
-else
-  echo "✗ ERROR: Test simulation failed"
-  exit 1
-fi
-
-# 5. Update configuration
+# 4. Update configuration
 echo "Updating configuration..."
 sed -i.bak "s/SEASON=$OLD_SEASON/SEASON=$NEW_SEASON/g" .env
 
@@ -401,18 +375,6 @@ echo "=== Season transition complete ==="
 ```
 
 ## Troubleshooting Guide
-
-### Debug Mode
-
-Run with verbose output:
-
-```r
-# Enable debugging
-Sys.setenv(SEASON_TRANSITION_DEBUG = "TRUE")
-
-# Run transition
-source("scripts/season_transition.R")
-```
 
 ### Manual Recovery
 

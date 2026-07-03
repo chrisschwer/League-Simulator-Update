@@ -2,8 +2,6 @@ library(dplyr)
 library(tidyr)
 
 transform_data <- function(fixtures, teams) {
-  temp_ELO <- 0
-
   # API-Football includes relegation playoff games as round "Final" in the
   # league fixture list; only regular-season rounds belong in the simulation
   rounds <- if ("league" %in% names(fixtures)) fixtures$league$round else NULL
@@ -30,13 +28,9 @@ transform_data <- function(fixtures, teams) {
 
   # set goals to NA unless game is finished
   # (FT = full time, AET = after extra time, PEN = decided on penalties)
-
-  for (i in seq_len(dim(df_final)[1])) {
-    if (!df_final$fixture_status_short[i] %in% c("FT", "AET", "PEN")) {
-      df_final$ToreHeim[i] <- NA
-      df_final$ToreGast[i] <- NA
-    }
-  }
+  unfinished <- !df_final$fixture_status_short %in% c("FT", "AET", "PEN")
+  df_final$ToreHeim[unfinished] <- NA
+  df_final$ToreGast[unfinished] <- NA
 
 
   df_final <- df_final %>%
@@ -52,18 +46,12 @@ transform_data <- function(fixtures, teams) {
   df_final$ToreHeim <- as.numeric(df_final$ToreHeim)
   df_final$ToreGast <- as.numeric(df_final$ToreGast)
 
-  # Find ELO-Values for team and write to first line
-
-  for (i in 5:dim(df_final)[2]) {
-    for (j in 1:50) {
-      if (!is.na(df_final[j, i])) {
-        temp_ELO <- df_final[j, i]
-      } # find the ELO-Value for the column
-      df_final[1, i] <- temp_ELO # and write it to the first line
-    }
-    for (j in 2:dim(df_final)[1]) {
-      df_final[j, i] <- NA
-    } # set all other lines to NA
+  # Each team column carries the team's InitialELO in every row where the
+  # team plays. Keep it only in the first line; all other lines become NA.
+  for (i in 5:ncol(df_final)) {
+    col_values <- df_final[[i]]
+    first_elo <- col_values[which(!is.na(col_values))[1]]
+    df_final[[i]] <- c(first_elo, rep(NA_real_, nrow(df_final) - 1))
   }
 
   return(df_final)
