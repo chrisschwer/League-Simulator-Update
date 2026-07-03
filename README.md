@@ -24,6 +24,7 @@ All three run in a single Docker container on a Linux server; the scheduler talk
 ## Deploy
 
 ```bash
+cp .env.example .env   # then fill in the required credentials
 docker-compose up -d --build
 ```
 

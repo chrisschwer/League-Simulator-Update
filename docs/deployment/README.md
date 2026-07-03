@@ -28,6 +28,8 @@ The League Simulator runs as a single Docker container that combines the Rust si
 | `RUST_API_URL` | no | `http://localhost:8080` | Rust server endpoint inside the container |
 | `TZ` | no | `Europe/Berlin` | Container timezone |
 
+A ready-to-copy template with all variables lives at [`.env.example`](../../.env.example): `cp .env.example .env`, then fill in the three required values. `.env` itself is gitignored.
+
 ## Build and run
 
 ```bash

@@ -16,15 +16,11 @@ Deploy the League Simulator in 5 minutes.
 git clone https://github.com/chrisschwer/League-Simulator-Update.git
 cd League-Simulator-Update
 
-cat > .env <<'EOF'
-RAPIDAPI_KEY=your_rapidapi_key_here
-SHINYAPPS_IO_SECRET=your_shiny_secret_here
-SHINYAPPS_IO_TOKEN=your_shiny_token_here
-# Optional — see deployment/README.md for the full list:
-# SHINYAPPS_IO_NAME=chrisschwer
-# SEASON=2025
-# DURATION=480
-EOF
+cp .env.example .env
+# Then edit .env and fill in the three required values:
+#   RAPIDAPI_KEY, SHINYAPPS_IO_SECRET, SHINYAPPS_IO_TOKEN
+# Optional vars are listed (commented out) in the template — see
+# deployment/README.md for the full reference.
 ```
 
 ## 2. Build and run
