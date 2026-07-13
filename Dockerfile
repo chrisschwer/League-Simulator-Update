@@ -2,7 +2,7 @@
 # Stage 1: Rust binary | Stage 2: R build (compilers) | Stage 3: slim runtime
 
 # ---- Stage 1: Build Rust binary ----
-FROM rust:1.96-alpine AS rust-builder
+FROM rust:1.97-alpine AS rust-builder
 
 RUN apk add --no-cache musl-dev
 
