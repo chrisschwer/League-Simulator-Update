@@ -69,7 +69,8 @@ required_modules <- c(
 # Source existing modules that we'll use
 existing_modules <- c(
   "retrieveResults.R",
-  "transform_data.R"
+  "transform_data.R",
+  "Tabelle.R"  # needed by calculate_liga3_relegation_baseline in elo_aggregation.R
 )
 
 # Source all modules

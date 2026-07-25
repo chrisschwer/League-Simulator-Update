@@ -297,9 +297,21 @@ get_team_short_name <- function(team_name) {
   clean_name <- gsub("^(FC|1\\.|SV|VfL|TSG|SpVgg|Borussia|Eintracht)\\s+", "", team_name)
   clean_name <- gsub("\\s+(München|Berlin|Frankfurt|Dortmund|Leverkusen|e\\.V\\.)$", "", clean_name)
 
+  # ShortText validation only allows ASCII letters and digits, so
+  # transliterate German umlauts and strip remaining special characters
+  umlaut_map <- c(
+    "ä" = "ae", "ö" = "oe", "ü" = "ue",
+    "Ä" = "Ae", "Ö" = "Oe", "Ü" = "Ue",
+    "ß" = "ss"
+  )
+  for (i in seq_along(umlaut_map)) {
+    clean_name <- gsub(names(umlaut_map)[i], umlaut_map[[i]], clean_name, fixed = TRUE)
+  }
+  clean_name <- gsub("[^A-Za-z0-9 ]", "", clean_name)
+
   # Take first 3 characters of significant words
-  words <- strsplit(clean_name, "\\s+")[[1]]
-  if (length(words) >= 1) {
+  words <- strsplit(trimws(clean_name), "\\s+")[[1]]
+  if (length(words) >= 1 && nchar(words[1]) > 0) {
     # Take first 3 characters of first word
     short_name <- toupper(substr(words[1], 1, 3))
     return(short_name)
