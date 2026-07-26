@@ -1,5 +1,10 @@
 # Connect Cloud Migration Implementation Plan
 
+> **SUPERSEDED — do not execute.** Replaced by
+> [`2026-07-26-static-site-generation.md`](2026-07-26-static-site-generation.md).
+> The project is leaving hosted Shiny entirely rather than migrating it, so the
+> OAuth service-account work here is unnecessary. Kept for reference.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the unattended Shiny deployment path work against Posit Connect Cloud before the 2027-03-31 forced migration, without breaking the shinyapps.io path that serves production today.

@@ -1,8 +1,16 @@
 # Connect Cloud Migration — Design
 
 **Date:** 2026-07-26
-**Status:** Approved design, pending implementation
+**Status:** **SUPERSEDED** by [`2026-07-26-static-site-generation-design.md`](2026-07-26-static-site-generation-design.md) — do not implement
 **Trigger:** Posit email 2026-07-26 announcing shinyapps.io consolidation into Posit Connect Cloud
+
+> **Why superseded:** this design assumed hosted Shiny was worth keeping. It is
+> not — the app serves a 5.4 KB payload with no reactivity across three fixed
+> views, and the simulator already runs self-hosted in the operator's homelab,
+> so serving three static pages there costs nothing. Static generation removes
+> the migration, the credentials, the rate-limit risk and the 13 USD/month
+> entirely. Kept for the platform research (auth mechanisms, version floors,
+> plan mapping), which remains accurate.
 
 ## Problem
 
