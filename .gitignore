@@ -46,3 +46,9 @@ poisson_test_cases.csv
 show_bl2_results.R
 single_match_test_cases.csv
 test_*.R
+
+# Season-transition backups and operator run artifacts
+backup_season_*.tar.gz
+logs/
+processing_*.log
+testthat-summary.txt
