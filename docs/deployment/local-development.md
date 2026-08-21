@@ -63,7 +63,7 @@ shiny::runApp("ShinyApp/app.R", port = 3838)
 # http://localhost:3838
 ```
 
-Reads `ShinyApp/data/Ergebnis.Rds` — same file the production scheduler writes when it pushes to ShinyApps.io.
+Reads `ShinyApp/data/Ergebnis.Rds` — same file the production scheduler writes before rendering the static site.
 
 ## 5. Season transition (operator workflow)
 
@@ -91,7 +91,7 @@ The full table is in [Deployment Overview](README.md#required-environment-variab
 - `RAPIDAPI_KEY` — required if you're hitting api-football
 - `RUST_API_URL=http://localhost:8080` — only if you're running the Rust server outside the container
 
-`SHINYAPPS_IO_SECRET` and friends only matter if you're testing the deploy step against a real ShinyApps.io account.
+`STATIC_SITE_DIR` controls where `generate_static_site()` writes; the default `ShinyApp/public` is gitignored.
 
 ## Related
 

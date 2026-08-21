@@ -4,11 +4,8 @@
 update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0,
                                     n = 10000, saison = "2023",
                                     TeamList_file = "RCode/TeamList_2023.csv",
-                                    shiny_directory = file.path(
-                                      "/Users/christophschwerdtfeger/Library/CloudStorage/Dropbox-CSDataScience",
-                                      "Christoph Schwerdtfeger/Coding Projects/LeagueSimulator_Claude",
-                                      "League-Simulator-Update/ShinyApp"
-                                    ),
+                                    static_site_dir = Sys.getenv("STATIC_SITE_DIR",
+                                                                 "ShinyApp/public"),
                                     full_fetch_every = 30) {
   if (loops > 1) {
     waittime <- duration * 60 / (loops - 1) # time between loops
@@ -52,11 +49,10 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
   }
 
   # Common R functions needed regardless of engine
-  source("RCode/prozent.R")
   source("RCode/retrieveResults.R")
   source("RCode/Tabelle.R")
   source("RCode/transform_data.R")
-  source("RCode/updateShiny.R")
+  source("RCode/generate_static_site.R")
 
   # Import Team Data
   TeamList <- read.csv(TeamList_file, sep = ";")
@@ -160,12 +156,13 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
         simulation_executed <- TRUE
       }
 
-      # Update Shiny if simulations have been executed
+      # Regenerate the static site if simulations have been executed
       if (simulation_executed && !is.null(Ergebnis)) {
-        message(sprintf("Loop %d: Updating Shiny app with new results", i))
-        updateShiny(Ergebnis, Ergebnis2, Ergebnis3, Ergebnis3_Aufstieg, directory = shiny_directory)
+        message(sprintf("Loop %d: Regenerating static site with new results", i))
+        generate_static_site(Ergebnis, Ergebnis2, Ergebnis3, Ergebnis3_Aufstieg,
+                             output_dir = static_site_dir)
       } else {
-        message(sprintf("Loop %d: No updates needed, skipping Shiny deployment", i))
+        message(sprintf("Loop %d: No updates needed, skipping site generation", i))
       }
     } else {
       message(sprintf(

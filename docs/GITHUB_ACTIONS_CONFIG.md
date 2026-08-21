@@ -11,9 +11,6 @@ The following secrets must be configured in your repository settings (Settings â
 | Secret Name | Description | Required | Example |
 |------------|-------------|----------|---------|
 | `RAPIDAPI_KEY` | API key for accessing football data via RapidAPI | Yes | `abc123def456...` |
-| `SHINYAPPS_IO_SECRET` | Secret for deploying to shinyapps.io | Optional | `xyz789...` |
-| `SHINYAPPS_IO_TOKEN` | Token for shinyapps.io deployment | Yes | `token123...` |
-| `SHINYAPPS_IO_NAME` | Username for shinyapps.io | Optional | `yourusername` |
 | `DOCKERHUB_TOKEN` | Docker Hub access token for pushing images | Optional | `dckr_pat_...` |
 | `DOCKERHUB_USERNAME` | Docker Hub username (deprecated - use variables) | No | Use repository variables instead |
 | `CODECOV_TOKEN` | Token for uploading coverage reports to Codecov | Optional | `codecov123...` |
@@ -120,14 +117,6 @@ For production deployments, create an environment named `production` with approp
    # For pushing Docker images
    gh secret set DOCKERHUB_TOKEN -b "your_docker_token"
    gh variable set DOCKERHUB_USERNAME -b "your_username"
-   ```
-
-4. **Optional: Add deployment credentials**:
-   ```bash
-   # For shinyapps.io deployment
-   gh secret set SHINYAPPS_IO_SECRET -b "your_secret"
-   gh secret set SHINYAPPS_IO_TOKEN -b "your_token"
-   gh secret set SHINYAPPS_IO_NAME -b "your_username"
    ```
 
 ### Running Workflows

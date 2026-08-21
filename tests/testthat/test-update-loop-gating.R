@@ -73,13 +73,13 @@ test_that("full fetch happens only on loop 1 and when a live fixture ends", {
   })
   stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
   stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) matrix(1 / 18, nrow = 18, ncol = 18))
-  stub(update_all_leagues_loop, "updateShiny", function(...) invisible(NULL))
+  stub(update_all_leagues_loop, "generate_static_site", function(...) invisible(character(0)))
 
   with_repo_root({
     update_all_leagues_loop(
       duration = 0, loops = 5, initial_wait = 0, n = 10,
       saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      shiny_directory = tempdir(), full_fetch_every = 30
+      static_site_dir = tempdir(), full_fetch_every = 30
     )
   })
 
@@ -104,13 +104,13 @@ test_that("a failed live poll (NULL) forces a full fetch", {
   })
   stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
   stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) matrix(1 / 18, nrow = 18, ncol = 18))
-  stub(update_all_leagues_loop, "updateShiny", function(...) invisible(NULL))
+  stub(update_all_leagues_loop, "generate_static_site", function(...) invisible(character(0)))
 
   with_repo_root({
     update_all_leagues_loop(
       duration = 0, loops = 3, initial_wait = 0, n = 10,
       saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      shiny_directory = tempdir(), full_fetch_every = 30
+      static_site_dir = tempdir(), full_fetch_every = 30
     )
   })
 
@@ -134,13 +134,13 @@ test_that("full_fetch_every forces a periodic safety-net fetch even with a stabl
   })
   stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
   stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) matrix(1 / 18, nrow = 18, ncol = 18))
-  stub(update_all_leagues_loop, "updateShiny", function(...) invisible(NULL))
+  stub(update_all_leagues_loop, "generate_static_site", function(...) invisible(character(0)))
 
   with_repo_root({
     update_all_leagues_loop(
       duration = 0, loops = 4, initial_wait = 0, n = 10,
       saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      shiny_directory = tempdir(), full_fetch_every = 3
+      static_site_dir = tempdir(), full_fetch_every = 3
     )
   })
 
@@ -149,4 +149,64 @@ test_that("full_fetch_every forces a periodic safety-net fetch even with a stabl
   # -> 2 full fetches x 3 leagues = 6 retrieveResults calls
   expect_length(full_fetch_leagues, 6)
   expect_equal(live_poll_count, 3) # loops 2-4
+})
+
+# Shared harness for the site-generation gate: runs a short loop with every
+# collaborator stubbed and returns how often generate_static_site() fired.
+run_loop_counting_generation <- function(loops, simulate) {
+  generated <- 0L
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(...) fake_fixtures(c("FT", "NS")))
+  # A stable live set means loops 2+ never trigger a full fetch/simulation.
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) c(101L))
+  stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
+  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) {
+    if (!simulate) stop("simulation must not run in this scenario")
+    matrix(1 / 18, nrow = 18, ncol = 18)
+  })
+  stub(update_all_leagues_loop, "generate_static_site", function(...) {
+    generated <<- generated + 1L
+    invisible(character(0))
+  })
+  with_repo_root({
+    update_all_leagues_loop(
+      duration = 0, loops = loops, initial_wait = 0, n = 10,
+      saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
+      static_site_dir = tempdir(), full_fetch_every = 30
+    )
+  })
+  generated
+}
+
+test_that("the loop generates the static site exactly once per simulation run", {
+  # Loop 1 always simulates; loop 2 sees an unchanged live set and skips.
+  expect_equal(run_loop_counting_generation(loops = 2, simulate = TRUE), 1L)
+})
+
+test_that("the loop passes static_site_dir through to the generator", {
+  seen_dir <- NULL
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(...) fake_fixtures(c("FT", "NS")))
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) c(101L))
+  stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
+  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) matrix(1 / 18, nrow = 18, ncol = 18))
+  stub(update_all_leagues_loop, "generate_static_site", function(..., output_dir) {
+    seen_dir <<- output_dir
+    invisible(character(0))
+  })
+  target <- file.path(tempdir(), "site-out")
+  with_repo_root({
+    update_all_leagues_loop(
+      duration = 0, loops = 1, initial_wait = 0, n = 10,
+      saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
+      static_site_dir = target, full_fetch_every = 30
+    )
+  })
+  expect_equal(seen_dir, target)
+})
+
+test_that("update_all_leagues_loop has no machine-specific default output directory", {
+  fmls <- formals(update_all_leagues_loop)
+  expect_false("shiny_directory" %in% names(fmls))
+  expect_false(grepl("Dropbox", paste(deparse(fmls$static_site_dir), collapse = ""), fixed = TRUE))
 })

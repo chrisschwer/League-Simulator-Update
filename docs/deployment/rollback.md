@@ -8,7 +8,7 @@ Roll back to a previous version of the League Simulator.
 
 | Symptom | What to roll back |
 |---|---|
-| Container won't start, `curl localhost:8081/health` fails | The Docker image (Section A) |
+| Container won't start, health check fails | The Docker image (Section A) |
 | Container is up but produces wrong simulation results | The Docker image (Section A) |
 | Container is up but the schedule or env config is wrong | `.env` and/or `docker-compose.yml` (Section B) |
 | You want to compare against the pre-#78 deployment surface (multi-Dockerfile, k8s) | The git tag (Section C) |
@@ -22,7 +22,7 @@ If you tag your images at deploy time (recommended), you have a previous tag to 
 docker-compose down
 
 # 2. Pin docker-compose.yml to the previous image tag.
-#    (Edit the `image:` line under `league-simulator-integrated`.)
+#    (Edit the `image:` line under `scheduler`.)
 $EDITOR docker-compose.yml
 
 # 3. Bring the previous version up.
@@ -30,8 +30,8 @@ docker-compose up -d
 
 # 4. Verify.
 docker-compose ps
-curl http://localhost:8081/health
-docker-compose logs -f league-simulator-integrated
+docker-compose ps
+docker-compose logs -f scheduler
 ```
 
 If you don't tag images and just rebuild from `main`, you're rolling back code, not images — see Section C below.
@@ -84,7 +84,7 @@ This tag captures the multi-Dockerfile + `k8s/` tree as of 2026-05-02, before th
 Watch the logs for one full simulation cycle:
 
 ```bash
-docker-compose logs -f league-simulator-integrated
+docker-compose logs -f scheduler
 ```
 
 If the rollback was driven by a real bug, file an issue describing what you observed before and after, and consider whether the bug needs a regression test before re-deploying `main`.

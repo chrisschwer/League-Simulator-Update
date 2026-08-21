@@ -5,9 +5,9 @@ The League Simulator runs as a single Docker container that combines the Rust si
 ## Stack
 
 - **`Dockerfile`** — multi-stage build: Rust 1.81 (alpine) compiles the simulation binary in stage 1; `rocker/r-ver:4.3.1` runs the R scheduler in stage 2.
-- **`docker-compose.yml`** — single service `league-simulator-integrated`, exposes port 8081 → container port 8080 (Rust API for monitoring).
+- **`docker-compose.yml`** — single service `scheduler` (container `fussball-scheduler`). The Rust API stays container-internal; the generated static site is written to the external named volume `fussball-site`.
 - **`docker-start.sh`** — container entrypoint. Starts the Rust server on `localhost:8080`, waits for it to be healthy, then runs `Rscript RCode/updateScheduler.R` with retry logic.
-- **`RCode/updateScheduler.R`** — the R scheduler. Wakes at 14:45 Berlin time, polls api-football, calls the in-process Rust server when new fixtures arrive, pushes results to ShinyApps.io.
+- **`RCode/updateScheduler.R`** — the R scheduler. Wakes at 14:45 Berlin time, polls api-football, calls the in-process Rust server when new fixtures arrive, renders the static site (see [`static-site.md`](static-site.md)).
 
 ## Schedule
 
@@ -20,15 +20,15 @@ The League Simulator runs as a single Docker container that combines the Rust si
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
 | `RAPIDAPI_KEY` | yes | — | api-football access via RapidAPI |
-| `SHINYAPPS_IO_SECRET` | yes | — | ShinyApps.io deployment auth |
-| `SHINYAPPS_IO_NAME` | no | `chrisschwer` | ShinyApps.io account name |
-| `SHINYAPPS_IO_TOKEN` | yes | — | ShinyApps.io account token (rotate if ever exposed; no default) |
-| `SEASON` | no | auto-detect | Season year (e.g., `2025`); auto-detects from current month if unset |
+| `SEASON` | no | auto-detect | Season year (e.g., `2026`); auto-detects from current month if unset |
 | `DURATION` | no | `480` | Cap on scheduler runtime in minutes |
 | `RUST_API_URL` | no | `http://localhost:8080` | Rust server endpoint inside the container |
-| `TZ` | no | `Europe/Berlin` | Container timezone |
+| `TZ` | no | `Europe/Berlin` | Container timezone (load-bearing for the 14:45–22:45 window) |
+| `STATIC_SITE_DIR` | no | `ShinyApp/public` | Output directory for the generated static site |
 
-A ready-to-copy template with all variables lives at [`.env.example`](../../.env.example): `cp .env.example .env`, then fill in the three required values. `.env` itself is gitignored.
+A ready-to-copy template with all variables lives at [`.env.example`](../../.env.example): `cp .env.example .env`, then fill in `RAPIDAPI_KEY`. `.env` itself is gitignored.
+
+ShinyApps.io deployment has been replaced by static site generation — see [`static-site.md`](static-site.md) and [ADR 0001](../adr/0001-statische-seiten-statt-gehostetem-shiny.md).
 
 ## Build and run
 
@@ -40,7 +40,7 @@ docker build -t league-simulator:latest .
 docker-compose up -d
 
 # Inspect logs
-docker-compose logs -f league-simulator-integrated
+docker-compose logs -f scheduler
 
 # Stop
 docker-compose down
@@ -48,7 +48,11 @@ docker-compose down
 
 ## Health check
 
-The container exposes `http://localhost:8081/health` (the Rust server's health endpoint). Docker's `HEALTHCHECK` directive in the Dockerfile polls this every 30 seconds.
+Docker's `HEALTHCHECK` polls the Rust server's `http://localhost:8080/health` inside the container every 30 seconds (`docker compose ps` shows `healthy`). The port is not published to the host.
+
+## Public site
+
+The rendered pages are served at <https://fussball.csdatascience.de>.
 
 ## Recovery
 

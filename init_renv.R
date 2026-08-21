@@ -18,7 +18,6 @@ packages_to_install <- c(
   "httr",
   "jsonlite",
   "reshape2",
-  "rsconnect",
   "shiny",
   "digest",
   "xtable"  # Keep for backward compatibility even if unused

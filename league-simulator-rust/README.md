@@ -296,7 +296,6 @@ docker build -t league-simulator:integrated .
 # Run with environment variables
 docker run -d \
   -e RAPIDAPI_KEY="your_key" \
-  -e SHINYAPPS_IO_SECRET="your_secret" \
   -e RUST_API_URL="http://localhost:8080" \
   league-simulator:integrated
 ```
