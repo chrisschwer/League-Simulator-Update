@@ -8,7 +8,7 @@ Deploy the League Simulator in 5 minutes.
 
 - Docker and Docker Compose installed
 - A RapidAPI key for [api-football](https://rapidapi.com/api-sports/api/api-football)
-- (Optional) ShinyApps.io credentials if you want the dashboard live on the public web
+- A web server (e.g. Caddy) to serve the generated pages — see [Static Site](static-site.md)
 
 ## 1. Clone and configure
 
@@ -17,8 +17,7 @@ git clone https://github.com/chrisschwer/League-Simulator-Update.git
 cd League-Simulator-Update
 
 cp .env.example .env
-# Then edit .env and fill in the three required values:
-#   RAPIDAPI_KEY, SHINYAPPS_IO_SECRET, SHINYAPPS_IO_TOKEN
+# Then edit .env and fill in the one required value: RAPIDAPI_KEY
 # Optional vars are listed (commented out) in the template — see
 # deployment/README.md for the full reference.
 ```
@@ -26,10 +25,11 @@ cp .env.example .env
 ## 2. Build and run
 
 ```bash
-docker-compose up -d --build
+docker volume create fussball-site
+docker-compose pull && docker-compose up -d
 ```
 
-`docker-compose.yml` defines a single service `league-simulator-integrated` that runs the Rust simulation server on container port 8080 (mapped to host 8081) and the R scheduler in the same container.
+`docker-compose.yml` defines a single service `scheduler` that runs the Rust simulation server (container-internal, port 8080) and the R scheduler in the same container. The generated site is written to the named volume `fussball-site`; images are built by CI, not locally.
 
 ## 3. Verify
 
@@ -37,14 +37,14 @@ docker-compose up -d --build
 # Container is up
 docker-compose ps
 
-# Rust health endpoint
-curl http://localhost:8081/health
+# Rust health endpoint (inside the container)
+docker-compose exec scheduler curl -f http://localhost:8080/health
 
 # R scheduler logs (tails until you Ctrl-C)
-docker-compose logs -f league-simulator-integrated
+docker-compose logs -f scheduler
 ```
 
-The R scheduler wakes at 14:45 Berlin time, polls api-football every 2 minutes through 22:45, calls the in-process Rust server when new fixtures arrive, then pushes results to ShinyApps.io.
+The R scheduler wakes at 14:45 Berlin time, polls api-football every 2 minutes through 22:45, calls the in-process Rust server when new fixtures arrive, then renders the static site into the `fussball-site` volume.
 
 ## Common operations
 
@@ -52,26 +52,27 @@ The R scheduler wakes at 14:45 Berlin time, polls api-football every 2 minutes t
 # Stop
 docker-compose down
 
-# Rebuild after a code change
-docker-compose up -d --build
+# Update to a new CI image
+docker-compose pull && docker-compose up -d
 
 # Run the season-transition script (operator workflow — see docs/user-guide/season-transition.md)
-docker-compose exec league-simulator-integrated \
-  Rscript scripts/season_transition.R 2024 2025 --non-interactive
+docker-compose exec scheduler \
+  Rscript scripts/season_transition.R 2025 2026 --non-interactive
 ```
 
 ## Troubleshooting
 
 | Symptom | Where to look |
 |---|---|
-| Container exits immediately | `docker-compose logs league-simulator-integrated` — usually a missing required env var |
-| `curl localhost:8081/health` hangs | Rust server didn't start — check container logs for cargo/build errors |
-| No simulation results landing in ShinyApps.io | Check `SHINYAPPS_IO_SECRET` and the deploy step in the scheduler logs |
-| Empty `.env` | Required vars are `RAPIDAPI_KEY`, `SHINYAPPS_IO_SECRET` and `SHINYAPPS_IO_TOKEN`; everything else has defaults |
+| Container exits immediately | `docker-compose logs scheduler` — usually a missing `RAPIDAPI_KEY` |
+| Health check never turns `healthy` | Rust server didn't start — check container logs |
+| Site not updating | Check the `generate_static_site:` lines in the scheduler logs and the volume contents (`docker run --rm -v fussball-site:/v alpine ls -la /v`) |
+| Empty `.env` | The only required var is `RAPIDAPI_KEY`; everything else has defaults |
 
 ## Next steps
 
 - [Deployment Overview](README.md) — full env-var table and stack details
+- [Static Site](static-site.md) — volume, web server, verification
 - [Local Development](local-development.md) — run the simulator outside Docker
 - [Rollback](rollback.md) — roll back to a previous image or git tag
 - [`CLAUDE.md`](../../CLAUDE.md) — common commands cheat-sheet

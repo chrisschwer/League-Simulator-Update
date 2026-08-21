@@ -1,14 +1,14 @@
 # League Simulator
 
-A Monte Carlo simulator that predicts final standings for the three German football leagues — Bundesliga, 2. Bundesliga, 3. Liga. The system combines an ELO rating model with a Rust simulation engine and a fixed daily schedule, surfacing results through a Shiny dashboard.
+A Monte Carlo simulator that predicts final standings for the three German football leagues — Bundesliga, 2. Bundesliga, 3. Liga. The system combines an ELO rating model with a Rust simulation engine and a fixed daily schedule, surfacing results as a statically generated site.
 
-Live dashboard: <https://chrisschwer.shinyapps.io/FussballPrognosen/>
+Live site: <https://fussball.csdatascience.de>
 
 ## What it does
 
 - Pulls match results from [api-football](https://rapidapi.com/api-sports/api/api-football) every two minutes between 14:45 and 22:45 Berlin time.
 - Runs 10,000 Monte Carlo simulations through the rest of the season for each league after each match-day update.
-- Produces a probability matrix per league (each team × each final position) and pushes it to ShinyApps.io.
+- Produces a probability matrix per league (each team × each final position) and renders it to three static HTML pages (see `docs/deployment/static-site.md`).
 - Re-runs ELO updates after every match.
 
 ## How it works
@@ -16,7 +16,7 @@ Live dashboard: <https://chrisschwer.shinyapps.io/FussballPrognosen/>
 Three pieces:
 
 1. **Rust simulation engine** (`league-simulator-rust/`) — high-performance Monte Carlo runner over a season's remaining fixtures.
-2. **R scheduler** (`RCode/`) — wakes during the active window, polls api-football, calls the in-process Rust server when new fixtures arrive, and pushes results to ShinyApps.io.
+2. **R scheduler** (`RCode/`) — wakes during the active window, polls api-football, calls the in-process Rust server when new fixtures arrive, and renders the static site.
 3. **Shiny app** (`ShinyApp/`) — renders the probability matrices as heatmaps.
 
 All three run in a single Docker container on a Linux server; the scheduler talks to the Rust server over `localhost`.

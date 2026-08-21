@@ -1,24 +1,30 @@
+# Reference compose file for the production scheduler.
+#
+# The deployment host keeps a copy of this file with `image:` pinned to a
+# specific CI-built tag (chrisschwer/league-simulator:<sha>) and a `.env`
+# next to it holding RAPIDAPI_KEY and SEASON. The generated static site lands
+# in the external named volume `fussball-site`, which the host's web server
+# (Caddy) mounts read-only. See docs/deployment/static-site.md.
 services:
-  league-simulator-integrated:
+  scheduler:
     image: chrisschwer/league-simulator:latest
-    container_name: league-simulator-integrated
+    container_name: fussball-scheduler
     environment:
       - RAPIDAPI_KEY=${RAPIDAPI_KEY}
-      - SHINYAPPS_IO_SECRET=${SHINYAPPS_IO_SECRET}
-      - SHINYAPPS_IO_NAME=${SHINYAPPS_IO_NAME:-chrisschwer}
-      - SHINYAPPS_IO_TOKEN=${SHINYAPPS_IO_TOKEN}
       - SEASON=${SEASON}
       - DURATION=${DURATION:-480}
       - RUST_API_URL=http://localhost:8080
       - TZ=Europe/Berlin
-    ports:
-      - "127.0.0.1:8081:8080"  # Rust API, host-local only (monitoring via curl on the host)
+      - STATIC_SITE_DIR=/app/ShinyApp/public
+    volumes:
+      - fussball-site:/app/ShinyApp/public
     restart: unless-stopped
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
+    # The Rust API stays container-internal; the healthcheck is the only consumer.
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
@@ -29,25 +35,6 @@ services:
     mem_limit: 2g
     cpus: 4.0
 
-  # Optional: Separate Rust service for development/debugging
-  rust-simulator:
-    build:
-      context: league-simulator-rust
-      dockerfile: Dockerfile
-    container_name: rust-simulator
-    ports:
-      - "127.0.0.1:8081:8080"  # Rust API, host-local only (monitoring via curl on the host)
-    profiles:
-      - debug  # Only starts with --profile debug
-    environment:
-      - PORT=8080
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-
-networks:
-  default:
-    name: league-simulator-network
+volumes:
+  fussball-site:
+    external: true
