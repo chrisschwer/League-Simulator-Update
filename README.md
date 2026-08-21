@@ -17,18 +17,21 @@ Three pieces:
 
 1. **Rust simulation engine** (`league-simulator-rust/`) — high-performance Monte Carlo runner over a season's remaining fixtures.
 2. **R scheduler** (`RCode/`) — wakes during the active window, polls api-football, calls the in-process Rust server when new fixtures arrive, and renders the static site.
-3. **Shiny app** (`ShinyApp/`) — renders the probability matrices as heatmaps.
+3. **Static site generator** (`RCode/generate_static_site.R`) — turns the probability matrices into three HTML pages with PNG heatmaps (Bundesliga, 2. Bundesliga, 3. Liga), written to a Docker volume that a web server (Caddy) serves. A page older than 24 hours shows a warning banner, computed in the browser.
 
-All three run in a single Docker container on a Linux server; the scheduler talks to the Rust server over `localhost`.
+Engine and scheduler run in a single Docker container; the scheduler talks to the Rust server over `localhost`. There is no application server behind the public site — only static files. `ShinyApp/app.R` remains as a local preview of the same data.
 
 ## Deploy
 
+Images are built by CI on every push to `main` and published as `chrisschwer/league-simulator:<sha>`. On the host, pin the tag and pull:
+
 ```bash
-cp .env.example .env   # then fill in the required credentials
-docker-compose up -d --build
+cp .env.example .env          # set RAPIDAPI_KEY (and SEASON)
+docker volume create fussball-site
+docker-compose pull && docker-compose up -d
 ```
 
-The full setup, env-var table, and verification steps are in [`docs/deployment/README.md`](docs/deployment/README.md). The fast path is in [`docs/deployment/quick-start.md`](docs/deployment/quick-start.md).
+The full setup, env-var table, and verification steps are in [`docs/deployment/README.md`](docs/deployment/README.md); serving the generated pages is covered in [`docs/deployment/static-site.md`](docs/deployment/static-site.md). The fast path is in [`docs/deployment/quick-start.md`](docs/deployment/quick-start.md).
 
 ## Operate
 
@@ -38,6 +41,7 @@ Common operator tasks:
 - **Roll back to a previous version:** [`docs/deployment/rollback.md`](docs/deployment/rollback.md).
 - **Local development without the production container:** [`docs/deployment/local-development.md`](docs/deployment/local-development.md).
 - **Common commands:** [`CLAUDE.md`](CLAUDE.md) Quick Commands.
+- **Vocabulary and decisions:** [`CONTEXT.md`](CONTEXT.md) and [`docs/adr/`](docs/adr/).
 
 ## Project layout
 
@@ -45,14 +49,18 @@ Common operator tasks:
 .
 ├── league-simulator-rust/   # Rust simulation engine
 ├── RCode/                   # R scheduler, ELO, table calculations
-├── ShinyApp/                # Shiny dashboard
+├── ShinyApp/                # Result fixture, local Shiny preview, static-site output (gitignored)
 ├── scripts/                 # Operator scripts (season transition)
 ├── tests/testthat/          # R test suite
-├── docs/                    # Documentation
+├── tools/                   # One-off tooling (e.g. the shinyapps.io farewell notice)
+├── docs/                    # Documentation, ADRs
+├── CONTEXT.md               # Shared vocabulary
 ├── Dockerfile               # Single multi-stage build
-└── docker-compose.yml       # Single-service deployment
+└── docker-compose.yml       # Reference compose file (single service + site volume)
 ```
 
 ## Related
 
 The methodology and weekly running commentary on the predictions is published at [30punkte.wordpress.com](https://30punkte.wordpress.com).
+
+Until September 2026 the predictions were hosted on shinyapps.io; that deployment path has been removed ([ADR 0001](docs/adr/0001-statische-seiten-statt-gehostetem-shiny.md)).
