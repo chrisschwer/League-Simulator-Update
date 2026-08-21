@@ -1,5 +1,5 @@
 # Helper functions for the Shiny app. Kept in a separate file so they are
-# unit-testable; deployed alongside app.R (see updateShiny.R appFiles).
+# unit-testable; shared with RCode/generate_static_site.R.
 
 load_results <- function(path, envir) {
   tryCatch(

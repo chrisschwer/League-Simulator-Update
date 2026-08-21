@@ -54,7 +54,7 @@ RUN R --slave --no-restore -e " \
 # Install Shiny ecosystem packages with retries
 RUN R --slave --no-restore -e " \
     options(repos = c(CRAN = 'https://cloud.r-project.org')); \
-    shiny_pkgs <- c('htmltools', 'httpuv', 'promises', 'shiny', 'rsconnect'); \
+    shiny_pkgs <- c('htmltools', 'httpuv', 'promises', 'shiny'); \
     for (pkg in shiny_pkgs) { \
         cat('Installing Shiny package:', pkg, '\n'); \
         if (!require(pkg, character.only=TRUE, quietly=TRUE)) { \
@@ -75,7 +75,7 @@ RUN R --slave --no-restore -e " \
     options(repos = c(CRAN = 'https://cloud.r-project.org')); \
     pkgs <- readLines('/tmp/packagelist.txt'); \
     pkgs <- pkgs[!grepl('^#|^[[:space:]]*$', pkgs)]; \
-    already_installed <- c('httr', 'jsonlite', 'dplyr', 'tidyr', 'magrittr', 'htmltools', 'httpuv', 'promises', 'shiny', 'rsconnect'); \
+    already_installed <- c('httr', 'jsonlite', 'dplyr', 'tidyr', 'magrittr', 'htmltools', 'httpuv', 'promises', 'shiny'); \
     remaining_pkgs <- pkgs[!pkgs %in% already_installed]; \
     for (pkg in remaining_pkgs) { \
         if (!require(pkg, character.only=TRUE, quietly=TRUE)) { \

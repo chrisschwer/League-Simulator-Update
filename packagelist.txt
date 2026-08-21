@@ -11,15 +11,11 @@ magrittr
 httr
 jsonlite
 reshape2
-rsconnect
 shiny
 digest
 xtable
 here
-# Additional dependencies required for rsconnect/shiny deployment
-crayon
-ellipsis
-httpuv
+# Shiny (local preview only, ShinyApp/app.R) and HTML rendering
 DT
 htmltools
 promises
