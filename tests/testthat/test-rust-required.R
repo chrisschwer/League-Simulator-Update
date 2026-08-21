@@ -115,7 +115,7 @@ test_that("loop fails fast with RUST_API_URL message when Rust is down (post-ref
       update_all_leagues_loop(duration = 0, loops = 1, n = 10,
                               saison = "2024",
                               TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-                              shiny_directory = tempdir()),
+                              static_site_dir = tempdir()),
       error = function(e) e
     )
     # Post-refactor: error message must mention "Rust simulator not available"

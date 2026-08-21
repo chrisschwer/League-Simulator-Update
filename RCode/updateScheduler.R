@@ -3,7 +3,6 @@
 
 # Load configuration from environment
 RAPIDAPI_KEY <- Sys.getenv("RAPIDAPI_KEY")
-SHINYAPPS_IO_SECRET <- Sys.getenv("SHINYAPPS_IO_SECRET")
 DURATION <- as.numeric(Sys.getenv("DURATION", "480"))
 SEASON <- Sys.getenv("SEASON", format(Sys.Date(), "%Y"))
 RUST_API_URL <- Sys.getenv("RUST_API_URL", "http://localhost:8080")
@@ -11,10 +10,6 @@ RUST_API_URL <- Sys.getenv("RUST_API_URL", "http://localhost:8080")
 # Validate environment
 if (RAPIDAPI_KEY == "") {
   stop("ERROR: RAPIDAPI_KEY environment variable not set")
-}
-
-if (SHINYAPPS_IO_SECRET == "") {
-  stop("ERROR: SHINYAPPS_IO_SECRET environment variable not set")
 }
 
 # Auto-detect season if not set
@@ -170,8 +165,8 @@ main <- function() {
     initial_wait = loop_config$initial_wait,
     n = 10000,
     saison = SEASON,
-    TeamList_file = team_list_file,
-    shiny_directory = "ShinyApp"
+    TeamList_file = team_list_file
+    # static_site_dir defaults to STATIC_SITE_DIR (see update_all_leagues_loop.R)
   )
 
   message("Scheduler completed successfully")
