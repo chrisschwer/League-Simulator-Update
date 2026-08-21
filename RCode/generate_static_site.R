@@ -179,3 +179,56 @@ render_league_page <- function(view, data_env, output_dir,
   writeLines(html, out_path, useBytes = TRUE)
   invisible(out_path)
 }
+
+.render_fallback_page <- function(output_dir) {
+  html <- paste0(
+    "<!doctype html>\n<html lang=\"de\">\n<head>\n",
+    "<meta charset=\"utf-8\">\n",
+    "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n",
+    "<title>", htmltools::htmlEscape(SITE_TITLE), "</title>\n",
+    "<style>", .page_css, "</style>\n</head>\n<body>\n",
+    "<h1>", htmltools::htmlEscape(SITE_TITLE), "</h1>\n",
+    "<h3>Noch keine Prognosedaten verfügbar</h3>\n",
+    "<p>Die Simulationsergebnisse wurden noch nicht erzeugt oder konnten ",
+    "nicht geladen werden. Bitte versuchen Sie es später erneut.</p>\n",
+    "<footer><p>Nähere Infos unter <a href=\"", BLOG_URL,
+    "\" target=\"blank_\">30punkte.wordpress.com</a></p></footer>\n",
+    "</body>\n</html>\n"
+  )
+  dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+  out_path <- file.path(output_dir, "index.html")
+  writeLines(html, out_path, useBytes = TRUE)
+  invisible(out_path)
+}
+
+generate_static_site <- function(Ergebnis, Ergebnis2, Ergebnis3,
+                                 Ergebnis3_Aufstieg = Ergebnis3,
+                                 output_dir = Sys.getenv("STATIC_SITE_DIR",
+                                                         "ShinyApp/public"),
+                                 now = Sys.time()) {
+  have_data <- !is.null(Ergebnis) && !is.null(Ergebnis2) && !is.null(Ergebnis3)
+
+  if (!have_data) {
+    message("generate_static_site: no simulation data, writing fallback page")
+    return(invisible(.render_fallback_page(output_dir)))
+  }
+
+  data_env <- new.env(parent = emptyenv())
+  assign("Ergebnis", Ergebnis, envir = data_env)
+  assign("Ergebnis2", Ergebnis2, envir = data_env)
+  assign("Ergebnis3", Ergebnis3, envir = data_env)
+  assign("Ergebnis3_Aufstieg",
+         if (is.null(Ergebnis3_Aufstieg)) Ergebnis3 else Ergebnis3_Aufstieg,
+         envir = data_env)
+
+  dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+  paths <- vapply(league_views(), function(view) {
+    message(sprintf("generate_static_site: rendering %s", view$slug))
+    render_league_page(view, data_env, output_dir, now = now, mtime = now)
+  }, character(1))
+
+  message(sprintf("generate_static_site: wrote %d pages to %s",
+                  length(paths), output_dir))
+  invisible(unname(paths))
+}

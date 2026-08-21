@@ -52,3 +52,4 @@ backup_season_*.tar.gz
 logs/
 processing_*.log
 testthat-summary.txt
+ShinyApp/public/

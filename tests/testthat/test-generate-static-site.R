@@ -151,3 +151,59 @@ test_that("the stale banner is embedded hidden and revealed by inline JS", {
   expect_true(grepl("getElementById(\"generated\")", html, fixed = TRUE))
   expect_true(grepl("> 24", html, fixed = TRUE))
 })
+
+test_that("generate_static_site writes all three pages and their assets", {
+  gen <- source_generator()
+  out <- withr::local_tempdir()
+  env <- make_data_env()
+
+  paths <- gen$generate_static_site(
+    env$Ergebnis, env$Ergebnis2, env$Ergebnis3, env$Ergebnis3_Aufstieg,
+    output_dir = out,
+    now = as.POSIXct("2026-07-26 14:30:00", tz = "Europe/Berlin")
+  )
+
+  expect_length(paths, 3)
+  for (f in c("index.html", "2-bundesliga.html", "3-liga.html")) {
+    expect_true(file.exists(file.path(out, f)), info = f)
+  }
+  for (f in c("index.png", "2-bundesliga.png", "3-liga.png")) {
+    expect_true(file.exists(file.path(out, "assets", f)), info = f)
+  }
+})
+
+test_that("generate_static_site writes the fallback page when data is missing", {
+  gen <- source_generator()
+  out <- withr::local_tempdir()
+
+  paths <- gen$generate_static_site(
+    NULL, NULL, NULL, NULL, output_dir = out,
+    now = as.POSIXct("2026-07-26 14:30:00", tz = "Europe/Berlin")
+  )
+
+  expect_length(paths, 1)
+  html <- read_html(file.path(out, "index.html"))
+  expect_true(grepl("Noch keine Prognosedaten verfügbar", html, fixed = TRUE))
+  expect_true(grepl("30punkte.wordpress.com", html, fixed = TRUE))
+})
+
+test_that("generate_static_site output is deterministic for fixed inputs", {
+  gen <- source_generator()
+  env <- make_data_env()
+  now <- as.POSIXct("2026-07-26 14:30:00", tz = "Europe/Berlin")
+
+  out1 <- withr::local_tempdir()
+  out2 <- withr::local_tempdir()
+  gen$generate_static_site(env$Ergebnis, env$Ergebnis2, env$Ergebnis3,
+                           env$Ergebnis3_Aufstieg, output_dir = out1, now = now)
+  gen$generate_static_site(env$Ergebnis, env$Ergebnis2, env$Ergebnis3,
+                           env$Ergebnis3_Aufstieg, output_dir = out2, now = now)
+
+  for (f in c("index.html", "2-bundesliga.html", "3-liga.html")) {
+    expect_equal(
+      readLines(file.path(out1, f), warn = FALSE),
+      readLines(file.path(out2, f), warn = FALSE),
+      info = f
+    )
+  }
+})
