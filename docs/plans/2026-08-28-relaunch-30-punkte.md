@@ -78,7 +78,7 @@ Tests 4a (neue Dateien; bestehende Suiten bleiben eingefroren): `test-league-pag
 Überträge aus dem 4a-Abschlussreview (2026-08-28):
 - Die Formatierer `.komma()`/`.vorzeichen()` haben keinen NA-Guard — für 4b-Spalten aus optionalen Response-Feldern (`elo_delta_home` ist bei ungespielten Partien null) vorsehen.
 - Sortier-JS invertiert bewusst nicht bei erneutem Klick (feste Richtung je Spalte, Plan-konform) — kein Bug.
-- Gestaltungsoption: Zonen-Trennlinien in der Ligatabelle (Auf-/Abstiegszonen je Liga aus `league_views()`-Konfiguration statt hartem nth-child) — geparkt aus dem Mock-up.
+- Entschieden (User, 2026-08-28): Die Ligatabelle bekommt KEINE Zonen-Trennlinien — bei Sortierung nach ELO/Punkten stünden sie ohnehin an falscher Stelle. Damit endgültig verworfen, nicht geparkt.
 
 - Fensterung aus Phase 2 nutzen: `rueckblick_matches()` / `live_matches()`; Join mit Response-Werten (ex-ante 1/X/2, `elo_delta_home`) per Index.
 - Rendering nach Mock-up: Spielzeilen (Termin, Paarung mit vollen Namen, 1/X/2-Balken mit `nolabel`-Regel, Ergebnis, ELO-Anpassung ±x,x / ∓x,x), Nachholspiel-Kennzeichnung; Legende. Live-Sektion zwischen Rückblick und Ausblick, nur wenn nicht leer: Zwischenstand ohne Prognose + Hinweis „Prognosen werden während des Spiels nicht aktualisiert“.
