@@ -98,11 +98,12 @@ table.liga tbody th{font-weight:400;text-align:left;padding:7px 12px 7px 0;borde
 table.liga td{padding:7px 12px;border-bottom:.5px solid var(--rule-soft)}
 table.liga td.num,table.liga td{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;text-align:right}
 
-/* Spiele (Rückblick/Live) */
+/* Spiele (Rückblick/Live/Ausblick) */
 .matches{display:flex;flex-direction:column}
 .match{display:grid;grid-template-columns:118px 1fr 170px 64px 110px;gap:16px;align-items:center;
   padding:11px 0;border-bottom:.5px solid var(--rule-soft)}
 .match.live{grid-template-columns:118px 1fr 64px}
+.match.outlook{grid-template-columns:118px 1fr 170px 174px}
 .mwhen{font-family:var(--sans);font-size:12px;color:var(--ink-3);white-space:nowrap}
 .mpair{font-size:16px}
 .dash{color:var(--ink-3)}
@@ -121,6 +122,23 @@ table.liga td.num,table.liga td{font-family:var(--mono);font-size:13px;font-vari
 .chip{display:inline-block;width:9px;height:9px;margin:0 4px 0 10px;vertical-align:baseline;border:.5px solid var(--rule)}
 .chip.h{background:var(--tinte);border-color:var(--tinte)} .chip.x{background:var(--rule-soft)} .chip.a{background:var(--ocker);border-color:var(--ocker)}
 .nachhol{font-family:var(--sans);font-size:11px;color:var(--ink-3);letter-spacing:.05em}
+
+/* Ergebnis-Matrix (Ausblick) */
+details.mscore summary{font-family:var(--sans);font-size:12px;color:var(--ink-2);cursor:pointer;
+  list-style:none;text-align:right;white-space:nowrap}
+details.mscore summary::-webkit-details-marker{display:none}
+details.mscore summary::before{content:"\25B8";margin-right:5px;color:var(--ink-3);
+  display:inline-block;transition:transform 120ms cubic-bezier(.2,0,.2,1)}
+details.mscore[open] summary::before{transform:rotate(90deg)}
+details.mscore summary:hover{color:var(--ink)}
+details.mscore[open]{grid-column:1/-1}
+details.mscore[open] summary{margin-bottom:10px}
+table.score{font-family:var(--mono);font-size:11px;font-variant-numeric:tabular-nums;margin-left:auto}
+table.score th{font-family:var(--sans);font-weight:500;font-size:11px;color:var(--ink-3);padding:3px 4px}
+table.score .corner{position:relative;min-width:104px}
+table.score .corner span{font-size:10px;letter-spacing:.02em;white-space:nowrap}
+table.score tbody th{text-align:right;padding-right:8px}
+table.score td{width:44px;height:26px;text-align:center;border:1px solid var(--paper)}
 
 footer{margin-top:72px;border-top:1px solid var(--rule);padding-top:16px;
   font-family:var(--sans);font-size:12.5px;color:var(--ink-3);display:flex;
@@ -150,12 +168,14 @@ table.beispiel td:first-child{font-family:var(--serif);font-size:15px}
   .wrap{padding:28px 16px 48px}
   .wordmark{font-size:30px}
   h2{font-size:24px}
-  .match,.match.live{grid-template-columns:1fr auto;grid-template-areas:none;row-gap:8px}
+  .match,.match.live,.match.outlook{grid-template-columns:1fr auto;grid-template-areas:none;row-gap:8px}
   .mwhen{grid-column:1/-1;order:-1}
   .mpair{grid-column:1/-1}
   .oddsbar{grid-column:1;width:100%}
   .mres{text-align:right}
   .melo{grid-column:2}
+  details.mscore summary{text-align:left}
+  table.score{margin-left:0}
 }
 @media (max-width:520px){
   table.liga{min-width:0;width:100%}
@@ -177,4 +197,8 @@ table.beispiel td:first-child{font-family:var(--serif);font-size:15px}
   table.panel th[scope=col]{padding:4px 0 4px 5px;font-size:10.5px;hyphens:auto}
   table.panel td{padding:4px 0 4px 5px;font-size:12px}
   table.panel tbody th{font-size:13.5px;padding-right:4px}
+}
+@media (prefers-reduced-motion:no-preference){
+  details.mscore table.score{animation:fade .22s cubic-bezier(.2,0,.2,1)}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
 }

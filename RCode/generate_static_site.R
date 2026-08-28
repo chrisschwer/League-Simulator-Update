@@ -269,6 +269,13 @@ render_league_page <- function(view, data_env, output_dir,
   } else {
     ""
   }
+  ausblick_html <- if (!is.null(league_entry) &&
+                       !is.null(league_entry$ausblick) &&
+                       nrow(league_entry$ausblick) > 0) {
+    render_ausblick(league_entry$ausblick, league_entry$spieltag$ausblick)
+  } else {
+    ""
+  }
 
   html <- paste0(
     "<!doctype html>\n<html lang=\"de\">\n<head>\n",
@@ -294,6 +301,7 @@ render_league_page <- function(view, data_env, output_dir,
     tabelle_html,
     rueckblick_html,
     live_html,
+    ausblick_html,
     .footer_html(mtime), "\n",
     .stale_script, "\n",
     sort_script, "\n</div>\n</body>\n</html>\n"
@@ -570,7 +578,13 @@ render_liga_tabelle <- function(tabelle) {
 }
 
 # Ergebnis "H:A" (Rueckblick/Live; fuer Live ist es der laufende Zwischenstand).
+# NA-Guard (4b-Review-Uebertrag): fehlende Tore -> "–:–" (Halbgeviertstriche),
+# nie "NA:NA" im Markup. Betrifft z.B. Live-Zeilen, deren Tore noch nicht
+# uebermittelt wurden.
 .match_ergebnis <- function(goals_home, goals_away) {
+  if (is.na(goals_home) || is.na(goals_away)) {
+    return("–:–")
+  }
   paste0(goals_home, ":", goals_away)
 }
 
@@ -640,6 +654,94 @@ render_live <- function(live) {
     "<h2>Laufende Spiele</h2>\n",
     "<p class=\"sectionlead\">Prognosen werden während des Spiels nicht ",
     "aktualisiert.</p>\n",
+    "<div class=\"matches\">\n",
+    paste0(zeilen, collapse = ""),
+    "</div>\n</section>\n"
+  )
+}
+
+# --- Phase 4c: Ausblick-Sektion --------------------------------------------
+
+# Deutsche Ein-Nachkommastellen-Prozentzelle für die Ergebnis-Matrix; Werte
+# unter 0,1 % (0.001) bleiben leer statt auf "0,0" zu runden.
+.score_zelle_text <- function(p) {
+  if (p < 0.001) {
+    ""
+  } else {
+    .komma(100 * p, 1)
+  }
+}
+
+# Eine Ergebnis-Matrix (score_matrix, quadratisch: 0..(n-2) Tore, letzte
+# Zeile/Spalte = Restmasse "n-1+") als <table class="score">. Färbung wie im
+# Mock-up über .heat_style((p / Zellenmaximum) * 0.75) — die Spitzenzelle
+# bekommt so t = 0.75 statt volle Tinte. Anteil wird auf 1 geclamped
+# (Rundungsdrift/entartete Matrizen), sonst würde .heat_style() bei > 1
+# negative RGB-Kanäle erzeugen (ungültiges CSS, Zelle rendert weiß auf weiß).
+.render_score_matrix <- function(m) {
+  n <- nrow(m)
+  achse <- c(as.character(seq_len(n - 1) - 1), paste0(n - 1, "+"))
+  zellenmax <- max(m)
+
+  header <- paste0(
+    "<thead><tr><th class=\"corner\"><span>Heim&nbsp;&#8595;&nbsp;&middot;&nbsp;Gast&nbsp;&#8594;</span></th>",
+    paste0("<th>", achse, "</th>", collapse = ""),
+    "</tr></thead>"
+  )
+
+  rows <- vapply(seq_len(n), function(i) {
+    cells <- paste0(vapply(seq_len(n), function(j) {
+      p <- m[i, j]
+      anteil <- if (is.finite(zellenmax) && zellenmax > 0) (p / zellenmax) * 0.75 else 0
+      anteil <- min(1, anteil)
+      paste0("<td style=\"", .heat_style(anteil), "\">",
+             .score_zelle_text(p), "</td>")
+    }, character(1)), collapse = "")
+    paste0("<tr><th scope=\"row\">", achse[i], "</th>", cells, "</tr>")
+  }, character(1))
+
+  paste0(
+    "<table class=\"score\" aria-label=\"Wahrscheinlichkeit je Ergebnis in Prozent\">\n",
+    header, "\n<tbody>", paste0(rows, collapse = ""), "</tbody></table>"
+  )
+}
+
+.ausblick_zeile <- function(row) {
+  nachhol <- if (isTRUE(row$nachholspiel)) {
+    paste0("<span class=\"nachhol\">Nachholspiel, ", row$round, ". Spieltag</span>")
+  } else {
+    ""
+  }
+
+  paste0(
+    "<div class=\"match outlook\">\n",
+    "<div class=\"mwhen\">", .mwhen(row$kickoff), "</div>\n",
+    "<div class=\"mpair\">", .match_pair(row$home_name, row$away_name), "</div>\n",
+    .oddsbar(row$p_home_win, row$p_draw, row$p_away_win), "\n",
+    "<details class=\"mscore\"><summary>Ergebnis-Matrix</summary>",
+    .render_score_matrix(row$score_matrix[[1]]), "</details>\n",
+    nachhol,
+    "</div>\n"
+  )
+}
+
+# Ausblick-Sektion: kommende Spiele mit 1/X/2-Balken und aufklappbarer
+# Ergebnis-Matrix (Score-Matrix aus der Endpoint-Antwort).
+render_ausblick <- function(ausblick, runde) {
+  zeilen <- vapply(seq_len(nrow(ausblick)), function(i) {
+    .ausblick_zeile(ausblick[i, ])
+  }, character(1))
+
+  paste0(
+    "<section id=\"ausblick\">\n",
+    "<p class=\"eyebrow\">Ausblick</p>\n",
+    "<h2>", .spieltag_ueberschrift(runde), "</h2>\n",
+    "<p class=\"sectionlead\">Die Wahrscheinlichkeiten für die kommenden ",
+    "Spiele, gerechnet mit den ELO-Werten von heute. Die Ergebnis-Matrix ",
+    "zeigt je Paarung die Wahrscheinlichkeit jedes Endstands.</p>\n",
+    "<p class=\"oddslegend\">Balken: <span class=\"chip h\"></span><b>Sieg Heim</b>",
+    "<span class=\"chip x\"></span><b>Remis</b>",
+    "<span class=\"chip a\"></span><b>Sieg Gast</b> — Angaben in Prozent</p>\n",
     "<div class=\"matches\">\n",
     paste0(zeilen, collapse = ""),
     "</div>\n</section>\n"
