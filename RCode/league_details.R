@@ -372,8 +372,10 @@ build_league_page_data <- function(fixtures, teams,
     rueckblick <- join_endpoint(rueckblick_matches(details))
     live <- join_endpoint(live_matches(details))
 
-    rueckblick_runden <- sort(unique(rueckblick$round[!rueckblick$nachholspiel]))
     ausblick_ziel <- ausblick_matches(details)
+    ausblick <- join_endpoint(ausblick_ziel)
+
+    rueckblick_runden <- sort(unique(rueckblick$round[!rueckblick$nachholspiel]))
     ausblick_runden <- if (nrow(ausblick_ziel) > 0) {
       sort(unique(ausblick_ziel$round[!ausblick_ziel$nachholspiel]))
     } else {
@@ -393,6 +395,7 @@ build_league_page_data <- function(fixtures, teams,
       tabelle = tabelle,
       rueckblick = rueckblick,
       live = live,
+      ausblick = ausblick,
       spieltag = list(rueckblick = rueckblick_runden, ausblick = ausblick_runde)
     )
   }, error = function(e) {
