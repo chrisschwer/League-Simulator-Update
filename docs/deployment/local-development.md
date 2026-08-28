@@ -2,7 +2,7 @@
 
 Run, edit, and iterate on parts of the League Simulator outside the production container.
 
-> **Production is a single Docker container that runs continuously on a Linux server.** Local development is *not* about running the production scheduler on your machine. It's about iterating on individual pieces — the R modules, the Rust simulation engine, the Shiny app, the season-transition operator workflow — without rebuilding and redeploying the container.
+> **Production is a single Docker container that runs continuously on a Linux server.** Local development is *not* about running the production scheduler on your machine. It's about iterating on individual pieces — the R modules, the Rust simulation engine, the static site generator, the season-transition operator workflow — without rebuilding and redeploying the container.
 >
 > See [Quick Start](quick-start.md) for the actual deployment path. See [Deployment Overview](README.md) for what runs in production.
 
@@ -56,14 +56,21 @@ RUST_API_URL=http://localhost:8080 Rscript -e '
 '
 ```
 
-## 4. Run the Shiny app locally
+## 4. Preview the static site locally
 
-```r
-shiny::runApp("ShinyApp/app.R", port = 3838)
-# http://localhost:3838
+There is no Shiny app to run — `ShinyApp/app.R` and the Shiny dependency were
+removed with the relaunch. Render the site with
+[`scripts/preview_site.R`](../../scripts/preview_site.R) and open the
+printed path in a browser:
+
+```bash
+Rscript scripts/preview_site.R
 ```
 
-Reads `ShinyApp/data/Ergebnis.Rds` — same file the production scheduler writes before rendering the static site.
+By default it reads `ShinyApp/data/Ergebnis.Rds` — same file the production
+scheduler writes before rendering the static site — and renders into a
+fresh `tempdir()`; pass an alternate `Ergebnis.Rds` path and/or output
+directory as arguments.
 
 ## 5. Season transition (operator workflow)
 
@@ -80,7 +87,7 @@ For the canonical operator guide, see [`docs/user-guide/season-transition.md`](.
 
 ## Building Docker images
 
-> **You don't build production Docker images on macOS. You build them on a Linux machine** — historically by hand on a server you control. The Mac-side workflow is R + Rust + Shiny iteration only.
+> **You don't build production Docker images on macOS. You build them on a Linux machine** — historically by hand on a server you control. The Mac-side workflow is R + Rust + static-site iteration only.
 
 A future goal is to **move image-build to CI**: a GitHub Actions workflow that builds and (optionally) pushes to a registry on pushes to `main`. That work is tracked in issue [#76](https://github.com/chrisschwer/League-Simulator-Update/issues/76) (CI rebuild). Until #76 lands, treat `docker build` / `docker-compose build` as a Linux-only operation.
 
