@@ -558,14 +558,23 @@ render_liga_tabelle <- function(tabelle) {
   paste0(paste(runden, collapse = "./"), ". Spieltag")
 }
 
-.match_zeile <- function(row) {
-  pair <- paste0(
-    htmltools::htmlEscape(row$home_name),
+# Paarung "Heim – Gast" mit htmltools-Escaping und dem Halbgeviertstrich
+# als eigenem Span (fuer CSS-Faerbung). Gemeinsam fuer Rueckblick-, Live- und
+# (4c) Ausblick-Zeilen, die alle dieselbe Paarungsdarstellung brauchen.
+.match_pair <- function(home_name, away_name) {
+  paste0(
+    htmltools::htmlEscape(home_name),
     "<span class=\"dash\"> – </span>",
-    htmltools::htmlEscape(row$away_name)
+    htmltools::htmlEscape(away_name)
   )
-  ergebnis <- paste0(row$goals_home, ":", row$goals_away)
+}
 
+# Ergebnis "H:A" (Rueckblick/Live; fuer Live ist es der laufende Zwischenstand).
+.match_ergebnis <- function(goals_home, goals_away) {
+  paste0(goals_home, ":", goals_away)
+}
+
+.match_zeile <- function(row) {
   nachhol <- if (isTRUE(row$nachholspiel)) {
     paste0("<span class=\"nachhol\">Nachholspiel, ", row$round, ". Spieltag</span>")
   } else {
@@ -575,9 +584,9 @@ render_liga_tabelle <- function(tabelle) {
   paste0(
     "<div class=\"match\">\n",
     "<div class=\"mwhen\">", .mwhen(row$kickoff), "</div>\n",
-    "<div class=\"mpair\">", pair, "</div>\n",
+    "<div class=\"mpair\">", .match_pair(row$home_name, row$away_name), "</div>\n",
     .oddsbar(row$p_home_win, row$p_draw, row$p_away_win), "\n",
-    "<div class=\"mres\">", ergebnis, "</div>\n",
+    "<div class=\"mres\">", .match_ergebnis(row$goals_home, row$goals_away), "</div>\n",
     "<div class=\"melo\" title=\"ELO-Anpassung Heim / Gast\">",
     .melo(row$elo_delta_home), "</div>\n",
     nachhol,
@@ -616,17 +625,11 @@ render_live <- function(live) {
 
   zeilen <- vapply(seq_len(nrow(live)), function(i) {
     row <- live[i, ]
-    pair <- paste0(
-      htmltools::htmlEscape(row$home_name),
-      "<span class=\"dash\"> – </span>",
-      htmltools::htmlEscape(row$away_name)
-    )
-    ergebnis <- paste0(row$goals_home, ":", row$goals_away)
     paste0(
       "<div class=\"match live\">\n",
       "<div class=\"mwhen\">", .mwhen(row$kickoff), "</div>\n",
-      "<div class=\"mpair\">", pair, "</div>\n",
-      "<div class=\"mres\">", ergebnis, "</div>\n",
+      "<div class=\"mpair\">", .match_pair(row$home_name, row$away_name), "</div>\n",
+      "<div class=\"mres\">", .match_ergebnis(row$goals_home, row$goals_away), "</div>\n",
       "</div>\n"
     )
   }, character(1))
