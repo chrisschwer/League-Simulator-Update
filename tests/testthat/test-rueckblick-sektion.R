@@ -83,7 +83,9 @@ test_that("die Überschrift eines einzelnen Spieltags trägt keine Doppelform", 
   html <- gen$render_rueckblick(mk_rueckblick()[1, ], runden = 2L)
 
   expect_match(html, ">2. Spieltag<")
-  expect_false(grepl("/", regmatches(html, regexpr("<h2[^<]*</h2>", html))))
+  ueberschrift <- regmatches(html, regexpr("<h2[^>]*>[^<]*</h2>", html))
+  inhalt <- gsub("<[^>]*>", "", ueberschrift)
+  expect_false(grepl("/", inhalt, fixed = TRUE))
 })
 
 test_that("der 1/X/2-Balken kodiert die ex-ante-Wahrscheinlichkeiten", {
