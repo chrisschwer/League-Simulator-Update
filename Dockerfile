@@ -123,7 +123,6 @@ RUN mkdir -p /app/RCode /app/ShinyApp/data /app/ShinyApp/public
 RUN touch /app/.here
 
 COPY RCode/ ./RCode/
-COPY ShinyApp/ ./ShinyApp/
 COPY docker-start.sh /app/start.sh
 RUN chmod +x /app/start.sh
 
