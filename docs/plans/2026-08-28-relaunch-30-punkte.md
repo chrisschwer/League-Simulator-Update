@@ -86,6 +86,11 @@ Tests 4a (neue Dateien; bestehende Suiten bleiben eingefroren): `test-league-pag
 
 #### 4c — Ausblick
 
+Überträge aus dem 4b-Abschlussreview (2026-08-28):
+- `.match_ergebnis()` braucht einen NA-Guard („–:–") bzw. `live_matches()` eine Torfilterung: api-football meldet Fixtures in den ersten Minuten als live ohne Tore → sichtbares „NA:NA" in der Live-Sektion (reproduziert; selbstheilend, aber genau die Klasse des 4a-Übertrags).
+- `.oddsbar()` bricht bei NA-Wahrscheinlichkeiten — in Produktion unerreichbar (Rust-Felder sind non-optional), aber beachten, falls 4c den Balken ohne Endpoint-Werte einsetzt.
+- `render_rueckblick()` nur hinter dem nrow-Guard aufrufen (leerer Frame ergäbe „. Spieltag"-Überschrift) — gleiche Disziplin für `render_ausblick()`.
+
 - `ausblick_matches()` + Score-Matrizen aus der Response: `<details>`-Aufklapper je Spiel (Marker-Styling aus Mock-up), 7×7-Matrix mit Heat-Färbung (`.heat_style()`-Wiederverwendung), Termin-Formatierung (Berlin-Zeit, Wochentagskürzel, schmale Leerzeichen), 1/X/2-Balken.
 - Danach: CONTEXT.md-Eintrag **Statische Seite** final prüfen; ggf. Abschluss-Notiz im Plan.
 
