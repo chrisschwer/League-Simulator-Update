@@ -674,13 +674,14 @@ render_live <- function(live) {
 
 # Eine Ergebnis-Matrix (score_matrix, quadratisch: 0..(n-2) Tore, letzte
 # Zeile/Spalte = Restmasse "n-1+") als <table class="score">. Färbung wie im
-# Mock-up über .heat_style(), skaliert mit dem Zellenmaximum (* 0.75, damit
-# die höchste Zelle nicht bereits volle Tinte zeigt).
+# Mock-up über .heat_style((p / Zellenmaximum) * 0.75) — die Spitzenzelle
+# bekommt so t = 0.75 statt volle Tinte. Anteil wird auf 1 geclamped
+# (Rundungsdrift/entartete Matrizen), sonst würde .heat_style() bei > 1
+# negative RGB-Kanäle erzeugen (ungültiges CSS, Zelle rendert weiß auf weiß).
 .render_score_matrix <- function(m) {
   n <- nrow(m)
   achse <- c(as.character(seq_len(n - 1) - 1), paste0(n - 1, "+"))
-  skala <- max(m) * 0.75
-  if (!is.finite(skala) || skala <= 0) skala <- 1
+  zellenmax <- max(m)
 
   header <- paste0(
     "<thead><tr><th class=\"corner\"><span>Heim&nbsp;&#8595;&nbsp;&middot;&nbsp;Gast&nbsp;&#8594;</span></th>",
@@ -691,7 +692,9 @@ render_live <- function(live) {
   rows <- vapply(seq_len(n), function(i) {
     cells <- paste0(vapply(seq_len(n), function(j) {
       p <- m[i, j]
-      paste0("<td style=\"", .heat_style(p / skala), "\">",
+      anteil <- if (is.finite(zellenmax) && zellenmax > 0) (p / zellenmax) * 0.75 else 0
+      anteil <- min(1, anteil)
+      paste0("<td style=\"", .heat_style(anteil), "\">",
              .score_zelle_text(p), "</td>")
     }, character(1)), collapse = "")
     paste0("<tr><th scope=\"row\">", achse[i], "</th>", cells, "</tr>")
