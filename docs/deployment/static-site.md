@@ -1,7 +1,7 @@
 # Static Site
 
-After each simulation cycle the scheduler renders three pages plus PNG heatmaps
-into `STATIC_SITE_DIR` (default `ShinyApp/public`, `/app/ShinyApp/public` in the
+After each simulation cycle the scheduler renders four pages into
+`STATIC_SITE_DIR` (default `ShinyApp/public`, `/app/ShinyApp/public` in the
 container). A plain web server serves that directory — there is no Shiny
 runtime, no `rsconnect`, and no deployment credentials.
 
@@ -16,8 +16,16 @@ ShinyApp/public/
 ├── index.html          # Bundesliga
 ├── 2-bundesliga.html
 ├── 3-liga.html
-└── assets/*.png
+├── methodik.html       # Methodik, content from RCode/site_assets/methodik_content.html
+└── assets/
+    ├── site.css
+    ├── favicon.svg
+    └── fonts/*.woff2
 ```
+
+There are no PNGs — the probability heatmap is an HTML table with a
+per-cell background colour, generated inline by
+[`RCode/generate_static_site.R`](../../RCode/generate_static_site.R).
 
 Total size is a few hundred KB. Writes are idempotent, so regenerating every
 2 minutes during a matchday costs nothing.
@@ -102,7 +110,7 @@ docker compose logs -f scheduler
 
 ```bash
 docker compose ps                                   # fussball-scheduler healthy
-docker run --rm -v fussball-site:/v alpine ls -la /v  # 3 HTML + assets/, owner 1001
+docker run --rm -v fussball-site:/v alpine ls -la /v  # 4 HTML + assets/, owner 1001
 curl -sI https://fussball.example.org/              # 200, Cache-Control: no-cache
 curl -s  https://fussball.example.org/ | grep -c Saisonprognose
 ```
@@ -132,9 +140,15 @@ rollback.
 
 ## Local preview
 
-`ShinyApp/app.R` still runs as a development tool against
-`ShinyApp/data/Ergebnis.Rds`:
+There is no Shiny app to preview against — `ShinyApp/app.R` and the Shiny
+dependency were removed with the relaunch. To preview the generated site
+locally, render it with [`scripts/preview_site.R`](../../scripts/preview_site.R)
+and open the printed path in a browser:
 
 ```bash
-Rscript -e 'shiny::runApp("ShinyApp/app.R")'
+Rscript scripts/preview_site.R
 ```
+
+By default it reads `ShinyApp/data/Ergebnis.Rds` and renders into a fresh
+`tempdir()`; pass an alternate `Ergebnis.Rds` path and/or output directory as
+arguments.
