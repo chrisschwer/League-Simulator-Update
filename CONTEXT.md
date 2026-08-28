@@ -13,15 +13,24 @@ Berechnet nach jedem Spiel Wahrscheinlichkeiten für die Endplatzierung in Bunde
 **Scheduler**: Der Dauerprozess, der täglich 14:45–22:45 (Berlin) alle zwei Minuten Ergebnisse holt, bei Bedarf simuliert und die statische Seite rendert.
 **Live-Poll**: Die billige Einzelanfrage nach laufenden Spielen aller drei Ligen, die der Scheduler fast jeden Loop stellt.
 **Vollabruf**: Der teure Abruf aller Saisonspiele einer Liga; nur nach Spielende oder alle 30 Loops.
-**Statische Seite**: Die drei vom Scheduler gerenderten HTML-Seiten samt PNG-Heatmaps. _Avoid_: Shiny-App, Dashboard (historisch)
+**Statische Seite**: Die vom Scheduler gerenderten HTML-Seiten (drei Liga-Seiten und die Methodik-Seite; bis zum Relaunch 2026: drei Seiten samt PNG-Heatmaps). _Avoid_: Shiny-App, Dashboard (historisch)
 **Stale-Banner**: Hinweis auf der Seite, wenn die Prognose älter als 24 Stunden ist; clientseitig ermittelt.
 **Umzugsbanner**: Die letzte, inhaltslose App auf shinyapps.io mit Verweis auf die neue Adresse (September 2026).
+**Ligatabelle**: Die aus den Spielergebnissen berechnete aktuelle Tabelle einer Liga samt ELO und Δ ELO seit Saisonbeginn; standardmäßig nach Platz sortiert, clientseitig auch nach Punkten oder ELO sortierbar.
+**Abgeschlossener Spieltag**: Spieltag, dessen Spiele sämtlich beendet oder verschoben (api-football-Status PST/CANC/TBD) sind. Verschobene Spiele halten einen Spieltag nicht offen.
+**Laufender Spieltag**: Spieltag mit mindestens einem beendeten oder laufenden und mindestens einem offenen, nicht verschobenen Spiel.
+**Rückblick**: Sektion je Liga-Seite mit allen seit Beginn des zuletzt abgeschlossenen Spieltags beendeten Spielen — einschließlich gekennzeichneter Nachholspiele älterer Spieltage — mit ex-ante-1/X/2, Ergebnis und ELO-Anpassung beider Teams.
+**Ausblick**: Sektion je Liga-Seite mit den offenen, nicht verschobenen Spielen des laufenden bzw. des nächsten Spieltags plus früher angesetzten Nachholspielen; je Spiel Termin, 1/X/2 und Score-Matrix.
+**Score-Matrix**: Die analytisch aus dem Poisson-Tormodell berechnete Wahrscheinlichkeitsmatrix Heimtore × Auswärtstore eines einzelnen Spiels; kein Monte-Carlo-Ergebnis.
+**Methodik-Seite**: Die statische Seite mit den Erläuterungen des Prognosemodells (Basis: Blogartikel „Was die Prognosen mit Schach zu tun haben“, 2015, aktualisiert).
 
 ## Relationships
 
 - Eine **Prognose** entsteht aus Spielergebnissen + **TeamList** per Simulation.
 - Der **Scheduler** erzeugt aus vier **Ergebnis**-Objekten genau eine **Statische Seite** (drei Unterseiten).
 - **Ergebnis3_Aufstieg** speist nur die Aufstiegstabelle der 3. Liga; Heatmap und Abstiegstabelle kommen aus **Ergebnis3**.
+- **Ligatabelle**, **Rückblick**, **Ausblick** und **Score-Matrix** entstehen deterministisch zur Renderzeit aus TeamList + Spielergebnissen ([ADR 0002](docs/adr/0002-spieldetails-deterministisch-zur-renderzeit.md)); nur die **Prognose** braucht die Monte-Carlo-Simulation.
+- Der **Rückblick** endet, wo der **Ausblick** beginnt: Die Grenze ist der Spielstatus, nicht der Spieltag — ein **laufender Spieltag** kann in beiden Sektionen zugleich vertreten sein.
 
 ## Example dialogue
 
@@ -36,3 +45,4 @@ Berechnet nach jedem Spiel Wahrscheinlichkeiten für die Endplatzierung in Bunde
 ## Decisions
 
 - [ADR 0001](docs/adr/0001-statische-seiten-statt-gehostetem-shiny.md) — statische Seiten statt gehostetem Shiny; shinyapps.io-Pfad entfernt.
+- [ADR 0002](docs/adr/0002-spieldetails-deterministisch-zur-renderzeit.md) — Spieldetails (ELO-Verlauf, 1/X/2, Score-Matrix) werden deterministisch zur Renderzeit berechnet, nicht persistiert.
