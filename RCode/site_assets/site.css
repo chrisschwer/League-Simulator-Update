@@ -1,0 +1,131 @@
+/* 30 Punkte — gemeinsames Stylesheet für die statische Seite.
+   Abgeleitet aus .superpowers/sdd/phase-3-design/referenz-mockup-{liga,methodik}.html.
+   Phase 3 deckt nur Masthead, Prognose-Heatmap, Panels, Footer und die
+   Methodik-Prosa ab; Ligatabelle/Spiele/Ergebnis-Matrix folgen erst Phase 4. */
+
+@font-face{
+  font-family:'Source Serif 4';
+  src:url('fonts/source-serif-4-latin.woff2') format('woff2');
+  font-weight:200 900;
+  font-style:normal;
+  font-display:swap;
+}
+@font-face{
+  font-family:'Inter Tight';
+  src:url('fonts/inter-tight-latin.woff2') format('woff2');
+  font-weight:400 700;
+  font-style:normal;
+  font-display:swap;
+}
+@font-face{
+  font-family:'JetBrains Mono';
+  src:url('fonts/jetbrains-mono-latin.woff2') format('woff2');
+  font-weight:400 700;
+  font-style:normal;
+  font-display:swap;
+}
+
+:root{
+  --paper:#FFFFFF; --surface-2:#F5F3EE; --ink:#15130F; --ink-2:#312E29; --ink-3:#6B655C;
+  --rule:#D4CEBF; --rule-soft:#E3DED0; --akzent:#B0261E; --tinte:#1F3A4D; --ocker:#B8893A;
+  --serif:'Source Serif 4',Georgia,serif; --sans:'Inter Tight',-apple-system,'Helvetica Neue',Arial,sans-serif;
+  --mono:'JetBrains Mono',Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);
+  font-size:17px;line-height:1.58;font-variant-numeric:oldstyle-nums}
+.wrap{max-width:1080px;margin:0 auto;padding:40px 24px 64px}
+a{color:var(--ink);text-decoration:underline;text-decoration-color:var(--akzent);
+  text-decoration-thickness:1px;text-underline-offset:3px}
+a:hover{color:#7E1813;text-decoration-thickness:2px}
+a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--akzent);outline-offset:2px}
+
+header.mast{margin-bottom:48px}
+.wordmark{font-family:var(--serif);font-size:38px;line-height:1.12;letter-spacing:-.015em;margin:0}
+.mastrule{width:40px;height:2px;background:var(--akzent);margin:14px 0 18px}
+.masthead-row{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap}
+.tagline{font-family:var(--sans);font-size:13px;color:var(--ink-3);margin:0}
+nav{font-family:var(--sans);font-size:14px;margin-top:22px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+nav a{text-decoration:none;color:var(--ink-2);padding:2px 0}
+nav a:hover{color:var(--ink);text-decoration:underline;text-decoration-color:var(--akzent)}
+nav a.nav-current{color:var(--ink);font-weight:600;border-bottom:1px solid var(--ink)}
+nav .sep{color:var(--rule);padding:0 6px}
+.standnote{font-family:var(--sans);font-size:12px;color:var(--ink-3);margin-top:10px}
+
+section{margin-top:56px;border-top:1px solid var(--rule);padding-top:20px}
+.eyebrow{font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-3);margin:0 0 6px}
+h2{font-family:var(--serif);font-weight:400;font-size:28px;line-height:1.28;margin:0 0 6px;text-wrap:balance}
+.sectionlead{font-family:var(--serif);font-size:16px;color:var(--ink-2);max-width:64ch;margin:0 0 24px}
+
+.scroll{overflow-x:auto}
+table{border-collapse:collapse}
+caption{font-family:var(--sans);font-size:13px;font-weight:600;color:var(--ink-2);
+  text-align:left;padding-bottom:8px}
+
+/* Heatmap */
+table.heatmap{font-family:var(--mono);font-size:11.5px;font-variant-numeric:tabular-nums;line-height:1}
+table.heatmap th{font-family:var(--sans);font-weight:500;font-size:11px;color:var(--ink-3);
+  padding:4px 0 6px;min-width:30px;text-align:center}
+table.heatmap thead th:first-child{text-align:left}
+table.heatmap tbody th{position:sticky;left:0;background:var(--paper);text-align:left;
+  padding:0 10px 0 0;font-family:var(--sans);font-weight:500;font-size:12px;color:var(--ink)}
+table.heatmap td{width:34px;min-width:30px;height:26px;text-align:center;border:1px solid var(--paper)}
+.legend{font-family:var(--sans);font-size:12px;color:var(--ink-3);margin-top:10px}
+.legend .legend-mobile{display:none}
+
+/* Panels */
+.panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:40px;margin-top:36px}
+.panels>.scroll{min-width:0}
+table.panel{width:100%;font-size:15px}
+table.panel th[scope=col]{font-family:var(--sans);font-size:12px;font-weight:500;color:var(--ink-3);
+  text-align:right;padding:4px 10px;border-bottom:1px solid var(--ink)}
+table.panel tbody th{font-weight:400;text-align:left;padding:5px 10px 5px 0;border-bottom:.5px solid var(--rule-soft)}
+table.panel td{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;
+  text-align:right;padding:5px 10px;border-bottom:.5px solid var(--rule-soft)}
+
+footer{margin-top:72px;border-top:1px solid var(--rule);padding-top:16px;
+  font-family:var(--sans);font-size:12.5px;color:var(--ink-3);display:flex;
+  justify-content:space-between;gap:16px;flex-wrap:wrap}
+footer a{color:var(--ink-2)}
+
+.stale{font-family:var(--sans);font-size:13px;background:var(--surface-2);color:var(--ink-2);
+  border:1px solid var(--rule);border-left:3px solid var(--akzent);padding:10px 14px;
+  border-radius:2px;margin-bottom:24px}
+.stale[hidden]{display:none}
+
+/* Methodik-Prosa */
+.prose{max-width:66ch}
+.prose p{margin:0 0 1.1em}
+.prose h3{font-family:var(--serif);font-weight:500;font-size:21px;line-height:1.28;
+  margin:1.9em 0 .55em}
+.prose .provenienz{font-family:var(--sans);font-size:12.5px;color:var(--ink-3);
+  border-top:1px solid var(--rule);padding-top:12px;margin-top:2.4em}
+table.beispiel{margin:1.4em 0;font-size:14px}
+table.beispiel th{font-family:var(--sans);font-size:12px;font-weight:500;color:var(--ink-3);
+  text-align:left;padding:4px 22px 4px 0;border-bottom:1px solid var(--ink)}
+table.beispiel td{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;
+  padding:5px 22px 5px 0;border-bottom:.5px solid var(--rule-soft)}
+table.beispiel td:first-child{font-family:var(--serif);font-size:15px}
+
+@media (max-width:760px){
+  .wrap{padding:28px 16px 48px}
+  .wordmark{font-size:30px}
+  h2{font-size:24px}
+}
+@media (max-width:520px){
+  /* Heatmap ohne horizontales Scrollen: feste Spalten, kompakte Ziffern,
+     „<1" nur als Färbung */
+  table.heatmap{width:100%;table-layout:fixed;font-size:9px}
+  table.heatmap col.teamcol{width:34px}
+  table.heatmap td{width:auto;min-width:0;height:21px;padding:0;overflow:hidden}
+  table.heatmap thead th{min-width:0;font-size:9.5px;padding:2px 0 4px}
+  table.heatmap tbody th{font-size:10.5px;padding-right:4px}
+  table.heatmap .lt1{display:none}
+  .legend .legend-mobile{display:inline}
+  /* Panels kompakter, damit auch sie ohne Scrollen auskommen */
+  table.panel{width:100%}
+  table.panel th[scope=col]{padding:4px 0 4px 5px;font-size:10.5px;hyphens:auto}
+  table.panel td{padding:4px 0 4px 5px;font-size:12px}
+  table.panel tbody th{font-size:13.5px;padding-right:4px}
+}
