@@ -383,3 +383,11 @@ generate_static_site <- function(Ergebnis, Ergebnis2, Ergebnis3,
                   length(paths), output_dir))
   invisible(paths)
 }
+
+# --- Phase 4a (TDD): Signatur steht, Implementierung nach Test-Review ---
+
+# Sortierbare Liga-/ELO-Tabelle (Sektion "Tabelle") aus der angereicherten
+# tabelle von build_league_page_data().
+render_liga_tabelle <- function(tabelle) {
+  stop("noch nicht implementiert (Phase 4a, nach Test-Review)")
+}

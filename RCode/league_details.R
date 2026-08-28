@@ -264,3 +264,21 @@ parse_league_details_response <- function(json_text) {
     team_names = parsed$team_names
   )
 }
+
+# --- Phase 4a (TDD): Signaturen stehen, Implementierung nach Test-Review ---
+
+# Dünner httr-Client für POST /league-details; base_url-Default folgt der
+# RUST_API_URL-Konvention aus rust_integration.R.
+fetch_league_details <- function(payload,
+                                 base_url = Sys.getenv("RUST_API_URL",
+                                                       "http://localhost:8080")) {
+  stop("noch nicht implementiert (Phase 4a, nach Test-Review)")
+}
+
+# Verdrahtung je Liga: rohe Fixtures + TeamList -> render-fertige Strukturen
+# (details, teams, matches, current_elos, tabelle); NULL mit Warnung bei
+# Endpoint-Fehlern (Degradation auf Phase-3-Seite).
+build_league_page_data <- function(fixtures, teams,
+                                   fetch_fn = fetch_league_details) {
+  stop("noch nicht implementiert (Phase 4a, nach Test-Review)")
+}
