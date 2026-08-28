@@ -26,8 +26,8 @@ graph TD
     end
     
     subgraph "Output"
-        SHINY[Shiny App]
-        DEPLOY[ShinyApps.io]
+        SITE[Static Site<br/>4 HTML pages + assets]
+        CADDY[Caddy]
     end
     
     API -->|Match Data| FETCH
@@ -42,8 +42,8 @@ graph TD
     ELO --> TEMP
     AGG --> RDS
     
-    RDS --> SHINY
-    SHINY --> DEPLOY
+    RDS --> SITE
+    SITE --> CADDY
     
     FETCH --> LOGS
     SIM --> LOGS
@@ -135,33 +135,39 @@ simulation_state <- list(
 ### 3. Output Data
 
 #### Simulation Results (RDS)
+
+`ShinyApp/data/Ergebnis.Rds` is a **local-only fixture** — a `save()`-image
+used by [`scripts/preview_site.R`](../../scripts/preview_site.R) and by
+tests, not a production artifact. The production loop never writes it: it
+holds the four matrices in memory and hands them straight to
+`generate_static_site()` (see [Stage 4](#stage-4-result-aggregation) below).
+Where the fixture does exist, it's a `save()`-image, not a single serialized
+object — read it with `load()`, not `readRDS()`. It holds four `table`
+objects, each a team-by-final-position probability matrix (rows = teams in
+current-standings order, columns = final positions 1..N):
+
 ```r
-# Structure of Ergebnis.Rds
-results <- list(
-  metadata = list(
-    league_id = 78,
-    league_name = "Bundesliga",
-    season = 2025,
-    simulation_date = "2025-01-19 15:00:00",
-    iterations = 10000
-  ),
-  probability_matrix = matrix(
-    # 18 teams x 18 positions
-    # Each cell = probability of team finishing in position
-    data = c(0.892, 0.098, 0.010, ...),
-    nrow = 18,
-    ncol = 18
-  ),
-  team_names = c("Bayern Munich", "Bayer Leverkusen", ...),
-  current_standings = data.frame(
-    position = 1:18,
-    team = c(...),
-    points = c(...),
-    played = c(...),
-    goal_diff = c(...)
-  )
-)
+load("ShinyApp/data/Ergebnis.Rds")
+# -> Ergebnis            # Bundesliga, 18 x 18
+# -> Ergebnis2           # 2. Bundesliga, 18 x 18
+# -> Ergebnis3           # 3. Liga relegation view, 20 x 20
+# -> Ergebnis3_Aufstieg  # 3. Liga promotion view, 20 x 20
+#                        # (may be absent on older files -- callers fall
+#                        #  back to Ergebnis3)
+
+# Each cell = probability of that team finishing in that position.
+Ergebnis[1:3, 1:3]
+#                 [,1]  [,2]  [,3]
+# Bayern Munich   0.892 0.098 0.010
+# Bayer Leverkusen 0.081 0.312 0.201
+# ...
 ```
+
+Row and column names carry the team names and position numbers; there is no
+separate metadata or current-standings structure alongside the matrices.
+`RCode/generate_static_site.R::generate_static_site()` takes these four
+objects directly and renders the four-page static site (see
+[Static Site](../deployment/static-site.md)); it does not go through Shiny.
 
 ## Data Processing Pipeline
 
@@ -207,43 +213,32 @@ ELO updates split between two consumers, deliberately:
 
 ### Stage 3: Monte Carlo Simulation
 
-The Monte Carlo loop is a pure Rust function (`run_monte_carlo_simulation` in [`league-simulator-rust/src/monte_carlo/mod.rs`](../../league-simulator-rust/src/monte_carlo/mod.rs)) parallelised with `rayon`. The R orchestrator calls it via [`RCode/rust_integration.R::leagueSimulatorRust()`](../../RCode/rust_integration.R), which marshals the request to JSON, POSTs it to `/simulate`, and re-shapes the returned matrix into the format the Shiny app expects.
+The Monte Carlo loop is a pure Rust function (`run_monte_carlo_simulation` in [`league-simulator-rust/src/monte_carlo/mod.rs`](../../league-simulator-rust/src/monte_carlo/mod.rs)) parallelised with `rayon`. The R orchestrator calls it via [`RCode/rust_integration.R::leagueSimulatorRust()`](../../RCode/rust_integration.R), which marshals the request to JSON, POSTs it to `/simulate`, and re-shapes the returned matrix into the team-by-position `table` format `generate_static_site()` consumes.
 
 ### Stage 4: Result Aggregation
 
-```r
-# RCode/transform_data.R
-aggregate_simulation_results <- function(position_matrix, teams, metadata) {
-  # Create comprehensive results object
-  results <- list()
-  
-  # Add metadata
-  results$metadata <- metadata
-  results$metadata$timestamp <- Sys.time()
-  
-  # Add probability matrix
-  results$probability_matrix <- position_matrix
-  rownames(results$probability_matrix) <- teams$name
-  colnames(results$probability_matrix) <- paste("Position", 1:nrow(teams))
-  
-  # Calculate summary statistics
-  results$summary <- data.frame(
-    team = teams$name,
-    current_position = rank(-teams$points, ties.method = "min"),
-    expected_position = apply(position_matrix, 1, function(row) {
-      sum(row * 1:length(row))
-    }),
-    championship_prob = position_matrix[, 1],
-    top4_prob = rowSums(position_matrix[, 1:4]),
-    relegation_prob = rowSums(position_matrix[, (nrow(teams)-2):nrow(teams)])
-  )
-  
-  # Add current standings
-  results$current_standings <- teams[order(teams$points, decreasing = TRUE), ]
-  
-  return(results)
-}
-```
+The Rust server returns one team-by-position probability matrix per league
+call. [`RCode/update_all_leagues_loop.R`](../../RCode/update_all_leagues_loop.R)
+collects the three (Bundesliga, 2. Bundesliga, 3. Liga) plus the separate
+3. Liga promotion-view matrix into the four bindings `Ergebnis`, `Ergebnis2`,
+`Ergebnis3`, `Ergebnis3_Aufstieg` and passes them **in memory, directly**,
+to `generate_static_site()` (`RCode/update_all_leagues_loop.R:162`) — there
+is no persistence step in the production path. `ShinyApp/data/Ergebnis.Rds`
+is not written by this loop; see
+[Simulation Results (RDS)](#3-output-data) above for what that file
+actually is. There is no separate metadata/summary object either way; row
+names, column names, and the matrices themselves are the whole of it.
+
+### Stage 5: Static Site Rendering
+
+`generate_static_site()` in [`RCode/generate_static_site.R`](../../RCode/generate_static_site.R)
+takes the four matrices directly and renders four self-contained HTML pages
+(`index.html`, `2-bundesliga.html`, `3-liga.html`, `methodik.html`) plus
+`assets/site.css`, `assets/fonts/*.woff2`, and `assets/favicon.svg` into
+`STATIC_SITE_DIR`. No PNGs are produced — the probability heatmap is an HTML
+table with per-cell background colour. See
+[Static Site](../deployment/static-site.md) for the full output layout and
+how it's served.
 
 ## Data Storage Patterns
 
@@ -256,11 +251,17 @@ aggregate_simulation_results <- function(position_matrix, teams, metadata) {
 │   ├── TeamList_2024.csv    # Previous season
 │   └── TeamList_2025.csv    # Current season
 ├── ShinyApp/
-│   └── data/
-│       ├── Ergebnis.Rds     # Latest simulation
-│       ├── Ergebnis_78.Rds  # Bundesliga
-│       ├── Ergebnis_79.Rds  # 2. Bundesliga
-│       └── Ergebnis_80.Rds  # 3. Liga
+│   ├── data/
+│   │   └── Ergebnis.Rds     # local-only fixture (preview_site.R, tests) --
+│   │                        # save()-image: Ergebnis, Ergebnis2, Ergebnis3,
+│   │                        # Ergebnis3_Aufstieg. NOT written by the
+│   │                        # production loop -- see Stage 4 above.
+│   └── public/               # STATIC_SITE_DIR: generated site (gitignored)
+│       ├── index.html
+│       ├── 2-bundesliga.html
+│       ├── 3-liga.html
+│       ├── methodik.html
+│       └── assets/
 └── logs/
     ├── simulation_20250119.log
     └── api_requests_20250119.log
@@ -318,27 +319,21 @@ validate_team_data <- function(teams_df) {
 ### Output Validation
 
 ```r
-validate_simulation_results <- function(results) {
-  # Check probability matrix
-  prob_matrix <- results$probability_matrix
-  
+validate_simulation_results <- function(prob_matrix) {
+  # prob_matrix is one of Ergebnis / Ergebnis2 / Ergebnis3 / Ergebnis3_Aufstieg
+  # -- a team-by-position probability table, not a wrapper list.
+
   # Each row should sum to 1
   row_sums <- rowSums(prob_matrix)
   if (!all(abs(row_sums - 1) < 0.001)) {
     warning("Probability matrix rows don't sum to 1")
   }
-  
+
   # All values should be between 0 and 1
   if (any(prob_matrix < 0 | prob_matrix > 1)) {
     stop("Invalid probabilities in matrix")
   }
-  
-  # Check metadata
-  required_meta <- c("league_id", "season", "iterations", "timestamp")
-  if (!all(required_meta %in% names(results$metadata))) {
-    stop("Missing required metadata")
-  }
-  
+
   return(TRUE)
 }
 ```
@@ -348,20 +343,13 @@ validate_simulation_results <- function(results) {
 ### Data Loading Optimization
 
 ```r
-# Lazy loading for large datasets
-load_simulation_results <- function(league_id) {
-  file_path <- sprintf("ShinyApp/data/Ergebnis_%d.Rds", league_id)
-  
-  # Check file size
-  file_size <- file.info(file_path)$size
-  
-  if (file_size > 100 * 1024 * 1024) {  # > 100MB
-    # Use memory mapping for large files
-    return(readRDS(file_path, refhook = function(x) x))
-  } else {
-    # Standard loading for smaller files
-    return(readRDS(file_path))
-  }
+# ShinyApp/data/Ergebnis.Rds is a save()-image holding all four league
+# matrices together, so loading it is a single load() into a fresh
+# environment rather than a per-league readRDS().
+load_simulation_results <- function(file_path = "ShinyApp/data/Ergebnis.Rds") {
+  env <- new.env()
+  load(file_path, envir = env)
+  env  # exposes Ergebnis, Ergebnis2, Ergebnis3, Ergebnis3_Aufstieg
 }
 ```
 

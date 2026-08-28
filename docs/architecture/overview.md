@@ -22,8 +22,8 @@ graph TB
     end
     
     subgraph "Presentation Layer"
-        SHINY[Shiny Web App]
-        DEPLOY[ShinyApps.io<br/>Deployment]
+        SITE[Static Site<br/>4 HTML pages + assets]
+        CADDY[Caddy<br/>fussball.csdatascience.de]
     end
     
     API -->|Match Data| SIM
@@ -31,8 +31,8 @@ graph TB
     SIM -->|Read/Write| CSV
     SIM -->|Write| RDS
     SIM -->|Write| LOGS
-    RDS -->|Read| SHINY
-    SHINY -->|Deploy| DEPLOY
+    RDS -->|Read| SITE
+    SITE -->|Serve| CADDY
 ```
 
 ## Core Components
@@ -76,14 +76,18 @@ Efficient data storage and retrieval system.
 - **Simulation Output**: RDS files for R efficiency
 - **Logs**: Structured logging for debugging
 
-### 4. Web Interface
+### 4. Static Site
 
-Interactive visualization using Shiny.
+Four self-contained HTML pages rendered by the scheduler after each
+simulation cycle and served by Caddy — no application server, no Shiny
+runtime. `ShinyApp/app.R` and the Shiny dependency were removed with the
+relaunch; local preview is [`scripts/preview_site.R`](../../scripts/preview_site.R)
+(render + open the printed path in a browser).
 
 **Features:**
-- Real-time probability heatmaps
+- HTML probability heatmaps (per-cell background colour, no PNGs)
 - Final standings predictions
-- Historical trend analysis
+- A stale-data banner decided client-side from an embedded timestamp
 - Mobile-responsive design
 
 ## Design Principles
@@ -166,11 +170,10 @@ graph LR
 
 ```mermaid
 graph LR
-    A[RDS Files] --> B[Shiny App]
-    B --> C[Data Transform]
-    C --> D[Visualization]
-    D --> E[Web Interface]
-    E --> F[User Browser]
+    A[RDS File] --> B[generate_static_site]
+    B --> C[4 HTML Pages + assets]
+    C --> D[Caddy]
+    D --> E[User Browser]
 ```
 
 ## Technology Stack
@@ -189,10 +192,10 @@ graph LR
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
-| Web Framework | Shiny | Interactive web apps |
-| Visualization | ggplot2 | Data visualization |
-| Tables | DT | Interactive tables |
-| Styling | CSS/Bootstrap | UI styling |
+| Site generation | `htmltools` (R) | Renders 4 static HTML pages per cycle |
+| Visualization | Plain HTML tables | Per-cell background colour as heatmap, no PNGs |
+| Web server | Caddy | Serves the static site from a shared volume |
+| Styling | Hand-written CSS (`assets/site.css`) | UI styling, web fonts, favicon |
 
 ### Infrastructure
 

@@ -39,7 +39,7 @@ Berechnet nach jedem Spiel Wahrscheinlichkeiten für die Endplatzierung in Bunde
 
 ## Flagged ambiguities
 
-- „Shiny-App“/„Dashboard“ bezeichneten bis August 2026 das Auslieferungsformat; seither ist das die **Statische Seite**. `ShinyApp/app.R` existiert nur noch als lokale Vorschau.
+- „Shiny-App“/„Dashboard“ bezeichneten bis August 2026 das Auslieferungsformat; seither ist das die **Statische Seite**. `ShinyApp/app.R` ist mit dem Relaunch entfallen; lokale Vorschau läuft über `scripts/preview_site.R`.
 - „Migration“ wurde sowohl für den Saisonwechsel als auch für den Hosting-Umzug verwendet — **Saisonwechsel** ist der Begriff für Ersteres.
 
 ## Decisions

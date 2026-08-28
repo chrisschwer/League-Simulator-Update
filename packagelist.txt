@@ -5,17 +5,12 @@
 # The actual versions are locked in renv.lock
 dplyr
 tidyr
-ggplot2
 tibble
 magrittr
 httr
 jsonlite
-reshape2
-shiny
 digest
 xtable
 here
-# Shiny (local preview only, ShinyApp/app.R) and HTML rendering
-DT
+# HTML rendering for the static site generator
 htmltools
-promises
