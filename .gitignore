@@ -53,3 +53,4 @@ logs/
 processing_*.log
 testthat-summary.txt
 ShinyApp/public/
+.superpowers/
