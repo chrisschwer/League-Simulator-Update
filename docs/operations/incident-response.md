@@ -44,7 +44,7 @@ graph TD
 - **Response Time**: < 1 hour
 - **Examples**:
   - Simulation engine failing
-  - Shiny app inaccessible
+  - Static site inaccessible or stuck on stale data
   - API rate limit exceeded
   - Database connection lost
 
@@ -90,7 +90,7 @@ tail -n 1000 logs/*.log > "incidents/${INCIDENT_ID}_app_logs.txt"
 
 # 3. Test critical components
 echo "Testing components..."
-curl -s -o /dev/null -w "Shiny App: %{http_code}\n" http://localhost:3838
+docker run --rm -v fussball-site:/v alpine test -f /v/index.html && echo "Static Site: OK" || echo "Static Site: MISSING"
 docker-compose exec league-simulator Rscript -e "cat('R Engine: OK\n')" 2>&1
 
 # 4. Create incident report template
@@ -148,11 +148,9 @@ docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsa
 
 # 4. Test service health
 case $SERVICE in
-    "league-simulator")
+    "league-simulator"|"scheduler")
         docker-compose exec $SERVICE Rscript -e "source('test_api_connection.R')"
-        ;;
-    "shiny-app")
-        curl -I http://localhost:3838
+        docker run --rm -v fussball-site:/v alpine test -f /v/index.html && echo "Static site present"
         ;;
 esac
 
