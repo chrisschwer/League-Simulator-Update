@@ -157,6 +157,26 @@ test_that("tabelle ist mit Namen, ELO und Delta angereichert und sortiert", {
   expect_equal(reihe_beta$delta_elo, 1485.7 - 1480)
 })
 
+test_that("die team_id-zu-Name-Zuordnung übersteht die Tabellensortierung", {
+  # Verwechslungs-Guard: Die Tabelle ist nach Punkten sortiert und weicht
+  # damit von der TeamList-Reihenfolge ab (SV Beta: TeamList-Position 2,
+  # Tabellenplatz 4). Ein positionaler Join statt eines id-Joins würde hier
+  # falsche Namen liefern — jede Zeile muss den Namen IHRER team_id tragen.
+  pd <- build_league_page_data(nested_league_fixtures(), teamlist_all_leagues(),
+                               fetch_fn = function(...) canned_page_response())
+
+  tab <- pd$tabelle
+  erwartet <- c("101" = "FC Alpha", "102" = "SV Beta",
+                "103" = "TSV Gamma", "104" = "1. FC Delta")
+  expect_equal(
+    unname(erwartet[as.character(tab$team_id)]),
+    tab$name
+  )
+  # Der diskriminierende Fall explizit: Beta steht NICHT auf TeamList-Position
+  expect_equal(tab$team_id[nrow(tab)], 102)
+  expect_equal(tab$name[nrow(tab)], "SV Beta")
+})
+
 test_that("ein Endpoint-Fehler degradiert zu NULL mit Warnung", {
   expect_warning(
     pd <- build_league_page_data(nested_league_fixtures(), teamlist_all_leagues(),
