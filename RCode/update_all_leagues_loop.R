@@ -52,6 +52,7 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
   source("RCode/retrieveResults.R")
   source("RCode/Tabelle.R")
   source("RCode/transform_data.R")
+  source("RCode/league_details.R")
   source("RCode/generate_static_site.R")
 
   # Import Team Data
@@ -159,8 +160,20 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
       # Regenerate the static site if simulations have been executed
       if (simulation_executed && !is.null(Ergebnis)) {
         message(sprintf("Loop %d: Regenerating static site with new results", i))
+
+        # Phase 4a: build the Ligatabelle/ELO section data per league. Errors
+        # (endpoint down, parse failure, ...) are handled inside
+        # build_league_page_data(), which returns NULL with a warning; the
+        # page then degrades to the Phase-3 layout for that league.
+        league_data <- list(
+          bundesliga = build_league_page_data(fixturesBL, TeamList),
+          zweite_bundesliga = build_league_page_data(fixturesBL2, TeamList),
+          dritte_liga = build_league_page_data(fixturesLiga3, TeamList)
+        )
+
         generate_static_site(Ergebnis, Ergebnis2, Ergebnis3, Ergebnis3_Aufstieg,
-                             output_dir = static_site_dir)
+                             output_dir = static_site_dir,
+                             league_data = league_data)
       } else {
         message(sprintf("Loop %d: No updates needed, skipping site generation", i))
       }
