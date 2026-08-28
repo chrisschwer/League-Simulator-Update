@@ -255,6 +255,21 @@ render_league_page <- function(view, data_env, output_dir,
   }
   sort_script <- if (!is.null(league_entry)) .LIGA_SORT_SCRIPT else ""
 
+  rueckblick_html <- if (!is.null(league_entry) &&
+                         !is.null(league_entry$rueckblick) &&
+                         nrow(league_entry$rueckblick) > 0) {
+    render_rueckblick(league_entry$rueckblick, league_entry$spieltag$rueckblick)
+  } else {
+    ""
+  }
+  live_html <- if (!is.null(league_entry) &&
+                   !is.null(league_entry$live) &&
+                   nrow(league_entry$live) > 0) {
+    render_live(league_entry$live)
+  } else {
+    ""
+  }
+
   html <- paste0(
     "<!doctype html>\n<html lang=\"de\">\n<head>\n",
     .head_html(view$nav_label),
@@ -277,6 +292,8 @@ render_league_page <- function(view, data_env, output_dir,
     "<div class=\"scroll\">", bottom_html, "</div>\n",
     "</div>\n</section>\n",
     tabelle_html,
+    rueckblick_html,
+    live_html,
     .footer_html(mtime), "\n",
     .stale_script, "\n",
     sort_script, "\n</div>\n</body>\n</html>\n"
@@ -480,3 +497,151 @@ render_liga_tabelle <- function(tabelle) {
   "  });\n",
   "})();\n</script>"
 )
+
+# --- Phase 4b: Rückblick- und Live-Sektion --------------------------------
+
+.WOCHENTAGE_KURZ <- c("So.", "Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa.")
+
+# Anstoßzeit (UTC, wie aus league_details.R) als Berliner Zeit formatiert:
+# "Wd. T.M., HH:MM<NNBSP>Uhr" — Tag/Monat ohne führende Null.
+.mwhen <- function(kickoff) {
+  lt <- as.POSIXlt(kickoff, tz = "Europe/Berlin")
+  wd <- .WOCHENTAGE_KURZ[lt$wday + 1]
+  tag <- as.integer(format(lt, "%d"))
+  monat <- as.integer(format(lt, "%m"))
+  zeit <- format(lt, "%H:%M")
+  paste0(wd, " ", tag, ".", monat, ".,", " ", zeit, " Uhr")
+}
+
+# 1/X/2-Balken: Segmente Heim/Remis/Gast aus den ex-ante-Wahrscheinlichkeiten;
+# Remis wird als Rest (100 - Heim - Gast) berechnet, nicht separat gerundet,
+# damit die drei Werte immer exakt 100 ergeben (Mock-up-Regel). Segmente
+# unter 8 % verlieren ihr Zahlen-Label (bleiben aber als Farbfläche sichtbar).
+.oddsbar <- function(p_home, p_draw, p_away) {
+  h <- round(100 * p_home)
+  a <- round(100 * p_away)
+  x <- 100 - h - a
+
+  seg <- function(cls, wert) {
+    nolabel <- if (wert < 8) " nolabel" else ""
+    paste0("<span class=\"", cls, nolabel, "\" style=\"flex-basis:", wert, "%\">",
+          "<i>", wert, "</i></span>")
+  }
+
+  aria <- paste0("Sieg Heim ", h, " %, Remis ", x, " %, Sieg Gast ", a, " %")
+
+  paste0(
+    "<div class=\"oddsbar\" role=\"img\" aria-label=\"",
+    htmltools::htmlEscape(aria), "\">",
+    seg("oh", h), seg("ox", x), seg("oa", a),
+    "</div>"
+  )
+}
+
+# ELO-Anpassung als Heim/Gast-Paar; bei NA (Nachholspiele, die noch nicht
+# gespielt sind, tauchen hier nicht auf, aber die dritte Rückblick-Zeile im
+# Mock-up hat absichtlich NA) auf beiden Seiten ein Halbgeviertstrich, nie
+# "NA" im Markup.
+.melo <- function(delta_home) {
+  if (is.na(delta_home)) {
+    return("– / –")
+  }
+  heim <- .vorzeichen(delta_home, 1)
+  gast <- .vorzeichen(-delta_home, 1)
+  paste0(heim, " / ", gast)
+}
+
+# Überschrift der Rückblick-Sektion: "N. Spieltag" bei einer Runde,
+# "N./M. Spieltag" bei mehreren (Rundennummern mit "/" verbunden, ein
+# gemeinsamer Punkt am Ende — z.B. "1./2. Spieltag").
+.spieltag_ueberschrift <- function(runden) {
+  paste0(paste(runden, collapse = "./"), ". Spieltag")
+}
+
+# Paarung "Heim – Gast" mit htmltools-Escaping und dem Halbgeviertstrich
+# als eigenem Span (fuer CSS-Faerbung). Gemeinsam fuer Rueckblick-, Live- und
+# (4c) Ausblick-Zeilen, die alle dieselbe Paarungsdarstellung brauchen.
+.match_pair <- function(home_name, away_name) {
+  paste0(
+    htmltools::htmlEscape(home_name),
+    "<span class=\"dash\"> – </span>",
+    htmltools::htmlEscape(away_name)
+  )
+}
+
+# Ergebnis "H:A" (Rueckblick/Live; fuer Live ist es der laufende Zwischenstand).
+.match_ergebnis <- function(goals_home, goals_away) {
+  paste0(goals_home, ":", goals_away)
+}
+
+.match_zeile <- function(row) {
+  nachhol <- if (isTRUE(row$nachholspiel)) {
+    paste0("<span class=\"nachhol\">Nachholspiel, ", row$round, ". Spieltag</span>")
+  } else {
+    ""
+  }
+
+  paste0(
+    "<div class=\"match\">\n",
+    "<div class=\"mwhen\">", .mwhen(row$kickoff), "</div>\n",
+    "<div class=\"mpair\">", .match_pair(row$home_name, row$away_name), "</div>\n",
+    .oddsbar(row$p_home_win, row$p_draw, row$p_away_win), "\n",
+    "<div class=\"mres\">", .match_ergebnis(row$goals_home, row$goals_away), "</div>\n",
+    "<div class=\"melo\" title=\"ELO-Anpassung Heim / Gast\">",
+    .melo(row$elo_delta_home), "</div>\n",
+    nachhol,
+    "</div>\n"
+  )
+}
+
+# Rückblick-Sektion: gefensterte, gejointe Spielliste + Spieltagsnummern
+# für die Überschrift ("N. Spieltag" bzw. "N./M. Spieltag").
+render_rueckblick <- function(rueckblick, runden) {
+  zeilen <- vapply(seq_len(nrow(rueckblick)), function(i) {
+    .match_zeile(rueckblick[i, ])
+  }, character(1))
+
+  paste0(
+    "<section id=\"rueckblick\">\n",
+    "<p class=\"eyebrow\">Rückblick</p>\n",
+    "<h2>", .spieltag_ueberschrift(runden), "</h2>\n",
+    "<p class=\"oddslegend\">Balken: Wahrscheinlichkeit vor dem Spiel in Prozent ",
+    "—<span class=\"chip h\"></span><b>Sieg Heim</b>",
+    "<span class=\"chip x\"></span><b>Remis</b>",
+    "<span class=\"chip a\"></span><b>Sieg Gast</b> · rechts: Ergebnis und ",
+    "ELO-Anpassung Heim / Gast</p>\n",
+    "<div class=\"matches\">\n",
+    paste0(zeilen, collapse = ""),
+    "</div>\n</section>\n"
+  )
+}
+
+# Live-Sektion: Zwischenstände ohne Prognose (Planergänzung 8a);
+# leeres Fenster -> "".
+render_live <- function(live) {
+  if (nrow(live) == 0) {
+    return("")
+  }
+
+  zeilen <- vapply(seq_len(nrow(live)), function(i) {
+    row <- live[i, ]
+    paste0(
+      "<div class=\"match live\">\n",
+      "<div class=\"mwhen\">", .mwhen(row$kickoff), "</div>\n",
+      "<div class=\"mpair\">", .match_pair(row$home_name, row$away_name), "</div>\n",
+      "<div class=\"mres\">", .match_ergebnis(row$goals_home, row$goals_away), "</div>\n",
+      "</div>\n"
+    )
+  }, character(1))
+
+  paste0(
+    "<section id=\"live\">\n",
+    "<p class=\"eyebrow\">Live</p>\n",
+    "<h2>Laufende Spiele</h2>\n",
+    "<p class=\"sectionlead\">Prognosen werden während des Spiels nicht ",
+    "aktualisiert.</p>\n",
+    "<div class=\"matches\">\n",
+    paste0(zeilen, collapse = ""),
+    "</div>\n</section>\n"
+  )
+}

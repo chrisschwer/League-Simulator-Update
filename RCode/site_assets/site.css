@@ -98,6 +98,30 @@ table.liga tbody th{font-weight:400;text-align:left;padding:7px 12px 7px 0;borde
 table.liga td{padding:7px 12px;border-bottom:.5px solid var(--rule-soft)}
 table.liga td.num,table.liga td{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;text-align:right}
 
+/* Spiele (Rückblick/Live) */
+.matches{display:flex;flex-direction:column}
+.match{display:grid;grid-template-columns:118px 1fr 170px 64px 110px;gap:16px;align-items:center;
+  padding:11px 0;border-bottom:.5px solid var(--rule-soft)}
+.match.live{grid-template-columns:118px 1fr 64px}
+.mwhen{font-family:var(--sans);font-size:12px;color:var(--ink-3);white-space:nowrap}
+.mpair{font-size:16px}
+.dash{color:var(--ink-3)}
+.mres{font-family:var(--mono);font-size:16px;font-weight:500;font-variant-numeric:tabular-nums;text-align:center}
+.melo{font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--ink-2);
+  text-align:right;white-space:nowrap}
+.oddsbar{display:flex;height:20px;gap:2px;font-family:var(--mono);font-size:11px;font-variant-numeric:tabular-nums}
+.oddsbar span{display:flex;align-items:center;justify-content:center;overflow:hidden;min-width:2px}
+.oddsbar i{font-style:normal}
+.oddsbar .nolabel i{display:none}
+.oh{background:var(--tinte);color:#fff}
+.ox{background:var(--rule-soft);color:var(--ink-2)}
+.oa{background:var(--ocker);color:#fff}
+.oddslegend{font-family:var(--sans);font-size:12px;color:var(--ink-3);margin:0 0 14px}
+.oddslegend b{font-weight:500;color:var(--ink-2)}
+.chip{display:inline-block;width:9px;height:9px;margin:0 4px 0 10px;vertical-align:baseline;border:.5px solid var(--rule)}
+.chip.h{background:var(--tinte);border-color:var(--tinte)} .chip.x{background:var(--rule-soft)} .chip.a{background:var(--ocker);border-color:var(--ocker)}
+.nachhol{font-family:var(--sans);font-size:11px;color:var(--ink-3);letter-spacing:.05em}
+
 footer{margin-top:72px;border-top:1px solid var(--rule);padding-top:16px;
   font-family:var(--sans);font-size:12.5px;color:var(--ink-3);display:flex;
   justify-content:space-between;gap:16px;flex-wrap:wrap}
@@ -126,6 +150,12 @@ table.beispiel td:first-child{font-family:var(--serif);font-size:15px}
   .wrap{padding:28px 16px 48px}
   .wordmark{font-size:30px}
   h2{font-size:24px}
+  .match,.match.live{grid-template-columns:1fr auto;grid-template-areas:none;row-gap:8px}
+  .mwhen{grid-column:1/-1;order:-1}
+  .mpair{grid-column:1/-1}
+  .oddsbar{grid-column:1;width:100%}
+  .mres{text-align:right}
+  .melo{grid-column:2}
 }
 @media (max-width:520px){
   table.liga{min-width:0;width:100%}
