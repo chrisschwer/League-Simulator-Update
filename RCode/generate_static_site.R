@@ -494,3 +494,11 @@ render_rueckblick <- function(rueckblick, runden) {
 render_live <- function(live) {
   stop("noch nicht implementiert (Phase 4b, nach Test-Review)")
 }
+
+# --- Phase 4c (TDD): Signatur steht, Implementierung nach Test-Review ---
+
+# Ausblick-Sektion: kommende Spiele mit 1/X/2-Balken und aufklappbarer
+# Ergebnis-Matrix (Score-Matrix aus der Endpoint-Antwort).
+render_ausblick <- function(ausblick, runde) {
+  stop("noch nicht implementiert (Phase 4c, nach Test-Review)")
+}
