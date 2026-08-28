@@ -8,7 +8,7 @@ Live site: <https://fussball.csdatascience.de>
 
 - Pulls match results from [api-football](https://rapidapi.com/api-sports/api/api-football) every two minutes between 14:45 and 22:45 Berlin time.
 - Runs 10,000 Monte Carlo simulations through the rest of the season for each league after each match-day update.
-- Produces a probability matrix per league (each team × each final position) and renders it to three static HTML pages (see `docs/deployment/static-site.md`).
+- Produces a probability matrix per league (each team × each final position) and renders it to four static HTML pages (see `docs/deployment/static-site.md`).
 - Re-runs ELO updates after every match.
 
 ## How it works
@@ -17,9 +17,9 @@ Three pieces:
 
 1. **Rust simulation engine** (`league-simulator-rust/`) — high-performance Monte Carlo runner over a season's remaining fixtures.
 2. **R scheduler** (`RCode/`) — wakes during the active window, polls api-football, calls the in-process Rust server when new fixtures arrive, and renders the static site.
-3. **Static site generator** (`RCode/generate_static_site.R`) — turns the probability matrices into three HTML pages with PNG heatmaps (Bundesliga, 2. Bundesliga, 3. Liga), written to a Docker volume that a web server (Caddy) serves. A page older than 24 hours shows a warning banner, computed in the browser.
+3. **Static site generator** (`RCode/generate_static_site.R`) — turns the probability matrices into four self-contained HTML pages with inline HTML heatmaps (Bundesliga, 2. Bundesliga, 3. Liga, Methodik) plus assets, written to a Docker volume that a web server (Caddy) serves. A page older than 24 hours shows a warning banner, computed in the browser.
 
-Engine and scheduler run in a single Docker container; the scheduler talks to the Rust server over `localhost`. There is no application server behind the public site — only static files. `ShinyApp/app.R` remains as a local preview of the same data.
+Engine and scheduler run in a single Docker container; the scheduler talks to the Rust server over `localhost`. There is no application server behind the public site — only static files. Local preview of the same data runs via [`scripts/preview_site.R`](scripts/preview_site.R).
 
 ## Deploy
 
