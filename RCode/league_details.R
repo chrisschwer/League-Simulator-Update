@@ -358,12 +358,42 @@ build_league_page_data <- function(fixtures, teams,
     tabelle$delta_elo <- tabelle$elo -
       unname(initial_elo_by_id[as.character(tabelle$team_id)])
 
+    # Rückblick/Live: Fensterung liefert Zeilen aus `details` (ggf. neu
+    # geordnet/reduziert); die Endpoint-Spalten werden per fixture_id gegen
+    # `matches` gejoint — NIE über die Fenster-Reihenfolge, da die
+    # Fensterfunktionen chronologisch sortieren, während `matches` die
+    # ursprüngliche Details-Reihenfolge (= Response-Index) trägt.
+    endpoint_cols <- setdiff(names(parsed$matches), names(details))
+    join_endpoint <- function(rows) {
+      idx <- match(rows$fixture_id, matches$fixture_id)
+      cbind(rows, matches[idx, endpoint_cols, drop = FALSE])
+    }
+
+    rueckblick <- join_endpoint(rueckblick_matches(details))
+    live <- join_endpoint(live_matches(details))
+
+    rueckblick_runden <- sort(unique(rueckblick$round[!rueckblick$nachholspiel]))
+    ausblick_ziel <- ausblick_matches(details)
+    ausblick_runden <- if (nrow(ausblick_ziel) > 0) {
+      sort(unique(ausblick_ziel$round[!ausblick_ziel$nachholspiel]))
+    } else {
+      integer(0)
+    }
+    ausblick_runde <- if (length(ausblick_runden) > 0) {
+      min(ausblick_runden)
+    } else {
+      NA_integer_
+    }
+
     list(
       details = details,
       teams = liga_teams,
       matches = matches,
       current_elos = parsed$current_elos,
-      tabelle = tabelle
+      tabelle = tabelle,
+      rueckblick = rueckblick,
+      live = live,
+      spieltag = list(rueckblick = rueckblick_runden, ausblick = ausblick_runde)
     )
   }, error = function(e) {
     warning(e$message)
