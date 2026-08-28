@@ -1,58 +1,32 @@
-# Rendering primitives shared by the Shiny app (ShinyApp/app.R) and the static
-# site generator (RCode/generate_static_site.R).
-#
-# Requires: ggplot2, reshape2 (melt).
+# Rendering primitives shared by the static site generator
+# (RCode/generate_static_site.R). Also holds the result-loading and
+# staleness helpers formerly in ShinyApp/app_helpers.R (removed when the
+# Shiny app was retired, Phase 3) — generate_static_site() still needs
+# stale_warning_text() for the "data is stale" banner.
 
-suppressPackageStartupMessages({
-  library(ggplot2)
-  library(reshape2)
-})
+load_results <- function(path, envir) {
+  tryCatch(
+    {
+      load(path, envir = envir)
+      TRUE
+    },
+    error = function(e) FALSE,
+    warning = function(w) FALSE
+  )
+}
 
-display_result <- function (result, colour = "grey", 
-                            low = "white", high = "steelblue",
-                            Titel = "Endplatzierung",
-                            labeling = FALSE, Teams = 18)
-  
-  # Displays results from SimWrapper in a heatmap
-  # result : results to display
-  # colour : background colour for tiles
-  # low : colour for lower end of scale
-  # high : colour for higher end of scale
-  # Titel : text of the title line of the chart
-  # labeling : boolean, if true the tiles of the heatmap
-  #            are labeled with the values in percent
-  
-{
-  
-  if (labeling) 
-  {
-    result <- round(result*100,0)
+data_age_hours <- function(mtime, now = Sys.time()) {
+  as.numeric(difftime(now, mtime, units = "hours"))
+}
+
+stale_warning_text <- function(age_hours, threshold_hours = 24) {
+  if (is.na(age_hours) || age_hours <= threshold_hours) {
+    return(NULL)
   }
-  
-  result.m <- melt (result)
-  plot <- ggplot (result.m) + 
-    aes (Var1, Var2) + 
-    geom_tile(aes (fill=value), 
-              colour = colour) + 
-    scale_fill_gradient (low = low, high = high,
-                         name = "p") +
-    labs (x = "Verein", y = "Platz") +
-    ggtitle (Titel) +
-    theme_grey()
-  plot <- plot + 
-    theme (axis.text.x = element_text (size = rel (0.8), angle = 330,
-                                       hjust = 0, colour = "grey50"))
-  plot <- plot +
-    theme (axis.ticks = element_line (linetype = 0)) +
-    scale_y_reverse(breaks = 1:Teams)
-  
-  if (labeling) 
-  {
-    plot <- plot + geom_text (aes (label = value))
-  }
-  
-  
-  return (plot)  
+  sprintf(
+    "Achtung: Diese Prognosen sind %.0f Stunden alt und werden derzeit nicht aktualisiert.",
+    age_hours
+  )
 }
 
 prozent <- function (x) {

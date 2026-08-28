@@ -19,12 +19,8 @@ testthat::test_file("tests/testthat/test-prozent.R")
 packages <- readLines("packagelist.txt")
 install.packages(packages[!packages %in% installed.packages()[,"Package"]])
 
-# Render the static site from the committed fixture
-source("RCode/generate_static_site.R"); e <- new.env(); load("ShinyApp/data/Ergebnis.Rds", envir = e)
-generate_static_site(e$Ergebnis, e$Ergebnis2, e$Ergebnis3, e$Ergebnis3_Aufstieg)
-
-# Run the Shiny preview locally
-shiny::runApp("ShinyApp/app.R")
+# Render the static site from the committed fixture and preview it locally
+Rscript scripts/preview_site.R
 ```
 
 ```bash
@@ -42,7 +38,7 @@ Four main components:
 1. **Simulation Engine** - Rust-based Monte Carlo simulations with ELO ratings (REST seam at `localhost:8080`)
 2. **Scheduler** - Automated updates at match times (Berlin timezone)
 3. **Season Transition** - Handles promotions/relegations between seasons
-4. **Static Site** - three HTML pages + PNG heatmaps rendered by the scheduler into `STATIC_SITE_DIR`, served by Caddy at fussball.csdatascience.de (`ShinyApp/app.R` is a local preview only)
+4. **Static Site** - four self-contained HTML pages (three league views + Methodik, with inline HTML heatmaps) rendered by the scheduler into `STATIC_SITE_DIR`, served by Caddy at fussball.csdatascience.de (`scripts/preview_site.R` renders a local preview from a saved fixture)
 
 For detailed architecture, see @docs/architecture/overview.md
 

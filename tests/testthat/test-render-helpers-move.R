@@ -1,15 +1,16 @@
 # The rendering primitives moved out of ShinyApp/app.R into
 # RCode/render_helpers.R so the static site generator can reuse them.
 # These assertions pin the behaviour across the move.
+# display_result() was removed once the static site generator stopped
+# using ggplot2 (Phase 3); groupResultsDF/prozent are still in use.
 
 source_render_helpers <- function() {
   source(test_path("..", "..", "RCode", "render_helpers.R"), local = TRUE)
   environment()
 }
 
-test_that("render_helpers.R defines all three primitives", {
+test_that("render_helpers.R defines its primitives", {
   env <- source_render_helpers()
-  expect_true(is.function(env$display_result))
   expect_true(is.function(env$prozent))
   expect_true(is.function(env$groupResultsDF))
 })
@@ -34,12 +35,4 @@ test_that("groupResultsDF sums column ranges and preserves rownames", {
   expect_equal(rownames(out), c("AAA", "BBB"))
   expect_equal(out$first, c(0.1, 0.1))
   expect_equal(out$rest, c(0.3, 0.3), tolerance = 1e-8)
-})
-
-test_that("display_result returns a ggplot for a probability table", {
-  env <- source_render_helpers()
-  m <- matrix(1 / 18, nrow = 18, ncol = 18,
-              dimnames = list(paste0("T", 1:18), NULL))
-  p <- env$display_result(m, Titel = "Test", Teams = 18)
-  expect_s3_class(p, "ggplot")
 })

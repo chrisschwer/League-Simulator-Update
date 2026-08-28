@@ -25,7 +25,6 @@ suppressPackageStartupMessages({
 
 source(file.path(.gss_dir, "render_helpers.R"), local = TRUE)
 source(file.path(.gss_dir, "league_views.R"), local = TRUE)
-source(file.path(.gss_dir, "..", "ShinyApp", "app_helpers.R"), local = TRUE)
 
 BLOG_URL <- "http://30punkte.wordpress.com"
 SITE_WORDMARK <- "30 Punkte"
