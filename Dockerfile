@@ -51,19 +51,19 @@ RUN R --slave --no-restore -e " \
         } \
     }"
 
-# Install Shiny ecosystem packages with retries
+# Install HTML rendering package with retries
 RUN R --slave --no-restore -e " \
     options(repos = c(CRAN = 'https://cloud.r-project.org')); \
-    shiny_pkgs <- c('htmltools', 'httpuv', 'promises', 'shiny'); \
-    for (pkg in shiny_pkgs) { \
-        cat('Installing Shiny package:', pkg, '\n'); \
+    html_pkgs <- c('htmltools'); \
+    for (pkg in html_pkgs) { \
+        cat('Installing HTML rendering package:', pkg, '\n'); \
         if (!require(pkg, character.only=TRUE, quietly=TRUE)) { \
             install.packages(pkg, dependencies=TRUE, type='source'); \
             if (!require(pkg, character.only=TRUE, quietly=TRUE)) { \
                 cat('WARNING: Failed to install', pkg, '- will try binary\n'); \
                 install.packages(pkg, dependencies=TRUE, type='binary'); \
                 if (!require(pkg, character.only=TRUE, quietly=TRUE)) { \
-                    stop(paste('Failed to install Shiny package:', pkg)); \
+                    stop(paste('Failed to install HTML rendering package:', pkg)); \
                 } \
             } \
         } \
@@ -75,7 +75,7 @@ RUN R --slave --no-restore -e " \
     options(repos = c(CRAN = 'https://cloud.r-project.org')); \
     pkgs <- readLines('/tmp/packagelist.txt'); \
     pkgs <- pkgs[!grepl('^#|^[[:space:]]*$', pkgs)]; \
-    already_installed <- c('httr', 'jsonlite', 'dplyr', 'tidyr', 'magrittr', 'htmltools', 'httpuv', 'promises', 'shiny'); \
+    already_installed <- c('httr', 'jsonlite', 'dplyr', 'tidyr', 'magrittr', 'htmltools'); \
     remaining_pkgs <- pkgs[!pkgs %in% already_installed]; \
     for (pkg in remaining_pkgs) { \
         if (!require(pkg, character.only=TRUE, quietly=TRUE)) { \
