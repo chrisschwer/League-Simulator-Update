@@ -3,8 +3,16 @@ library(tidyr)
 
 transform_data <- function(fixtures, teams) {
   # API-Football includes relegation playoff games as round "Final" in the
-  # league fixture list; only regular-season rounds belong in the simulation
+  # league fixture list; only regular-season rounds belong in the simulation.
+  # `league` arrives as a flat data.frame column after jsonlite::fromJSON's
+  # default simplification (fixtures$league$round works directly), but as a
+  # list-column of one-row data.frames when fixtures is built from an already
+  # nested/hand-assembled structure (fixtures$league$round is then NULL) --
+  # handle both so the filter isn't silently skipped in the nested case.
   rounds <- if ("league" %in% names(fixtures)) fixtures$league$round else NULL
+  if (is.null(rounds) && "league" %in% names(fixtures) && is.list(fixtures$league)) {
+    rounds <- vapply(fixtures$league, function(x) as.character(x$round[[1]]), character(1))
+  }
   if (!is.null(rounds)) {
     fixtures <- fixtures[startsWith(as.character(rounds), "Regular Season"), ]
   }
