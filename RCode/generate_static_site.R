@@ -480,3 +480,17 @@ render_liga_tabelle <- function(tabelle) {
   "  });\n",
   "})();\n</script>"
 )
+
+# --- Phase 4b (TDD): Signaturen stehen, Implementierung nach Test-Review ---
+
+# Rückblick-Sektion: gefensterte, gejointe Spielliste + Spieltagsnummern
+# für die Überschrift ("N. Spieltag" bzw. "N./M. Spieltag").
+render_rueckblick <- function(rueckblick, runden) {
+  stop("noch nicht implementiert (Phase 4b, nach Test-Review)")
+}
+
+# Live-Sektion: Zwischenstände ohne Prognose (Planergänzung 8a);
+# leeres Fenster -> "".
+render_live <- function(live) {
+  stop("noch nicht implementiert (Phase 4b, nach Test-Review)")
+}
