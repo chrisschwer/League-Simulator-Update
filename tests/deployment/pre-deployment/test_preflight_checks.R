@@ -72,7 +72,7 @@ test_that("Dependencies are at expected versions", {
                                 installed_packages[, "Package"])
   
   # Check critical packages
-  critical_packages <- c("httr", "jsonlite", "DBI", "testthat")
+  critical_packages <- c("httr", "jsonlite", "testthat")
   
   for (pkg in critical_packages) {
     if (pkg %in% names(lockfile$Packages)) {

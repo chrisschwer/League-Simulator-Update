@@ -154,8 +154,8 @@ docker-compose exec league-simulator Rscript -e "
   cat('Test simulation:', test_result, '\n')
 "
 
-# 4. Ensure Shiny app is responsive
-curl -s -o /dev/null -w "%{http_code}" http://localhost:3838 || echo "Shiny app not responding!"
+# 4. Ensure the static site volume is being written
+docker run --rm -v fussball-site:/v alpine test -f /v/index.html && echo "Site present" || echo "Static site missing!"
 
 echo "Pre-match preparation complete."
 ```
@@ -181,59 +181,18 @@ docker-compose logs -f league-simulator-integrated
 
 ### 3. Real-time Monitoring
 
-During active hours, monitor key metrics:
+During active hours, monitor key metrics from the shell — there is no
+operations dashboard app; poll the container and the data directory directly:
 
-```r
-# monitor_dashboard.R
-library(shiny)
+```bash
+# System status, refreshed every 30 seconds
+watch -n 30 docker-compose ps
 
-ui <- fluidPage(
-  titlePanel("League Simulator Operations Dashboard"),
-  
-  fluidRow(
-    column(4,
-      h3("System Status"),
-      verbatimTextOutput("system_status")
-    ),
-    column(4,
-      h3("Recent Simulations"),
-      tableOutput("recent_sims")
-    ),
-    column(4,
-      h3("API Usage"),
-      plotOutput("api_usage")
-    )
-  ),
-  
-  fluidRow(
-    column(12,
-      h3("Error Log"),
-      verbatimTextOutput("error_log")
-    )
-  )
-)
+# Recent simulation output files
+watch -n 30 'ls -la ShinyApp/data/*.Rds'
 
-server <- function(input, output, session) {
-  # Auto-refresh every 30 seconds
-  autoInvalidate <- reactiveTimer(30000)
-  
-  output$system_status <- renderPrint({
-    autoInvalidate()
-    system("docker-compose ps", intern = TRUE)
-  })
-  
-  output$recent_sims <- renderTable({
-    autoInvalidate()
-    files <- list.files("ShinyApp/data", pattern = "*.Rds", full.names = TRUE)
-    data.frame(
-      File = basename(files),
-      Modified = file.mtime(files),
-      Size = format(file.size(files), units = "MB")
-    )
-  })
-}
-
-shinyApp(ui, server)
+# Follow the scheduler log for errors
+docker-compose logs -f scheduler | grep -iE "error|warning"
 ```
 
 ## Evening Operations (18:30 - 23:30)
@@ -252,10 +211,6 @@ while true; do
   
   # Container resources
   docker stats --no-stream
-  
-  # Active connections
-  echo -e "\nActive Shiny connections:"
-  netstat -an | grep :3838 | grep ESTABLISHED | wc -l
   
   # Recent errors
   echo -e "\nErrors in last 5 minutes:"
@@ -366,11 +321,8 @@ docker system prune -f
 ### Starting Services
 
 ```bash
-# Start all services
+# Start the scheduler (the only service in the stack)
 docker-compose up -d
-
-# Start specific service
-docker-compose up -d league-simulator
 
 # Start with fresh build
 docker-compose up -d --build
@@ -382,9 +334,6 @@ docker-compose up -d --build
 # Graceful shutdown
 docker-compose stop
 
-# Stop specific service
-docker-compose stop shiny-app
-
 # Emergency stop
 docker-compose kill
 ```
@@ -395,8 +344,8 @@ docker-compose kill
 # All logs
 docker-compose logs
 
-# Specific service
-docker-compose logs league-simulator
+# The scheduler service
+docker-compose logs scheduler
 
 # Follow logs
 docker-compose logs -f
@@ -443,7 +392,7 @@ for (league in c(78, 79, 80)) {
 ### Post-update Checklist
 - [ ] All leagues simulated
 - [ ] Results files generated
-- [ ] Shiny app displaying data
+- [ ] Static site showing current data
 - [ ] No errors in logs
 - [ ] API quota sufficient
 - [ ] Next run scheduled
@@ -486,7 +435,6 @@ On-Call Rotation:
 
 External Support:
   API Support: support@api-football.com
-  Hosting: support@shinyapps.io
 ```
 
 ## Related Documentation

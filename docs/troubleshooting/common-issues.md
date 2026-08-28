@@ -137,35 +137,36 @@ print(summary(teams))
 docker-compose logs -f league-simulator-integrated
 ```
 
-### 4. Shiny App Not Loading
+### 4. Static Site Not Updating
 
 **Symptoms:**
-- Blank page or "Loading..." forever
-- Connection refused on port 3838
+- Pages served by Caddy show stale data
+- No recent files in the `fussball-site` volume
 
 **Diagnosis:**
 ```bash
-# Check if Shiny running
-docker-compose ps shiny-app
-curl -I http://localhost:3838
+# Check if the scheduler container is running
+docker-compose ps scheduler
 
-# Check Shiny logs
-docker-compose logs shiny-app | grep -E "(ERROR|Warning)"
+# Check the generate_static_site: lines in the scheduler logs
+docker-compose logs scheduler | grep -E "(ERROR|Warning|generate_static_site)"
+
+# Inspect the volume contents directly
+docker run --rm -v fussball-site:/v alpine ls -la /v
 ```
 
 **Solutions:**
 
 ```bash
-# Solution 1: Restart Shiny
-docker-compose restart shiny-app
+# Solution 1: Restart the scheduler
+docker-compose restart scheduler
 
-# Solution 2: Check data files
-docker-compose exec shiny-app ls -la /app/ShinyApp/data/
+# Solution 2: Check the site output inside the container
+docker-compose exec scheduler ls -la /app/ShinyApp/public/
 
-# Solution 3: Debug Shiny app
-docker-compose exec shiny-app R
-# In R:
-# shiny::runApp("ShinyApp/app.R", port = 3838, host = "0.0.0.0")
+# Solution 3: Render the site locally from a saved fixture to isolate
+# a generator bug from a scheduling/volume problem
+Rscript scripts/preview_site.R
 ```
 
 ### 5. ELO Ratings Not Updating
