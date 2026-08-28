@@ -136,7 +136,12 @@ simulation_state <- list(
 
 #### Simulation Results (RDS)
 
-`ShinyApp/data/Ergebnis.Rds` is a `save()`-image, not a single serialized
+`ShinyApp/data/Ergebnis.Rds` is a **local-only fixture** — a `save()`-image
+used by [`scripts/preview_site.R`](../../scripts/preview_site.R) and by
+tests, not a production artifact. The production loop never writes it: it
+holds the four matrices in memory and hands them straight to
+`generate_static_site()` (see [Stage 4](#stage-4-result-aggregation) below).
+Where the fixture does exist, it's a `save()`-image, not a single serialized
 object — read it with `load()`, not `readRDS()`. It holds four `table`
 objects, each a team-by-final-position probability matrix (rows = teams in
 current-standings order, columns = final positions 1..N):
@@ -213,13 +218,16 @@ The Monte Carlo loop is a pure Rust function (`run_monte_carlo_simulation` in [`
 ### Stage 4: Result Aggregation
 
 The Rust server returns one team-by-position probability matrix per league
-call. `RCode/update_all_leagues_loop.R` collects the three (Bundesliga,
-2. Bundesliga, 3. Liga) plus the separate 3. Liga promotion-view matrix into
-the four bindings `Ergebnis`, `Ergebnis2`, `Ergebnis3`, `Ergebnis3_Aufstieg`,
-and `save()`s them together into `ShinyApp/data/Ergebnis.Rds` — see
-[Simulation Results (RDS)](#3-output-data) above. There is no separate
-metadata/summary object; row names, column names, and the matrices
-themselves are the whole of it.
+call. [`RCode/update_all_leagues_loop.R`](../../RCode/update_all_leagues_loop.R)
+collects the three (Bundesliga, 2. Bundesliga, 3. Liga) plus the separate
+3. Liga promotion-view matrix into the four bindings `Ergebnis`, `Ergebnis2`,
+`Ergebnis3`, `Ergebnis3_Aufstieg` and passes them **in memory, directly**,
+to `generate_static_site()` (`RCode/update_all_leagues_loop.R:162`) — there
+is no persistence step in the production path. `ShinyApp/data/Ergebnis.Rds`
+is not written by this loop; see
+[Simulation Results (RDS)](#3-output-data) above for what that file
+actually is. There is no separate metadata/summary object either way; row
+names, column names, and the matrices themselves are the whole of it.
 
 ### Stage 5: Static Site Rendering
 
@@ -244,8 +252,10 @@ how it's served.
 │   └── TeamList_2025.csv    # Current season
 ├── ShinyApp/
 │   ├── data/
-│   │   └── Ergebnis.Rds     # save()-image: Ergebnis, Ergebnis2, Ergebnis3,
-│   │                        # Ergebnis3_Aufstieg (one file, not per-league)
+│   │   └── Ergebnis.Rds     # local-only fixture (preview_site.R, tests) --
+│   │                        # save()-image: Ergebnis, Ergebnis2, Ergebnis3,
+│   │                        # Ergebnis3_Aufstieg. NOT written by the
+│   │                        # production loop -- see Stage 4 above.
 │   └── public/               # STATIC_SITE_DIR: generated site (gitignored)
 │       ├── index.html
 │       ├── 2-bundesliga.html
