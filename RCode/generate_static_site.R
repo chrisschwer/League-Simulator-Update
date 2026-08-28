@@ -412,11 +412,15 @@ generate_static_site <- function(Ergebnis, Ergebnis2, Ergebnis3,
 
 # Vorzeichenbehaftete Zahl mit U+2212 als Minus (statt Bindestrich) und
 # "±0" bei exakt Null. digits = Nachkommastellen (0 für Tordifferenz,
-# 1 für Delta-ELO).
+# 1 für Delta-ELO). Das Vorzeichen wird vom GERUNDETEN Wert abgeleitet,
+# nicht vom Rohwert: sonst zeigt z.B. -0.04 bei einer Nachkommastelle ein
+# "−0,0" statt des korrekten "±0,0", weil der Rohwert negativ ist, der
+# angezeigte gerundete Wert aber Null.
 .vorzeichen <- function(x, digits) {
-  formatted <- .komma(abs(x), digits)
-  ifelse(x > 0, paste0("+", formatted),
-        ifelse(x < 0, paste0("−", formatted),
+  gerundet <- round(x, digits)
+  formatted <- .komma(abs(gerundet), digits)
+  ifelse(gerundet > 0, paste0("+", formatted),
+        ifelse(gerundet < 0, paste0("−", formatted),
               paste0("±", formatted)))
 }
 
