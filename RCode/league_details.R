@@ -31,22 +31,56 @@ STATUS_LIVE <- c("1H", "HT", "2H", "ET", "BT", "P", "SUSP", "INT", "LIVE")
 STATUS_VERSCHOBEN <- c("PST", "CANC", "TBD", "ABD")
 
 extract_fixture_details <- function(fixtures) {
-  round_raw <- vapply(fixtures$league, function(x) x$round[[1]], character(1))
-  fixtures <- fixtures[startsWith(round_raw, "Regular Season"), ]
-  round_raw <- round_raw[startsWith(round_raw, "Regular Season")]
+  # api-football fixtures arrive in two shapes depending on how the caller
+  # built them: FLACH (production, via retrieveResults()/jsonlite::fromJSON's
+  # default simplification) has fixture/league/teams/goals as data.frames
+  # with atomic or df columns (fixtures$league$round works directly,
+  # fixtures$teams$home is itself a data.frame). GENESTET (the frozen test
+  # mocks, hand-built tibbles) has them as LIST columns of one-row
+  # data.frames per fixture (fixtures$league is a list, so
+  # fixtures$league$round is NULL and each round lives at
+  # fixtures$league[[i]]$round instead). Spiegelfall zum
+  # transform_data()-List-Column-Fix aus Phase 2. Detect via is.data.frame()
+  # and normalize both into plain atomic vectors before proceeding.
+  flach <- is.data.frame(fixtures$league)
 
-  fixture_id <- vapply(fixtures$fixture, function(x) x$id[[1]], numeric(1))
-  date_raw <- vapply(fixtures$fixture, function(x) x$date[[1]], character(1))
-  status <- vapply(fixtures$fixture, function(x) x$status[[1]]$short[[1]], character(1))
+  if (flach) {
+    round_raw <- as.character(fixtures$league$round)
+  } else {
+    round_raw <- vapply(fixtures$league, function(x) x$round[[1]], character(1))
+  }
+
+  keep <- startsWith(round_raw, "Regular Season")
+  round_raw <- round_raw[keep]
+  fixtures <- fixtures[keep, ]
+
+  if (flach) {
+    fixture_id <- as.numeric(fixtures$fixture$id)
+    date_raw <- as.character(fixtures$fixture$date)
+    status <- as.character(fixtures$fixture$status$short)
+
+    home_id <- as.numeric(fixtures$teams$home$id)
+    home_name <- as.character(fixtures$teams$home$name)
+    away_id <- as.numeric(fixtures$teams$away$id)
+    away_name <- as.character(fixtures$teams$away$name)
+
+    goals_home <- as.numeric(fixtures$goals$home)
+    goals_away <- as.numeric(fixtures$goals$away)
+  } else {
+    fixture_id <- vapply(fixtures$fixture, function(x) x$id[[1]], numeric(1))
+    date_raw <- vapply(fixtures$fixture, function(x) x$date[[1]], character(1))
+    status <- vapply(fixtures$fixture, function(x) x$status[[1]]$short[[1]], character(1))
+
+    home_id <- vapply(fixtures$teams, function(x) x$home[[1]]$id[[1]], numeric(1))
+    home_name <- vapply(fixtures$teams, function(x) x$home[[1]]$name[[1]], character(1))
+    away_id <- vapply(fixtures$teams, function(x) x$away[[1]]$id[[1]], numeric(1))
+    away_name <- vapply(fixtures$teams, function(x) x$away[[1]]$name[[1]], character(1))
+
+    goals_home <- vapply(fixtures$goals, function(x) as.numeric(x$home[[1]]), numeric(1))
+    goals_away <- vapply(fixtures$goals, function(x) as.numeric(x$away[[1]]), numeric(1))
+  }
+
   round <- as.integer(sub(".*-\\s*", "", round_raw))
-
-  home_id <- vapply(fixtures$teams, function(x) x$home[[1]]$id[[1]], numeric(1))
-  home_name <- vapply(fixtures$teams, function(x) x$home[[1]]$name[[1]], character(1))
-  away_id <- vapply(fixtures$teams, function(x) x$away[[1]]$id[[1]], numeric(1))
-  away_name <- vapply(fixtures$teams, function(x) x$away[[1]]$name[[1]], character(1))
-
-  goals_home <- vapply(fixtures$goals, function(x) as.numeric(x$home[[1]]), numeric(1))
-  goals_away <- vapply(fixtures$goals, function(x) as.numeric(x$away[[1]]), numeric(1))
 
   # Anstoßzeit als POSIXct in UTC parsen. Format wie
   # "2026-11-27T19:30:00+00:00" (Offset-Doppelpunkt entfernen für %z) oder
@@ -263,4 +297,76 @@ parse_league_details_response <- function(json_text) {
     current_elos = parsed$current_elos,
     team_names = parsed$team_names
   )
+}
+
+# --- Phase 4a: Verdrahtung ---------------------------------------------------
+
+# Dünner httr-Client für POST /league-details; base_url-Default folgt der
+# RUST_API_URL-Konvention aus rust_integration.R. Rückgabe: Response-Body als
+# JSON-Text (wird von parse_league_details_response() geparst).
+fetch_league_details <- function(payload,
+                                 base_url = Sys.getenv("RUST_API_URL",
+                                                       "http://localhost:8080")) {
+  json_body <- jsonlite::toJSON(payload, auto_unbox = TRUE, null = "null")
+
+  response <- httr::POST(
+    paste0(base_url, "/league-details"),
+    body = json_body,
+    httr::content_type_json(),
+    httr::accept_json()
+  )
+
+  if (httr::status_code(response) != 200) {
+    error_body <- httr::content(response, "text", encoding = "UTF-8")
+    stop(sprintf("league-details request failed with status %d: %s",
+                 httr::status_code(response), error_body))
+  }
+
+  httr::content(response, "text", encoding = "UTF-8")
+}
+
+# Verdrahtung je Liga: rohe Fixtures + TeamList -> render-fertige Strukturen
+# (details, teams, matches, current_elos, tabelle); NULL mit Warnung bei
+# Endpoint-Fehlern (Degradation auf Phase-3-Seite).
+build_league_page_data <- function(fixtures, teams,
+                                   fetch_fn = fetch_league_details) {
+  tryCatch({
+    details <- extract_fixture_details(fixtures)
+
+    liga_teams <- teams[teams$TeamID %in% c(details$home_id, details$away_id), ]
+
+    payload <- build_league_details_payload(details, liga_teams)
+    response_json <- fetch_fn(payload)
+    parsed <- parse_league_details_response(response_json)
+
+    # matches: Details-Zeile i <-> Response-Index i-1 (positionsgleich).
+    matches <- cbind(details, parsed$matches)
+
+    # tabelle: Grundgerüst aus build_league_table(), angereichert um Name
+    # (id-Join, NIE positional), ELO (current_elos in Teams-Reihenfolge,
+    # id-Join) und Delta-ELO gegen InitialELO.
+    tabelle <- build_league_table(details, liga_teams)
+
+    name_by_id <- setNames(details$home_name, details$home_id)
+    name_by_id[as.character(details$away_id)] <- details$away_name
+    tabelle$name <- unname(name_by_id[as.character(tabelle$team_id)])
+
+    elo_by_id <- setNames(parsed$current_elos, liga_teams$TeamID)
+    tabelle$elo <- unname(elo_by_id[as.character(tabelle$team_id)])
+
+    initial_elo_by_id <- setNames(liga_teams$InitialELO, liga_teams$TeamID)
+    tabelle$delta_elo <- tabelle$elo -
+      unname(initial_elo_by_id[as.character(tabelle$team_id)])
+
+    list(
+      details = details,
+      teams = liga_teams,
+      matches = matches,
+      current_elos = parsed$current_elos,
+      tabelle = tabelle
+    )
+  }, error = function(e) {
+    warning(e$message)
+    NULL
+  })
 }

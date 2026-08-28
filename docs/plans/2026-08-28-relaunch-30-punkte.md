@@ -52,24 +52,50 @@ Seit dem Umzug auf Selbst-Hosting (ADR 0001, Caddy + Volume `fussball-site`) gib
 - Ausbau: ggplot/reshape2-Heatmap-Pfad, `ShinyApp/app.R`, Shiny aus `packagelist.txt` (prüfen, ob andernorts genutzt); `scripts/preview_site.R` als Ersatz. `CLAUDE.md`-Quick-Commands anpassen.
 - Kann vor oder zusammen mit Phase 4 deployt werden — die Seite ist auch ohne die neuen Sektionen vollständig (dann Heatmap + Prognose-Panels + Methodik im neuen Design).
 
-### Phase 4 — Neue Inhalte sukzessive
+### Phase 4 — Neue Inhalte sukzessive (Detailplanung 2026-08-28, nach Merge #147)
 
-- 4a: Ligatabelle mit ELO/Δ ELO + Sortier-JS.
-- 4b: Rückblick (ex-ante 1/X/2, Ergebnis, ELO-Anpassung).
-- 4c: Ausblick (Termine, 1/X/2, `<details>`-Score-Matrizen).
-- Jeder Schritt einzeln deploybar (CI-Image, Host-Pull nach pinned SHA).
+**Status:** Phasen 1–3 sind abgeschlossen und gemergt (PR #144 Doku, #145 Datenfundament, #147 Design-Relaunch). Das Datenfundament (`RCode/league_details.R`, `POST /league-details`) ist produktiv noch unverdrahtet — genau das ist Phase 4.
+
+**Beschlossener Zuschnitt (2026-08-28):** drei PRs (4a → 4b → 4c), je mit dem bewährten Ablauf: Tests schreiben → User-Review → Freeze → subagent-getriebene Implementierung (Sonnet/Haiku, Opus-Abschlussreview) → CI grün → Merge. Live-Spiele-Sektion kommt mit 4b. Walk-Reihenfolge bleibt Listen-Reihenfolge (#146 offen; ex ante = Runden-Position, konsistent mit `/simulate`).
+
+**Vorab (kleiner eigener Doku-PR):** Issue #148 abarbeiten — Shiny-Reste in `docs/troubleshooting/common-issues.md` und `docs/operations/` bereinigen, `DBI` aus der Preflight-Liste, `shinytest2` aus `test_packagelist.txt`. Reine Doku/Listen, kein Test-Gate nötig; ein Subagent-Task mit Review.
+
+#### 4a — Verdrahtung + Ligatabelle (größter Schritt)
+
+Datenfluss (einmalige Verdrahtung, dient auch 4b/4c):
+- Neue Funktion `build_league_page_data(fixtures, teams, rust_base_url)` in `RCode/league_details.R`: `extract_fixture_details()` → Liga-Teams aus TeamList per Fixture-Team-IDs filtern → `build_league_details_payload()` → `POST /league-details` (httr-Client nach dem Muster von `RCode/rust_integration.R`) → `parse_league_details_response()` → Rückgabe render-fertig: `list(details, teams, matches` (Details+Response per Index gejoint)`, current_elos, tabelle)` mit `build_league_table()`.
+- **Fehler-Robustheit:** schlägt der Endpoint fehl, liefert die Funktion NULL und der Renderer lässt die neuen Sektionen weg (Seite bleibt wie Phase 3); Fehler wird geloggt. Kein harter Abbruch des Scheduler-Laufs.
+- Aufrufort `RCode/update_all_leagues_loop.R:160–166`: je Liga `build_league_page_data(fixturesBL…, TeamList, …)` und Übergabe an `generate_static_site(…, league_data = list(bundesliga=…, zweite_bundesliga=…, dritte_liga=…))` (neues optionales Argument, Default NULL = Verhalten wie heute — Fallback/Preview funktionieren unverändert; `scripts/preview_site.R` bleibt ohne league_data lauffähig).
+
+Rendering 4a:
+- Sektion „Tabelle“ (Eyebrow TABELLE, h2 „Ligatabelle und ELO“) nach Mock-up: Spalten Platz · Team (voller Name aus Fixture-Details) · Sp. (`opt`) · Tordiff. (`opt`) · Punkte · ELO · Δ ELO; sortierbar per Vanilla-Inline-JS (Platz default, Punkte/ELO absteigend, `aria-sort`); Mobil-Regeln aus dem Mock-up (`opt`-Spalten ausblenden). Δ ELO = current_elo − InitialELO, deutsche Formatierung (Komma, echtes Minus) wie im Mock-up.
+- Deferred-Minors aus Phase 3 mitnehmen: `.NAV_ITEMS`-Duplikat auflösen (Nav aus `league_views()` + Methodik-Eintrag ableiten), redundantes `dir.create` entfernen.
+
+Tests 4a (neue Dateien; bestehende Suiten bleiben eingefroren): `test-league-page-data.R` (Aufbau/Join/Fehlerpfad mit gemocktem HTTP), `test-ligatabelle-sektion.R` (Markup, Sortier-JS-Attribute, volle Namen, Δ-Formatierung, Weglassen der Sektion ohne league_data), Erweiterung Loop-Gating (Übergabe + Degradation, nach Muster `test-update-loop-gating.R`).
+
+#### 4b — Rückblick + Live-Spiele
+
+Überträge aus dem 4a-Abschlussreview (2026-08-28):
+- Die Formatierer `.komma()`/`.vorzeichen()` haben keinen NA-Guard — für 4b-Spalten aus optionalen Response-Feldern (`elo_delta_home` ist bei ungespielten Partien null) vorsehen.
+- Sortier-JS invertiert bewusst nicht bei erneutem Klick (feste Richtung je Spalte, Plan-konform) — kein Bug.
+- Entschieden (User, 2026-08-28): Die Ligatabelle bekommt KEINE Zonen-Trennlinien — bei Sortierung nach ELO/Punkten stünden sie ohnehin an falscher Stelle. Damit endgültig verworfen, nicht geparkt.
+
+- Fensterung aus Phase 2 nutzen: `rueckblick_matches()` / `live_matches()`; Join mit Response-Werten (ex-ante 1/X/2, `elo_delta_home`) per Index.
+- Rendering nach Mock-up: Spielzeilen (Termin, Paarung mit vollen Namen, 1/X/2-Balken mit `nolabel`-Regel, Ergebnis, ELO-Anpassung ±x,x / ∓x,x), Nachholspiel-Kennzeichnung; Legende. Live-Sektion zwischen Rückblick und Ausblick, nur wenn nicht leer: Zwischenstand ohne Prognose + Hinweis „Prognosen werden während des Spiels nicht aktualisiert“.
+- Spieltags-Überschrift („N. Spieltag“) aus `current_matchday()`/Anker ableiten.
+
+#### 4c — Ausblick
+
+- `ausblick_matches()` + Score-Matrizen aus der Response: `<details>`-Aufklapper je Spiel (Marker-Styling aus Mock-up), 7×7-Matrix mit Heat-Färbung (`.heat_style()`-Wiederverwendung), Termin-Formatierung (Berlin-Zeit, Wochentagskürzel, schmale Leerzeichen), 1/X/2-Balken.
+- Danach: CONTEXT.md-Eintrag **Statische Seite** final prüfen; ggf. Abschluss-Notiz im Plan.
+
+**Jede Teilphase:** einzeln deploybar (CI-Image, Host-Pull nach pinned SHA); Verifikation je PR: eingefrorene neue Tests grün + Gesamtsuite + `cargo test` + `scripts/preview_site.R`-Sichtprüfung (Headless-QA gegen Mock-up) + CI-in-image-testthat. Für 4a zusätzlich: ein manueller Scheduler-Zyklus gegen den lokalen Rust-Server (echte Fixtures), bevor gemergt wird.
 
 ### Nebenarbeiten (in Phase 2/3 miterledigen)
 
 - `docs/architecture/data-flow.md:139–170` beschreibt eine `Ergebnis.Rds`-Struktur, die es nicht gibt — korrigieren.
 - `docs/deployment/static-site.md` und Architektur-Doku an neue Seitenstruktur anpassen; `docs/architecture/overview.md` erwähnt noch ShinyApps-Deployment.
 - Hinweis: `Ergebnis.Rds` ist ein `save()`-Image (mit `load()` lesen, nicht `readRDS()`).
-
-### Übertrag aus Phase 2 (Review-Befunde, 2026-08-28)
-
-- **Phase 3:** `build_league_details_payload` gegen API-Glitches härten (`is.na()`-Guard für Tore trotz FT-Status und für unbekannte Team-IDs) — sonst serialisiert jsonlite den String `"NA"` und der Endpoint lehnt die ganze Anfrage mit 422 ab. Gleiches Altverhalten besteht im `/simulate`-Pfad (`rust_integration.R`).
-- **Phase 3:** Signatur-Erweiterung am Aufrufort `update_all_leagues_loop.R` (aus Phase 2 verschoben — ohne Renderer sinnlos).
-- **Vor Phase 4b:** Entscheidung bestätigen oder ändern, dass die ex-ante-ELO eines Nachholspiels aus der Listen- (= Runden-)Position stammt, nicht aus der chronologischen — siehe Issue #146.
 
 ## Doku-Entwürfe (in Phase 1 committen)
 

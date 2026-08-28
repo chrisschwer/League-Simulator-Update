@@ -35,14 +35,15 @@ SITE_TAGLINE <- paste0(
 STALE_THRESHOLD_HOURS <- 24
 
 # The four nav destinations, in display order. Methodik has no league_views()
-# entry of its own (it carries no panels/heatmap), so the nav is assembled
-# from this fixed list rather than derived from league_views().
-.NAV_ITEMS <- list(
-  list(slug = "index", nav_label = "Bundesliga"),
-  list(slug = "2-bundesliga", nav_label = "2. Bundesliga"),
-  list(slug = "3-liga", nav_label = "3. Liga"),
-  list(slug = "methodik", nav_label = "Methodik")
-)
+# entry of its own (it carries no panels/heatmap), so it is appended as a
+# fixed entry after the league slugs/labels derived from league_views().
+.nav_items <- function() {
+  league_items <- lapply(league_views(), function(v) {
+    list(slug = v$slug, nav_label = v$nav_label)
+  })
+  names(league_items) <- NULL
+  c(league_items, list(list(slug = "methodik", nav_label = "Methodik")))
+}
 
 footer_timestamp <- function(mtime) {
   lt <- as.POSIXlt(mtime, tz = "Europe/Berlin")
@@ -147,7 +148,7 @@ render_panel_table <- function(data_obj, panel) {
 }
 
 .nav_html <- function(current_slug) {
-  items <- vapply(.NAV_ITEMS, function(v) {
+  items <- vapply(.nav_items(), function(v) {
     label <- htmltools::htmlEscape(v$nav_label)
     href <- paste0(v$slug, ".html")
     if (identical(v$slug, current_slug)) {
@@ -227,9 +228,8 @@ render_panel_table <- function(data_obj, panel) {
 }
 
 render_league_page <- function(view, data_env, output_dir,
-                               now = Sys.time(), mtime = now) {
-  dir.create(file.path(output_dir, "assets"), recursive = TRUE,
-             showWarnings = FALSE)
+                               now = Sys.time(), mtime = now,
+                               league_entry = NULL) {
   .copy_assets(output_dir)
 
   result <- get(view$plot_source, envir = data_env)
@@ -239,6 +239,21 @@ render_league_page <- function(view, data_env, output_dir,
                                  view$top)
   bottom_html <- render_panel_table(get(view$bottom$source, envir = data_env),
                                     view$bottom)
+
+  tabelle_html <- if (!is.null(league_entry)) {
+    paste0(
+      "<section id=\"tabelle\">\n",
+      "<p class=\"eyebrow\">Tabelle</p>\n",
+      "<h2>Ligatabelle und ELO</h2>\n",
+      "<p class=\"sectionlead\">Die aktuelle Tabelle, daneben die ELO-Stärkeschätzung ",
+      "des Modells und ihre Veränderung seit Saisonbeginn.</p>\n",
+      "<div class=\"scroll\">", render_liga_tabelle(league_entry$tabelle),
+      "</div>\n</section>\n"
+    )
+  } else {
+    ""
+  }
+  sort_script <- if (!is.null(league_entry)) .LIGA_SORT_SCRIPT else ""
 
   html <- paste0(
     "<!doctype html>\n<html lang=\"de\">\n<head>\n",
@@ -261,8 +276,10 @@ render_league_page <- function(view, data_env, output_dir,
     "<div class=\"scroll\">", top_html, "</div>\n",
     "<div class=\"scroll\">", bottom_html, "</div>\n",
     "</div>\n</section>\n",
+    tabelle_html,
     .footer_html(mtime), "\n",
-    .stale_script, "\n</div>\n</body>\n</html>\n"
+    .stale_script, "\n",
+    sort_script, "\n</div>\n</body>\n</html>\n"
   )
 
   out_path <- file.path(output_dir, paste0(view$slug, ".html"))
@@ -271,8 +288,6 @@ render_league_page <- function(view, data_env, output_dir,
 }
 
 .render_methodik_page <- function(output_dir, now = Sys.time(), mtime = now) {
-  dir.create(file.path(output_dir, "assets"), recursive = TRUE,
-             showWarnings = FALSE)
   .copy_assets(output_dir)
 
   content_path <- file.path(.gss_dir, "site_assets", "methodik_content.html")
@@ -320,7 +335,6 @@ render_league_page <- function(view, data_env, output_dir,
     "\" target=\"blank_\">30punkte.wordpress.com</a></span></footer>\n",
     "</div>\n</body>\n</html>\n"
   )
-  dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
   .copy_assets(output_dir)
   out_path <- file.path(output_dir, "index.html")
   writeLines(html, out_path, useBytes = TRUE)
@@ -351,7 +365,8 @@ generate_static_site <- function(Ergebnis, Ergebnis2, Ergebnis3,
                                  Ergebnis3_Aufstieg = Ergebnis3,
                                  output_dir = Sys.getenv("STATIC_SITE_DIR",
                                                          "ShinyApp/public"),
-                                 now = Sys.time()) {
+                                 now = Sys.time(),
+                                 league_data = NULL) {
   have_data <- !is.null(Ergebnis) && !is.null(Ergebnis2) && !is.null(Ergebnis3)
 
   if (!have_data) {
@@ -369,9 +384,12 @@ generate_static_site <- function(Ergebnis, Ergebnis2, Ergebnis3,
 
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
-  league_paths <- vapply(league_views(), function(view) {
+  views <- league_views()
+  league_paths <- vapply(names(views), function(key) {
+    view <- views[[key]]
     message(sprintf("generate_static_site: rendering %s", view$slug))
-    render_league_page(view, data_env, output_dir, now = now, mtime = now)
+    render_league_page(view, data_env, output_dir, now = now, mtime = now,
+                       league_entry = league_data[[key]])
   }, character(1))
 
   message("generate_static_site: rendering methodik")
@@ -383,3 +401,82 @@ generate_static_site <- function(Ergebnis, Ergebnis2, Ergebnis3,
                   length(paths), output_dir))
   invisible(paths)
 }
+
+# --- Phase 4a: Ligatabelle ---------------------------------------------------
+
+# Deutsche Dezimalformatierung: Punkt -> Komma.
+.komma <- function(x, digits) {
+  sub(".", ",", formatC(x, digits = digits, format = "f", big.mark = ""),
+     fixed = TRUE)
+}
+
+# Vorzeichenbehaftete Zahl mit U+2212 als Minus (statt Bindestrich) und
+# "±0" bei exakt Null. digits = Nachkommastellen (0 für Tordifferenz,
+# 1 für Delta-ELO). Das Vorzeichen wird vom GERUNDETEN Wert abgeleitet,
+# nicht vom Rohwert: sonst zeigt z.B. -0.04 bei einer Nachkommastelle ein
+# "−0,0" statt des korrekten "±0,0", weil der Rohwert negativ ist, der
+# angezeigte gerundete Wert aber Null.
+.vorzeichen <- function(x, digits) {
+  gerundet <- round(x, digits)
+  formatted <- .komma(abs(gerundet), digits)
+  ifelse(gerundet > 0, paste0("+", formatted),
+        ifelse(gerundet < 0, paste0("−", formatted),
+              paste0("±", formatted)))
+}
+
+render_liga_tabelle <- function(tabelle) {
+  header <- paste0(
+    "<thead><tr>\n",
+    "<th scope=\"col\"><button data-key=\"platz\" data-dir=\"asc\" ",
+    "aria-sort=\"ascending\">Platz</button></th>\n",
+    "<th scope=\"col\">Team</th>",
+    "<th scope=\"col\" class=\"num opt\">Sp.</th>",
+    "<th scope=\"col\" class=\"num opt\">Tordiff.</th>\n",
+    "<th scope=\"col\"><button data-key=\"pkt\" data-dir=\"desc\">Punkte</button></th>\n",
+    "<th scope=\"col\"><button data-key=\"elo\" data-dir=\"desc\">ELO</button></th>\n",
+    "<th scope=\"col\" class=\"num\">&Delta; ELO</th>\n",
+    "</tr></thead>"
+  )
+
+  rows <- vapply(seq_len(nrow(tabelle)), function(i) {
+    row <- tabelle[i, ]
+    paste0(
+      "<tr data-platz=\"", row$platz, "\" data-pkt=\"", row$punkte,
+      "\" data-elo=\"", row$elo, "\">",
+      "<td class=\"num\">", row$platz, "</td>",
+      "<th scope=\"row\">", htmltools::htmlEscape(row$name), "</th>",
+      "<td class=\"num opt\">", row$spiele, "</td>",
+      "<td class=\"num opt\">", .vorzeichen(row$tordifferenz, 0), "</td>",
+      "<td class=\"num\">", row$punkte, "</td>",
+      "<td class=\"num\">", .komma(row$elo, 1), "</td>",
+      "<td class=\"num\">", .vorzeichen(row$delta_elo, 1), "</td>",
+      "</tr>"
+    )
+  }, character(1))
+
+  paste0(
+    "<table class=\"liga\" id=\"ligatabelle\">\n",
+    header, "<tbody>", paste0(rows, collapse = ""), "</tbody></table>"
+  )
+}
+
+.LIGA_SORT_SCRIPT <- paste0(
+  "<script>\n(function(){\n",
+  "  var table=document.getElementById('ligatabelle');\n",
+  "  if(!table)return;\n",
+  "  var tbody=table.tBodies[0];\n",
+  "  table.querySelectorAll('th button[data-key]').forEach(function(btn){\n",
+  "    btn.addEventListener('click',function(){\n",
+  "      var key=btn.dataset.key, dir=btn.dataset.dir;\n",
+  "      table.querySelectorAll('th button').forEach(function(b){b.removeAttribute('aria-sort')});\n",
+  "      btn.setAttribute('aria-sort',dir==='asc'?'ascending':'descending');\n",
+  "      var rows=Array.prototype.slice.call(tbody.rows);\n",
+  "      rows.sort(function(a,b){\n",
+  "        var va=parseFloat(a.dataset[key]),vb=parseFloat(b.dataset[key]);\n",
+  "        return dir==='asc'?va-vb:vb-va;\n",
+  "      });\n",
+  "      rows.forEach(function(r){tbody.appendChild(r)});\n",
+  "    });\n",
+  "  });\n",
+  "})();\n</script>"
+)
