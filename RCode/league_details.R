@@ -31,22 +31,56 @@ STATUS_LIVE <- c("1H", "HT", "2H", "ET", "BT", "P", "SUSP", "INT", "LIVE")
 STATUS_VERSCHOBEN <- c("PST", "CANC", "TBD", "ABD")
 
 extract_fixture_details <- function(fixtures) {
-  round_raw <- vapply(fixtures$league, function(x) x$round[[1]], character(1))
-  fixtures <- fixtures[startsWith(round_raw, "Regular Season"), ]
-  round_raw <- round_raw[startsWith(round_raw, "Regular Season")]
+  # api-football fixtures arrive in two shapes depending on how the caller
+  # built them: FLACH (production, via retrieveResults()/jsonlite::fromJSON's
+  # default simplification) has fixture/league/teams/goals as data.frames
+  # with atomic or df columns (fixtures$league$round works directly,
+  # fixtures$teams$home is itself a data.frame). GENESTET (the frozen test
+  # mocks, hand-built tibbles) has them as LIST columns of one-row
+  # data.frames per fixture (fixtures$league is a list, so
+  # fixtures$league$round is NULL and each round lives at
+  # fixtures$league[[i]]$round instead). Spiegelfall zum
+  # transform_data()-List-Column-Fix aus Phase 2. Detect via is.data.frame()
+  # and normalize both into plain atomic vectors before proceeding.
+  flach <- is.data.frame(fixtures$league)
 
-  fixture_id <- vapply(fixtures$fixture, function(x) x$id[[1]], numeric(1))
-  date_raw <- vapply(fixtures$fixture, function(x) x$date[[1]], character(1))
-  status <- vapply(fixtures$fixture, function(x) x$status[[1]]$short[[1]], character(1))
+  if (flach) {
+    round_raw <- as.character(fixtures$league$round)
+  } else {
+    round_raw <- vapply(fixtures$league, function(x) x$round[[1]], character(1))
+  }
+
+  keep <- startsWith(round_raw, "Regular Season")
+  round_raw <- round_raw[keep]
+  fixtures <- fixtures[keep, ]
+
+  if (flach) {
+    fixture_id <- as.numeric(fixtures$fixture$id)
+    date_raw <- as.character(fixtures$fixture$date)
+    status <- as.character(fixtures$fixture$status$short)
+
+    home_id <- as.numeric(fixtures$teams$home$id)
+    home_name <- as.character(fixtures$teams$home$name)
+    away_id <- as.numeric(fixtures$teams$away$id)
+    away_name <- as.character(fixtures$teams$away$name)
+
+    goals_home <- as.numeric(fixtures$goals$home)
+    goals_away <- as.numeric(fixtures$goals$away)
+  } else {
+    fixture_id <- vapply(fixtures$fixture, function(x) x$id[[1]], numeric(1))
+    date_raw <- vapply(fixtures$fixture, function(x) x$date[[1]], character(1))
+    status <- vapply(fixtures$fixture, function(x) x$status[[1]]$short[[1]], character(1))
+
+    home_id <- vapply(fixtures$teams, function(x) x$home[[1]]$id[[1]], numeric(1))
+    home_name <- vapply(fixtures$teams, function(x) x$home[[1]]$name[[1]], character(1))
+    away_id <- vapply(fixtures$teams, function(x) x$away[[1]]$id[[1]], numeric(1))
+    away_name <- vapply(fixtures$teams, function(x) x$away[[1]]$name[[1]], character(1))
+
+    goals_home <- vapply(fixtures$goals, function(x) as.numeric(x$home[[1]]), numeric(1))
+    goals_away <- vapply(fixtures$goals, function(x) as.numeric(x$away[[1]]), numeric(1))
+  }
+
   round <- as.integer(sub(".*-\\s*", "", round_raw))
-
-  home_id <- vapply(fixtures$teams, function(x) x$home[[1]]$id[[1]], numeric(1))
-  home_name <- vapply(fixtures$teams, function(x) x$home[[1]]$name[[1]], character(1))
-  away_id <- vapply(fixtures$teams, function(x) x$away[[1]]$id[[1]], numeric(1))
-  away_name <- vapply(fixtures$teams, function(x) x$away[[1]]$name[[1]], character(1))
-
-  goals_home <- vapply(fixtures$goals, function(x) as.numeric(x$home[[1]]), numeric(1))
-  goals_away <- vapply(fixtures$goals, function(x) as.numeric(x$away[[1]]), numeric(1))
 
   # Anstoßzeit als POSIXct in UTC parsen. Format wie
   # "2026-11-27T19:30:00+00:00" (Offset-Doppelpunkt entfernen für %z) oder
