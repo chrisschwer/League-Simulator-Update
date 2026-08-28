@@ -21,6 +21,7 @@ async fn main() {
         println!("  GET  /health              - Health check");
         println!("  POST /simulate            - Simulate single league");
         println!("  POST /simulate/batch      - Simulate multiple leagues");
+        println!("  POST /league-details      - Deterministic per-match details");
         println!("\nPerformance: 370,000+ simulations/second");
 
         let app = api::create_router();

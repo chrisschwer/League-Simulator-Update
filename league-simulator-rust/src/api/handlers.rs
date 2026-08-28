@@ -257,3 +257,153 @@ async fn simulate_league_internal(
 ) -> Result<SimulateResponse, (StatusCode, String)> {
     simulate_league(Json(request)).await.map(|Json(r)| r)
 }
+
+/// Deterministic per-match details (ADR 0002): ELO walk over played matches,
+/// closed-form Poisson probabilities and scoreline grid per match. No Monte
+/// Carlo, no randomness — same input, same output.
+#[derive(Deserialize)]
+pub struct LeagueDetailsRequest {
+    /// Schedule matrix, identical to `/simulate`: rows of
+    /// [team_home, team_away, goals_home, goals_away], goals null if open.
+    schedule: Vec<[Option<i32>; 4]>,
+
+    /// Season-start ELO per team.
+    elo_values: Vec<f64>,
+
+    /// Team names (optional, echoed back).
+    team_names: Option<Vec<String>>,
+
+    /// ELO modification factor (default: 20).
+    mod_factor: Option<f64>,
+
+    /// Home advantage in ELO points (default: 65).
+    home_advantage: Option<f64>,
+
+    /// Scoreline grid size: the grid is (max_goals+1)² with the tail mass
+    /// accumulated in the last row/column (default: 6 → 7x7, "6+").
+    max_goals: Option<usize>,
+}
+
+#[derive(Serialize)]
+pub struct MatchDetailResponse {
+    /// Position in the request schedule (0-based).
+    index: usize,
+    /// 1-based team indices, mirroring the request encoding.
+    team_home: usize,
+    team_away: usize,
+    played: bool,
+    goals_home: Option<i32>,
+    goals_away: Option<i32>,
+    elo_home_pre: f64,
+    elo_away_pre: f64,
+    /// Home team's ELO shift for played matches (away = negative of it).
+    elo_delta_home: Option<f64>,
+    lambda_home: f64,
+    lambda_away: f64,
+    p_home_win: f64,
+    p_draw: f64,
+    p_away_win: f64,
+    score_matrix: Vec<Vec<f64>>,
+}
+
+#[derive(Serialize)]
+pub struct LeagueDetailsResponse {
+    matches: Vec<MatchDetailResponse>,
+    /// ELO per team after all played matches, in request team order.
+    current_elos: Vec<f64>,
+    team_names: Vec<String>,
+}
+
+fn validate_league_details_request(payload: &LeagueDetailsRequest) -> Result<(), String> {
+    if payload.schedule.is_empty() {
+        return Err("schedule must not be empty".to_string());
+    }
+    let number_teams = payload.elo_values.len();
+    if number_teams == 0 {
+        return Err("elo_values must not be empty".to_string());
+    }
+    for (i, row) in payload.schedule.iter().enumerate() {
+        for (name, value) in [("team_home", row[0]), ("team_away", row[1])] {
+            match value {
+                Some(v) if v >= 1 && (v as usize) <= number_teams => {}
+                Some(v) => {
+                    return Err(format!(
+                        "schedule row {}: {} index {} out of range 1..={}",
+                        i, name, v, number_teams
+                    ))
+                }
+                None => return Err(format!("schedule row {}: {} must not be null", i, name)),
+            }
+        }
+    }
+    Ok(())
+}
+
+pub async fn league_details(
+    Json(payload): Json<LeagueDetailsRequest>,
+) -> Result<Json<LeagueDetailsResponse>, (StatusCode, String)> {
+    validate_league_details_request(&payload).map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+
+    let number_teams = payload.elo_values.len();
+
+    let matches: Vec<Match> = payload
+        .schedule
+        .iter()
+        .map(|row| Match {
+            // Validated above; request is 1-indexed, internals 0-indexed.
+            team_home: row[0].unwrap() as usize - 1,
+            team_away: row[1].unwrap() as usize - 1,
+            goals_home: row[2],
+            goals_away: row[3],
+        })
+        .collect();
+
+    let season = Season {
+        matches,
+        team_elos: payload.elo_values.clone(),
+        number_teams,
+    };
+
+    let details = crate::league_details::compute_league_details(
+        &season,
+        payload.mod_factor.unwrap_or(20.0),
+        payload.home_advantage.unwrap_or(65.0),
+        0.0017854953143549,
+        1.3218390804597700,
+        payload.max_goals.unwrap_or(6),
+    );
+
+    let team_names = payload.team_names.unwrap_or_else(|| {
+        (0..number_teams)
+            .map(|i| format!("Team_{}", i + 1))
+            .collect()
+    });
+
+    let matches = details
+        .matches
+        .into_iter()
+        .map(|m| MatchDetailResponse {
+            index: m.index,
+            team_home: m.team_home + 1,
+            team_away: m.team_away + 1,
+            played: m.played,
+            goals_home: m.goals_home,
+            goals_away: m.goals_away,
+            elo_home_pre: m.elo_home_pre,
+            elo_away_pre: m.elo_away_pre,
+            elo_delta_home: m.elo_delta_home,
+            lambda_home: m.probabilities.lambda_home,
+            lambda_away: m.probabilities.lambda_away,
+            p_home_win: m.probabilities.p_home_win,
+            p_draw: m.probabilities.p_draw,
+            p_away_win: m.probabilities.p_away_win,
+            score_matrix: m.probabilities.score_matrix,
+        })
+        .collect();
+
+    Ok(Json(LeagueDetailsResponse {
+        matches,
+        current_elos: details.current_elos,
+        team_names,
+    }))
+}

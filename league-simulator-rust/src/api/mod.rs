@@ -17,6 +17,7 @@ pub fn create_router() -> Router {
         .route("/health", get(handlers::health_check))
         .route("/simulate", post(handlers::simulate_league))
         .route("/simulate/batch", post(handlers::simulate_batch))
+        .route("/league-details", post(handlers::league_details))
         // Payloads are ~306 fixture rows (<100 KB); 2 MB is generous headroom.
         .layer(DefaultBodyLimit::max(2 * 1024 * 1024))
 }

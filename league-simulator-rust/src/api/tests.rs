@@ -266,3 +266,120 @@ async fn simulate_rejects_mismatched_adjustment_length() {
 
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
+
+// ======================================================================
+// POST /league-details — deterministic per-match details (ADR 0002).
+//
+// These tests pin the wire contract the R-side renderer will parse
+// (parse_league_details_response in RCode/league_details.R). Expected
+// numbers come from the same independent computation as
+// league_details/tests.rs.
+// ======================================================================
+
+fn post_league_details_json(payload: Value) -> Request<Body> {
+    Request::builder()
+        .method("POST")
+        .uri("/league-details")
+        .header("content-type", "application/json")
+        .body(Body::from(serde_json::to_vec(&payload).unwrap()))
+        .unwrap()
+}
+
+/// 4 teams at 1500; 1v2 finished 2:1, 3v4 finished 0:0, 2v3 open.
+fn minimal_league_details_payload() -> Value {
+    json!({
+        "schedule": [
+            [1, 2, 2, 1],
+            [3, 4, 0, 0],
+            [2, 3, null, null]
+        ],
+        "elo_values": [1500.0, 1500.0, 1500.0, 1500.0],
+        "team_names": ["AAA", "BBB", "CCC", "DDD"]
+    })
+}
+
+#[tokio::test]
+async fn league_details_returns_wire_contract() {
+    let (status, body) = send(post_league_details_json(minimal_league_details_payload())).await;
+
+    assert_eq!(status, StatusCode::OK);
+
+    // Top level: matches, current_elos, team_names.
+    let matches = body["matches"].as_array().expect("matches array");
+    assert_eq!(matches.len(), 3);
+    assert_eq!(body["team_names"], json!(["AAA", "BBB", "CCC", "DDD"]));
+
+    let elos = body["current_elos"].as_array().expect("current_elos array");
+    assert_eq!(elos.len(), 4);
+    assert!((elos[0].as_f64().unwrap() - 1508.150675388313).abs() < 1e-6);
+
+    // Played match: 1-based team indices (like the request), flat
+    // probability fields, ELO state and delta.
+    let m1 = &matches[0];
+    assert_eq!(m1["index"], json!(0));
+    assert_eq!(m1["team_home"], json!(1));
+    assert_eq!(m1["team_away"], json!(2));
+    assert_eq!(m1["played"], json!(true));
+    assert_eq!(m1["goals_home"], json!(2));
+    assert_eq!(m1["goals_away"], json!(1));
+    assert!((m1["elo_home_pre"].as_f64().unwrap() - 1500.0).abs() < 1e-9);
+    assert!((m1["elo_delta_home"].as_f64().unwrap() - 8.150675388313).abs() < 1e-6);
+    assert!((m1["p_home_win"].as_f64().unwrap() - 0.424217291957).abs() < 1e-6);
+    assert!((m1["p_draw"].as_f64().unwrap() - 0.259291821451).abs() < 1e-6);
+    assert!((m1["p_away_win"].as_f64().unwrap() - 0.316490886592).abs() < 1e-6);
+    assert!(m1["lambda_home"].as_f64().is_some());
+    assert!(m1["lambda_away"].as_f64().is_some());
+
+    // Score matrix: default max_goals = 6 → 7x7, sums to ~1.
+    let grid = m1["score_matrix"].as_array().expect("score_matrix");
+    assert_eq!(grid.len(), 7);
+    assert_eq!(grid[0].as_array().unwrap().len(), 7);
+    let total: f64 = grid
+        .iter()
+        .flat_map(|row| row.as_array().unwrap())
+        .map(|v| v.as_f64().unwrap())
+        .sum();
+    assert!((total - 1.0).abs() < 1e-9);
+
+    // Unplayed match: no goals, null delta, priced off final ELOs.
+    let m3 = &matches[2];
+    assert_eq!(m3["played"], json!(false));
+    assert!(m3["goals_home"].is_null());
+    assert!(m3["elo_delta_home"].is_null());
+    assert!((m3["elo_home_pre"].as_f64().unwrap() - 1491.849324611687).abs() < 1e-6);
+    assert!((m3["p_home_win"].as_f64().unwrap() - 0.418825321481).abs() < 1e-6);
+}
+
+#[tokio::test]
+async fn league_details_rejects_empty_schedule() {
+    let (status, _body) = send(post_league_details_json(json!({
+        "schedule": [],
+        "elo_values": [1500.0, 1500.0]
+    })))
+    .await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn league_details_rejects_out_of_range_team_index() {
+    let (status, _body) = send(post_league_details_json(json!({
+        "schedule": [[1, 5, null, null]],
+        "elo_values": [1500.0, 1500.0]
+    })))
+    .await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn league_details_respects_max_goals_parameter() {
+    let mut payload = minimal_league_details_payload();
+    payload["max_goals"] = json!(4);
+
+    let (status, body) = send(post_league_details_json(payload)).await;
+
+    assert_eq!(status, StatusCode::OK);
+    let grid = body["matches"][0]["score_matrix"].as_array().unwrap();
+    assert_eq!(grid.len(), 5);
+}
