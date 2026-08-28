@@ -265,14 +265,30 @@ parse_league_details_response <- function(json_text) {
   )
 }
 
-# --- Phase 4a (TDD): Signaturen stehen, Implementierung nach Test-Review ---
+# --- Phase 4a: Verdrahtung ---------------------------------------------------
 
 # Dünner httr-Client für POST /league-details; base_url-Default folgt der
-# RUST_API_URL-Konvention aus rust_integration.R.
+# RUST_API_URL-Konvention aus rust_integration.R. Rückgabe: Response-Body als
+# JSON-Text (wird von parse_league_details_response() geparst).
 fetch_league_details <- function(payload,
                                  base_url = Sys.getenv("RUST_API_URL",
                                                        "http://localhost:8080")) {
-  stop("noch nicht implementiert (Phase 4a, nach Test-Review)")
+  json_body <- jsonlite::toJSON(payload, auto_unbox = TRUE, null = "null")
+
+  response <- httr::POST(
+    paste0(base_url, "/league-details"),
+    body = json_body,
+    httr::content_type_json(),
+    httr::accept_json()
+  )
+
+  if (httr::status_code(response) != 200) {
+    error_body <- httr::content(response, "text", encoding = "UTF-8")
+    stop(sprintf("league-details request failed with status %d: %s",
+                 httr::status_code(response), error_body))
+  }
+
+  httr::content(response, "text", encoding = "UTF-8")
 }
 
 # Verdrahtung je Liga: rohe Fixtures + TeamList -> render-fertige Strukturen
@@ -280,5 +296,43 @@ fetch_league_details <- function(payload,
 # Endpoint-Fehlern (Degradation auf Phase-3-Seite).
 build_league_page_data <- function(fixtures, teams,
                                    fetch_fn = fetch_league_details) {
-  stop("noch nicht implementiert (Phase 4a, nach Test-Review)")
+  tryCatch({
+    details <- extract_fixture_details(fixtures)
+
+    liga_teams <- teams[teams$TeamID %in% c(details$home_id, details$away_id), ]
+
+    payload <- build_league_details_payload(details, liga_teams)
+    response_json <- fetch_fn(payload)
+    parsed <- parse_league_details_response(response_json)
+
+    # matches: Details-Zeile i <-> Response-Index i-1 (positionsgleich).
+    matches <- cbind(details, parsed$matches)
+
+    # tabelle: Grundgerüst aus build_league_table(), angereichert um Name
+    # (id-Join, NIE positional), ELO (current_elos in Teams-Reihenfolge,
+    # id-Join) und Delta-ELO gegen InitialELO.
+    tabelle <- build_league_table(details, liga_teams)
+
+    name_by_id <- setNames(details$home_name, details$home_id)
+    name_by_id[as.character(details$away_id)] <- details$away_name
+    tabelle$name <- unname(name_by_id[as.character(tabelle$team_id)])
+
+    elo_by_id <- setNames(parsed$current_elos, liga_teams$TeamID)
+    tabelle$elo <- unname(elo_by_id[as.character(tabelle$team_id)])
+
+    initial_elo_by_id <- setNames(liga_teams$InitialELO, liga_teams$TeamID)
+    tabelle$delta_elo <- tabelle$elo -
+      unname(initial_elo_by_id[as.character(tabelle$team_id)])
+
+    list(
+      details = details,
+      teams = liga_teams,
+      matches = matches,
+      current_elos = parsed$current_elos,
+      tabelle = tabelle
+    )
+  }, error = function(e) {
+    warning(e$message)
+    NULL
+  })
 }
