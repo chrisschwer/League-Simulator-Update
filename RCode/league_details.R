@@ -220,7 +220,17 @@ build_league_details_payload <- function(details, teams, mod_factor = 20,
     row <- details[i, ]
     heim_idx <- match(row$home_id, teams$TeamID)
     gast_idx <- match(row$away_id, teams$TeamID)
-    if (row$status %in% STATUS_BEENDET) {
+
+    # Unbekannte Team-IDs führen zu einem Fehler mit der ID in der Meldung
+    if (is.na(heim_idx)) {
+      stop("Unknown team ID: ", row$home_id)
+    }
+    if (is.na(gast_idx)) {
+      stop("Unknown team ID: ", row$away_id)
+    }
+
+    # Tore nur senden, wenn Status beendet UND beide Tore nicht NA sind
+    if (row$status %in% STATUS_BEENDET && !is.na(row$goals_home) && !is.na(row$goals_away)) {
       tore_h <- row$goals_home
       tore_g <- row$goals_away
     } else {
