@@ -65,6 +65,12 @@ Seit dem Umzug auf Selbst-Hosting (ADR 0001, Caddy + Volume `fussball-site`) gib
 - `docs/deployment/static-site.md` und Architektur-Doku an neue Seitenstruktur anpassen; `docs/architecture/overview.md` erwähnt noch ShinyApps-Deployment.
 - Hinweis: `Ergebnis.Rds` ist ein `save()`-Image (mit `load()` lesen, nicht `readRDS()`).
 
+### Übertrag aus Phase 2 (Review-Befunde, 2026-08-28)
+
+- **Phase 3:** `build_league_details_payload` gegen API-Glitches härten (`is.na()`-Guard für Tore trotz FT-Status und für unbekannte Team-IDs) — sonst serialisiert jsonlite den String `"NA"` und der Endpoint lehnt die ganze Anfrage mit 422 ab. Gleiches Altverhalten besteht im `/simulate`-Pfad (`rust_integration.R`).
+- **Phase 3:** Signatur-Erweiterung am Aufrufort `update_all_leagues_loop.R` (aus Phase 2 verschoben — ohne Renderer sinnlos).
+- **Vor Phase 4b:** Entscheidung bestätigen oder ändern, dass die ex-ante-ELO eines Nachholspiels aus der Listen- (= Runden-)Position stammt, nicht aus der chronologischen — siehe Issue #146.
+
 ## Doku-Entwürfe (in Phase 1 committen)
 
 **CONTEXT.md-Glossar, neue Begriffe:**
