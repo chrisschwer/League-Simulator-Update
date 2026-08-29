@@ -59,5 +59,8 @@ When adding helper functions in `RCode/` that operators run outside the producti
 ## Current Status
 
 - **Season**: 2026-2027 (`SEASON=2026`)
-- **API**: api-football via RapidAPI
+- **API**: api-football via RapidAPI — Pro plan ($19/month): 7,500 requests/day
+  (then $0.0025/request), rate limit 300 requests/minute, 10 GB bandwidth/month.
+  Typical production usage is ~150–450 requests/day, so per-loop full fetches
+  during live windows are well within budget.
 
