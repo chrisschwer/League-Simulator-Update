@@ -151,9 +151,9 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
           fixturesBL$fixture$status$short, fixturesBL2$fixture$status$short,
           fixturesLiga3$fixture$status$short
         )
-        # AWD/WO (awarded/walkover) are final too, though outside the
+        # Awarded results (AWD/WO) are final too, though outside the
         # beendet set that drives simulations.
-        final_status <- c(STATUS_BEENDET, STATUS_VERSCHOBEN, "AWD", "WO")
+        final_status <- c(STATUS_BEENDET, STATUS_VERSCHOBEN, STATUS_AWARDED)
         final_ids <- all_ids[all_status %in% final_status]
         pending_finished_ids <- pending_finished_ids[
           pending_finished_ids %in% all_ids &

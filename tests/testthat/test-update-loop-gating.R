@@ -1,7 +1,8 @@
-# The production loop must not do a full 3-league fixture fetch on every
-# iteration: it polls the cheap live endpoint and fetches fully only when
-# a live fixture disappeared (finished), on the first iteration, or on the
-# periodic safety net.
+# The production loop must not do a full 3-league fixture fetch on idle
+# iterations: it polls the cheap live endpoint and fetches fully while
+# fixtures are live (current scores for the Live section), while a finished
+# fixture is pending confirmation in the season data, on the first
+# iteration, and on the periodic safety net.
 #
 # Mocking approach: this project runs tests via plain source() (see
 # tests/testthat.R -> test_dir()), not as an installed/loaded package, so
@@ -183,7 +184,6 @@ run_loop_counting_generation <- function(loops, simulate) {
     matrix(1 / 18, nrow = 18, ncol = 18)
   })
   stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
-  stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
   stub(update_all_leagues_loop, "generate_static_site", function(...) {
     generated <<- generated + 1L
     invisible(character(0))
@@ -199,7 +199,7 @@ run_loop_counting_generation <- function(loops, simulate) {
 }
 
 test_that("the loop generates the static site exactly once per simulation run", {
-  # Loop 1 always simulates; loop 2 sees an unchanged live set and skips.
+  # Loop 1 always simulates; loop 2 is idle (nothing live, nothing pending).
   expect_equal(run_loop_counting_generation(loops = 2, simulate = TRUE), 1L)
 })
 
@@ -422,6 +422,7 @@ test_that("live fixtures trigger a full fetch and re-render every loop without s
 
 test_that("an awarded result (AWD) resolves a pending finished fixture", {
   bl_fetches <- 0L
+  sim_calls <- 0L
   live_poll_count <- 0L
   live_sequence <- list(
     c(101L), # loop 2: match live -> full fetch
@@ -446,7 +447,10 @@ test_that("an awarded result (AWD) resolves a pending finished fixture", {
     live_sequence[[min(live_poll_count, length(live_sequence))]]
   })
   stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
-  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) matrix(1 / 18, nrow = 18, ncol = 18))
+  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) {
+    sim_calls <<- sim_calls + 1L
+    matrix(1 / 18, nrow = 18, ncol = 18)
+  })
   stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
   stub(update_all_leagues_loop, "generate_static_site", function(...) invisible(character(0)))
 
@@ -460,6 +464,7 @@ test_that("an awarded result (AWD) resolves a pending finished fixture", {
 
   expect_equal(bl_fetches, 3L) # loops 1-3 only; loops 4-5 are idle
   expect_false(any(grepl("not yet final", msgs))) # AWD must not stay pending
+  expect_equal(sim_calls, 4L) # loop 1 only: AWD is final but NOT beendet
 })
 
 test_that("a pending finished fixture survives a failed full fetch", {
