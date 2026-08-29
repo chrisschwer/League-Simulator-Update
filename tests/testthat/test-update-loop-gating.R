@@ -32,12 +32,24 @@ with_repo_root <- function(expr) {
   force(expr)
 }
 
-# Minimal stand-in for one league's raw fixture list: only
-# fixture$status$short is read directly by the loop (for the FT_*_new
-# counts). transform_data() is mocked below, so the rest of the shape is
-# irrelevant.
-fake_fixtures <- function(statuses) {
-  list(fixture = list(status = list(short = statuses)))
+# Minimal stand-in for one league's raw fixture list. The loop reads
+# fixture$id + fixture$status$short (beendet-set per league, pending-set
+# resolution) and id/date/status/goals for the render signature.
+# transform_data() is mocked below, so the rest of the shape is irrelevant.
+fake_fixtures <- function(statuses, ids = seq_along(statuses),
+                          goals_home = rep(NA_integer_, length(statuses)),
+                          goals_away = rep(NA_integer_, length(statuses))) {
+  list(
+    fixture = list(
+      id = ids,
+      date = rep("2026-08-29T15:30:00+02:00", length(statuses)),
+      status = list(
+        short = statuses,
+        elapsed = rep(NA_integer_, length(statuses))
+      )
+    ),
+    goals = list(home = goals_home, away = goals_away)
+  )
 }
 
 # Minimal stand-in for transform_data()'s output: leagueSimulatorRust() is
@@ -203,6 +215,151 @@ test_that("the loop passes static_site_dir through to the generator", {
     )
   })
   expect_equal(seen_dir, target)
+})
+
+# --- Issue #154: a fixture leaving the live feed must stay "pending" until
+# --- the season endpoint actually shows it as finished. The season fetch
+# --- triggered by the live-feed edge can lag the live feed by seconds
+# --- (observed 2026-08-29, BVB-HSV): the old one-shot edge consumed the
+# --- trigger on a stale fetch and the finished game stayed in the Ausblick
+# --- for up to full_fetch_every loops.
+
+test_that("a finished fixture still live in season data is refetched until final (issue #154)", {
+  bl_fetches <- 0L
+  sim_calls <- 0L
+  generated <- 0L
+  live_poll_count <- 0L
+  live_sequence <- list(
+    c(101L), # loop 2: match live
+    integer(0), # loop 3: 101 left the live feed -> full fetch (stale)
+    integer(0), # loop 4: pending 101 not final yet -> full fetch again
+    integer(0) # loop 5: pending resolved -> no fetch
+  )
+
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
+    if (league == "78") bl_fetches <<- bl_fetches + 1L
+    # Fetches 1-2 (loops 1 and 3) still show fixture 101 as live ("2H"):
+    # the loop-3 fetch is the stale one from issue #154. From fetch 3
+    # (loop 4) on, the season data has caught up ("FT").
+    if (bl_fetches <= 2L) {
+      fake_fixtures(c("FT", "2H"), ids = c(100L, 101L))
+    } else {
+      fake_fixtures(c("FT", "FT"), ids = c(100L, 101L))
+    }
+  })
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) {
+    live_poll_count <<- live_poll_count + 1L
+    live_sequence[[min(live_poll_count, length(live_sequence))]]
+  })
+  stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
+  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) {
+    sim_calls <<- sim_calls + 1L
+    matrix(1 / 18, nrow = 18, ncol = 18)
+  })
+  stub(update_all_leagues_loop, "generate_static_site", function(...) {
+    generated <<- generated + 1L
+    invisible(character(0))
+  })
+
+  msgs <- capture_messages(with_repo_root({
+    update_all_leagues_loop(
+      duration = 0, loops = 5, initial_wait = 0, n = 10,
+      saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
+      static_site_dir = tempdir(), full_fetch_every = 30
+    )
+  }))
+
+  # Full fetches: loop 1, loop 3 (edge, stale) AND loop 4 (pending retry).
+  expect_equal(bl_fetches, 3L)
+  # Simulations: loop 1 all leagues (BL, BL2, Liga3 + Aufstieg = 4 calls),
+  # loop 4 only the league whose beendet set changed (all three fakes share
+  # the same fixtures here, so again 4 calls). The stale loop-3 fetch must
+  # NOT simulate.
+  expect_equal(sim_calls, 8L)
+  # Renders: loop 1 and loop 4. The stale loop-3 fetch carries no visible
+  # change (identical fixture data) and must not render.
+  expect_equal(generated, 2L)
+  # The unresolved pending fixture is logged instead of failing silently.
+  expect_true(any(grepl("not yet final", msgs)))
+})
+
+test_that("a fixture-data change without new finished games renders without simulating", {
+  sim_calls <- 0L
+  generated <- 0L
+  bl_fetches <- 0L
+
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
+    if (league == "78") bl_fetches <<- bl_fetches + 1L
+    # Same beendet set both fetches; only the live score of fixture 101
+    # changes (0:0 -> 1:0) between fetch 1 (loop 1) and fetch 2 (safety
+    # fetch, loop 3).
+    fake_fixtures(c("FT", "2H"),
+      ids = c(100L, 101L),
+      goals_home = c(2L, if (bl_fetches <= 1L) 0L else 1L),
+      goals_away = c(0L, 0L)
+    )
+  })
+  # Stable live set: no edge-triggered fetches, only the safety net.
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) c(101L))
+  stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
+  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) {
+    sim_calls <<- sim_calls + 1L
+    matrix(1 / 18, nrow = 18, ncol = 18)
+  })
+  stub(update_all_leagues_loop, "generate_static_site", function(...) {
+    generated <<- generated + 1L
+    invisible(character(0))
+  })
+
+  with_repo_root({
+    update_all_leagues_loop(
+      duration = 0, loops = 3, initial_wait = 0, n = 10,
+      saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
+      static_site_dir = tempdir(), full_fetch_every = 2
+    )
+  })
+
+  expect_equal(bl_fetches, 2L) # loop 1 + safety fetch loop 3
+  expect_equal(sim_calls, 4L) # loop 1 only; the score change simulates nothing
+  expect_equal(generated, 2L) # ... but it does re-render the site
+})
+
+test_that("simulation triggers on a changed beendet set even when the count is unchanged", {
+  sim_calls <- 0L
+  bl_fetches <- 0L
+
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
+    if (league == "78") bl_fetches <<- bl_fetches + 1L
+    # One finished game in both fetches, but a DIFFERENT one: e.g. an
+    # awarded result flipping while another goes final. A count-based
+    # comparison ("1 == 1") would skip the simulation.
+    if (bl_fetches <= 1L) {
+      fake_fixtures(c("FT", "NS"), ids = c(100L, 101L))
+    } else {
+      fake_fixtures(c("NS", "FT"), ids = c(100L, 101L))
+    }
+  })
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) c(999L))
+  stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
+  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) {
+    sim_calls <<- sim_calls + 1L
+    matrix(1 / 18, nrow = 18, ncol = 18)
+  })
+  stub(update_all_leagues_loop, "generate_static_site", function(...) invisible(character(0)))
+
+  with_repo_root({
+    update_all_leagues_loop(
+      duration = 0, loops = 3, initial_wait = 0, n = 10,
+      saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
+      static_site_dir = tempdir(), full_fetch_every = 2
+    )
+  })
+
+  expect_equal(bl_fetches, 2L) # loop 1 + safety fetch loop 3
+  expect_equal(sim_calls, 8L) # loop 1 AND loop 3: the beendet SET changed
 })
 
 test_that("update_all_leagues_loop has no machine-specific default output directory", {
