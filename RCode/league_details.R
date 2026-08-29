@@ -29,6 +29,10 @@
 STATUS_BEENDET <- c("FT", "AET", "PEN")
 STATUS_LIVE <- c("1H", "HT", "2H", "ET", "BT", "P", "SUSP", "INT", "LIVE")
 STATUS_VERSCHOBEN <- c("PST", "CANC", "TBD", "ABD")
+# Gewertete Spiele (Wertung/kampflos): final im Sinne des Update-Loops
+# (update_all_leagues_loop.R, Pending-Auflösung), aber weder beendet noch
+# live - die Fensterung hier behandelt sie als "offen".
+STATUS_AWARDED <- c("AWD", "WO")
 
 extract_fixture_details <- function(fixtures) {
   # api-football fixtures arrive in two shapes depending on how the caller

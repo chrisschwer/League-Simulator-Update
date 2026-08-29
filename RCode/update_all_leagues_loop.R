@@ -47,14 +47,14 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
   beendet_bl2 <- NULL
   beendet_liga3 <- NULL
 
-  # Live-poll gating state: a fixture can only newly reach FT if it was live
-  # at the previous poll, so a cheap 1-request live check replaces the full
-  # 3-request fetch on most iterations. Ids that leave the live feed go into
-  # pending_finished_ids and stay there until a full fetch actually shows
-  # them as final: the season endpoint can lag the live feed by seconds
-  # (issue #154), so the trigger must re-arm the fetch until the season data
-  # has caught up. full_fetch_every is the safety net for status changes
-  # that bypass "live" (awarded/postponed results).
+  # Live-poll gating state: the cheap 1-request live check replaces the full
+  # 3-request fetch on idle iterations. While fixtures are live, every loop
+  # fetches so the rendered Live section shows current scores. Ids that
+  # leave the live feed go into pending_finished_ids and stay there until a
+  # full fetch actually shows them as final: the season endpoint can lag the
+  # live feed by seconds (issue #154), so the trigger must re-arm the fetch
+  # until the season data has caught up. full_fetch_every is the safety net
+  # for status changes that bypass "live" (awarded/postponed results).
   prev_live_ids <- NULL # NULL = unknown (no live poll yet)
   pending_finished_ids <- integer(0)
   last_full_fetch_loop <- 0
@@ -112,7 +112,11 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
           )
         }
         due_safety_fetch <- (i - last_full_fetch_loop) >= full_fetch_every
-        if (length(pending_finished_ids) == 0 && !due_safety_fetch) {
+        # Fetch while anything is live (the Live section shows current
+        # scores), while a finished fixture is pending, or when the safety
+        # net is due. Only a fully idle loop skips the fetch.
+        if (length(live_ids) == 0 && length(pending_finished_ids) == 0 &&
+              !due_safety_fetch) {
           need_full_fetch <- FALSE
         }
         prev_live_ids <- live_ids
@@ -147,7 +151,10 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
           fixturesBL$fixture$status$short, fixturesBL2$fixture$status$short,
           fixturesLiga3$fixture$status$short
         )
-        final_ids <- all_ids[all_status %in% c(STATUS_BEENDET, STATUS_VERSCHOBEN)]
+        # Awarded results (AWD/WO) are final too, though outside the
+        # beendet set that drives simulations.
+        final_status <- c(STATUS_BEENDET, STATUS_VERSCHOBEN, STATUS_AWARDED)
+        final_ids <- all_ids[all_status %in% final_status]
         pending_finished_ids <- pending_finished_ids[
           pending_finished_ids %in% all_ids &
             !(pending_finished_ids %in% final_ids)
@@ -252,8 +259,8 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
       }
     } else {
       message(sprintf(
-        "Loop %d: %d fixture(s) live, none finished since last poll - skipping full fetch",
-        i, length(prev_live_ids)
+        "Loop %d: idle (no live fixtures, nothing pending) - skipping full fetch",
+        i
       ))
     }
 
