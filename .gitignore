@@ -54,3 +54,6 @@ processing_*.log
 testthat-summary.txt
 ShinyApp/public/
 .superpowers/
+
+# Fixture-Cache der Offline-ELO-Kalibrierung (jederzeit neu holbar)
+data/fixture_cache/
