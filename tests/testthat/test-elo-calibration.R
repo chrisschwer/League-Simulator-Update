@@ -7,6 +7,7 @@
 
 library(testthat)
 
+source("../../RCode/api_service.R")   # get_team_short_name
 source("../../RCode/elo_calibration.R")
 
 # --- anchor_to_mean ---------------------------------------------------------
@@ -239,4 +240,99 @@ test_that("teams_from_matches uebernimmt bekannte ELOs und fuellt den Rest", {
 
   expect_equal(t$InitialELO[t$TeamID == 10], 1150)
   expect_equal(t$InitialELO[t$TeamID == 20], 920)
+})
+
+# --- find_league_movers -----------------------------------------------------
+
+test_that("find_league_movers erkennt Auf- und Absteiger", {
+  # Vorsaison: oben 1,2,3 / unten 4,5,6. Danach ist 4 oben, 3 unten.
+  m <- find_league_movers(
+    lower_ids_prev = c(4, 5, 6), upper_ids_prev = c(1, 2, 3),
+    lower_ids_now  = c(3, 5, 6), upper_ids_now  = c(1, 2, 4)
+  )
+
+  expect_equal(m$promoted, 4)
+  expect_equal(m$relegated, 3)
+})
+
+test_that("find_league_movers meldet nichts, wenn sich nichts bewegt", {
+  m <- find_league_movers(c(4, 5), c(1, 2), c(4, 5), c(1, 2))
+
+  expect_length(m$promoted, 0)
+  expect_length(m$relegated, 0)
+})
+
+test_that("find_league_movers ignoriert Teams, die ganz verschwinden", {
+  # Team 6 taucht danach nirgends auf -- kein Auf- oder Abstieg.
+  m <- find_league_movers(
+    lower_ids_prev = c(4, 5, 6), upper_ids_prev = c(1, 2),
+    lower_ids_now  = c(4, 5),    upper_ids_now  = c(1, 2)
+  )
+
+  expect_length(m$promoted, 0)
+  expect_length(m$relegated, 0)
+})
+
+# --- LEAGUE_FAMILIES --------------------------------------------------------
+
+test_that("Ligafamilien trennen Herren und Frauen vollstaendig", {
+  # Eine Familie ist eine Wechselgemeinschaft. Herren und Frauen tauschen
+  # keine Teams aus -- nur deshalb duerfen sie eine eigene Skala haben.
+  expect_length(intersect(LEAGUE_FAMILIES$herren, LEAGUE_FAMILIES$frauen), 0)
+  expect_true(all(REGIONALLIGEN %in% LEAGUE_FAMILIES$herren))
+  expect_true("80" %in% LEAGUE_FAMILIES$herren)
+})
+
+# --- assign_short_names -----------------------------------------------------
+# ShortText wird in transform_data() zum Spaltennamen des Simulations-
+# Data-Frames. Doppelte Kuerzel erzeugen doppelte Spalten und damit
+# stillschweigend vertauschte Teams -- diese Tests sind das Schutznetz.
+
+test_that("assign_short_names vergibt durchweg eindeutige Kuerzel", {
+  df <- data.frame(
+    TeamID = 1:5,
+    Name = c("FC Bayern Muenchen", "FC Bayern Muenchen II",
+             "Bayer Leverkusen", "Bayreuth", "Bayern Hof"),
+    stringsAsFactors = FALSE
+  )
+
+  r <- assign_short_names(df)
+
+  expect_equal(length(unique(r$ShortText)), 5)
+  expect_equal(nrow(r), 5)
+})
+
+test_that("assign_short_names kollidiert nicht mit reservierten Kuerzeln", {
+  df <- data.frame(TeamID = 1, Name = "FC Bayern Muenchen",
+                   stringsAsFactors = FALSE)
+
+  r <- assign_short_names(df, reserved = c("FCB", "FCB2", "FCB3"))
+
+  expect_false(r$ShortText %in% c("FCB", "FCB2", "FCB3"))
+})
+
+test_that("assign_short_names markiert Zweitvertretungen mit -50", {
+  df <- data.frame(
+    TeamID = 1:2,
+    Name = c("Borussia Dortmund II", "Borussia Dortmund"),
+    stringsAsFactors = FALSE
+  )
+
+  r <- assign_short_names(df)
+
+  expect_equal(r$Promotion[1], -50)
+  expect_equal(r$Promotion[2], 0)
+})
+
+test_that("assign_short_names haelt auch bei vielen aehnlichen Namen durch", {
+  # 30 Vereine, die alle mit denselben drei Buchstaben beginnen.
+  df <- data.frame(
+    TeamID = 1:30,
+    Name = paste("SV Musterstadt", 1:30),
+    stringsAsFactors = FALSE
+  )
+
+  r <- assign_short_names(df)
+
+  expect_equal(length(unique(r$ShortText)), 30)
 })

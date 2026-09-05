@@ -278,3 +278,213 @@ calibration_walk <- function(matches, teams,
   parsed <- jsonlite::fromJSON(httr::content(response, "text", encoding = "UTF-8"))
   stats::setNames(parsed$current_elos, as.character(teams$TeamID))
 }
+
+# --- Orchestrierung ---------------------------------------------------------
+
+# Die zehn Ligen und ihre Familien. Eine Familie ist eine
+# Wechselgemeinschaft: Ligen, zwischen denen Teams auf- und absteigen. Nur
+# innerhalb einer Familie sind ELO-Werte vergleichbar.
+LEAGUE_FAMILIES <- list(
+  herren = c("78", "79", "80", "83", "84", "85", "86", "87"),
+  frauen = c("82", "1034")
+)
+
+REGIONALLIGEN <- c("83", "84", "85", "86", "87")
+
+RL_LABELS <- c("83" = "Bayern", "84" = "Nord", "85" = "Nordost",
+               "86" = "SuedWest", "87" = "West")
+
+#' Laedt die Hauptrundenspiele einer Liga-Saison, chronologisch sortiert.
+load_season_matches <- function(league, season, refresh = FALSE) {
+  fx <- tryCatch(cached_fixtures(league, season, refresh = refresh),
+                 error = function(e) NULL)
+  if (is.null(fx) || !is.data.frame(fx) || nrow(fx) == 0) return(NULL)
+
+  keep <- fx$fixture_status_short == "FT" &
+    !is.na(fx$goals_home) & !is.na(fx$goals_away)
+  if (!is.null(fx$round)) {
+    keep <- keep & is_regular_season_round(fx$round)
+  }
+
+  m <- fx[keep, , drop = FALSE]
+  if (nrow(m) == 0) return(NULL)
+  m[order(m$fixture_date), , drop = FALSE]
+}
+
+#' Laeuft eine Liga ueber mehrere Saisons durch.
+#'
+#' Die End-ELOs einer Saison sind die Start-ELOs der naechsten; wer neu
+#' dazukommt, startet auf `start_elo`. Das ist der Kern der Kalibrierung:
+#' Aus einem einheitlichen Startwert entsteht ueber die Historie eine
+#' Rangfolge.
+#'
+#' @return Benannter Vektor Team-ID -> ELO, oder NULL ohne Daten.
+walk_league_history <- function(league, seasons, start_elo,
+                                known_elos = NULL, refresh = FALSE,
+                                base_url = Sys.getenv("RUST_API_URL", "http://localhost:8080")) {
+  elos <- known_elos
+  seen_any <- FALSE
+
+  for (s in seasons) {
+    m <- load_season_matches(league, s, refresh = refresh)
+    if (is.null(m)) next
+
+    teams <- teams_from_matches(m, start_elo = start_elo, known_elos = elos)
+    walked <- calibration_walk(m, teams, base_url = base_url)
+
+    # Ergebnisse in den laufenden Bestand mischen: Teams, die diese Saison
+    # nicht gespielt haben, behalten ihren Wert.
+    if (is.null(elos)) {
+      elos <- walked
+    } else {
+      elos[names(walked)] <- walked
+    }
+    seen_any <- TRUE
+  }
+
+  if (!seen_any) NULL else elos
+}
+
+#' Ordnet jeden Regionalliga-Verein seiner Staffel zu.
+#'
+#' Aus den Daten abgeleitet, nicht handkuratiert: Ueber die verfuegbaren
+#' Saisons hinweg hat kein Verein die Staffel gewechselt (163 von 163
+#' eindeutig), die Zuordnung ist also eine Tatsache der Spielplaene.
+#' Mehrdeutige Faelle -- sollte es sie kuenftig geben -- werden der Staffel
+#' mit den meisten Saisons zugeschlagen.
+#'
+#' @return data.frame mit TeamID und Region.
+derive_club_regions <- function(seasons, refresh = FALSE) {
+  rows <- list()
+  for (lid in REGIONALLIGEN) {
+    for (s in seasons) {
+      m <- load_season_matches(lid, s, refresh = refresh)
+      if (is.null(m)) next
+      ids <- unique(c(m$teams_home_id, m$teams_away_id))
+      rows[[length(rows) + 1]] <- data.frame(
+        TeamID = ids, Region = unname(RL_LABELS[lid]),
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+  if (length(rows) == 0) return(data.frame(TeamID = integer(0), Region = character(0)))
+
+  d <- do.call(rbind, rows)
+  # Haeufigste Staffel je Verein.
+  split_by_team <- split(d$Region, d$TeamID)
+  data.frame(
+    TeamID = as.integer(names(split_by_team)),
+    Region = vapply(split_by_team, function(r) names(sort(table(r), decreasing = TRUE))[1], ""),
+    stringsAsFactors = FALSE,
+    row.names = NULL
+  )
+}
+
+#' Ermittelt Auf- und Absteiger zwischen zwei Ligen-Mengen.
+#'
+#' Ein Aufsteiger ist ein Team, das in der Vorsaison unten und in der
+#' Folgesaison oben gespielt hat -- und umgekehrt.
+#'
+#' @return Liste mit `promoted` und `relegated` (Team-IDs).
+find_league_movers <- function(lower_ids_prev, upper_ids_prev,
+                               lower_ids_now, upper_ids_now) {
+  list(
+    promoted = intersect(lower_ids_prev, setdiff(upper_ids_now, upper_ids_prev)),
+    relegated = intersect(upper_ids_prev, setdiff(lower_ids_now, lower_ids_prev))
+  )
+}
+
+#' Sammelt die aktuellsten bekannten Vereinsnamen je Team-ID.
+#'
+#' Der jeweils spaeteste Eintrag gewinnt -- Vereine werden umbenannt, und die
+#' TeamList soll den heutigen Namen tragen.
+collect_team_names <- function(leagues, seasons_by_league, refresh = FALSE) {
+  rows <- list()
+  for (lid in leagues) {
+    for (s in seasons_by_league[[lid]]) {
+      m <- load_season_matches(lid, s, refresh = refresh)
+      if (is.null(m) || is.null(m$teams_home_name)) next
+      rows[[length(rows) + 1]] <- data.frame(
+        TeamID = c(m$teams_home_id, m$teams_away_id),
+        Name = c(m$teams_home_name, m$teams_away_name),
+        Season = s, stringsAsFactors = FALSE
+      )
+    }
+  }
+  if (length(rows) == 0) {
+    return(data.frame(TeamID = integer(0), Name = character(0)))
+  }
+
+  d <- do.call(rbind, rows)
+  d <- d[order(d$TeamID, -d$Season), ]
+  d <- d[!duplicated(d$TeamID), c("TeamID", "Name")]
+  rownames(d) <- NULL
+  d
+}
+
+#' Vergibt global eindeutige Kurznamen.
+#'
+#' Kritisch, weil ShortText in transform_data() zum SPALTENNAMEN des
+#' Simulations-Data-Frames wird: Zwei Vereine mit demselben Kuerzel erzeugen
+#' doppelte Spalten und damit stillschweigend vertauschte Teams. Bei ~200
+#' Teams -- darunter viele Zweitvertretungen ("Bayern II", "Koeln II") --
+#' sind Kollisionen sicher, nicht bloss moeglich.
+#'
+#' Vorhandene Kurznamen (die drei Altligen) sind gesetzt und werden nie
+#' veraendert; neue Teams weichen bei Kollision auf eine vierte Stelle aus.
+#'
+#' @param names_df data.frame mit TeamID und Name.
+#' @param reserved Bereits vergebene Kurznamen.
+#' @return data.frame mit TeamID, Name, ShortText, Promotion.
+assign_short_names <- function(names_df, reserved = character()) {
+  used <- reserved
+  short <- character(nrow(names_df))
+  promo <- numeric(nrow(names_df))
+
+  for (i in seq_len(nrow(names_df))) {
+    nm <- names_df$Name[i]
+    is_second <- grepl("\\bII\\b|\\bU2[13]\\b", nm)
+    promo[i] <- if (is_second) -50 else 0
+
+    base <- toupper(gsub("[^A-Za-z]", "", get_team_short_name(nm)))
+    if (nchar(base) < 3) base <- toupper(substr(gsub("[^A-Za-z]", "", nm), 1, 3))
+    if (is_second) base <- paste0(substr(base, 1, 2), "2")
+
+    cand <- if (is_second) base else substr(base, 1, 3)
+    if (cand %in% used || nchar(cand) < 3) {
+      # Vierte Stelle nur mit Buchstaben. Eine angehaengte "2" waere
+      # mehrdeutig: Sie ist im Bestand die Markierung fuer
+      # Zweitvertretungen (siehe update_all_leagues_loop.R, das den
+      # -50-Abzug am Suffix erkennt).
+      #
+      # Reicht eine Stelle nicht, wird auf zwei erweitert. Lieber ein
+      # fuenfstelliges Kuerzel als ein doppeltes: ShortText wird zum
+      # Spaltennamen, Duplikate vertauschen Teams stillschweigend.
+      stem <- substr(cand, 1, 3)
+      found <- NA_character_
+      for (suffix in LETTERS) {
+        alt <- paste0(stem, suffix)
+        if (!(alt %in% used)) { found <- alt; break }
+      }
+      if (is.na(found)) {
+        for (s1 in LETTERS) {
+          for (s2 in LETTERS) {
+            alt <- paste0(stem, s1, s2)
+            if (!(alt %in% used)) { found <- alt; break }
+          }
+          if (!is.na(found)) break
+        }
+      }
+      if (is.na(found)) {
+        stop(sprintf("assign_short_names: kein freies Kuerzel fuer '%s'", nm))
+      }
+      cand <- found
+    }
+    used <- c(used, cand)
+    short[i] <- cand
+  }
+
+  data.frame(TeamID = names_df$TeamID, Name = names_df$Name,
+             ShortText = short, Promotion = promo,
+             stringsAsFactors = FALSE)
+}
