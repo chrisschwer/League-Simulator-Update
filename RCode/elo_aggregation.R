@@ -198,8 +198,20 @@ fetch_league_results <- function(league, season) {
   fixtures <- data$response
 
   # Extract match data
+  #
+  # fixture_id und round kamen mit der Offline-ELO-Kalibrierung dazu: Sie
+  # braucht die Rundenbezeichnung, um Relegationspartien von der Hauptrunde
+  # zu trennen (die Regionalligen liefern "Bayern - 34" statt
+  # "Regular Season - N"). Rein additiv -- bestehende Aufrufer sehen die
+  # Spalten schlicht nicht.
   match_data <- data.frame(
+    fixture_id = fixtures$fixture$id,
     fixture_date = fixtures$fixture$date,
+    round = if (!is.null(fixtures$league$round)) {
+      fixtures$league$round
+    } else {
+      NA_character_
+    },
     teams_home_id = fixtures$teams$home$id,
     teams_away_id = fixtures$teams$away$id,
     goals_home = fixtures$goals$home,

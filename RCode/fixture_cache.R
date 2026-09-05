@@ -54,7 +54,17 @@ cached_fixtures <- function(league, season,
   path <- cache_path(league, season, cache_dir)
 
   if (!refresh && file.exists(path)) {
-    return(jsonlite::fromJSON(path))
+    cached <- jsonlite::fromJSON(path)
+    # fromJSON() liefert je nach Schreibform eine Liste statt eines
+    # data.frame -- zurueckbauen, damit Aufrufer immer dieselbe Form sehen.
+    if (!is.data.frame(cached) && is.list(cached) && length(cached) > 0) {
+      cached <- as.data.frame(cached, stringsAsFactors = FALSE)
+    }
+    # Eine leere oder defekte Cache-Datei darf nicht als "Liga hat keine
+    # Spiele" durchgehen -- dann lieber neu holen.
+    if (is.data.frame(cached) && nrow(cached) > 0) {
+      return(cached)
+    }
   }
 
   fixtures <- fetch_fn(league, season)
