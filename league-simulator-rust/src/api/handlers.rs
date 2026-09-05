@@ -88,7 +88,7 @@ pub struct SimulateRequest {
     /// ELO modification factor (default: 20)
     mod_factor: Option<f64>,
 
-    /// Home advantage in ELO points (default: 65)
+    /// Home advantage in ELO points (default: 40)
     home_advantage: Option<f64>,
 
     /// Point adjustments per team (optional)
@@ -154,7 +154,7 @@ pub async fn simulate_league(
     let params = SimulationParams {
         iterations: payload.iterations.unwrap_or(10000),
         mod_factor: payload.mod_factor.unwrap_or(20.0),
-        home_advantage: payload.home_advantage.unwrap_or(65.0),
+        home_advantage: payload.home_advantage.unwrap_or(40.0),
         tore_slope: 0.0017854953143549,
         tore_intercept: 1.3218390804597700,
         adj_points: payload.adj_points.clone(),
@@ -276,7 +276,7 @@ pub struct LeagueDetailsRequest {
     /// ELO modification factor (default: 20).
     mod_factor: Option<f64>,
 
-    /// Home advantage in ELO points (default: 65).
+    /// Home advantage in ELO points (default: 40).
     home_advantage: Option<f64>,
 
     /// Scoreline grid size: the grid is (max_goals+1)² with the tail mass
@@ -367,7 +367,7 @@ pub async fn league_details(
     let details = crate::league_details::compute_league_details(
         &season,
         payload.mod_factor.unwrap_or(20.0),
-        payload.home_advantage.unwrap_or(65.0),
+        payload.home_advantage.unwrap_or(40.0),
         0.0017854953143549,
         1.3218390804597700,
         payload.max_goals.unwrap_or(6),

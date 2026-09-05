@@ -157,6 +157,10 @@ footer a{color:var(--ink-2)}
   margin:1.9em 0 .55em}
 .prose .provenienz{font-family:var(--sans);font-size:12.5px;color:var(--ink-3);
   border-top:1px solid var(--rule);padding-top:12px;margin-top:2.4em}
+/* Hinweis auf eine Modelländerung: abgesetzt, aber lesbarer als die
+   Provenienz-Zeile — die Aussage betrifft die Zahlen selbst. */
+.prose .aenderung{font-family:var(--sans);font-size:13px;color:var(--ink-2);
+  border-left:2px solid var(--ocker);padding:2px 0 2px 14px;margin-top:2.2em}
 table.beispiel{margin:1.4em 0;font-size:14px}
 table.beispiel th{font-family:var(--sans);font-size:12px;font-weight:500;color:var(--ink-3);
   text-align:left;padding:4px 22px 4px 0;border-bottom:1px solid var(--ink)}

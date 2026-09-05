@@ -37,9 +37,15 @@ POST /simulate
   "team_names": ["Bayern", "Dortmund", "Leipzig"],
   "iterations": 10000,
   "mod_factor": 20.0,
-  "home_advantage": 65.0
+  "home_advantage": 40.0
 }
 ```
+
+> `home_advantage` ist optional und wird von der R-Seite bewusst **nicht**
+> gesendet: Die Modellkonstante liegt allein im Rust-Server (ADR 0002), damit
+> Prognose (`/simulate`) und Spieldetails (`/league-details`) nicht
+> auseinanderlaufen können. Default seit September 2026: **40** (vorher 65),
+> geeicht an den beobachteten Heim-/Remis-/Auswärtsanteilen.
 
 **Optional fields:**
 ```json

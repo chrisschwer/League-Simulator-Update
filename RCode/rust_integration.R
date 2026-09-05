@@ -43,7 +43,9 @@ connect_rust_simulator <- function() {
 #' @param team_names Vector of team names
 #' @param iterations Number of Monte Carlo iterations (default: 10000)
 #' @param mod_factor ELO modification factor (default: 20)
-#' @param home_advantage Home advantage in ELO points (default: 65)
+#' @param home_advantage Home advantage in ELO points. NULL (default) omits
+#'   the field so the Rust server applies its own value -- the single source of
+#'   truth for model constants (ADR 0002). Pass a number only to override it.
 #' @param adj_points Optional point adjustments per team
 #' @param adj_goals Optional goals adjustments per team
 #' @param adj_goals_against Optional goals against adjustments per team
@@ -53,7 +55,7 @@ connect_rust_simulator <- function() {
 simulate_league_rust <- function(schedule, elo_values, team_names,
                                  iterations = 10000,
                                  mod_factor = 20,
-                                 home_advantage = 65,
+                                 home_advantage = NULL,
                                  adj_points = NULL,
                                  adj_goals = NULL,
                                  adj_goals_against = NULL,
@@ -77,9 +79,14 @@ simulate_league_rust <- function(schedule, elo_values, team_names,
     elo_values = as.numeric(elo_values),
     team_names = team_names,
     iterations = as.integer(iterations),
-    mod_factor = as.numeric(mod_factor),
-    home_advantage = as.numeric(home_advantage)
+    mod_factor = as.numeric(mod_factor)
   )
+
+  # home_advantage bleibt bewusst aus dem Payload: Der Rust-Server hält den
+  # Wert (ADR 0002). Nur ein explizit übergebener Wert überschreibt ihn.
+  if (!is.null(home_advantage)) {
+    payload$home_advantage <- as.numeric(home_advantage)
+  }
 
   # Add optional adjustments if provided
   if (!is.null(adj_points)) payload$adj_points <- as.integer(adj_points)
@@ -131,7 +138,8 @@ simulate_league_rust <- function(schedule, elo_values, team_names,
 #' @param season table with schedule and ELO values
 #' @param n number of iterations, defaults to 10000
 #' @param modFactor Multiplier ("learning rate") for ELO adjustment
-#' @param homeAdvantage Home field advantage in ELO points
+#' @param homeAdvantage Home field advantage in ELO points; NULL (default)
+#'   leaves the value to the Rust server (ADR 0002)
 #' @param numberTeams Number of teams in the league
 #' @param adjPoints vector containing an adjustment for the points scored per team
 #' @param adjGoals vector containing an adjustment for the goals scored per team
@@ -140,7 +148,7 @@ simulate_league_rust <- function(schedule, elo_values, team_names,
 #' @return Distribution matrix (teams x positions) with probabilities
 #' @export
 leagueSimulatorRust <- function(season, n = 10000,
-                                modFactor = 20, homeAdvantage = 65,
+                                modFactor = 20, homeAdvantage = NULL,
                                 numberTeams = 18,
                                 adjPoints = rep_len(0, numberTeams),
                                 adjGoals = rep_len(0, numberTeams),
@@ -245,7 +253,7 @@ simulate_leagues_batch_rust <- function(leagues) {
           team_names = league$team_names,
           iterations = league$iterations %||% 10000,
           mod_factor = league$mod_factor %||% 20,
-          home_advantage = league$home_advantage %||% 65,
+          home_advantage = league$home_advantage,
           adj_points = league$adj_points,
           adj_goals = league$adj_goals,
           adj_goals_against = league$adj_goals_against,

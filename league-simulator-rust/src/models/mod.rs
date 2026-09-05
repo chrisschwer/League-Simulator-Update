@@ -81,7 +81,7 @@ impl Default for SimulationParams {
     fn default() -> Self {
         Self {
             mod_factor: 20.0,
-            home_advantage: 65.0,
+            home_advantage: 40.0,
             iterations: 10000,
             tore_slope: 0.0017854953143549,
             tore_intercept: 1.3218390804597700,

@@ -311,7 +311,7 @@ async fn league_details_returns_wire_contract() {
 
     let elos = body["current_elos"].as_array().expect("current_elos array");
     assert_eq!(elos.len(), 4);
-    assert!((elos[0].as_f64().unwrap() - 1508.150675388313).abs() < 1e-6);
+    assert!((elos[0].as_f64().unwrap() - 1508.853767324754).abs() < 1e-6);
 
     // Played match: 1-based team indices (like the request), flat
     // probability fields, ELO state and delta.
@@ -323,10 +323,10 @@ async fn league_details_returns_wire_contract() {
     assert_eq!(m1["goals_home"], json!(2));
     assert_eq!(m1["goals_away"], json!(1));
     assert!((m1["elo_home_pre"].as_f64().unwrap() - 1500.0).abs() < 1e-9);
-    assert!((m1["elo_delta_home"].as_f64().unwrap() - 8.150675388313).abs() < 1e-6);
-    assert!((m1["p_home_win"].as_f64().unwrap() - 0.424217291957).abs() < 1e-6);
-    assert!((m1["p_draw"].as_f64().unwrap() - 0.259291821451).abs() < 1e-6);
-    assert!((m1["p_away_win"].as_f64().unwrap() - 0.316490886592).abs() < 1e-6);
+    assert!((m1["elo_delta_home"].as_f64().unwrap() - 8.853767324754).abs() < 1e-6);
+    assert!((m1["p_home_win"].as_f64().unwrap() - 0.402904706240).abs() < 1e-6);
+    assert!((m1["p_draw"].as_f64().unwrap() - 0.260577313073).abs() < 1e-6);
+    assert!((m1["p_away_win"].as_f64().unwrap() - 0.336517980687).abs() < 1e-6);
     assert!(m1["lambda_home"].as_f64().is_some());
     assert!(m1["lambda_away"].as_f64().is_some());
 
@@ -346,8 +346,8 @@ async fn league_details_returns_wire_contract() {
     assert_eq!(m3["played"], json!(false));
     assert!(m3["goals_home"].is_null());
     assert!(m3["elo_delta_home"].is_null());
-    assert!((m3["elo_home_pre"].as_f64().unwrap() - 1491.849324611687).abs() < 1e-6);
-    assert!((m3["p_home_win"].as_f64().unwrap() - 0.418825321481).abs() < 1e-6);
+    assert!((m3["elo_home_pre"].as_f64().unwrap() - 1491.146232675246).abs() < 1e-6);
+    assert!((m3["p_home_win"].as_f64().unwrap() - 0.396380047590).abs() < 1e-6);
 }
 
 #[tokio::test]
