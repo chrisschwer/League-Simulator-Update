@@ -169,3 +169,112 @@ check_spread <- function(elos, observed_draw_rate,
     actual_draw_rate = .simulate_draw_rate(actual_sd, intercept, home_advantage)
   )
 }
+
+# --- Der ELO-Walk -----------------------------------------------------------
+#
+# Gerechnet wird er NICHT hier, sondern im Rust-Server. POST /league-details
+# macht den deterministischen Walk ueber alle gespielten Partien und liefert
+# current_elos je Team -- auf exakt derselben Physik wie jede Prognose.
+# ADR 0002 verwirft den Nachbau der Modelllogik in R ausdruecklich.
+
+#' Baut die Teamliste einer Spielmenge.
+#'
+#' Teams ohne bekannte Historie starten auf dem Familien-Mittelwert; wer einen
+#' bekannten Wert mitbringt (etwa ein Absteiger aus der 3. Liga), behaelt ihn.
+#'
+#' @param matches data.frame mit teams_home_id/teams_away_id.
+#' @param start_elo Startwert fuer Teams ohne Historie.
+#' @param known_elos Benannter Vektor: Team-ID (als String) -> ELO.
+#' @return data.frame mit TeamID, ShortText, InitialELO.
+teams_from_matches <- function(matches, start_elo, known_elos = NULL) {
+  ids <- sort(unique(c(matches$teams_home_id, matches$teams_away_id)))
+  ids <- ids[!is.na(ids)]
+
+  if (length(ids) == 0) {
+    stop("teams_from_matches: keine Teams in der Spielmenge")
+  }
+
+  elos <- rep(start_elo, length(ids))
+  if (!is.null(known_elos)) {
+    hit <- match(as.character(ids), names(known_elos))
+    elos[!is.na(hit)] <- as.numeric(known_elos[hit[!is.na(hit)]])
+  }
+
+  data.frame(
+    TeamID = ids,
+    # Platzhalter: Der Walk braucht Namen nur als Beschriftung, nicht als
+    # Schluessel. Die echten Kurznamen entstehen erst beim Schreiben der
+    # TeamList, inklusive globaler Eindeutigkeitspruefung.
+    ShortText = paste0("T", ids),
+    InitialELO = elos,
+    stringsAsFactors = FALSE
+  )
+}
+
+#' Baut den Request-Body fuer POST /league-details.
+#'
+#' Die Indizes im Spielplan sind 1-basiert (Rust rechnet sie selbst herunter).
+#' `home_advantage` wird bewusst NICHT gesetzt: Der Wert lebt allein im
+#' Rust-Server (ADR 0002), damit die Kalibrierung auf derselben Physik ruht
+#' wie jede Prognose.
+#'
+#' @param matches data.frame mit teams_home_id/away_id und goals_home/away.
+#' @param teams data.frame aus teams_from_matches().
+#' @return Liste, bereit fuer jsonlite::toJSON(auto_unbox = TRUE).
+build_walk_payload <- function(matches, teams, mod_factor = 20, max_goals = 6) {
+  heim_idx <- match(matches$teams_home_id, teams$TeamID)
+  gast_idx <- match(matches$teams_away_id, teams$TeamID)
+
+  # Spiele mit unbekannten Teams stillschweigend zu simulieren waere der
+  # Fehler, den der Rundenfilter der Regionalligen sonst erzeugt haette.
+  valid <- !is.na(heim_idx) & !is.na(gast_idx)
+  if (!any(valid)) {
+    stop("build_walk_payload: kein Spiel mit bekannten Teams uebrig")
+  }
+
+  schedule <- lapply(which(valid), function(i) {
+    tore_h <- matches$goals_home[i]
+    tore_g <- matches$goals_away[i]
+    if (is.na(tore_h) || is.na(tore_g)) {
+      list(heim_idx[i], gast_idx[i], NULL, NULL)
+    } else {
+      list(heim_idx[i], gast_idx[i], tore_h, tore_g)
+    }
+  })
+
+  list(
+    schedule = schedule,
+    elo_values = teams$InitialELO,
+    team_names = teams$ShortText,
+    mod_factor = mod_factor,
+    max_goals = max_goals
+  )
+}
+
+#' Fuehrt den ELO-Walk ueber den Rust-Server aus.
+#'
+#' @param matches Spielmenge (chronologisch sortiert!).
+#' @param teams Teamliste aus teams_from_matches().
+#' @param base_url Adresse des Rust-Servers.
+#' @return Benannter Vektor: Team-ID (String) -> End-ELO.
+calibration_walk <- function(matches, teams,
+                             base_url = Sys.getenv("RUST_API_URL", "http://localhost:8080")) {
+  payload <- build_walk_payload(matches, teams)
+  json_body <- jsonlite::toJSON(payload, auto_unbox = TRUE, null = "null")
+
+  response <- httr::POST(
+    paste0(base_url, "/league-details"),
+    body = json_body,
+    httr::content_type_json(),
+    httr::accept_json()
+  )
+
+  if (httr::status_code(response) != 200) {
+    stop(sprintf("calibration_walk: /league-details antwortete mit %d: %s",
+                 httr::status_code(response),
+                 httr::content(response, "text", encoding = "UTF-8")))
+  }
+
+  parsed <- jsonlite::fromJSON(httr::content(response, "text", encoding = "UTF-8"))
+  stats::setNames(parsed$current_elos, as.character(teams$TeamID))
+}

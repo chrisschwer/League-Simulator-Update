@@ -154,3 +154,89 @@ test_that("check_spread gibt die tatsaechliche Streuung der Eingabe zurueck", {
 
   expect_equal(result$actual_sd, sd(elos))
 })
+
+# --- build_walk_payload -----------------------------------------------------
+
+test_that("build_walk_payload nutzt 1-basierte Team-Indizes", {
+  matches <- data.frame(
+    teams_home_id = c(10, 20),
+    teams_away_id = c(20, 10),
+    goals_home = c(2, 0),
+    goals_away = c(1, 0)
+  )
+  teams <- data.frame(TeamID = c(10, 20), ShortText = c("AAA", "BBB"),
+                      InitialELO = c(1500, 1500))
+
+  p <- build_walk_payload(matches, teams)
+
+  expect_equal(p$schedule[[1]][[1]], 1)
+  expect_equal(p$schedule[[1]][[2]], 2)
+  expect_equal(p$schedule[[2]][[1]], 2)
+  expect_equal(p$elo_values, c(1500, 1500))
+  expect_equal(p$team_names, c("AAA", "BBB"))
+})
+
+test_that("build_walk_payload sendet home_advantage nicht mit", {
+  # ADR 0002: Die Modellkonstante lebt ausschliesslich im Rust-Server.
+  # Die Kalibrierung muss auf derselben Physik ruhen wie jede Prognose.
+  matches <- data.frame(teams_home_id = 10, teams_away_id = 20,
+                        goals_home = 1, goals_away = 0)
+  teams <- data.frame(TeamID = c(10, 20), ShortText = c("AAA", "BBB"),
+                      InitialELO = c(1500, 1500))
+
+  p <- build_walk_payload(matches, teams)
+
+  expect_null(p$home_advantage)
+})
+
+test_that("build_walk_payload verwirft Spiele mit unbekannten Teams", {
+  matches <- data.frame(
+    teams_home_id = c(10, 99),   # 99 ist nicht in teams
+    teams_away_id = c(20, 10),
+    goals_home = c(2, 1),
+    goals_away = c(1, 0)
+  )
+  teams <- data.frame(TeamID = c(10, 20), ShortText = c("AAA", "BBB"),
+                      InitialELO = c(1500, 1500))
+
+  p <- build_walk_payload(matches, teams)
+
+  expect_equal(length(p$schedule), 1)
+})
+
+test_that("build_walk_payload bricht ab, wenn kein Spiel uebrig bleibt", {
+  # Eine leere Liga wuerde klaglos simuliert -- genau der Fehler, den der
+  # Rundenfilter der Regionalligen sonst erzeugt haette.
+  matches <- data.frame(teams_home_id = 99, teams_away_id = 98,
+                        goals_home = 1, goals_away = 0)
+  teams <- data.frame(TeamID = c(10, 20), ShortText = c("AAA", "BBB"),
+                      InitialELO = c(1500, 1500))
+
+  expect_error(build_walk_payload(matches, teams), "kein")
+})
+
+# --- teams_from_matches -----------------------------------------------------
+
+test_that("teams_from_matches sammelt alle Teams einer Spielmenge", {
+  matches <- data.frame(
+    teams_home_id = c(10, 20, 30),
+    teams_away_id = c(20, 30, 10)
+  )
+
+  t <- teams_from_matches(matches, start_elo = 920)
+
+  expect_equal(sort(t$TeamID), c(10, 20, 30))
+  expect_true(all(t$InitialELO == 920))
+})
+
+test_that("teams_from_matches uebernimmt bekannte ELOs und fuellt den Rest", {
+  # Absteiger tragen ihren bekannten Wert mit; nur wer keine Historie hat,
+  # startet auf dem Familien-Mittelwert.
+  matches <- data.frame(teams_home_id = c(10, 20), teams_away_id = c(20, 30))
+  known <- c("10" = 1150)
+
+  t <- teams_from_matches(matches, start_elo = 920, known_elos = known)
+
+  expect_equal(t$InitialELO[t$TeamID == 10], 1150)
+  expect_equal(t$InitialELO[t$TeamID == 20], 920)
+})
