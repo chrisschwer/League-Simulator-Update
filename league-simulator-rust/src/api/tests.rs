@@ -383,3 +383,53 @@ async fn league_details_respects_max_goals_parameter() {
     let grid = body["matches"][0]["score_matrix"].as_array().unwrap();
     assert_eq!(grid.len(), 5);
 }
+
+#[tokio::test]
+async fn league_details_respects_goal_model_parameters() {
+    // Der Intercept ist die halbe Torerwartung je Spiel. Ein hoeherer Wert
+    // muss die Wahrscheinlichkeit fuer 0:0 senken -- sonst greift der
+    // Parameter nicht durch.
+    let mut low = minimal_league_details_payload();
+    low["tore_intercept"] = json!(1.0);
+    let (status_low, body_low) = send(post_league_details_json(low)).await;
+    assert_eq!(status_low, StatusCode::OK);
+
+    let mut high = minimal_league_details_payload();
+    high["tore_intercept"] = json!(2.0);
+    let (status_high, body_high) = send(post_league_details_json(high)).await;
+    assert_eq!(status_high, StatusCode::OK);
+
+    let nil_nil_low = body_low["matches"][0]["score_matrix"][0][0]
+        .as_f64()
+        .unwrap();
+    let nil_nil_high = body_high["matches"][0]["score_matrix"][0][0]
+        .as_f64()
+        .unwrap();
+
+    assert!(
+        nil_nil_high < nil_nil_low,
+        "hoeherer Intercept muss P(0:0) senken: {} vs {}",
+        nil_nil_high,
+        nil_nil_low
+    );
+}
+
+#[tokio::test]
+async fn league_details_defaults_goal_model_when_absent() {
+    // Ohne die Felder muss exakt das Ergebnis von vorher herauskommen --
+    // die Altligen duerfen sich durch die Parametrisierung nicht bewegen.
+    let (_, explicit) = send(post_league_details_json({
+        let mut p = minimal_league_details_payload();
+        p["tore_slope"] = json!(0.0017854953143549);
+        p["tore_intercept"] = json!(1.3218390804597700);
+        p
+    }))
+    .await;
+
+    let (_, implicit) = send(post_league_details_json(minimal_league_details_payload())).await;
+
+    assert_eq!(
+        explicit["matches"][0]["score_matrix"],
+        implicit["matches"][0]["score_matrix"]
+    );
+}

@@ -91,6 +91,16 @@ pub struct SimulateRequest {
     /// Home advantage in ELO points (default: 40)
     home_advantage: Option<f64>,
 
+    /// Goal-model slope: goals per ELO point (default: 0.0017854953143549).
+    /// Only leagues that never exchange teams may differ here -- ELO is the
+    /// only thing a team carries across a league boundary, so a shared goal
+    /// model is what makes an ELO value mean the same on both sides.
+    tore_slope: Option<f64>,
+
+    /// Goal-model intercept: half the expected goals per match
+    /// (default: 1.3218390804597700). See `tore_slope`.
+    tore_intercept: Option<f64>,
+
     /// Point adjustments per team (optional)
     adj_points: Option<Vec<i32>>,
 
@@ -155,8 +165,8 @@ pub async fn simulate_league(
         iterations: payload.iterations.unwrap_or(10000),
         mod_factor: payload.mod_factor.unwrap_or(20.0),
         home_advantage: payload.home_advantage.unwrap_or(40.0),
-        tore_slope: 0.0017854953143549,
-        tore_intercept: 1.3218390804597700,
+        tore_slope: payload.tore_slope.unwrap_or(0.0017854953143549),
+        tore_intercept: payload.tore_intercept.unwrap_or(1.3218390804597700),
         adj_points: payload.adj_points.clone(),
         adj_goals: payload.adj_goals.clone(),
         adj_goals_against: payload.adj_goals_against.clone(),
@@ -279,6 +289,14 @@ pub struct LeagueDetailsRequest {
     /// Home advantage in ELO points (default: 40).
     home_advantage: Option<f64>,
 
+    /// Goal-model slope (default: 0.0017854953143549). Must match the value
+    /// used by `/simulate` for the same league, otherwise the heatmap and the
+    /// 1/X/2 display would silently diverge.
+    tore_slope: Option<f64>,
+
+    /// Goal-model intercept (default: 1.3218390804597700). See `tore_slope`.
+    tore_intercept: Option<f64>,
+
     /// Scoreline grid size: the grid is (max_goals+1)² with the tail mass
     /// accumulated in the last row/column (default: 6 → 7x7, "6+").
     max_goals: Option<usize>,
@@ -368,8 +386,8 @@ pub async fn league_details(
         &season,
         payload.mod_factor.unwrap_or(20.0),
         payload.home_advantage.unwrap_or(40.0),
-        0.0017854953143549,
-        1.3218390804597700,
+        payload.tore_slope.unwrap_or(0.0017854953143549),
+        payload.tore_intercept.unwrap_or(1.3218390804597700),
         payload.max_goals.unwrap_or(6),
     );
 
