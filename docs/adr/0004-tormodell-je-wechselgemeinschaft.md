@@ -1,0 +1,17 @@
+---
+status: accepted
+date: 2026-09-05
+---
+# Das Tormodell gilt je Wechselgemeinschaft, nicht je Liga
+
+Die Messung der zehn Ligen zeigt deutlich verschiedene Torniveaus: 2,89 Tore pro Spiel in der Regionalliga Nordost, 3,41 in der Regionalliga Nord, 3,31 in der Frauen-Bundesliga. Der naheliegende Schluss — je Liga ein eigenes `tore_intercept`, wie im Ligen-Ausbauplan zunächst skizziert (1,71 für Nord, 1,51 für Bayern) — ist falsch und hätte einen stillen Fehler erzeugt.
+
+Der Grund: ELO ist das Einzige, was ein Team über eine Ligagrenze mitnimmt. Steigt eine Mannschaft auf, behält sie ihren Wert; alles andere an ihr ist für das Modell neu. Nur wenn beide Ligen dasselbe Tormodell benutzen, bedeutet dieser mitgenommene Wert dies- und jenseits der Grenze dasselbe. Ein staffelweiser Intercept würde jeden Auf- und Absteiger stillschweigend umskalieren — ohne Fehlermeldung, sichtbar nur als schlechtere Prognose.
+
+Entschieden: Maßgeblich ist nicht die einzelne Liga, sondern die **Wechselgemeinschaft** — die Menge von Ligen, zwischen denen Mannschaften auf- und absteigen. Innerhalb einer Wechselgemeinschaft ist das Tormodell einheitlich; zwischen zweien darf es sich unterscheiden, weil kein Team die Grenze je überquert. Es gibt zwei: die Herren (Bundesliga, 2. Bundesliga, 3. Liga, alle fünf Regionalligen) und die Frauen (Frauen-Bundesliga, 2. Frauen-Bundesliga).
+
+Die Frauen-Ligen erhalten daher eigene Werte, geschätzt per Maximum Likelihood an 1917 Spielen gegen die kalibrierten ELO-Werte: `tore_slope` 0,0024058833 und `tore_intercept` 1,6527603153 gegen 0,0017854953143549 und 1,3218390804597700 bei den Herren. Validiert durch die Engine selbst — Brier −2,96 %, LogLoss −2,66 %, und out-of-sample in jeder von fünf Testsaisons besser als die Herren-Parameter. Damit die Werte überhaupt übergeben werden können, nehmen `/simulate` und `/league-details` beide `tore_slope` und `tore_intercept` als optionale Request-Parameter; die Defaults bleiben die Herren-Werte. Beide Endpunkte zwingend gemeinsam: Liefen Prognose-Heatmap und Score-Matrix mit verschiedenen Tormodellen, widersprächen sich die Zahlen auf derselben Seite.
+
+Der Heimvorteil bleibt auch für die Frauen bei 40. Er wirkt mit `tore_slope` im selben Term `(Δ + HA) · slope` und ist mit ihm teilweise austauschbar, darf also nicht einzeln geschätzt werden. Der gemeinsame Fit über alle drei Parameter bevorzugt zwar 28, aber nicht signifikant (Likelihood-Ratio 1,43, p = 0,23); die Profil-Likelihood ist zwischen 25 und 50 praktisch flach, und im Test durch die Engine schneidet 40 sogar besser ab. Eine Abweichung wäre nicht belegt.
+
+Bewusst nicht angefasst: das Torniveau der Herren-Ligen. Es gilt exakt `E[Tore/Spiel] = 2 · tore_intercept`, der heutige Wert impliziert also 2,64 Tore gegen gemessene 3,18 in der Bundesliga — rund 20 % zu niedrig. Die Korrektur müsste alle acht Herren-Ligen gemeinsam erfassen, verschöbe alle veröffentlichten Prognosen und gehört mit einem Vorher-Nachher-Beleg ins Projekt „Prognosequalität" (Sommer 2027). Dort ebenfalls zu klären: Das unabhängige Poisson-Modell erzeugt strukturell zu wenig Unentschieden (bei den Frauen-Ligen bleiben rund vier Prozentpunkte Lücke, in der 2. Bundesliga liegt die beobachtete Quote sogar über der theoretischen Obergrenze des Modells). Das ist keine Frage der Parameterwerte, sondern der Verteilungsform, und verlangt ein korreliertes Tormodell wie Dixon-Coles.

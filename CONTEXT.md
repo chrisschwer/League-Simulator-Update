@@ -51,3 +51,5 @@ Berechnet nach jedem Spiel Wahrscheinlichkeiten für die Endplatzierung in Bunde
 
 - [ADR 0001](docs/adr/0001-statische-seiten-statt-gehostetem-shiny.md) — statische Seiten statt gehostetem Shiny; shinyapps.io-Pfad entfernt.
 - [ADR 0002](docs/adr/0002-spieldetails-deterministisch-zur-renderzeit.md) — Spieldetails (ELO-Verlauf, 1/X/2, Score-Matrix) werden deterministisch zur Renderzeit berechnet, nicht persistiert.
+- [ADR 0003](docs/adr/0003-elo-eichung-fuer-ligen-ohne-historie.md) — Start-ELOs für Ligen ohne Historie werden offline erzeugt und über Auf-/Absteiger geankert; Frauen und Herren gelten per Konvention als gleich stark, ELO ist nur innerhalb einer **Wechselgemeinschaft** vergleichbar.
+- [ADR 0004](docs/adr/0004-tormodell-je-wechselgemeinschaft.md) — das **Tormodell** gilt je **Wechselgemeinschaft**, nicht je Liga; die Frauen-Ligen tragen eigene Werte.
