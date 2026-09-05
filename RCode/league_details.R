@@ -253,7 +253,7 @@ build_league_table <- function(details, teams) {
 }
 
 build_league_details_payload <- function(details, teams, mod_factor = 20,
-                                         home_advantage = 65, max_goals = 6) {
+                                         home_advantage = NULL, max_goals = 6) {
   schedule <- lapply(seq_len(nrow(details)), function(i) {
     row <- details[i, ]
     heim_idx <- match(row$home_id, teams$TeamID)
@@ -278,14 +278,23 @@ build_league_details_payload <- function(details, teams, mod_factor = 20,
     list(heim_idx, gast_idx, tore_h, tore_g)
   })
 
-  list(
+  payload <- list(
     schedule = schedule,
     elo_values = teams$InitialELO,
     team_names = teams$ShortText,
     mod_factor = mod_factor,
-    home_advantage = home_advantage,
     max_goals = max_goals
   )
+
+  # home_advantage bleibt bewusst aus dem Payload: Die Modellkonstante lebt
+  # ausschliesslich im Rust-Server (ADR 0002), damit Prognose (Heatmap) und
+  # Spieldetails (1/X/2, Score-Matrix) nicht auseinanderlaufen koennen. Nur
+  # ein explizit uebergebener Wert ueberschreibt sie.
+  if (!is.null(home_advantage)) {
+    payload$home_advantage <- home_advantage
+  }
+
+  payload
 }
 
 parse_league_details_response <- function(json_text) {

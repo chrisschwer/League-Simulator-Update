@@ -14,20 +14,20 @@
 
 <h3>Die Stärkeschätzung: ELO</h3>
 <p>Die Stärke der Teams schätzt das Modell nach der aus dem Schach bekannten ELO-Wertung. Jedes Team trägt eine Zahl, die seine aktuell vermutete Spielstärke ausdrückt — in der Bundesliga liegen die Werte grob zwischen 1&#8239;500 und 2&#8239;100. Treffen zwei Teams aufeinander, lässt sich aus der Differenz der beiden Werte berechnen, wie wahrscheinlich welcher Ausgang ist. Nach dem Spiel werden die Werte angepasst: Der Gewinner bekommt Punkte, der Verlierer gibt sie ab. Je überraschender das Ergebnis, desto größer die Verschiebung — ein Favoritensieg verändert fast nichts, eine Sensation kostet den Favoriten spürbar. Höhere Siege zählen dabei stärker als knappe, allerdings gedämpft: Ein 4:0 verschiebt doppelt so viel wie ein 1:0, nicht viermal so viel.</p>
-<p>Zwei Feinheiten kommen hinzu. Das Heimteam erhält einen Zuschlag von 65 ELO-Punkten — so viel ist der eigene Platz im langjährigen Mittel wert. Und zum Saisonstart übernimmt jedes Team seinen Wert aus der Vorsaison.</p>
+<p>Zwei Feinheiten kommen hinzu. Das Heimteam erhält einen Zuschlag von 40 ELO-Punkten — so viel ist der eigene Platz wert. Der Wert ist an den tatsächlich beobachteten Heim-, Unentschieden- und Auswärtsanteilen der vergangenen Spielzeiten geeicht. Und zum Saisonstart übernimmt jedes Team seinen Wert aus der Vorsaison.</p>
 
 <h3>Vom Stärkeunterschied zum Ergebnis</h3>
 <p>Aus der ELO-Differenz macht das Modell eine Torerwartung: Je stärker ein Team im Vergleich zum Gegner ist, desto mehr Tore wird es im Durchschnitt schießen. Die tatsächliche Torzahl eines Spiels streut um diesen Durchschnitt nach der Poisson-Verteilung — derselben Verteilung, die beschreibt, wie viele Gewitter in einem Sommer niedergehen, wenn man nur den Mittelwert kennt. Damit lässt sich für jedes Spiel ausrechnen, wie wahrscheinlich jeder Endstand ist.</p>
-<p>Ein Beispiel aus der Saison 2026/2027, das Eröffnungsspiel: Bayern München (ELO 2&#8239;057) empfängt den VfB Stuttgart (1&#8239;805). Mit Heimvorteil beträgt der Unterschied gut 300 Punkte; daraus folgen im Schnitt 1,9 Tore für die Bayern und 0,8 für Stuttgart — und daraus wiederum:</p>
+<p>Ein Beispiel aus der Saison 2026/2027, das Eröffnungsspiel: Bayern München (ELO 2&#8239;057) empfängt den VfB Stuttgart (1&#8239;805). Mit Heimvorteil beträgt der Unterschied knapp 300 Punkte; daraus folgen im Schnitt 1,8 Tore für die Bayern und 0,8 für Stuttgart — und daraus wiederum:</p>
 <table class="beispiel">
   <thead><tr><th>Ausgang</th><th>Wahrscheinlichkeit</th><th>Zum Vergleich</th></tr></thead>
   <tbody>
-    <tr><td>Sieg Bayern</td><td>64&#8239;%</td><td>knapp zwei von drei Fällen</td></tr>
+    <tr><td>Sieg Bayern</td><td>62&#8239;%</td><td>knapp zwei von drei Fällen</td></tr>
     <tr><td>Remis</td><td>22&#8239;%</td><td>gut jeder fünfte Fall</td></tr>
-    <tr><td>Sieg Stuttgart</td><td>14&#8239;%</td><td>etwa jeder siebte Fall</td></tr>
+    <tr><td>Sieg Stuttgart</td><td>16&#8239;%</td><td>etwa jeder sechste Fall</td></tr>
   </tbody>
 </table>
-<p>14&#8239;% sind nicht nichts. Liefe dieser Abend siebenmal, gewönne Stuttgart einmal.</p>
+<p>16&#8239;% sind nicht nichts. Liefe dieser Abend sechsmal, gewönne Stuttgart einmal.</p>
 
 <h3>Zehntausend Saisons</h3>
 <p>Für die Frage, wer am Ende Meister wird oder absteigt, reicht ein einzelnes Spiel nicht — es hängt alles an allem. Deshalb spielt das Modell den gesamten Rest der Saison durch, Spiel für Spiel, mit zufälligen Ergebnissen entsprechend den berechneten Wahrscheinlichkeiten, und passt dabei auch die ELO-Werte laufend an. Das Ganze nicht einmal, sondern 10&#8239;000-mal. Wird ein Team in 4&#8239;930 dieser 10&#8239;000 durchgespielten Saisons Meister, weist die Prognose 49&#8239;% aus. Nach jedem realen Spiel beginnt die Rechnung von vorn, mit den tatsächlichen Ergebnissen als neuem Ausgangspunkt.</p>
@@ -35,5 +35,7 @@
 <h3>Was die Prognose kann — und was nicht</h3>
 <p>Wahrscheinlichkeiten sind keine Vorhersagen. Ein Ereignis mit 15&#8239;% Wahrscheinlichkeit tritt in etwa einem von sieben Fällen ein; wenn es eintritt, hat nicht das Modell versagt, sondern der wahrscheinlichere Fall ist ausgeblieben. Ein Haken (✓) in den Tabellen bedeutet: In keiner der 10&#8239;000 Simulationen trat ein anderes Ergebnis ein. Das ist sehr sicher, aber nicht dasselbe wie rechnerisch unmöglich. Und wo zwei Teams bei 35 und 37&#8239;% liegen, liegen sie gleichauf — eine Genauigkeit, die das Modell nicht hergibt, behauptet es besser nicht.</p>
 <p>Eine Besonderheit der 3.&#8239;Liga: Zweitvertretungen dürfen nicht in die 2.&#8239;Bundesliga aufsteigen. Für die Aufstiegstabelle rechnet das Modell sie deshalb aus dem Rennen; in der übrigen Prognose laufen sie normal mit.</p>
+
+<p class="aenderung">Im September 2026 wurde der Heimvorteil des Modells nachkalibriert: von 65 auf 40 ELO-Punkte. Die bis dahin veröffentlichten Prognosen bewerteten den Heimvorteil etwas zu hoch; Einzelspielprognosen verschieben sich dadurch um wenige Prozentpunkte, die Saisonprognosen kaum.</p>
 
 <p class="provenienz">Dieser Text geht zurück auf den Beitrag „Was die Prognosen mit Schach zu tun haben“ vom 1.&nbsp;April 2015 auf dem Blog 30&nbsp;Punkte; er wurde für den Relaunch überarbeitet und um die heutigen Modelldetails ergänzt.</p>

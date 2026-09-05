@@ -47,8 +47,24 @@ test_that("Payload trägt die Modellparameter mit Defaults", {
   payload <- build_league_details_payload(client_details(), make_test_teams())
 
   expect_equal(payload$mod_factor, 20)
-  expect_equal(payload$home_advantage, 65)
   expect_equal(payload$max_goals, 6)
+})
+
+test_that("home_advantage wird NICHT mitgesendet - der Rust-Server hält den Wert", {
+  # ADR 0002: Die Modellkonstanten leben ausschliesslich in Rust. Würde R den
+  # Heimvorteil mitsenden, gäbe es zwei Quellen, die auseinanderlaufen können —
+  # und zwar unsichtbar, weil Heatmap (/simulate) und Spieldetails
+  # (/league-details) über verschiedene Aufrufpfade laufen.
+  payload <- build_league_details_payload(client_details(), make_test_teams())
+
+  expect_false("home_advantage" %in% names(payload))
+})
+
+test_that("ein explizit übergebener home_advantage überschreibt den Server-Wert", {
+  payload <- build_league_details_payload(client_details(), make_test_teams(),
+                                          home_advantage = 40)
+
+  expect_equal(payload$home_advantage, 40)
 })
 
 # --- Antwort parsen -----------------------------------------------------------

@@ -240,6 +240,20 @@ calculate_elo_update <- function(home_elo, away_elo, goals_home, goals_away) {
   # Primary ELO calculation function.
   # Implements standard ELO with goal difference modifier.
 
+  # OFFEN (September 2026): home_advantage steht hier auf 100, während die
+  # Simulation und die Spieldetails in Rust seit der Nachkalibrierung mit 40
+  # rechnen. Die beiden Werte sind NICHT direkt vergleichbar: Rust wirkt über
+  # das Poisson-Tormodell (tore_slope), diese Funktion über die
+  # ELO-Erwartungsformel. An den beobachteten Anteilen geeicht läge der Wert
+  # hier bei ~25 (100 impliziert einen Heim-Score-Anteil von 0,64 gegen
+  # gemessene 0,54).
+  #
+  # Besser als ein neuer Zahlenwert wäre, diese Funktion ganz abzulösen: Sie
+  # ist ein Teilduplikat der Rust-ELO-Logik (siehe ADR 0002, "Verworfen:
+  # Nachbau der Modelllogik in R"). Der deterministische Rust-Walk über
+  # /league-details liefert dieselben End-ELOs auf derselben Physik wie jede
+  # Prognose. Zeitlich unkritisch: läuft nur beim Saisonwechsel im Juli.
+
   # Standard parameters
   k_factor <- 20
   home_advantage <- 100

@@ -12,7 +12,7 @@ use approx::assert_relative_eq;
 
 const TORE_SLOPE: f64 = 0.0017854953143549;
 const TORE_INTERCEPT: f64 = 1.3218390804597700;
-const HOME_ADVANTAGE: f64 = 65.0;
+const HOME_ADVANTAGE: f64 = 40.0;
 const MOD_FACTOR: f64 = 20.0;
 const MAX_GOALS: usize = 6;
 
@@ -32,21 +32,21 @@ fn probs(elo_home: f64, elo_away: f64) -> MatchProbabilities {
 #[test]
 fn equal_elos_give_home_edge_from_home_advantage() {
     let p = probs(1500.0, 1500.0);
-    assert_relative_eq!(p.lambda_home, 1.437896275893, epsilon = 1e-9);
-    assert_relative_eq!(p.lambda_away, 1.205781885027, epsilon = 1e-9);
-    assert_relative_eq!(p.p_home_win, 0.424217291957, epsilon = 1e-9);
-    assert_relative_eq!(p.p_draw, 0.259291821451, epsilon = 1e-9);
-    assert_relative_eq!(p.p_away_win, 0.316490886592, epsilon = 1e-9);
+    assert_relative_eq!(p.lambda_home, 1.393258893034, epsilon = 1e-9);
+    assert_relative_eq!(p.lambda_away, 1.250419267886, epsilon = 1e-9);
+    assert_relative_eq!(p.p_home_win, 0.402904706240, epsilon = 1e-9);
+    assert_relative_eq!(p.p_draw, 0.260577313073, epsilon = 1e-9);
+    assert_relative_eq!(p.p_away_win, 0.336517980687, epsilon = 1e-9);
 }
 
 #[test]
 fn stronger_home_team_shifts_probabilities() {
     let p = probs(1800.0, 1500.0);
-    assert_relative_eq!(p.lambda_home, 1.973544870199, epsilon = 1e-9);
-    assert_relative_eq!(p.lambda_away, 0.670133290720, epsilon = 1e-9);
-    assert_relative_eq!(p.p_home_win, 0.681823173566, epsilon = 1e-9);
-    assert_relative_eq!(p.p_draw, 0.201187846236, epsilon = 1e-9);
-    assert_relative_eq!(p.p_away_win, 0.116988980198, epsilon = 1e-9);
+    assert_relative_eq!(p.lambda_home, 1.928907487340, epsilon = 1e-9);
+    assert_relative_eq!(p.lambda_away, 0.714770673579, epsilon = 1e-9);
+    assert_relative_eq!(p.p_home_win, 0.661246199792, epsilon = 1e-9);
+    assert_relative_eq!(p.p_draw, 0.208561263894, epsilon = 1e-9);
+    assert_relative_eq!(p.p_away_win, 0.130192536314, epsilon = 1e-9);
 }
 
 #[test]
@@ -85,12 +85,12 @@ fn score_matrix_matches_poisson_cells() {
     let p = probs(1500.0, 1500.0);
     // P(0:0) and P(1:1) are plain Poisson products.
     assert_relative_eq!(p.score_matrix[0][0], 0.071099273451, epsilon = 1e-9);
-    assert_relative_eq!(p.score_matrix[1][1], 0.123271158268, epsilon = 1e-9);
+    assert_relative_eq!(p.score_matrix[1][1], 0.123866151328, epsilon = 1e-9);
     // The corner cell accumulates the whole "6+ : 6+" tail.
-    assert_relative_eq!(p.score_matrix[6][6], 5.594700815461e-06, epsilon = 1e-12);
+    assert_relative_eq!(p.score_matrix[6][6], 5.757783778873e-06, epsilon = 1e-12);
 
     let q = probs(1800.0, 1500.0);
-    assert_relative_eq!(q.score_matrix[2][0], 0.138461546149, epsilon = 1e-9);
+    assert_relative_eq!(q.score_matrix[2][0], 0.132268967937, epsilon = 1e-9);
 }
 
 #[test]
@@ -123,7 +123,7 @@ fn score_matrix_is_consistent_with_outcome_probabilities() {
 
 /// 4 teams at ELO 1500; match order: 1v2 finished 2:1, 3v4 finished 0:0,
 /// 2v3 still open. Expected values from the independent computation:
-/// mod(2:1) = 8.150675388313, mod(0:0) = -1.849324611687.
+/// mod(2:1) = 8.853767324754, mod(0:0) = -1.146232675246.
 fn walked_season() -> Season {
     Season {
         matches: vec![
@@ -172,21 +172,21 @@ fn played_matches_record_pre_elos_and_deltas_in_order() {
     assert_eq!((m1.team_home, m1.team_away), (0, 1));
     assert_relative_eq!(m1.elo_home_pre, 1500.0, epsilon = 1e-9);
     assert_relative_eq!(m1.elo_away_pre, 1500.0, epsilon = 1e-9);
-    assert_relative_eq!(m1.elo_delta_home.unwrap(), 8.150675388313, epsilon = 1e-9);
+    assert_relative_eq!(m1.elo_delta_home.unwrap(), 8.853767324754, epsilon = 1e-9);
 
     let m2 = &d.matches[1];
     assert!(m2.played);
-    assert_relative_eq!(m2.elo_delta_home.unwrap(), -1.849324611687, epsilon = 1e-9);
+    assert_relative_eq!(m2.elo_delta_home.unwrap(), -1.146232675246, epsilon = 1e-9);
 }
 
 #[test]
 fn current_elos_reflect_all_played_matches() {
     let d = walked_details();
     let expected = [
-        1508.150675388313,
-        1491.849324611687,
-        1498.150675388313,
-        1501.849324611687,
+        1508.853767324754,
+        1491.146232675246,
+        1498.853767324754,
+        1501.146232675246,
     ];
     assert_eq!(d.current_elos.len(), 4);
     for (got, want) in d.current_elos.iter().zip(expected) {
@@ -211,12 +211,12 @@ fn unplayed_match_uses_final_elos_not_list_position() {
     assert!(!m3.played);
     assert!(m3.elo_delta_home.is_none());
     assert!(m3.goals_home.is_none());
-    assert_relative_eq!(m3.elo_home_pre, 1491.849324611687, epsilon = 1e-9);
-    assert_relative_eq!(m3.elo_away_pre, 1498.150675388313, epsilon = 1e-9);
-    assert_relative_eq!(m3.probabilities.lambda_home, 1.426645243607, epsilon = 1e-9);
-    assert_relative_eq!(m3.probabilities.p_home_win, 0.418825321481, epsilon = 1e-9);
-    assert_relative_eq!(m3.probabilities.p_draw, 0.259673088729, epsilon = 1e-9);
-    assert_relative_eq!(m3.probabilities.p_away_win, 0.321501589790, epsilon = 1e-9);
+    assert_relative_eq!(m3.elo_home_pre, 1491.146232675246, epsilon = 1e-9);
+    assert_relative_eq!(m3.elo_away_pre, 1498.853767324754, epsilon = 1e-9);
+    assert_relative_eq!(m3.probabilities.lambda_home, 1.379497126032, epsilon = 1e-9);
+    assert_relative_eq!(m3.probabilities.p_home_win, 0.39638004759, epsilon = 1e-9);
+    assert_relative_eq!(m3.probabilities.p_draw, 0.260850730011, epsilon = 1e-9);
+    assert_relative_eq!(m3.probabilities.p_away_win, 0.34276922240, epsilon = 1e-9);
 }
 
 #[test]
@@ -225,8 +225,8 @@ fn played_match_probabilities_are_ex_ante() {
     // (here: the untouched season start), not the post-match state.
     let d = walked_details();
     let m1 = &d.matches[0];
-    assert_relative_eq!(m1.probabilities.p_home_win, 0.424217291957, epsilon = 1e-9);
-    assert_relative_eq!(m1.probabilities.p_draw, 0.259291821451, epsilon = 1e-9);
+    assert_relative_eq!(m1.probabilities.p_home_win, 0.402904706240, epsilon = 1e-9);
+    assert_relative_eq!(m1.probabilities.p_draw, 0.260577313073, epsilon = 1e-9);
 }
 
 #[test]
