@@ -76,6 +76,51 @@ Betroffen ist damit eine **Altliga**, nicht eine der neuen — der Befund
 (Intercept 1,32184 impliziert 2,64 Tore/Spiel gegen gemessene 3,18 in der BL)
 und der Frage nach einem korrelierten Tormodell (z. B. Dixon-Coles).
 
+## Nachtrag: Die Streuung ist kein freier Parameter
+
+Der ursprüngliche Plan sah vor, die ELO-Streuung gegen die beobachtete
+Remisquote zu eichen. Das ist nicht möglich — die Streuung ist ein
+**Gleichgewicht des ELO-Walks**, kein einstellbarer Wert.
+
+Gegenprobe an RL Nord (Saison 2025), Start mit künstlich aufgeprägter
+Streuung:
+
+| Start-SD | nach einer Saison |
+|---:|---:|
+| 0 | 100 |
+| 100 | 94 |
+| 200 | 99 |
+| 300 | 125 |
+| 400 | 181 |
+
+Es gibt einen starken Attraktor bei SD ≈ 95–100. Grosse Streuungen werden
+aktiv abgebaut, weil ELO selbstkorrigierend ist: Ein Team, das 400 Punkte
+über dem Feld steht, *soll* gewinnen — Siege bringen ihm fast nichts,
+Niederlagen kosten viel. Der k-Faktor 20 begrenzt bei ~34 Spielen pro
+Saison, wie weit sich Bewertungen trennen können. Auch sieben Saisons
+Historie ändern daran nichts (RL Nord schwankt zwischen SD 76 und 111).
+
+Die Frauen-Bundesliga verhält sich anders und bestätigt die Ausgangs-
+vermutung: Ihre Streuung wächst über zehn Saisons von 113 auf ~240 und
+bleibt dort. Die Liga ist also tatsächlich ungleicher als die Männerligen —
+sie erreicht nur nicht die 458, die das Poisson-Modell für 15,9 % Remis
+bräuchte.
+
+Daraus folgt für die Kalibrierung:
+
+| Liga | SD (Walk) | Remis Modell | Remis real | Lücke |
+|---|---:|---:|---:|---:|
+| Frauen-BL | 257 | 21,2 % | 15,9 % | +5,3 pp |
+| RL Nord | 129 | 24,5 % | 22,4 % | +2,1 pp |
+| Bundesliga | 145 | 24,2 % | 25,0 % | −0,8 pp |
+
+**Entschieden: Die Lücke bleibt stehen und wird dokumentiert.** Ein
+nachträgliches Strecken der Frauen-ELOs auf SD 458 würde die Remisquote
+treffen, aber die Werte hätten dann nicht mehr die Bedeutung, die der Walk
+ihnen gibt — und der Auf-/Abstieg zwischen den beiden Frauen-Ligen würde
+verzerrt. Die eigentliche Ursache liegt im Tormodell, nicht in der
+Kalibrierung.
+
 ## Reproduktion
 
 ```bash
