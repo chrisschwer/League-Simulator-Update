@@ -162,6 +162,34 @@ league_ids <- function(active_only = TRUE) {
   unname(vapply(reg, function(l) l$api_id, character(1)))
 }
 
+#' Die aktiven Ligen als benannte Liste, in Registry-Reihenfolge.
+#'
+#' Die Namen sind die Registry-Schluessel und zugleich die Schluessel von
+#' league_views() und league_data -- ueber sie sind Loop und Seitengenerator
+#' verbunden.
+active_leagues <- function() {
+  Filter(function(l) isTRUE(l$active), league_registry())
+}
+
+#' Schluessel der aktiven Ligen, in Registry-Reihenfolge.
+active_league_keys <- function() {
+  names(active_leagues())
+}
+
+#' Braucht diese Liga einen zweiten Simulationslauf fuer die Aufstiegstabelle?
+#'
+#' In der 3. Liga duerfen Zweitvertretungen nicht aufsteigen; die
+#' Aufstiegstabelle entsteht deshalb aus einem zweiten Lauf mit -50 Punkten
+#' Malus fuer sie. Bisher war das an die Liga-ID "80" gebunden -- jetzt ist es
+#' eine Eigenschaft der Liga.
+#'
+#' Die Regionalligen brauchen dieselbe Einschraenkung, sobald sie live gehen:
+#' Auch von dort steigen Zweitvertretungen nicht in die 3. Liga auf.
+has_promotion_restriction <- function(id) {
+  entry <- league_by_id(id)
+  !is.null(entry) && !is.null(entry$restrictions)
+}
+
 #' Registry-Eintrag zu einer Liga-ID.
 #'
 #' @param id api_id, als String oder Zahl.

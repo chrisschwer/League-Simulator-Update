@@ -39,14 +39,6 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
   # Wait initial_wait before starting
   Sys.sleep(initial_wait)
 
-  # Per-league SETS of finished fixture ids as of the last simulation. NULL
-  # until loop 1 has simulated (i == 1 always simulates). A set comparison,
-  # not a count: counts can coincidentally stay equal while the fixtures
-  # behind them change (issue #154).
-  beendet_bl <- NULL
-  beendet_bl2 <- NULL
-  beendet_liga3 <- NULL
-
   # Live-poll gating state: the cheap 1-request live check replaces the full
   # 3-request fetch on idle iterations. While fixtures are live, every loop
   # fetches so the rendered Live section shows current scores. Ids that
@@ -82,6 +74,21 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
   source("RCode/transform_data.R")
   source("RCode/league_details.R")
   source("RCode/generate_static_site.R")
+  source("RCode/league_registry.R")
+
+  # Die Ligen dieses Laufs. Reihenfolge = Registry-Reihenfolge und damit
+  # Fetch-Reihenfolge; sie ist Vertrag (test-update-loop-league-data.R).
+  liga_keys <- active_league_keys()
+  liga_ids <- stats::setNames(
+    vapply(active_leagues(), function(l) l$api_id, character(1)),
+    liga_keys
+  )
+
+  # Je Liga die Menge beendeter Fixture-Ids zum Zeitpunkt der letzten
+  # Simulation. NULL bis Loop 1 simuliert hat. Ein Mengenvergleich, keine
+  # Zaehlung: Zaehlungen koennen zufaellig gleich bleiben, waehrend sich die
+  # Fixtures dahinter aendern (issue #154).
+  beendet <- stats::setNames(vector("list", length(liga_keys)), liga_keys)
 
   # Import Team Data. load_team_list() (transform_data.R) prueft dabei die
   # Invarianten, auf die transform_data() baut: global eindeutige Kurznamen
@@ -90,10 +97,10 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
   TeamList <- load_team_list(TeamList_file)
 
   # Initialize result objects to ensure they exist
-  Ergebnis <- NULL
-  Ergebnis2 <- NULL
-  Ergebnis3 <- NULL
-  Ergebnis3_Aufstieg <- NULL
+  # Prognosen je Liga. `dritte_liga_aufstieg` ist kein eigener Ligaslot,
+  # sondern der zweite Lauf der 3. Liga mit -50-Malus fuer Zweitvertretungen;
+  # league_views() loest ihn ueber seinen Namen auf.
+  ergebnisse <- list()
 
   # Start main loop
   for (i in 1:loops) {
@@ -129,13 +136,16 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
     if (need_full_fetch) {
       last_full_fetch_loop <- i
 
-      # get fixtures via API
-      fixturesBL <- retrieveResults(league = "78", season = saison)
-      fixturesBL2 <- retrieveResults(league = "79", season = saison)
-      fixturesLiga3 <- retrieveResults(league = "80", season = saison)
+      # Fixtures je Liga. Der lapply-Aufruf bleibt bewusst INLINE: Die Tests
+      # stubben retrieveResults() gegen die Umgebung dieser Funktion; in eine
+      # ausgelagerte Helferfunktion greift der Stub nicht mehr.
+      fixtures <- stats::setNames(
+        lapply(liga_ids, function(id) retrieveResults(league = id, season = saison)),
+        liga_keys
+      )
 
       # Check if API calls failed
-      if (is.null(fixturesBL) || is.null(fixturesBL2) || is.null(fixturesLiga3)) {
+      if (any(vapply(fixtures, is.null, logical(1)))) {
         message(sprintf("Loop %d: ERROR - One or more API calls failed. Skipping this iteration.", i))
         next
       }
@@ -146,14 +156,10 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
       # reported live means the season endpoint lags the live feed (issue
       # #154): keep it pending so the next loop fetches again.
       if (length(pending_finished_ids) > 0) {
-        all_ids <- c(
-          fixturesBL$fixture$id, fixturesBL2$fixture$id,
-          fixturesLiga3$fixture$id
-        )
-        all_status <- c(
-          fixturesBL$fixture$status$short, fixturesBL2$fixture$status$short,
-          fixturesLiga3$fixture$status$short
-        )
+        all_ids <- unlist(lapply(fixtures, function(f) f$fixture$id),
+                          use.names = FALSE)
+        all_status <- unlist(lapply(fixtures, function(f) f$fixture$status$short),
+                             use.names = FALSE)
         # Awarded results (AWD/WO) are final too, though outside the
         # beendet set that drives simulations.
         final_status <- c(STATUS_BEENDET, STATUS_VERSCHOBEN, STATUS_AWARDED)
@@ -171,57 +177,46 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
       }
 
       # New per-league sets of finished fixtures
-      beendet_bl_new <- .fixtures_beendet_ids(fixturesBL)
-      beendet_bl2_new <- .fixtures_beendet_ids(fixturesBL2)
-      beendet_liga3_new <- .fixtures_beendet_ids(fixturesLiga3)
+      beendet_new <- lapply(fixtures, .fixtures_beendet_ids)
 
       # transform data
-      BL <- transform_data(fixturesBL, TeamList)
-      BL2 <- transform_data(fixturesBL2, TeamList)
-      Liga3 <- transform_data(fixturesLiga3, TeamList)
+      spielplaene <- lapply(fixtures, function(f) transform_data(f, TeamList))
 
-      # Penalize second teams in Liga3, so that they cannot promote
-      adjPoints_Liga3_Aufstieg <- rep(0, dim(Liga3)[2] - 4) # initialize to 0
-
-      for (j in 5:dim(Liga3)[2]) {
-        team_short <- names(Liga3)[j]
-        last_char_team <- substr(team_short, nchar(team_short), nchar(team_short))
-        if (last_char_team == "2") {
-          adjPoints_Liga3_Aufstieg[j - 4] <- -50 # if team name ends in "2", penalize
+      # Simulation je Liga. Loop 1 simuliert immer, damit die Objekte
+      # existieren; danach nur bei geaenderter Menge beendeter Spiele.
+      #
+      # Die Schleife bleibt INLINE: Die Tests stubben leagueSimulatorRust()
+      # gegen die Umgebung dieser Funktion.
+      for (key in liga_keys) {
+        if (!(i == 1 || !setequal(beendet[[key]], beendet_new[[key]]))) {
+          next
         }
-      }
 
-      # On first iteration (i == 1), always run all simulations to ensure objects exist
-      if (i == 1 || !setequal(beendet_bl, beendet_bl_new)) {
+        spielplan <- spielplaene[[key]]
         message(sprintf(
-          "Loop %d: Simulating Bundesliga with %d simulations (Rust engine)",
-          i, n
+          "Loop %d: Simulating %s with %d simulations (Rust engine)",
+          i, league_name(liga_ids[[key]]), n
         ))
-        Ergebnis <- leagueSimulatorRust(BL, n = n)
-        beendet_bl <- beendet_bl_new
-        simulation_executed <- TRUE
-      }
+        ergebnisse[[key]] <- leagueSimulatorRust(spielplan, n = n)
+        beendet[[key]] <- beendet_new[[key]]
 
-      if (i == 1 || !setequal(beendet_bl2, beendet_bl2_new)) {
-        message(sprintf(
-          "Loop %d: Simulating 2. Bundesliga with %d simulations (Rust engine)",
-          i, n
-        ))
-        Ergebnis2 <- leagueSimulatorRust(BL2, n = n)
-        beendet_bl2 <- beendet_bl2_new
-        simulation_executed <- TRUE
-      }
+        # Ligen, aus denen Zweitvertretungen nicht aufsteigen duerfen,
+        # brauchen eine eigene Aufstiegstabelle: ein zweiter Lauf, in dem
+        # sie -50 Punkte tragen und damit aus dem Rennen sind. Bisher war
+        # das an die Liga-ID "80" gebunden; jetzt an die Liga-Eigenschaft --
+        # die Regionalligen brauchen dasselbe, sobald sie live gehen.
+        if (has_promotion_restriction(liga_ids[[key]])) {
+          adj_points <- rep(0, dim(spielplan)[2] - 4)
+          for (j in 5:dim(spielplan)[2]) {
+            team_short <- names(spielplan)[j]
+            if (substr(team_short, nchar(team_short), nchar(team_short)) == "2") {
+              adj_points[j - 4] <- -50
+            }
+          }
+          ergebnisse[[paste0(key, "_aufstieg")]] <-
+            leagueSimulatorRust(spielplan, n = n, adjPoints = adj_points)
+        }
 
-      if (i == 1 || !setequal(beendet_liga3, beendet_liga3_new)) {
-        message(sprintf(
-          "Loop %d: Simulating 3. Liga with %d simulations (Rust engine)",
-          i, n
-        ))
-        Ergebnis3 <- leagueSimulatorRust(Liga3, n = n)
-        beendet_liga3 <- beendet_liga3_new
-
-        # calculate promotion table
-        Ergebnis3_Aufstieg <- leagueSimulatorRust(Liga3, n = n, adjPoints = adjPoints_Liga3_Aufstieg)
         simulation_executed <- TRUE
       }
 
@@ -229,14 +224,12 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
       # render-relevant fixture field changed (issue #154): Rückblick, Live
       # and Ausblick follow the fixture data, not only simulation results.
       render_signature <- paste(
-        .fixtures_render_signature(fixturesBL),
-        .fixtures_render_signature(fixturesBL2),
-        .fixtures_render_signature(fixturesLiga3),
-        sep = "~"
+        vapply(fixtures, .fixtures_render_signature, character(1)),
+        collapse = "~"
       )
       fixtures_changed <- !identical(render_signature, last_render_signature)
 
-      if ((simulation_executed || fixtures_changed) && !is.null(Ergebnis)) {
+      if ((simulation_executed || fixtures_changed) && length(ergebnisse) > 0) {
         if (simulation_executed) {
           message(sprintf("Loop %d: Regenerating static site with new results", i))
         } else {
@@ -247,15 +240,18 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
         # (endpoint down, parse failure, ...) are handled inside
         # build_league_page_data(), which returns NULL with a warning; the
         # page then degrades to the Phase-3 layout for that league.
-        league_data <- list(
-          bundesliga = build_league_page_data(fixturesBL, TeamList),
-          zweite_bundesliga = build_league_page_data(fixturesBL2, TeamList),
-          dritte_liga = build_league_page_data(fixturesLiga3, TeamList)
+        # Die Namen sind die Registry-Schluessel und zugleich die von
+        # league_views(); der Generator indiziert league_data[[key]] damit.
+        league_data <- stats::setNames(
+          lapply(liga_keys, function(key) {
+            build_league_page_data(fixtures[[key]], TeamList)
+          }),
+          liga_keys
         )
 
-        generate_static_site(Ergebnis, Ergebnis2, Ergebnis3, Ergebnis3_Aufstieg,
-                             output_dir = static_site_dir,
-                             league_data = league_data)
+        generate_static_site(output_dir = static_site_dir,
+                             league_data = league_data,
+                             ergebnisse = ergebnisse)
         last_render_signature <- render_signature
       } else {
         message(sprintf("Loop %d: No updates needed, skipping site generation", i))
