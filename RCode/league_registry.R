@@ -10,8 +10,13 @@
 # Warum R und nicht YAML: bleibt bei den bestehenden Konventionen, ist ohne
 # neue Dependency testbar und kann Ausdruecke tragen.
 #
-# ALLE ZEHN LIGEN stehen hier, die sieben neuen aber mit `active = FALSE`.
-# Der Produktivpfad sieht ueber league_ids() weiterhin nur die drei Altligen;
+# ALLE ZEHN LIGEN stehen hier. Aktiv sind die drei Altligen und die beiden
+# Frauen-Bundesligen; die fuenf Regionalligen folgen, sobald die
+# Abstiegskopplung an die 3. Liga steht -- ihre Absteigerzahl haengt davon ab,
+# wie viele Teams aus der 3. Liga in die jeweilige Staffel fallen, und ein
+# festes Abstiegs-Panel waere auf der Seite sichtbar falsch.
+#
+# Der Produktivpfad sieht ueber league_ids() nur die aktiven Ligen;
 # der Saisonwechsel und die Validierung kennen die neuen bereits. So ist die
 # Struktur an den echten Anforderungen erprobt, bevor sie live gehen.
 
@@ -78,7 +83,7 @@ league_registry <- function() {
 
     # --- Frauen: eigene Wechselgemeinschaft, eigenes Tormodell -------------
     frauen_bundesliga = list(
-      api_id = "82", active = FALSE, family = "frauen",
+      api_id = "82", active = TRUE, family = "frauen",
       slug = "frauen-bundesliga", nav_label = "Bundesliga",
       nav_group = "Frauen",
       display_name = "Frauen-Bundesliga",
@@ -88,7 +93,7 @@ league_registry <- function() {
       tore_slope = FRAUEN_TORE_SLOPE, tore_intercept = FRAUEN_TORE_INTERCEPT
     ),
     zweite_frauen_bundesliga = list(
-      api_id = "1034", active = FALSE, family = "frauen",
+      api_id = "1034", active = TRUE, family = "frauen",
       slug = "2-frauen-bundesliga", nav_label = "2. Bundesliga",
       nav_group = "Frauen",
       display_name = "2. Frauen-Bundesliga",

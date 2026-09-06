@@ -16,6 +16,20 @@ if (!exists("league_ids")) {
 # Season Validation Functions
 # Validates season completion and ranges for automated season transition
 
+
+# Ligen, die der Saisonwechsel prueft.
+#
+# Bewusst NICHT league_ids(): Der Saisonwechsel stuetzt sich auf
+# aufgezeichnete API-Antworten ("Kassetten", siehe
+# tests/testthat/fixtures/season-transition-2024-to-2025/), die es nur fuer
+# diese drei Ligen gibt. Mit den Frauen-Ligen wuerde er an fehlenden
+# Kassetten scheitern.
+#
+# Die Ausweitung ist ein eigener Vorgang und nicht zeitkritisch -- der
+# Saisonwechsel laeuft einmal jaehrlich im Juli. Bis dahin macht diese
+# Konstante die Einschraenkung sichtbar, statt sie zu verstecken.
+SEASON_TRANSITION_LEAGUES <- c("78", "79", "80")
+
 validate_season_completion <- function(season) {
   # Check if season is complete by verifying all matches are finished
   # Throws error if season is not complete
@@ -24,8 +38,7 @@ validate_season_completion <- function(season) {
     {
       cat("Checking if season", season, "is complete...\n")
 
-      # Check all three leagues
-      leagues <- league_ids()  # aus der Liga-Registry
+      leagues <- SEASON_TRANSITION_LEAGUES
       total_unfinished <- 0
       leagues_checked <- 0
 
