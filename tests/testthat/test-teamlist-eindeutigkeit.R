@@ -14,9 +14,12 @@ source("../../RCode/transform_data.R")
 # 237 Teams in zehn Ligen -- darunter rund 30 Zweitvertretungen -- sind
 # Kollisionen über Ligagrenzen hinweg der Normalfall.
 #
-# TeamList_2026.csv ist heute global kollisionsfrei (237/237). Genau das soll
-# beim Laden geprüft werden, damit es so bleibt: eine künftig eingespielte Liste
-# mit Kollision muss laut scheitern, nicht leise falsch rechnen.
+# Maßgeblich ist dabei die WECHSELGEMEINSCHAFT (ADR 0004), nicht die gesamte
+# Liste: transform_data() wird je Liga aufgerufen, und Herren (78, 79, 80,
+# 83-87) und Frauen (82, 1034) tauschen nie Teams. Ein Kurzname, den beide
+# benutzen, kann nie in denselben Data-Frame geraten -- er ist sogar
+# erwünscht, damit die Frauenmannschaft eines Vereins dasselbe Kürzel trägt
+# wie die Herrenmannschaft.
 #
 # Geprüft wird load_team_list() -- die Ladefunktion, die read.csv() in
 # update_all_leagues_loop.R:87 ersetzt.
@@ -117,8 +120,15 @@ test_that("load_team_list akzeptiert die echte TeamList_2026", {
   teams <- load_team_list(pfad)
 
   expect_equal(nrow(teams), 237)
-  expect_false(any(duplicated(teams$ShortText)))
   expect_false(any(duplicated(teams$TeamID)))
+
+  # Eindeutig je Wechselgemeinschaft, nicht global: 14 Kürzel teilen sich
+  # Herren- und Frauenmannschaft desselben Vereins (SGE, HSV, SCF, RBL, ...).
+  # Das ist gewollt -- siehe Kopfkommentar.
+  for (grp in split(teams$ShortText, wechselgemeinschaft(teams$League))) {
+    expect_false(any(duplicated(grp)))
+  }
+  expect_true(any(duplicated(teams$ShortText)))
 })
 
 test_that("load_team_list meldet eine fehlende Datei verständlich", {
@@ -126,4 +136,34 @@ test_that("load_team_list meldet eine fehlende Datei verständlich", {
   # erkennbar, welche Liste gesucht wurde.
   err <- expect_error(load_team_list("gibt/es/nicht.csv"))
   expect_match(conditionMessage(err), "gibt/es/nicht.csv", fixed = TRUE)
+})
+
+test_that("load_team_list erlaubt gleiche Kurznamen über Wechselgemeinschaften", {
+  # Der Verein stellt beide Mannschaften: dasselbe Kürzel ist gewollt, weil
+  # transform_data() je Liga aufgerufen wird und Herren- und Frauen-Ligen nie
+  # Teams tauschen (ADR 0004). Auf den Seiten überschneiden sie sich nicht.
+  pfad <- schreibe_teamlist(c(
+    "168;SCF;0;1650.0;78;;SC Freiburg",
+    "9010;SCF;0;1600.0;82;;SC Freiburg W",
+    "173;RBL;0;1780.0;78;;RB Leipzig",
+    "9011;RBL;0;1400.0;1034;;RB Leipzig W"
+  ))
+
+  teams <- load_team_list(pfad)
+
+  expect_equal(nrow(teams), 4)
+  expect_equal(sum(teams$ShortText == "SCF"), 2)
+})
+
+test_that("load_team_list bricht bei Kollision innerhalb der Frauen-Ligen ab", {
+  # Die Lockerung gilt NUR über die Grenze hinweg. 82 und 1034 bilden
+  # gemeinsam eine Wechselgemeinschaft -- dort steigen Teams auf und ab, also
+  # muss der Kurzname über beide Ligen eindeutig bleiben.
+  pfad <- schreibe_teamlist(c(
+    "9012;WOL;0;1700.0;82;;VfL Wolfsburg W",
+    "9013;WOL;0;1300.0;1034;;Werder Oldenburg W"
+  ))
+
+  err <- expect_error(load_team_list(pfad))
+  expect_match(conditionMessage(err), "WOL")
 })

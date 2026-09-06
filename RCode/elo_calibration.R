@@ -436,6 +436,17 @@ collect_team_names <- function(leagues, seasons_by_league, refresh = FALSE) {
 #' @param names_df data.frame mit TeamID und Name.
 #' @param reserved Bereits vergebene Kurznamen.
 #' @return data.frame mit TeamID, Name, ShortText, Promotion.
+# Vergibt global eindeutige Kuerzel gegen `reserved`. Seit der Angleichung der
+# Frauen-Kuerzel (siehe load_team_list() in transform_data.R) ist Eindeutigkeit
+# produktiv nur noch JE WECHSELGEMEINSCHAFT verlangt: Die Frauenmannschaft
+# eines Vereins traegt bewusst dasselbe Kuerzel wie die Herrenmannschaft.
+#
+# Diese Funktion bleibt bei der strengeren globalen Regel. Sie laeuft nur im
+# einmaligen Offline-Kalibrierungsskript (ADR 0003), nie im Produktivpfad --
+# ein zu strenges Kriterium erzeugt hier hoechstens ein unnoetiges
+# Ausweichkuerzel, nie einen Fehler. Wer sie erneut fuer die Frauen-Ligen
+# laufen laesst, muss die 16 angeglichenen Kuerzel danach von Hand
+# wiederherstellen (oder `reserved` je Wechselgemeinschaft fuellen).
 assign_short_names <- function(names_df, reserved = character()) {
   used <- reserved
   short <- character(nrow(names_df))
