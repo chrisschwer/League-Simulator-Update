@@ -583,3 +583,187 @@ async fn simulate_rejects_elo_neutral_of_wrong_length() {
     let (status, _) = send(req).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
+
+// --- relegation_group_counts: Absteiger je Staffel exakt auszaehlen ---------
+//
+// Phase 3 des Ligen-Ausbaus. Die 3. Liga schickt ihre Absteiger in fuenf
+// regionale Staffeln, je nach Stammregion des Vereins. Wie viele in eine
+// bestimmte Staffel fallen, entscheidet dort mit ueber die Zahl der
+// Absteiger -- Phase 6 rechnet damit weiter.
+//
+// Warum exakt ausgezaehlt und nicht aus der Prognosematrix rekonstruiert:
+// Die Matrix enthaelt nur die Randverteilung je Team. Ein Poisson-Binomial
+// darueber behandelte die Teams als unabhaengig -- sie sind es aber nicht,
+// weil genau k Teams die Abstiegsplaetze belegen (stark negativ korreliert).
+// Der Fehler waere strukturell, nicht numerisch: Erwartungswert 4,12 statt
+// exakt 4,00 bei vier Abstiegsplaetzen.
+//
+// Jede Iteration erzeugt ohnehin eine konkrete Abschlusstabelle. Es genuegt,
+// je Iteration mitzuschreiben, wie viele Absteiger zu welcher Staffel
+// gehoeren.
+//
+// Das Feld ist eine reine RECHENGROESSE. Es wird nirgends angezeigt; die
+// Darstellung folgt spaeter dort, wo sie relevant wird (etwa als Fussnote
+// "Abhaengig von Auf- und Abstieg in bzw. aus der 3. Liga koennen bis zu
+// zwei weitere Teams absteigen").
+
+/// Vier Teams, drei offene Spiele; Teams 0+1 in Staffel 0, Teams 2+3 in
+/// Staffel 1. Zwei Abstiegsplaetze.
+fn relegation_payload(iterations: usize) -> Value {
+    json!({
+        "schedule": [
+            [1, 2, null, null],
+            [3, 4, null, null],
+            [1, 3, null, null],
+            [2, 4, null, null],
+            [1, 4, null, null],
+            [2, 3, null, null]
+        ],
+        "elo_values": [1500.0, 1500.0, 1500.0, 1500.0],
+        "team_names": ["AAA", "BBB", "CCC", "DDD"],
+        "iterations": iterations,
+        "group_of_team": [0, 0, 1, 1],
+        "relegation_places": 2
+    })
+}
+
+#[tokio::test]
+async fn simulate_reports_relegation_group_counts() {
+    let (status, body) = send(post_simulate_json(relegation_payload(1000))).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let counts = body["relegation_group_counts"]
+        .as_array()
+        .expect("relegation_group_counts array");
+
+    // Eine Zeile je Staffel, eine Spalte je moeglicher Absteigerzahl
+    // (0 bis relegation_places).
+    assert_eq!(counts.len(), 2, "zwei Staffeln");
+    assert_eq!(
+        counts[0].as_array().unwrap().len(),
+        3,
+        "0, 1 oder 2 Absteiger"
+    );
+}
+
+#[tokio::test]
+async fn relegation_group_counts_rows_sum_to_iterations() {
+    // Die starke Invariante: Jede Iteration traegt zu JEDER Staffel genau
+    // einen Eintrag bei -- naemlich, wie viele ihrer Teams abgestiegen sind
+    // (auch wenn das null ist). Stimmt eine Zeilensumme nicht, wurde entweder
+    // doppelt gezaehlt oder eine Iteration verschluckt.
+    let iterations = 1000;
+    let (status, body) = send(post_simulate_json(relegation_payload(iterations))).await;
+    assert_eq!(status, StatusCode::OK);
+
+    for (staffel, row) in body["relegation_group_counts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .enumerate()
+    {
+        let sum: u64 = row
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_u64().unwrap())
+            .sum();
+        assert_eq!(
+            sum, iterations as u64,
+            "Staffel {}: Zeilensumme {} statt {}",
+            staffel, sum, iterations
+        );
+    }
+}
+
+#[tokio::test]
+async fn relegation_group_counts_total_matches_relegation_places() {
+    // Die zweite starke Invariante, und der eigentliche Grund fuer die
+    // Auszaehlung: Ueber alle Staffeln summiert muss die erwartete Zahl der
+    // Absteiger EXAKT der Zahl der Abstiegsplaetze entsprechen -- keine
+    // Toleranz, anders als bei der verworfenen Naeherung.
+    let iterations = 1000;
+    let (status, body) = send(post_simulate_json(relegation_payload(iterations))).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let mut absteiger_gesamt: u64 = 0;
+    for row in body["relegation_group_counts"].as_array().unwrap() {
+        for (anzahl, count) in row.as_array().unwrap().iter().enumerate() {
+            absteiger_gesamt += anzahl as u64 * count.as_u64().unwrap();
+        }
+    }
+
+    // 2 Abstiegsplaetze x 1000 Iterationen = 2000 Absteiger, exakt.
+    assert_eq!(absteiger_gesamt, 2 * iterations as u64);
+}
+
+#[tokio::test]
+async fn relegation_group_counts_respects_group_assignment() {
+    // Alle vier Teams in dieselbe Staffel: Dann muessen dort in JEDER
+    // Iteration genau beide Abstiegsplaetze liegen -- die Verteilung ist
+    // entartet, und genau das muss herauskommen.
+    let mut payload = relegation_payload(500);
+    payload["group_of_team"] = json!([0, 0, 0, 0]);
+
+    let (status, body) = send(post_simulate_json(payload)).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let counts = body["relegation_group_counts"].as_array().unwrap();
+    assert_eq!(counts.len(), 1, "eine Staffel");
+    let row = counts[0].as_array().unwrap();
+    assert_eq!(row[0].as_u64().unwrap(), 0, "nie null Absteiger");
+    assert_eq!(row[1].as_u64().unwrap(), 0, "nie ein Absteiger");
+    assert_eq!(row[2].as_u64().unwrap(), 500, "immer beide");
+}
+
+#[tokio::test]
+async fn simulate_without_group_of_team_is_unchanged() {
+    // Verhaltensneutralitaet: Ohne das Feld darf sich nichts aendern -- die
+    // Altligen laufen unberuehrt weiter. relegation_group_counts fehlt dann
+    // in der Antwort, statt leer dabeizustehen.
+    let base = json!({
+        "schedule": [[1, 2, 2, 1], [3, 4, 0, 0], [2, 3, null, null]],
+        "elo_values": [1500.0, 1500.0, 1500.0, 1500.0],
+        "team_names": ["AAA", "BBB", "CCC", "DDD"],
+        "iterations": 100
+    });
+
+    let (status, body) = send(post_simulate_json(base)).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        body.get("relegation_group_counts").is_none() || body["relegation_group_counts"].is_null()
+    );
+}
+
+#[tokio::test]
+async fn simulate_rejects_group_of_team_of_wrong_length() {
+    // Ein zu kurzer Vektor waere eine stille Fehlzuordnung: Ab dem fehlenden
+    // Eintrag traegt jedes Team die Staffel eines anderen.
+    let mut payload = relegation_payload(100);
+    payload["group_of_team"] = json!([0, 0, 1]); // 4 Teams, 3 Eintraege
+
+    let (status, _) = send(post_simulate_json(payload)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn simulate_rejects_relegation_places_out_of_range() {
+    // Mehr Abstiegsplaetze als Teams ist ein Konfigurationsfehler, kein
+    // Grenzfall -- er soll auffallen, nicht stillschweigend gedeckelt werden.
+    let mut payload = relegation_payload(100);
+    payload["relegation_places"] = json!(5); // nur 4 Teams
+
+    let (status, _) = send(post_simulate_json(payload)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn simulate_rejects_group_of_team_without_relegation_places() {
+    // Beide Felder gehoeren zusammen. Eines allein ist mehrdeutig und
+    // vermutlich ein Fehler beim Aufrufer.
+    let mut payload = relegation_payload(100);
+    payload.as_object_mut().unwrap().remove("relegation_places");
+
+    let (status, _) = send(post_simulate_json(payload)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
