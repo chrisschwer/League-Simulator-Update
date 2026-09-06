@@ -301,8 +301,13 @@ test_that("validate_league_composition prueft gegen teams_range", {
   source(test_path("..", "..", "RCode", "league_processor.R"), local = env)
 
   expect_true(env$validate_league_composition("78", rep("t", 18))$valid)
-  expect_true(env$validate_league_composition("80", rep("t", 20))$valid)
   expect_false(env$validate_league_composition("78", rep("t", 30))$valid)
+
+  # Liga 80 hat eine Sonderregel (max. 4 Zweitvertretungen) und braucht
+  # deshalb Team-Objekte statt blosser Namen.
+  liga3 <- lapply(1:20, function(i) list(name = paste("T", i),
+                                         is_second_team = FALSE))
+  expect_true(env$validate_league_composition("80", liga3)$valid)
 
   # Die neuen Ligen mit ihren echten Spannen.
   expect_true(env$validate_league_composition("82", rep("t", 12))$valid)

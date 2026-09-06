@@ -1,7 +1,33 @@
+# Liga-Registry: Die Probe-Liga und der Fallback skalieren mit der Ligazahl.
+if (!exists("league_ids")) {
+  local({
+    d <- NULL
+    for (f in rev(sys.frames())) {
+      if (!is.null(f$ofile)) {
+        d <- dirname(f$ofile)
+        break
+      }
+    }
+    if (is.null(d) || is.na(d) || !nzchar(d)) d <- "RCode"
+    source(file.path(d, "league_registry.R"))
+  })
+}
+
 # Function to check API rate limits and determine safe number of loops
 # Returns the maximum number of loops that can be safely run without exceeding limits
 
-checkAPILimits <- function(ideal_loops, avg_calls_per_loop = 2, safety_margin = 0.9) {
+#' @param avg_calls_per_loop Requests je Loop. Default aus der Registry: ein
+#'   Live-Poll deckt alle Ligen mit EINEM Request ab, dazu kommen die
+#'   Vollabrufe. Der frühere feste Wert 2 stammte aus der Drei-Ligen-Zeit.
+checkAPILimits <- function(ideal_loops,
+                           avg_calls_per_loop = NULL,
+                           safety_margin = 0.9) {
+  if (is.null(avg_calls_per_loop)) {
+    # Empirisch deckt ein Vollabruf nur einen Bruchteil der Loops ab (Live-Poll
+    # -Gating, siehe update_all_leagues_loop). Die Hälfte der Ligen je Loop ist
+    # die konservative Mitte zwischen Leerlauf (1) und Vollabruf (1 + n).
+    avg_calls_per_loop <- 1 + length(league_ids()) / 2
+  }
   # Try to make a simple API call to check headers
   api_key <- Sys.getenv("RAPIDAPI_KEY")
   if (api_key == "") {
@@ -48,7 +74,7 @@ checkAPILimits <- function(ideal_loops, avg_calls_per_loop = 2, safety_margin = 
           "X-RapidAPI-Host" = "api-football-v1.p.rapidapi.com"
         ),
         query = list(
-          league = "78", # Bundesliga
+          league = league_ids()[[1]], # erste aktive Liga aus der Registry
           season = season,
           current = "true"
         )
@@ -89,9 +115,14 @@ checkAPILimits <- function(ideal_loops, avg_calls_per_loop = 2, safety_margin = 
     error = function(e) {
       warning(sprintf("Error checking API limits: %s", e$message))
       warning("Falling back to conservative estimate")
-      # On error, be conservative - assume free tier limits
-      # 100 calls per day / 3 leagues = max 33 loops
-      conservative_loops <- min(ideal_loops, 33)
+      # Fallback ohne Header-Information. Der Wert 33 stammte aus
+      # "100 Requests/Tag / 3 Ligen" und war damit an die Ligazahl gebunden,
+      # ohne das kenntlich zu machen. Jetzt folgt er der Registry: je Loop ein
+      # Live-Poll plus im ungünstigsten Fall ein Vollabruf je aktiver Liga.
+      conservative_loops <- min(
+        ideal_loops,
+        floor(100 / (1 + length(league_ids())))
+      )
       return(conservative_loops)
     }
   )

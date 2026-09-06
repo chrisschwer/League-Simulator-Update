@@ -290,7 +290,9 @@ build_league_table <- function(details, teams) {
 }
 
 build_league_details_payload <- function(details, teams, mod_factor = 20,
-                                         home_advantage = NULL, max_goals = 6) {
+                                         home_advantage = NULL, max_goals = 6,
+                                         tore_slope = NULL,
+                                         tore_intercept = NULL) {
   schedule <- lapply(seq_len(nrow(details)), function(i) {
     row <- details[i, ]
     heim_idx <- match(row$home_id, teams$TeamID)
@@ -342,6 +344,13 @@ build_league_details_payload <- function(details, teams, mod_factor = 20,
     payload$home_advantage <- home_advantage
   }
 
+  # Tormodell je Wechselgemeinschaft. BEIDE Endpunkte zwingend gemeinsam:
+  # Liefen Prognose-Heatmap (/simulate) und Score-Matrix (/league-details) mit
+  # verschiedenen Tormodellen, widersprächen sich die Zahlen auf derselben
+  # Seite (ADR 0004). Die Registry ist die eine Quelle für beide.
+  if (!is.null(tore_slope)) payload$tore_slope <- tore_slope
+  if (!is.null(tore_intercept)) payload$tore_intercept <- tore_intercept
+
   payload
 }
 
@@ -368,7 +377,11 @@ parse_league_details_response <- function(json_text) {
 fetch_league_details <- function(payload,
                                  base_url = Sys.getenv("RUST_API_URL",
                                                        "http://localhost:8080")) {
-  json_body <- jsonlite::toJSON(payload, auto_unbox = TRUE, null = "null")
+  # digits = NA: volle Praezision -- siehe gleichlautende Stelle in
+  # rust_integration.R. Beide Endpunkte muessen dasselbe Tormodell sehen
+  # (ADR 0004), also auch dieselbe Genauigkeit.
+  json_body <- jsonlite::toJSON(payload, auto_unbox = TRUE, null = "null",
+                                digits = NA)
 
   response <- httr::POST(
     paste0(base_url, "/league-details"),

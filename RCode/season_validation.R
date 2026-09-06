@@ -1,3 +1,18 @@
+# Liga-Registry: die eine Quelle fuer die Ligamenge.
+if (!exists("league_ids")) {
+  local({
+    d <- NULL
+    for (f in rev(sys.frames())) {
+      if (!is.null(f$ofile)) {
+        d <- dirname(f$ofile)
+        break
+      }
+    }
+    if (is.null(d) || is.na(d) || !nzchar(d)) d <- "RCode"
+    source(file.path(d, "league_registry.R"))
+  })
+}
+
 # Season Validation Functions
 # Validates season completion and ranges for automated season transition
 
@@ -10,7 +25,7 @@ validate_season_completion <- function(season) {
       cat("Checking if season", season, "is complete...\n")
 
       # Check all three leagues
-      leagues <- c("78", "79", "80") # Bundesliga, 2. Bundesliga, 3. Liga
+      leagues <- league_ids()  # aus der Liga-Registry
       total_unfinished <- 0
       leagues_checked <- 0
 

@@ -1,3 +1,23 @@
+# NULL-Coalescing; in aelteren R-Versionen nicht eingebaut.
+if (!exists("%||%")) {
+  `%||%` <- function(x, y) if (is.null(x)) y else x
+}
+
+# Liga-Registry: Teamzahl-Spannen und Auf-/Abstiegsregeln kommen von dort.
+if (!exists("league_by_id") || !exists("league_teams_range")) {
+  local({
+    d <- NULL
+    for (f in rev(sys.frames())) {
+      if (!is.null(f$ofile)) {
+        d <- dirname(f$ofile)
+        break
+      }
+    }
+    if (is.null(d) || is.na(d) || !nzchar(d)) d <- "RCode"
+    source(file.path(d, "league_registry.R"))
+  })
+}
+
 # League-Specific Processing
 # Handles league-specific business logic and rules
 
@@ -192,30 +212,25 @@ validate_league_composition <- function(league_id, teams) {
     {
       league_name <- get_league_name(league_id)
 
-      # Expected team counts
-      expected_counts <- list(
-        "78" = 18, # Bundesliga
-        "79" = 18, # 2. Bundesliga
-        "80" = 20 # 3. Liga
-      )
-
-      expected_count <- expected_counts[[league_id]]
+      # Erwartete Teamzahl als SPANNE aus der Registry, nicht als feste Zahl
+      # mit Toleranz: Sie schwankt je Saison (Frauen-BL 12-14, RL Nord 18-22,
+      # gemessen an den Spielplaenen 2019-2025).
+      spanne <- league_teams_range(league_id)
       actual_count <- length(teams)
 
-      if (is.null(expected_count)) {
+      if (is.null(spanne)) {
         return(list(
           valid = FALSE,
           message = paste("Unknown league:", league_id)
         ))
       }
 
-      # Allow some variance (±2 teams)
-      if (abs(actual_count - expected_count) > 2) {
+      if (actual_count < spanne[[1]] || actual_count > spanne[[2]]) {
         return(list(
           valid = FALSE,
           message = paste(
             "Unexpected team count for", league_name,
-            "- Expected:", expected_count,
+            "- Expected:", spanne[[1]], "to", spanne[[2]],
             "Actual:", actual_count
           )
         ))
@@ -236,7 +251,10 @@ validate_league_composition <- function(league_id, teams) {
       return(list(
         valid = TRUE,
         message = paste("League composition valid for", league_name),
-        expected_count = expected_count,
+        # Spanne statt Einzelwert; expected_count bleibt als Feld erhalten,
+        # damit bestehende Aufrufer nicht brechen.
+        expected_count = spanne,
+        expected_range = spanne,
         actual_count = actual_count
       ))
     },
@@ -250,40 +268,24 @@ validate_league_composition <- function(league_id, teams) {
 }
 
 get_league_promotion_rules <- function(league_id) {
-  # Get promotion/relegation rules for league
-  # Returns rules structure
+  # Auf-/Abstiegsregeln aus der Registry. Vorher stand hier eine eigene Map
+  # mit drei Eintraegen; ihr Abstiegsziel fuer die 3. Liga war der String
+  # "Regional" -- kein Liga-Bezeichner, sondern ein Platzhalter aus der Zeit
+  # vor den Regionalliga-IDs. Jetzt sind es die fuenf Staffeln 83-87.
+  entry <- league_by_id(league_id)
+  if (is.null(entry)) {
+    return(NULL)
+  }
 
-  rules <- list(
-    "78" = list(
-      name = "Bundesliga",
-      promotion_to = NULL,
-      promotion_slots = 0,
-      relegation_to = "79",
-      relegation_slots = 2,
-      playoff_slots = 1,
-      restrictions = "None"
-    ),
-    "79" = list(
-      name = "2. Bundesliga",
-      promotion_to = "78",
-      promotion_slots = 2,
-      relegation_to = "80",
-      relegation_slots = 2,
-      playoff_slots = 1,
-      restrictions = "None"
-    ),
-    "80" = list(
-      name = "3. Liga",
-      promotion_to = "79",
-      promotion_slots = 2,
-      relegation_to = "Regional",
-      relegation_slots = 4,
-      playoff_slots = 1,
-      restrictions = "Second teams cannot be promoted"
-    )
+  list(
+    name = entry$display_name,
+    promotion_to = entry$promotion_to,
+    promotion_slots = entry$promotion_slots %||% 0L,
+    relegation_to = entry$relegation_to,
+    relegation_slots = entry$relegation_slots %||% 0L,
+    playoff_slots = entry$playoff_slots %||% 0L,
+    restrictions = entry$restrictions %||% "None"
   )
-
-  return(rules[[league_id]])
 }
 
 calculate_league_elo_distribution <- function(teams) {
