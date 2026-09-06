@@ -93,8 +93,16 @@ league_registry <- function() {
       nav_group = "Frauen",
       display_name = "2. Frauen-Bundesliga",
       teams_range = c(14L, 14L), first_season = 2023L,
-      promotion_to = "82", relegation_to = NULL,
-      promotion_slots = 2L, relegation_slots = 0L, playoff_slots = 0L,
+      promotion_to = "82",
+      # Abstieg in die Frauen-Regionalligen, die wir nicht fuehren -- daher
+      # kein relegation_to, aber sehr wohl Abstiegsplaetze: "Die letzten drei
+      # Mannschaften steigen ab" (kicker). An den Spielplaenen bestaetigt:
+      # je drei Absteiger 2024/25 und 2025/26.
+      relegation_to = NULL,
+      promotion_slots = 2L, relegation_slots = 3L, playoff_slots = 0L,
+      # Zweitvertretungen sind nicht aufstiegsberechtigt -- wie in der
+      # 3. Liga braucht die Aufstiegstabelle einen eigenen Lauf.
+      restrictions = "Zweitvertretungen duerfen nicht aufsteigen",
       tore_slope = FRAUEN_TORE_SLOPE, tore_intercept = FRAUEN_TORE_INTERCEPT
     ),
 
