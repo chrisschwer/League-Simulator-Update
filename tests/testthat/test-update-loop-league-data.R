@@ -72,14 +72,18 @@ test_that("der Loop baut je Liga Seitendaten und übergibt sie an den Generator"
 
   expect_equal(capture$site_calls, 1)
   # Drei Ligen -> drei Aufrufe, mit der eingelesenen TeamList als zweitem Argument
-  expect_length(capture$build_calls, 3)
+  aktiv <- local({
+    e <- new.env()
+    source(file.path("..", "..", "RCode", "league_registry.R"), local = e)
+    e$active_league_keys()
+  })
+  expect_length(capture$build_calls, length(aktiv))
   expect_true(all(vapply(capture$build_calls,
                          function(x) "TeamID" %in% names(x$teams), logical(1))))
 
   # league_data ist nach den league_views()-Schlüsseln benannt und trägt die
   # drei Ergebnisse in Liga-Reihenfolge (BL, BL2, Liga3)
-  expect_equal(names(capture$league_data),
-               c("bundesliga", "zweite_bundesliga", "dritte_liga"))
+  expect_equal(names(capture$league_data), aktiv)
   expect_equal(capture$league_data$bundesliga$tabelle, "SENTINEL-1")
   expect_equal(capture$league_data$zweite_bundesliga$tabelle, "SENTINEL-2")
   expect_equal(capture$league_data$dritte_liga$tabelle, "SENTINEL-3")

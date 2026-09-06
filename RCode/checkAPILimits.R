@@ -19,15 +19,16 @@ if (!exists("league_ids")) {
 #' @param avg_calls_per_loop Requests je Loop. Default aus der Registry: ein
 #'   Live-Poll deckt alle Ligen mit EINEM Request ab, dazu kommen die
 #'   Vollabrufe. Der frühere feste Wert 2 stammte aus der Drei-Ligen-Zeit.
+# Der Default steht im Signaturausdruck, nicht als NULL mit Nachberechnung:
+# So ist er ueber formals() ablesbar und dokumentiert sich selbst.
+#
+# Ein Live-Poll deckt alle Ligen mit EINEM Request ab; ein Vollabruf kostet
+# einen je Liga. Weil das Live-Poll-Gating die meisten Loops im Leerlauf
+# laesst (siehe update_all_leagues_loop), ist die halbe Ligazahl die
+# konservative Mitte zwischen 1 (Leerlauf) und 1 + n (Vollabruf).
 checkAPILimits <- function(ideal_loops,
-                           avg_calls_per_loop = NULL,
+                           avg_calls_per_loop = 1 + length(league_ids()) / 2,
                            safety_margin = 0.9) {
-  if (is.null(avg_calls_per_loop)) {
-    # Empirisch deckt ein Vollabruf nur einen Bruchteil der Loops ab (Live-Poll
-    # -Gating, siehe update_all_leagues_loop). Die Hälfte der Ligen je Loop ist
-    # die konservative Mitte zwischen Leerlauf (1) und Vollabruf (1 + n).
-    avg_calls_per_loop <- 1 + length(league_ids()) / 2
-  }
   # Try to make a simple API call to check headers
   api_key <- Sys.getenv("RAPIDAPI_KEY")
   if (api_key == "") {

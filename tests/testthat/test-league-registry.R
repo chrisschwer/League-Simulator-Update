@@ -44,7 +44,8 @@ test_that("genau die drei Altligen sind aktiv", {
 
   expect_equal(
     vapply(aktiv, function(l) l$api_id, character(1)),
-    c(bundesliga = "78", zweite_bundesliga = "79", dritte_liga = "80")
+    c(bundesliga = "78", zweite_bundesliga = "79", dritte_liga = "80",
+      frauen_bundesliga = "82", zweite_frauen_bundesliga = "1034")
   )
 })
 
@@ -142,7 +143,7 @@ test_that("league_ids liefert standardmaessig nur die aktiven Ligen", {
   # Fetch-Reihenfolge im Update-Loop bestimmt.
   env <- source_registry()
 
-  expect_equal(env$league_ids(), c("78", "79", "80"))
+  expect_equal(env$league_ids(), c("78", "79", "80", "82", "1034"))
   expect_length(env$league_ids(active_only = FALSE), 10)
 })
 
@@ -273,7 +274,7 @@ test_that("retrieveLiveFixtures pollt die aktiven Ligen", {
   source(test_path("..", "..", "RCode", "retrieveResults.R"), local = env)
 
   expect_equal(formals(env$retrieveLiveFixtures)$league_ids |> eval(),
-               c("78", "79", "80"))
+               c("78", "79", "80", "82", "1034"))
 })
 
 test_that("get_league_promotion_rules kennt die Regionalligen als Ziel", {

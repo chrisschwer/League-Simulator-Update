@@ -50,10 +50,17 @@ test_that("beide Frauen-Ligen tragen das Frauen-Tormodell", {
 # --- Zeitfenster ------------------------------------------------------------
 
 source_scheduler <- function() {
-  env <- new.env()
   # updateScheduler.R fuehrt beim Sourcen main() aus; nur die Konstanten und
-  # calculate_loops() werden gebraucht.
-  code <- readLines(test_path("..", "..", "RCode", "updateScheduler.R"))
+  # calculate_loops() werden gebraucht -- deshalb alles bis main() auswerten.
+  #
+  # Unter dem Repo-Root, weil der Dateikopf die TeamList mit relativem Pfad
+  # sucht. Dasselbe Muster wie in test-update-loop-gating.R.
+  old <- getwd()
+  on.exit(setwd(old), add = TRUE)
+  setwd(file.path(old, "..", ".."))
+
+  env <- new.env()
+  code <- readLines(file.path("RCode", "updateScheduler.R"))
   ende <- grep("^main <- function", code)[1] - 1
   eval(parse(text = paste(code[seq_len(ende)], collapse = "\n")), envir = env)
   env

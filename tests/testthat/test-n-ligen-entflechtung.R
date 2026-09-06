@@ -30,7 +30,8 @@ test_that("die Registry liefert Schluessel in Fetch-Reihenfolge", {
   source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
 
   expect_equal(env$active_league_keys(),
-               c("bundesliga", "zweite_bundesliga", "dritte_liga"))
+               c("bundesliga", "zweite_bundesliga", "dritte_liga",
+                 "frauen_bundesliga", "zweite_frauen_bundesliga"))
   expect_equal(env$active_league_keys(), names(env$active_leagues()))
 })
 
@@ -39,7 +40,7 @@ test_that("active_leagues liefert die vollstaendigen Eintraege", {
   source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
 
   aktiv <- env$active_leagues()
-  expect_length(aktiv, 3)
+  expect_length(aktiv, 5)
   expect_equal(aktiv$bundesliga$api_id, "78")
   expect_equal(aktiv$dritte_liga$api_id, "80")
   expect_true(all(vapply(aktiv, function(l) isTRUE(l$active), logical(1))))
@@ -253,7 +254,7 @@ test_that("der Loop holt die Ligen aus der Registry, in Registry-Reihenfolge", {
   # test-update-loop-league-data.R sie über SENTINEL-1/2/3 pinnt.
   cap <- run_loop_capturing()
 
-  expect_equal(cap$fetched, c("78", "79", "80"))
+  expect_equal(cap$fetched, c("78", "79", "80", "82", "1034"))
 })
 
 test_that("der Loop uebergibt die Ergebnisse als benannte Liste", {
@@ -261,10 +262,17 @@ test_that("der Loop uebergibt die Ergebnisse als benannte Liste", {
   cap <- run_loop_capturing()
 
   expect_type(cap$ergebnisse, "list")
-  expect_setequal(
-    names(cap$ergebnisse),
-    c("bundesliga", "zweite_bundesliga", "dritte_liga", "dritte_liga_aufstieg")
-  )
+  # Je aktive Liga ein Eintrag, plus ein Aufstiegslauf je Liga, aus der
+  # Zweitvertretungen nicht aufsteigen duerfen.
+  reg <- new.env()
+  source(test_path("..", "..", "RCode", "league_registry.R"), local = reg)
+  erwartet <- reg$active_league_keys()
+  erwartet <- c(erwartet, paste0(
+    Filter(function(k) reg$has_promotion_restriction(reg$league_registry()[[k]]$api_id),
+           reg$active_league_keys()),
+    "_aufstieg"))
+
+  expect_setequal(names(cap$ergebnisse), erwartet)
   expect_false(any(vapply(cap$ergebnisse, is.null, logical(1))))
 })
 
@@ -275,7 +283,8 @@ test_that("league_data behaelt seine Schluessel und Reihenfolge", {
   cap <- run_loop_capturing()
 
   expect_equal(names(cap$league_data),
-               c("bundesliga", "zweite_bundesliga", "dritte_liga"))
+               c("bundesliga", "zweite_bundesliga", "dritte_liga",
+                 "frauen_bundesliga", "zweite_frauen_bundesliga"))
 })
 
 test_that("Loop 1 simuliert jede Liga plus den Aufstiegslauf", {
@@ -283,5 +292,10 @@ test_that("Loop 1 simuliert jede Liga plus den Aufstiegslauf", {
   # einer festen Annahme -- test-update-loop-gating.R pinnt sie als 4 bzw. 8.
   cap <- run_loop_capturing()
 
-  expect_equal(cap$sim_frames, 4L)
+  reg <- new.env()
+  source(test_path("..", "..", "RCode", "league_registry.R"), local = reg)
+  ids <- reg$league_ids()
+  erwartet <- length(ids) + sum(vapply(ids, reg$has_promotion_restriction, logical(1)))
+
+  expect_equal(cap$sim_frames, erwartet)
 })

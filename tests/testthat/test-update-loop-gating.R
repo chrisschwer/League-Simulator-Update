@@ -26,6 +26,24 @@ source("../../RCode/update_all_leagues_loop.R")
 # runs this file with the working directory set to tests/testthat. Run the
 # call under test with cwd temporarily switched to the repo root, mirroring
 # the with_repo_root() helper in test-rust-required.R.
+# Erwartungswerte folgen der Ligazahl, nicht festen Zahlen: Sobald eine
+# weitere Liga aktiv geschaltet wird, muessen diese Tests weiterhin gelten --
+# sie pruefen das GATING, nicht wie viele Ligen es gibt.
+n_ligen <- function() {
+  env <- new.env()
+  source(file.path("..", "..", "RCode", "league_registry.R"), local = env)
+  length(env$league_ids())
+}
+
+# Simulationen je Runde: eine je Liga, plus ein zweiter Lauf fuer jede Liga,
+# aus der Zweitvertretungen nicht aufsteigen duerfen (3. Liga, 2. Frauen-BL).
+n_sims_pro_runde <- function() {
+  env <- new.env()
+  source(file.path("..", "..", "RCode", "league_registry.R"), local = env)
+  ids <- env$league_ids()
+  length(ids) + sum(vapply(ids, env$has_promotion_restriction, logical(1)))
+}
+
 with_repo_root <- function(expr) {
   old <- getwd()
   on.exit(setwd(old), add = TRUE)
@@ -102,7 +120,7 @@ test_that("full fetch happens while fixtures are live and skips only when idle",
   # section current), loop 4 (fixture left the live feed; its id is unknown
   # to the fetched leagues and is dropped from pending). Loops 5-6 are idle.
   # -> 4 full fetches x 3 leagues = 12 retrieveResults calls
-  expect_length(full_fetch_leagues, 12)
+  expect_length(full_fetch_leagues, 4 * n_ligen())
   expect_equal(live_poll_count, 5) # loops 2-6
 })
 
@@ -133,7 +151,7 @@ test_that("a failed live poll (NULL) forces a full fetch", {
   })
 
   # Loop 1 always fetches; loops 2-3 both hit the NULL live poll -> full fetch every time.
-  expect_length(full_fetch_leagues, 9)
+  expect_length(full_fetch_leagues, 3 * n_ligen())
   expect_equal(live_poll_count, 2) # loops 2-3
 })
 
@@ -166,7 +184,7 @@ test_that("full_fetch_every forces a periodic safety-net fetch even when idle", 
   # Loop 1: full fetch (first iteration). Loop 2: idle -> skip.
   # Loop 3: (3 - 1) = 2 < full_fetch_every(3) -> skip. Loop 4: (4 - 1) >= 3 -> safety-net full fetch.
   # -> 2 full fetches x 3 leagues = 6 retrieveResults calls
-  expect_length(full_fetch_leagues, 6)
+  expect_length(full_fetch_leagues, 2 * n_ligen())
   expect_equal(live_poll_count, 3) # loops 2-4
 })
 
@@ -287,7 +305,7 @@ test_that("a finished fixture still live in season data is refetched until final
   # loop 4 only the league whose beendet set changed (all three fakes share
   # the same fixtures here, so again 4 calls). The stale loop-3 fetch must
   # NOT simulate.
-  expect_equal(sim_calls, 8L)
+  expect_equal(sim_calls, 2L * n_sims_pro_runde())
   # Renders: loop 1 and loop 4. The stale loop-3 fetch carries no visible
   # change (identical fixture data) and must not render.
   expect_equal(generated, 2L)
@@ -334,7 +352,7 @@ test_that("a fixture-data change without new finished games renders without simu
   })
 
   expect_equal(bl_fetches, 2L) # loop 1 + safety fetch loop 3
-  expect_equal(sim_calls, 4L) # loop 1 only; the score change simulates nothing
+  expect_equal(sim_calls, n_sims_pro_runde()) # loop 1 only; the score change simulates nothing
   expect_equal(generated, 2L) # ... but it does re-render the site
 })
 
@@ -372,7 +390,7 @@ test_that("simulation triggers on a changed beendet set even when the count is u
   })
 
   expect_equal(bl_fetches, 2L) # loop 1 + safety fetch loop 3
-  expect_equal(sim_calls, 8L) # loop 1 AND loop 3: the beendet SET changed
+  expect_equal(sim_calls, 2L * n_sims_pro_runde()) # loop 1 AND loop 3: the beendet SET changed
 })
 
 # --- Live-Cadence (Folge-PR zu #154): solange Spiele live sind, wird jede
@@ -416,7 +434,7 @@ test_that("live fixtures trigger a full fetch and re-render every loop without s
   })
 
   expect_equal(bl_fetches, 3L) # one full fetch per loop while 101 is live
-  expect_equal(sim_calls, 4L) # loop 1 only; live scores simulate nothing
+  expect_equal(sim_calls, n_sims_pro_runde()) # loop 1 only; live scores simulate nothing
   expect_equal(generated, 3L) # ... but every score change re-renders
 })
 
@@ -464,7 +482,7 @@ test_that("an awarded result (AWD) resolves a pending finished fixture", {
 
   expect_equal(bl_fetches, 3L) # loops 1-3 only; loops 4-5 are idle
   expect_false(any(grepl("not yet final", msgs))) # AWD must not stay pending
-  expect_equal(sim_calls, 4L) # loop 1 only: AWD is final but NOT beendet
+  expect_equal(sim_calls, n_sims_pro_runde()) # loop 1 only: AWD is final but NOT beendet
 })
 
 test_that("a pending finished fixture survives a failed full fetch", {
@@ -515,7 +533,7 @@ test_that("a pending finished fixture survives a failed full fetch", {
   })
 
   expect_equal(bl_fetches, 4L) # loops 1, 2, 3 (failed) and 4 (retry)
-  expect_equal(sim_calls, 8L) # loop 1 + loop 4 (101 newly finished)
+  expect_equal(sim_calls, 2L * n_sims_pro_runde()) # loop 1 + loop 4 (101 newly finished)
   expect_equal(generated, 2L) # loop 1 + loop 4
 })
 
