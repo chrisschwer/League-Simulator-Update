@@ -62,7 +62,9 @@ simulate_league_rust <- function(schedule, elo_values, team_names,
                                  adj_goal_diff = NULL,
                                  elo_neutral = NULL,
                                  tore_slope = NULL,
-                                 tore_intercept = NULL) {
+                                 tore_intercept = NULL,
+                                 group_of_team = NULL,
+                                 relegation_places = NULL) {
   # Convert schedule matrix to list format for JSON
   schedule_list <- lapply(seq_len(nrow(schedule)), function(i) {
     goals_home <- if (is.na(schedule[i, 3])) NULL else as.integer(schedule[i, 3])
@@ -111,6 +113,16 @@ simulate_league_rust <- function(schedule, elo_values, team_names,
   if (!is.null(tore_slope)) payload$tore_slope <- as.numeric(tore_slope)
   if (!is.null(tore_intercept)) payload$tore_intercept <- as.numeric(tore_intercept)
 
+  # Staffel-Zuordnung fuer die Abstiegskopplung. Beide Felder gehoeren
+  # zusammen; die Engine lehnt eines allein ab. Teams ohne Stammregion
+  # (NA) koennen nicht zugeordnet werden -- dann bleibt die Auszaehlung aus,
+  # statt sie mit einer erfundenen Staffel zu verfaelschen.
+  if (!is.null(group_of_team) && !is.null(relegation_places) &&
+        !any(is.na(group_of_team))) {
+    payload$group_of_team <- as.integer(group_of_team)
+    payload$relegation_places <- as.integer(relegation_places)
+  }
+
   # digits = NA: volle Praezision statt der vier Nachkommastellen, auf die
   # jsonlite sonst rundet. Bei tore_slope (0,0024058833) waeren das 0,245 %
   # Fehler -- der Parameter ist klein genug, dass die Rundung ihn in einer
@@ -148,7 +160,10 @@ simulate_league_rust <- function(schedule, elo_values, team_names,
     probability_matrix = prob_matrix,
     team_names = result$team_names,
     simulations = result$simulations_performed,
-    time_ms = result$time_ms
+    time_ms = result$time_ms,
+    # Absteiger je Staffel, exakt ausgezaehlt. NULL, wenn keine
+    # Staffel-Zuordnung gesendet wurde -- der Regelfall fuer die Altligen.
+    relegation_group_counts = result$relegation_group_counts
   ))
 }
 

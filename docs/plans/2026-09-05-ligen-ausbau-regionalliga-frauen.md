@@ -321,12 +321,38 @@ riskanteste Arbeit (die Daten der neuen Ligen) landet zuletzt auf geprüftem Fun
 | 0 | **Schutznetz, keine Verhaltensänderung**: Rundenfilter-Postcondition (Abbruch statt leerer Liga) und globale Kurznamen-Eindeutigkeit; Empirie-Skript + Fixture-Cache | beide Blocker scheitern künftig laut statt leise |
 | 1 | Liga-Registry; Literale ersetzen; `round_pattern`; `checkAPILimits` skalieren | Verhalten der 3 Altligen unverändert, Tests grün |
 | 2 | Update-Loop + `generate_static_site()` entflechten (kompatible Signatur) | n Ligen technisch möglich |
-| 3 | Rust: `tore_slope`/`tore_intercept` als Request-Parameter (beide Endpunkte); `relegation_group_counts` als optionale Zusatzstatistik | Tormodell je Liga steuerbar, Abstiegsverteilung exakt auszählbar |
+| 3 | Rust: `tore_slope`/`tore_intercept` als Request-Parameter (beide Endpunkte); `relegation_group_counts` als optionale Zusatzstatistik | **erledigt** (PR #172) — Tormodell je Liga steuerbar, Abstiegsverteilung exakt auszählbar |
 | 4 | ELO-Kalibrierung offline; Ankerung (i)+(ii); Streuung gegen Remisquote | committete Startwerte |
 | 5 | Neue Ligen in Registry + TeamList; Menü zweistufig | 10 Ligen live |
 | 6 | RL-Abstiegskopplung (R-Seite) + Vereins→Staffel-Karte | echte Abstiegswahrscheinlichkeiten |
 | 7 | Aufstiegsrelegation | echte Aufstiegswahrscheinlichkeiten |
 | 8 | CONTEXT.md, ADR, Methodik-Seite, `docs/user-guide/` | Doku konsistent |
+
+### Stand Phase 3 (September 2026, PR #172)
+
+`relegation_group_counts` ist gebaut: zweiter Zähler im per-thread-Fold, über
+dieselbe kommutative Addition rayon-reduziert wie `counts`. Dazu die R-seitige
+Übersetzung Stammregion → Positionsindex (`RCode/staffel_zuordnung.R`) und die
+letzten 41 Stammregionen in der TeamList — **alle 56 Herren-Teams tragen jetzt
+eine**. Die 37 verbleibenden Lücken liegen sämtlich in den Frauen-Ligen und
+sollen dort bleiben (eigene Wechselgemeinschaft, ADR 0004).
+
+Der Rundungsweg über ein Poisson-Binomial bleibt ausgeschlossen — die Begründung
+steht in §7 und jetzt auch am Feld `SimulationResult::relegation_group_counts`.
+
+**Für Phase 6 zu beachten:** `group_count` leitet der Handler als
+`max(group_of_team) + 1` ab. Stellt eine Liga kein Team der höchstnummerierten
+Staffel (Bayern, Index 4), fällt deren Zeile weg und die Matrix ist kürzer als
+erwartet. Heute trifft das keine der drei Herren-Ligen; der eingefrorene Test
+`relegation_group_counts_respects_group_assignment` schreibt die Ableitung fest.
+Wer Zeilen fest einer Staffel zuordnet, muss also die Länge prüfen statt sie
+vorauszusetzen. Das Feld `group_count` existiert bereits, damit ein Aufrufer die
+Zahl später explizit setzen kann, ohne die Signatur zu ändern.
+
+**Offen, unabhängig von Phase 3:** die Validierung der Stammregionen über die
+Landesverbände (Verein → Landesverband → Oberliga → Regionalliga). Sie erzeugt
+die Zuordnung nicht, sondern prüft sie nach — ein eigener Lauf mit
+Browser-Zugriff. Gebraucht wird sie erst für Phase 6.
 
 ## Doku-Folgearbeiten
 
