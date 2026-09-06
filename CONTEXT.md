@@ -27,7 +27,7 @@ Berechnet nach jedem Spiel Wahrscheinlichkeiten für die Endplatzierung in Bunde
 **Methodik-Seite**: Die statische Seite mit den Erläuterungen des Prognosemodells (Basis: Blogartikel „Was die Prognosen mit Schach zu tun haben“, 2015, aktualisiert).
 **Wechselgemeinschaft**: Die Menge von Ligen, zwischen denen Mannschaften auf- und absteigen. Innerhalb einer Wechselgemeinschaft müssen alle Ligen dasselbe **Tormodell** benutzen, weil ELO das Einzige ist, was ein Team über eine Ligagrenze mitnimmt. Es gibt zwei: Herren (78, 79, 80, 83–87) und Frauen (82, 1034). _Avoid_: Ligafamilie, Liga-Gruppe
 **Tormodell**: Das Paar `tore_slope`/`tore_intercept`, das aus der ELO-Differenz die Torerwartung beider Seiten macht. Es gilt `E[Tore/Spiel] = 2 × tore_intercept`, weil die ELO-Steigungen sich aufheben. Je **Wechselgemeinschaft** ein Wert.
-**Staffel**: Eine der fünf regionalen Regionalligen (Bayern, Nord, Nordost, SüdWest, West). Sie spielen nie gegeneinander; verglichen werden sie nur über ihre Aufsteiger in die 3. Liga.
+**Staffel**: Eine der fünf regionalen Regionalligen (Bayern, Nord, Nordost, SüdWest, West). Sie spielen nie gegeneinander; verglichen werden sie nur über ihre Aufsteiger in die 3. Liga. Die amtlichen Auf- und Abstiegsregeln jeder Staffel stehen in [docs/abstieg_aufstieg_RL_2026_2027.md](docs/abstieg_aufstieg_RL_2026_2027.md).
 **Stammregion**: Die Staffel, der ein Verein dauerhaft zugeordnet ist (Spalte `Region` der **TeamList**). Über sieben Saisons hat kein Verein sie gewechselt.
 
 ## Relationships

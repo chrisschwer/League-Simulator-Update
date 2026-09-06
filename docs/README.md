@@ -36,6 +36,9 @@
 - [Team Management](user-guide/team-management.md) - Managing teams
 - [FAQ](user-guide/faq.md) - Frequently asked questions
 
+### ⚽ Spielbetrieb (Regelwerk)
+- [Auf- und Abstieg der Regionalligen 2026/2027](abstieg_aufstieg_RL_2026_2027.md) - Die amtlichen Auf-/Abstiegsregeln aller fünf Staffeln; Grundlage der Abstiegskopplung an die 3. Liga
+
 ### 🔧 Technical References
 - [GitHub Actions](DOCUMENTATION_GITHUB_ACTIONS.md) - CI/CD workflows
 - [Docker](DOCUMENTATION_DOCKER.md) - Containerization
