@@ -1,6 +1,13 @@
 library(dplyr)
 library(tidyr)
 
+# Am gruenen Tisch gewertete Spiele (api-football). Ihr Ergebnis steht fest
+# und zaehlt fuer die Tabelle, bewegt aber die Staerkeschaetzung nicht
+# (Issue #157). Eigene Konstante statt eines Verweises auf league_details.R,
+# damit transform_data.R ohne dieses Modul lauffaehig bleibt -- die Tests
+# sourcen es einzeln.
+STATUS_AWARDED_SIM <- c("AWD", "WO")
+
 # Rundenfilter (Negativliste) und Postcondition. Pfadunabhaengig sourcen: die
 # Datei wird aus dem Repo-Root, aus tests/testthat und aus dem Container
 # geladen. source() legt den eigenen Pfad als `ofile` in seinem Frame ab.
@@ -171,9 +178,21 @@ transform_data <- function(fixtures, teams) {
     )
   }
 
-  # set goals to NA unless game is finished
-  # (FT = full time, AET = after extra time, PEN = decided on penalties)
-  unfinished <- !df_final$fixture_status_short %in% c("FT", "AET", "PEN")
+  # Tore nur behalten, wenn das Ergebnis feststeht; sonst NA, damit die
+  # Simulation das Spiel auswuerfelt.
+  #
+  # FT/AET/PEN sind regulaer beendet. AWD/WO sind am gruenen Tisch gewertet:
+  # sportrechtlich ein Ergebnis, das fuer die Endtabelle zaehlt -- die
+  # Simulation darf es also nicht neu auswuerfeln. Dass es die
+  # Staerkeschaetzung trotzdem nicht bewegt, leistet nicht diese Funktion,
+  # sondern das Flag `elo_neutral` im Simulations-Request (Issue #157).
+  ergebnis_steht <- c("FT", "AET", "PEN", STATUS_AWARDED_SIM)
+  unfinished <- !df_final$fixture_status_short %in% ergebnis_steht
+
+  # Status vor dem select() sichern -- danach traegt df_final nur noch Tore
+  # und Teamspalten. arrange(OriginalOrder) stellt die Eingabereihenfolge
+  # wieder her, in der auch dieser Vektor steht.
+  df_final_status <- df_final$fixture_status_short[order(df_final$OriginalOrder)]
   df_final$ToreHeim[unfinished] <- NA
   df_final$ToreGast[unfinished] <- NA
 
@@ -198,6 +217,15 @@ transform_data <- function(fixtures, teams) {
     first_elo <- col_values[which(!is.na(col_values))[1]]
     df_final[[i]] <- c(first_elo, rep(NA_real_, nrow(df_final) - 1))
   }
+
+  # Welche Spiele am gruenen Tisch gewertet wurden -- als Attribut, nicht als
+  # Spalte: Die Spaltenstruktur ist Vertrag (ab Spalte 5 Teams, numberTeams =
+  # ncol - 4), eine zusaetzliche Spalte wuerde sie brechen. Das Attribut reist
+  # zeilengleich mit und wird von leagueSimulatorRust() als `elo_neutral` an
+  # die Engine gereicht: Ergebnis zaehlt fuer die Endtabelle, ELO-Walk
+  # ueberspringt es (Issue #157).
+  attr(df_final, "elo_neutral") <-
+    df_final_status %in% STATUS_AWARDED_SIM
 
   return(df_final)
 }

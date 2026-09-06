@@ -40,7 +40,7 @@ pub fn simulate_season_in_place<R: Rng + RngExt>(
             // Update ELO values
             elos[team_home] = result.new_elo_home;
             elos[team_away] = result.new_elo_away;
-        } else {
+        } else if !match_data.elo_neutral {
             // Match already played, just update ELO
             let params = EloParams {
                 elo_home: elos[team_home],
@@ -55,6 +55,9 @@ pub fn simulate_season_in_place<R: Rng + RngExt>(
             elos[team_home] = result.new_elo_home;
             elos[team_away] = result.new_elo_away;
         }
+        // elo_neutral: Die Tore bleiben stehen und zaehlen ueber
+        // calculate_table() fuer die Endtabelle -- nur der ELO-Walk
+        // ueberspringt das Spiel (Issue #157).
     }
 }
 

@@ -9,11 +9,16 @@
 #
 # - Statusgruppen (api-football `fixture$status$short`):
 #     beendet    = FT, AET, PEN
+#     gewertet   = AWD, WO  (am grünen Tisch entschieden)
 #     live       = 1H, HT, 2H, ET, BT, P, SUSP, INT, LIVE
 #     verschoben = PST, CANC, TBD, ABD
 #     offen      = alles andere (insb. NS)
-# - Ein Spieltag ist "abgeschlossen", wenn mindestens ein Spiel beendet ist,
-#   kein Spiel live ist und jedes Spiel beendet oder verschoben ist;
+#   Für Fensterung und Tabelle zählen beendete und gewertete Spiele gleich
+#   (STATUS_ERGEBNIS); nur der ELO-Walk unterscheidet sie -- siehe
+#   build_league_details_payload() und Issue #157.
+# - Ein Spieltag ist "abgeschlossen", wenn mindestens ein Spiel ein Ergebnis
+#   hat, kein Spiel live ist und jedes Spiel ein Ergebnis hat oder verschoben
+#   ist;
 #   "laufend", wenn er begonnen hat (>= 1 beendet/live) und nicht abgeschlossen
 #   ist; sonst "ausstehend".
 # - Der aktuelle Spieltag ist der HÖCHSTE begonnene (ein wieder angesetztes
@@ -45,10 +50,16 @@ if (!exists("is_regular_season_round") || !exists("assert_rounds_kept")) {
 STATUS_BEENDET <- c("FT", "AET", "PEN")
 STATUS_LIVE <- c("1H", "HT", "2H", "ET", "BT", "P", "SUSP", "INT", "LIVE")
 STATUS_VERSCHOBEN <- c("PST", "CANC", "TBD", "ABD")
-# Gewertete Spiele (Wertung/kampflos): final im Sinne des Update-Loops
-# (update_all_leagues_loop.R, Pending-Auflösung), aber weder beendet noch
-# live - die Fensterung hier behandelt sie als "offen".
+# Gewertete Spiele (Wertung am grünen Tisch / kampflos). Sportrechtlich ein
+# Ergebnis: Sie zählen für Tabelle und Fensterung wie beendete Spiele, bleiben
+# aber aus dem ELO-Walk heraus, weil sie nichts über Spielstärke sagen
+# (Issue #157). Der Ausschluss sitzt an genau einer Stelle --
+# build_league_details_payload(), siehe dort.
 STATUS_AWARDED <- c("AWD", "WO")
+
+# Spiele mit feststehendem Ergebnis: beendet oder gewertet. Das ist die
+# Statusmenge für Fensterung und Tabelle -- NICHT die für das ELO.
+STATUS_ERGEBNIS <- c(STATUS_BEENDET, STATUS_AWARDED)
 
 extract_fixture_details <- function(fixtures) {
   # api-football fixtures arrive in two shapes depending on how the caller
@@ -131,9 +142,9 @@ classify_matchday_status <- function(details) {
   rounds <- sort(unique(details$round))
   result <- vapply(rounds, function(r) {
     rows <- details[details$round == r, ]
-    any_beendet <- any(rows$status %in% STATUS_BEENDET)
+    any_beendet <- any(rows$status %in% STATUS_ERGEBNIS)
     any_live <- any(rows$status %in% STATUS_LIVE)
-    alle_beendet_oder_verschoben <- all(rows$status %in% c(STATUS_BEENDET, STATUS_VERSCHOBEN))
+    alle_beendet_oder_verschoben <- all(rows$status %in% c(STATUS_ERGEBNIS, STATUS_VERSCHOBEN))
     begonnen <- any_beendet || any_live
 
     if (any_beendet && !any_live && alle_beendet_oder_verschoben) {
@@ -178,7 +189,7 @@ rueckblick_matches <- function(details) {
     anker <- min(details$kickoff[details$round == aktuell])
   }
 
-  rows <- details[details$status %in% STATUS_BEENDET & details$kickoff >= anker, ]
+  rows <- details[details$status %in% STATUS_ERGEBNIS & details$kickoff >= anker, ]
   rows <- rows[order(rows$kickoff), ]
   rows$nachholspiel <- rows$round < anker_round
   rownames(rows) <- NULL
@@ -192,7 +203,7 @@ ausblick_matches <- function(details) {
   aktuell <- current_matchday(details)
   status <- classify_matchday_status(details)
 
-  offen_status <- !(details$status %in% c(STATUS_BEENDET, STATUS_LIVE, STATUS_VERSCHOBEN))
+  offen_status <- !(details$status %in% c(STATUS_ERGEBNIS, STATUS_LIVE, STATUS_VERSCHOBEN))
 
   if (!is.na(aktuell) && unname(status[[as.character(aktuell)]]) == "laufend" &&
       any(details$round == aktuell & offen_status)) {
@@ -226,7 +237,15 @@ live_matches <- function(details) {
 }
 
 build_league_table <- function(details, teams) {
-  finished <- details[details$status %in% STATUS_BEENDET, ]
+  # Gewertete Spiele zählen sportrechtlich und gehören in die Tabelle. Anders
+  # als bei beendeten Spielen sind die Tore hier aber nicht garantiert:
+  # api-football liefert bei einer Wertung üblicherweise 3:0, aber nicht
+  # zwingend. Ohne diesen Filter erzeugte die Summenbildung unten NA in
+  # Punkten und Toren -- eine unbrauchbare Tabelle wäre schlimmer als ein
+  # fehlendes Spiel (Issue #157).
+  finished <- details[details$status %in% STATUS_ERGEBNIS &
+                        !is.na(details$goals_home) &
+                        !is.na(details$goals_away), ]
 
   team_ids <- teams$TeamID
   spiele <- integer(length(team_ids))
@@ -285,7 +304,18 @@ build_league_details_payload <- function(details, teams, mod_factor = 20,
       stop("Unknown team ID: ", row$away_id)
     }
 
-    # Tore nur senden, wenn Status beendet UND beide Tore nicht NA sind
+    # Tore nur senden, wenn Status beendet UND beide Tore nicht NA sind.
+    #
+    # STATUS_BEENDET, nicht STATUS_ERGEBNIS -- das ist Absicht, kein
+    # vergessener Fall: Ein gewertetes Spiel zählt für Tabelle und Fensterung,
+    # darf die Stärkeschätzung aber nicht bewegen. Der Seam ist torbasiert;
+    # Rust leitet "gespielt" allein aus der Präsenz beider Tore ab. Würden die
+    # Tore hier mitgesendet, liefe das Wertungsergebnis ins ELO (Issue #157).
+    #
+    # Die Simulation (transform_data + /simulate) braucht die Tore dagegen für
+    # die Endtabelle und bekommt sie -- dort trennt das Flag `elo_neutral`
+    # zwischen Ergebnis und ELO. Hier genügt das Weglassen, weil
+    # /league-details ohnehin keine Endtabelle rechnet.
     if (row$status %in% STATUS_BEENDET && !is.na(row$goals_home) && !is.na(row$goals_away)) {
       tore_h <- row$goals_home
       tore_g <- row$goals_away

@@ -595,6 +595,15 @@ render_liga_tabelle <- function(tabelle) {
     ""
   }
 
+  # Am grünen Tisch gewertete Spiele als solche ausweisen: Das Ergebnis zählt
+  # für die Tabelle, wurde aber nicht erspielt -- und die ELO-Spalte bleibt
+  # deshalb leer (Issue #157). Ohne Hinweis sähe das wie ein Datenfehler aus.
+  wertung <- if (!is.null(row$status) && row$status %in% c("AWD", "WO")) {
+    "<span class=\"nachhol\">Wertung</span>"
+  } else {
+    ""
+  }
+
   paste0(
     "<div class=\"match\">\n",
     "<div class=\"mwhen\">", .mwhen(row$kickoff), "</div>\n",
@@ -604,6 +613,7 @@ render_liga_tabelle <- function(tabelle) {
     "<div class=\"melo\" title=\"ELO-Anpassung Heim / Gast\">",
     .melo(row$elo_delta_home), "</div>\n",
     nachhol,
+    wertung,
     "</div>\n"
   )
 }

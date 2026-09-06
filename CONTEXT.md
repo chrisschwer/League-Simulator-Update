@@ -18,6 +18,7 @@ Berechnet nach jedem Spiel Wahrscheinlichkeiten für die Endplatzierung in Bunde
 **Stale-Banner**: Hinweis auf der Seite, wenn die Prognose älter als 24 Stunden ist; clientseitig ermittelt.
 **Umzugsbanner**: Die letzte, inhaltslose App auf shinyapps.io mit Verweis auf die neue Adresse (September 2026).
 **Ligatabelle**: Die aus den Spielergebnissen berechnete aktuelle Tabelle einer Liga samt ELO und Δ ELO seit Saisonbeginn; standardmäßig nach Platz sortiert, clientseitig auch nach Punkten oder ELO sortierbar.
+**Gewertetes Spiel**: Ein am grünen Tisch entschiedenes Spiel (api-football-Status `AWD`/`WO`, etwa nach Nichtantritt). Sportrechtlich ein Ergebnis: Es zählt für **Ligatabelle** und **Prognose**-Endtabelle wie ein beendetes Spiel — bewegt aber die ELO-Wertung nicht, weil es nichts über Spielstärke aussagt ([Issue #157](https://github.com/chrisschwer/League-Simulator-Update/issues/157)). Im **Rückblick** als „Wertung" gekennzeichnet.
 **Abgeschlossener Spieltag**: Spieltag, dessen Spiele sämtlich beendet oder verschoben (api-football-Status PST/CANC/TBD) sind. Verschobene Spiele halten einen Spieltag nicht offen.
 **Laufender Spieltag**: Spieltag mit mindestens einem beendeten oder laufenden und mindestens einem offenen, nicht verschobenen Spiel.
 **Rückblick**: Sektion je Liga-Seite mit allen seit Beginn des zuletzt abgeschlossenen Spieltags beendeten Spielen — einschließlich gekennzeichneter Nachholspiele älterer Spieltage — mit ex-ante-1/X/2, Ergebnis und ELO-Anpassung beider Teams.
