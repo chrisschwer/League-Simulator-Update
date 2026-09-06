@@ -83,8 +83,11 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
   source("RCode/league_details.R")
   source("RCode/generate_static_site.R")
 
-  # Import Team Data
-  TeamList <- read.csv(TeamList_file, sep = ";")
+  # Import Team Data. load_team_list() (transform_data.R) prueft dabei die
+  # Invarianten, auf die transform_data() baut: global eindeutige Kurznamen
+  # und TeamIDs. Beide Verstoesse wuerden sonst still zu vertauschten Teams
+  # bzw. vervielfachten Spielzeilen fuehren.
+  TeamList <- load_team_list(TeamList_file)
 
   # Initialize result objects to ensure they exist
   Ergebnis <- NULL

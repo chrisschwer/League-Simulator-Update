@@ -26,6 +26,22 @@
 #   verschobenen Spiele mit Anstoß bis zum letzten offenen Spiel des Ziels
 #   (früher angesetzte Nachholspiele eingeschlossen, markiert).
 
+# Rundenfilter (Negativliste) und Postcondition -- pfadunabhaengig, siehe
+# gleichlautender Block in transform_data.R.
+if (!exists("is_regular_season_round") || !exists("assert_rounds_kept")) {
+  local({
+    d <- NULL
+    for (f in rev(sys.frames())) {
+      if (!is.null(f$ofile)) {
+        d <- dirname(f$ofile)
+        break
+      }
+    }
+    if (is.null(d) || is.na(d) || !nzchar(d)) d <- "RCode"
+    source(file.path(d, "round_filter.R"))
+  })
+}
+
 STATUS_BEENDET <- c("FT", "AET", "PEN")
 STATUS_LIVE <- c("1H", "HT", "2H", "ET", "BT", "P", "SUSP", "INT", "LIVE")
 STATUS_VERSCHOBEN <- c("PST", "CANC", "TBD", "ABD")
@@ -54,7 +70,9 @@ extract_fixture_details <- function(fixtures) {
     round_raw <- vapply(fixtures$league, function(x) x$round[[1]], character(1))
   }
 
-  keep <- startsWith(round_raw, "Regular Season")
+  keep <- is_regular_season_round(round_raw)
+  assert_rounds_kept(length(round_raw), sum(keep), round_raw,
+                     "extract_fixture_details")
   round_raw <- round_raw[keep]
   fixtures <- fixtures[keep, ]
 

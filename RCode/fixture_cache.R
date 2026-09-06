@@ -12,22 +12,23 @@
 
 FIXTURE_CACHE_DIR <- "data/fixture_cache"
 
-# Runden, die keine Hauptrunde sind. Negativliste statt Positivliste:
-# Die Regionalligen liefern ihre Spieltage als "Bayern - 34" oder "Nord - 20"
-# -- und wechseln zwischen Saisons sogar die Sprache ("Nord" vs. "North").
-# Ein Filter auf startsWith("Regular Season") wuerde jedes Regionalliga-Spiel
-# verwerfen und klaglos eine leere Liga simulieren.
-KO_ROUND_PATTERNS <- c(
-  "Relegation",
-  "Promotion",
-  "Play-?off",
-  "Final",
-  "Semi-?final",
-  "Quarter-?final",
-  "8th Finals",
-  "16th Finals",
-  "Round of"
-)
+# KO_ROUND_PATTERNS und is_regular_season_round() lagen bis Phase 0 hier. Sie
+# leben jetzt in RCode/round_filter.R, weil der Produktivpfad
+# (transform_data, extract_fixture_details) dieselbe Negativliste braucht --
+# eine zweite Kopie wuerde frueher oder spaeter auseinanderlaufen.
+if (!exists("is_regular_season_round")) {
+  local({
+    d <- NULL
+    for (f in rev(sys.frames())) {
+      if (!is.null(f$ofile)) {
+        d <- dirname(f$ofile)
+        break
+      }
+    }
+    if (is.null(d) || is.na(d) || !nzchar(d)) d <- "RCode"
+    source(file.path(d, "round_filter.R"))
+  })
+}
 
 #' Pfad der Cache-Datei fuer eine Liga-Saison-Kombination.
 cache_path <- function(league, season, cache_dir = FIXTURE_CACHE_DIR) {
@@ -79,23 +80,6 @@ cached_fixtures <- function(league, season,
   jsonlite::write_json(fixtures, path, dataframe = "columns", digits = NA)
 
   fixtures
-}
-
-#' Ist diese Runde eine Hauptrundenpartie?
-#'
-#' Negativliste (siehe KO_ROUND_PATTERNS): Alles zaehlt als Hauptrunde, was
-#' keine bekannte K.-o.-Runde ist. Das ueberlebt sowohl "Bayern - 34" als auch
-#' den Wechsel von "Nord" zu "North".
-is_regular_season_round <- function(round_label) {
-  if (length(round_label) == 0) return(logical(0))
-
-  ko <- Reduce(
-    `|`,
-    lapply(KO_ROUND_PATTERNS, function(p) grepl(p, round_label, ignore.case = TRUE)),
-    init = rep(FALSE, length(round_label))
-  )
-
-  !is.na(round_label) & nzchar(round_label) & !ko
 }
 
 #' Ist diese Runde eine Relegations- oder Aufstiegspartie?

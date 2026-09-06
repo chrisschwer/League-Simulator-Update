@@ -107,9 +107,18 @@ test_that("transform_data handles empty fixtures", {
     fixture = list()
   )
   teams <- create_test_teams_api()
-  
-  # The function doesn't handle empty fixtures properly, so expect an error
-  expect_error(transform_data(fixtures, teams))
+
+  # Bis Phase 0 des Ligen-Ausbaus stieg transform_data() hier mit einem
+  # tidyselect-Folgefehler aus; der Test hielt diesen Mangel fest ("doesn't
+  # handle empty fixtures properly, so expect an error"). Mit zehn Ligen und
+  # verschiedenen Spielkalendern ist eine Liga ohne angesetzte Spiele aber ein
+  # Normalfall -- ein Absturz waere ein echter Betriebsfehler. Erwartet wird
+  # jetzt ein leeres Geruest mit den vier Basisspalten.
+  result <- transform_data(fixtures, teams)
+
+  expect_equal(nrow(result), 0)
+  expect_true(all(c("TeamHeim", "TeamGast", "ToreHeim", "ToreGast") %in%
+                    names(result)))
 })
 
 test_that("transform_data matches ELO values correctly", {
