@@ -525,7 +525,13 @@ async fn simulate_elo_neutral_match_counts_for_table_but_not_elo() {
         ],
         "elo_values": [1500.0, 1500.0, 1500.0, 1500.0],
         "team_names": ["AAA", "BBB", "CCC", "DDD"],
-        "iterations": 2000
+        // 50_000 statt 2_000: Der echte Effekt betraegt rund 2,5
+        // Prozentpunkte, das Rauschen bei 2_000 Iterationen aber 1,5 -- die
+        // Differenz war damit nicht auflösbar, und der Test wurde
+        // gelegentlich rot (CI-Lauf 34042117880: 0,6265 vs 0,6235, Vorzeichen
+        // sogar gedreht). Bei 50_000 sinkt das Rauschen auf 0,3 Pp; fuenf
+        // Kontrolllaeufe lagen zwischen +0,020 und +0,027.
+        "iterations": 50000
     });
 
     let (status_normal, normal) = send(post_simulate_json(base.clone())).await;
@@ -539,9 +545,13 @@ async fn simulate_elo_neutral_match_counts_for_table_but_not_elo() {
     let p_first_normal = normal["probability_matrix"][0][0].as_f64().unwrap();
     let p_first_neutral = neutral["probability_matrix"][0][0].as_f64().unwrap();
 
+    // Mit Abstand statt strikter Ungleichung: Der Effekt liegt bei rund 2,5
+    // Prozentpunkten, ein Mindestabstand von 1 Pp trennt ihn sicher vom
+    // Rauschen (0,3 Pp bei dieser Iterationszahl), ohne den Test an einer
+    // exakten Zahl festzunageln.
     assert!(
-        p_first_neutral < p_first_normal,
-        "ohne ELO-Schub muss Team 1 seltener Erster werden: {} (neutral) vs {} (normal)",
+        p_first_neutral < p_first_normal - 0.01,
+        "ohne ELO-Schub muss Team 1 deutlich seltener Erster werden: {} (neutral) vs {} (normal)",
         p_first_neutral,
         p_first_normal
     );
