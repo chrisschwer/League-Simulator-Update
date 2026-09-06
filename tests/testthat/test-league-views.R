@@ -7,9 +7,12 @@ source_league_views <- function() {
   environment()$league_views
 }
 
-test_that("league_views defines exactly the three leagues", {
+test_that("league_views defines the live leagues in registry order", {
+  # Seit Phase 5a sind die beiden Frauen-Bundesligen dabei. Die Reihenfolge
+  # ist Vertrag: Sie bestimmt die Navigation und die Fetch-Reihenfolge.
   views <- source_league_views()()
-  expect_named(views, c("bundesliga", "zweite_bundesliga", "dritte_liga"))
+  expect_named(views, c("bundesliga", "zweite_bundesliga", "dritte_liga",
+                        "frauen_bundesliga", "zweite_frauen_bundesliga"))
 })
 
 test_that("Bundesliga is the canonical index page", {

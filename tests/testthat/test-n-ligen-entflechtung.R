@@ -155,19 +155,30 @@ test_that("die Fallback-Seite greift bei leerer Ergebnisliste", {
   expect_length(p_neu, 1)
 })
 
-test_that("eine fehlende Liga in der Ergebnisliste bricht ab", {
-  # Ein fehlender Schlüssel wäre sonst ein stiller Fehler: get() auf ein
-  # emptyenv() liefert einen kryptischen Fehler tief im Renderer. Die
-  # Meldung muss die fehlende Liga nennen.
+test_that("eine fehlende Liga wird uebersprungen und benannt", {
+  # Ursprünglich verlangte dieser Test einen Abbruch. Mit Phase 5a wurde das
+  # zum Zielkonflikt: scripts/preview_site.R lädt eine Fixture, die nur die
+  # drei Altligen kennt, und muss trotzdem eine Vorschau erzeugen.
+  #
+  # Entschieden (Christoph): überspringen, aber laut. Fällt im Betrieb die
+  # Simulation einer Liga aus, ist eine Seite ohne sie besser als gar keine
+  # Seite -- der stille Fehler, den der Test verhindern soll, bleibt aber
+  # ausgeschlossen, weil die übersprungene Liga in der Meldung steht.
   gen <- source_generator()
   out <- withr::local_tempdir()
 
-  err <- expect_error(gen$generate_static_site(
-    output_dir = out,
-    ergebnisse = list(bundesliga = make_ergebnis(18),
-                      zweite_bundesliga = make_ergebnis(18))
-  ))
-  expect_match(conditionMessage(err), "dritte_liga")
+  msgs <- capture_messages(
+    paths <- gen$generate_static_site(
+      output_dir = out,
+      ergebnisse = list(bundesliga = make_ergebnis(18),
+                        zweite_bundesliga = make_ergebnis(18))
+    )
+  )
+
+  expect_match(paste(msgs, collapse = " "), "dritte_liga")
+  # Die vorhandenen Ligen werden gerendert.
+  expect_true(file.exists(file.path(out, "index.html")))
+  expect_false(file.exists(file.path(out, "3-liga.html")))
 })
 
 # --- Update-Loop: n Ligen statt drei Variablen ------------------------------

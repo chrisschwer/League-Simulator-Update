@@ -25,6 +25,7 @@ suppressPackageStartupMessages({
 
 source(file.path(.gss_dir, "render_helpers.R"), local = TRUE)
 source(file.path(.gss_dir, "league_views.R"), local = TRUE)
+source(file.path(.gss_dir, "league_registry.R"), local = TRUE)
 
 BLOG_URL <- "http://30punkte.wordpress.com"
 SITE_WORDMARK <- "30 Punkte"
@@ -43,6 +44,29 @@ STALE_THRESHOLD_HOURS <- 24
   })
   names(league_items) <- NULL
   c(league_items, list(list(slug = "methodik", nav_label = "Methodik")))
+}
+
+# Die Ligen nach nav_group gebuendelt, in Registry-Reihenfolge.
+#
+# Zehn Ligen sprengen die flache "·"-Zeile. Die Gruppe steht als Label vor
+# ihrer Zeile ("Herren  Bundesliga · 2. Bundesliga · 3. Liga"), Methodik
+# bleibt eigenstaendig -- sie ist keine Liga.
+.nav_groups <- function() {
+  reg <- league_registry()
+  views <- league_views()
+
+  gruppen <- list()
+  for (key in names(views)) {
+    grp <- reg[[key]]$nav_group
+    if (is.null(grp)) grp <- ""
+    eintrag <- list(slug = views[[key]]$slug, nav_label = views[[key]]$nav_label)
+    if (is.null(gruppen[[grp]])) {
+      gruppen[[grp]] <- list(group = grp, items = list(eintrag))
+    } else {
+      gruppen[[grp]]$items <- c(gruppen[[grp]]$items, list(eintrag))
+    }
+  }
+  unname(gruppen)
 }
 
 footer_timestamp <- function(mtime) {
@@ -108,8 +132,29 @@ render_heatmap <- function(result) {
   )
 }
 
+# Loest Panel-Grenzen gegen die tatsaechliche Ligagroesse auf.
+#
+# Positive Werte sind absolute Plaetze und bleiben, wie sie sind. NEGATIVE
+# zaehlen von unten: -1 ist der letzte Platz, -2 der vorletzte. Damit
+# beschreibt ein Abstiegspanel "die letzten beiden" unabhaengig davon, ob die
+# Liga 12, 14 oder 20 Teams hat -- die Frauen-Bundesliga ist 2025 von 12 auf
+# 14 gewachsen, feste Indizes waeren stillschweigend falsch geworden.
+#
+# ACHTUNG: Die Aufloesung MUSS vor jeder Indizierung passieren. R liest
+# negative Indizes als AUSSCHLUSS -- `data[, c(-2, -1)]` liefert alle Spalten
+# AUSSER den ersten beiden. Das Panel rendert dann klaglos und zeigt die
+# Summe der falschen Spalten (86 % statt 14 % bei 14 gleichverteilten
+# Plaetzen).
+.resolve_bounds <- function(bounds, n) {
+  ifelse(bounds < 0, n + 1 + bounds, bounds)
+}
+
 render_panel_table <- function(data_obj, panel) {
-  keep <- rowSums(data_obj[, panel$filter_cols, drop = FALSE]) >= 0.01
+  n <- ncol(data_obj)
+  filter_cols <- .resolve_bounds(panel$filter_cols, n)
+  groups <- .resolve_bounds(panel$groups, n)
+
+  keep <- rowSums(data_obj[, filter_cols, drop = FALSE]) >= 0.01
   subset_obj <- data_obj[keep, , drop = FALSE]
 
   if (nrow(subset_obj) == 0) {
@@ -118,7 +163,7 @@ render_panel_table <- function(data_obj, panel) {
 
   grouped <- groupResultsDF(subset_obj,
                             labels = panel$labels,
-                            groups = panel$groups)
+                            groups = groups)
   formatted <- apply(grouped, c(1, 2), prozent)
 
   # apply() drops to a vector when there is a single label column; restore shape.
@@ -148,7 +193,7 @@ render_panel_table <- function(data_obj, panel) {
 }
 
 .nav_html <- function(current_slug) {
-  items <- vapply(.nav_items(), function(v) {
+  link <- function(v) {
     label <- htmltools::htmlEscape(v$nav_label)
     href <- paste0(v$slug, ".html")
     if (identical(v$slug, current_slug)) {
@@ -157,9 +202,26 @@ render_panel_table <- function(data_obj, panel) {
     } else {
       paste0("<a href=\"", href, "\">", label, "</a>")
     }
+  }
+
+  zeilen <- vapply(.nav_groups(), function(g) {
+    links <- vapply(g$items, link, character(1))
+    paste0(
+      "<div class=\"nav-row\"><span class=\"nav-group\">",
+      htmltools::htmlEscape(g$group), "</span>",
+      paste(links, collapse = "<span class=\"sep\">·</span>"),
+      "</div>"
+    )
   }, character(1))
-  paste0("<nav aria-label=\"Ligen\">",
-        paste(items, collapse = "<span class=\"sep\">·</span>"), "</nav>")
+
+  methodik <- paste0(
+    "<div class=\"nav-row\"><span class=\"nav-group\"></span>",
+    link(list(slug = "methodik", nav_label = "Methodik")),
+    "</div>"
+  )
+
+  paste0("<nav aria-label=\"Ligen\">", paste(zeilen, collapse = ""),
+         methodik, "</nav>")
 }
 
 # The stale banner is decided in the browser, not at render time: a static page
@@ -412,8 +474,13 @@ render_league_page <- function(view, data_env, output_dir,
 )
 
 .ergebnis_objektname <- function(key) {
-  bekannt <- .ERGEBNIS_OBJEKTNAMEN[[key]]
-  if (is.null(bekannt)) paste0("Ergebnis_", key) else bekannt
+  # `[[` auf einem benannten Vektor wirft bei unbekanntem Schluessel, statt
+  # NULL zu liefern -- deshalb der Mitgliedschaftstest.
+  if (key %in% names(.ERGEBNIS_OBJEKTNAMEN)) {
+    unname(.ERGEBNIS_OBJEKTNAMEN[[key]])
+  } else {
+    paste0("Ergebnis_", key)
+  }
 }
 
 generate_static_site <- function(Ergebnis = NULL, Ergebnis2 = NULL,
@@ -445,16 +512,32 @@ generate_static_site <- function(Ergebnis = NULL, Ergebnis2 = NULL,
 
   views <- league_views()
 
-  # Jede gerenderte Liga braucht ihre Ergebnisse. Fehlen sie, scheitert sonst
-  # erst tief im Renderer ein get() gegen ein leeres Environment -- mit einer
-  # Meldung, die die Liga nicht nennt.
-  fehlend <- setdiff(names(views), names(vorhanden))
-  if (length(fehlend) > 0) {
-    stop(sprintf(
-      "generate_static_site: Ergebnisse fehlen fuer: %s",
-      paste(fehlend, collapse = ", ")
-    ), call. = FALSE)
+  # Nur Ligen rendern, fuer die Ergebnisse vorliegen. Der Kompatibilitaetspfad
+  # (scripts/preview_site.R, aeltere Fixtures) kennt nur die drei Altligen --
+  # er soll die Vorschau weiterhin erzeugen, nicht abbrechen.
+  #
+  # Ein Abbruch bliebe falsch: Faellt im Betrieb die Simulation einer Liga
+  # aus, ist eine Seite ohne sie besser als gar keine Seite.
+  renderbar <- names(views)[vapply(names(views), function(key) {
+    quellen <- unique(c(views[[key]]$plot_source,
+                        views[[key]]$top$source,
+                        views[[key]]$bottom$source))
+    all(quellen %in% vapply(names(vorhanden), .ergebnis_objektname, character(1)))
+  }, logical(1))]
+
+  if (length(renderbar) == 0) {
+    message("generate_static_site: no simulation data, writing fallback page")
+    return(invisible(.render_fallback_page(output_dir)))
   }
+
+  uebersprungen <- setdiff(names(views), renderbar)
+  if (length(uebersprungen) > 0) {
+    message(sprintf(
+      "generate_static_site: ohne Ergebnisse, uebersprungen: %s",
+      paste(uebersprungen, collapse = ", ")
+    ))
+  }
+  views <- views[renderbar]
 
   # data_env traegt die Ergebnisse unter den Namen, die league_views() in
   # plot_source/top$source/bottom$source erwartet. Die namensbasierte

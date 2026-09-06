@@ -189,16 +189,23 @@ test_that("pages carry the 30-Punkte masthead and identity", {
   expect_true(grepl("30punkte.wordpress.com", html, fixed = TRUE))
 })
 
-test_that("every page links all three leagues and the Methodik page", {
+test_that("every page links all leagues and the Methodik page", {
   gen <- source_generator()
   out <- withr::local_tempdir()
   env <- make_data_env()
   now <- as.POSIXct("2026-07-26 14:30:00", tz = "Europe/Berlin")
 
-  for (view in gen$league_views()) {
+  # make_data_env() liefert nur die drei Altligen; seit Phase 5a kennt
+  # league_views() auch die Frauen-Ligen. Gerendert wird, wofuer Daten da
+  # sind -- die Aussage des Tests (jede Seite verlinkt alle anderen) gilt
+  # unabhaengig davon, weil die Navigation aus league_views() kommt.
+  altligen <- c("bundesliga", "zweite_bundesliga", "dritte_liga")
+  for (view in gen$league_views()[altligen]) {
     path <- gen$render_league_page(view, env, out, now = now)
     html <- read_html(path)
-    for (f in c("index.html", "2-bundesliga.html", "3-liga.html", "methodik.html")) {
+    for (f in c("index.html", "2-bundesliga.html", "3-liga.html",
+                "frauen-bundesliga.html", "2-frauen-bundesliga.html",
+                "methodik.html")) {
       expect_true(grepl(f, html, fixed = TRUE), info = paste(view$slug, f))
     }
     expect_true(grepl('aria-current="page"', html, fixed = TRUE), info = view$slug)
