@@ -276,12 +276,16 @@ test_that("preview_site laeuft mit einer Fixture, die nur die Altligen kennt", {
   # test-season-transition-cleanup-wrapper.R.
   project_root <- normalizePath(file.path(testthat::test_path(), "..", ".."))
   skript <- file.path(project_root, "scripts", "preview_site.R")
+  fixture <- file.path(project_root, "ShinyApp", "data", "Ergebnis.Rds")
   skip_if_not(file.exists(skript))
+  # Das Produktions-Image mountet nur tests/, scripts/ und die Paketliste --
+  # ShinyApp/ ist dort nicht vorhanden.
+  skip_if_not(file.exists(fixture), "Fixture ausserhalb des Container-Mounts")
 
   out <- withr::local_tempdir()
   p <- processx::run(
     "Rscript",
-    args = c(skript, file.path(project_root, "ShinyApp", "data", "Ergebnis.Rds"), out),
+    args = c(skript, fixture, out),
     error_on_status = FALSE
   )
 
