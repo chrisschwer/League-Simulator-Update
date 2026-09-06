@@ -185,7 +185,8 @@ test_that("league_views wird aus der Registry abgeleitet", {
   source(test_path("..", "..", "RCode", "league_views.R"), local = env)
   views <- env$league_views()
 
-  expect_named(views, c("bundesliga", "zweite_bundesliga", "dritte_liga"))
+  expect_named(views, c("bundesliga", "zweite_bundesliga", "dritte_liga",
+                        "frauen_bundesliga", "zweite_frauen_bundesliga"))
   expect_equal(views$bundesliga$slug, "index")
   expect_equal(views$dritte_liga$teams, 20)
 })
