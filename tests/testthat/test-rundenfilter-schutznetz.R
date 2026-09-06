@@ -77,10 +77,13 @@ rl_fixtures_flach <- function(rounds) {
 
   heim <- rep(c(201, 203), length.out = n)
   gast <- rep(c(202, 204), length.out = n)
+  # paste() auf einem leeren Vektor liefert Laenge 1 ("Team "), nicht 0 --
+  # data.frame() wuerde dann "unterschiedliche Anzahl Zeilen" melden.
+  namen <- function(ids) if (length(ids) == 0) character(0) else paste("Team", ids)
   teams <- data.frame(platzhalter = seq_len(n))
-  teams$home <- data.frame(id = heim, name = paste("Team", heim),
+  teams$home <- data.frame(id = heim, name = namen(heim),
                            winner = rep(TRUE, n))
-  teams$away <- data.frame(id = gast, name = paste("Team", gast),
+  teams$away <- data.frame(id = gast, name = namen(gast),
                            winner = rep(FALSE, n))
   teams$platzhalter <- NULL
   fx$teams <- teams
