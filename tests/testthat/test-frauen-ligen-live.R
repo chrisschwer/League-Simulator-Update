@@ -110,30 +110,64 @@ test_that("league_views enthaelt die beiden Frauen-Ligen", {
   expect_length(views, 5)
 })
 
+# Die folgenden Tests pruefen die GERENDERTE TABELLE, nicht die Konfiguration.
+#
+# Eine Zusicherung wie `expect_equal(v$bottom$groups, cbind(c(-2,-1)))` waere
+# wertlos: Sie besteht, sobald die Zeichen "-2, -1" irgendwo stehen -- auch
+# wenn die Aufloesung gar nicht existiert oder falsch rechnet. Sie pinnt eine
+# Schreibweise, kein Verhalten.
+#
+# Gemessen wird deshalb an gleichverteilten Prognosen, wo jeder Platz
+# 1/n traegt und die erwarteten Prozentwerte exakt bekannt sind.
+
 test_that("die Frauen-Bundesliga zeigt Meister und CL-Qualifikation", {
-  # Sie ist die oberste Liga ihrer Wechselgemeinschaft -- kein Aufstieg,
-  # aber europaeische Plaetze: "Der Meister erreicht direkt die Ligaphase der
-  # Champions League. Vizemeister und Drittplatzierter erreichen die
-  # Qualifikation." Zwei Gruppen, weil sich die Konsequenz unterscheidet.
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "league_views.R"), local = env)
-  v <- env$league_views()$frauen_bundesliga
+  # "Der Meister erreicht direkt die Ligaphase der Champions League.
+  # Vizemeister und Drittplatzierter erreichen die Qualifikation."
+  # Zwei Gruppen, weil sich die Konsequenz unterscheidet.
+  gen <- source_generator()
+  v <- gen$league_views()$frauen_bundesliga
 
   expect_equal(v$slug, "frauen-bundesliga")
   expect_equal(v$top$labels, c("Meister", "Champions League Quali"))
-  expect_equal(v$top$groups, cbind(c(1, 1), c(2, 3)))
-  expect_equal(v$top$filter_cols, 1:3)
+
+  # Bei 14 gleichverteilten Teams: Platz 1 = 7 %, Plaetze 2-3 = 14 %.
+  html <- gen$render_panel_table(mk_ergebnis(14), v$top)
+  expect_match(html, "Meister")
+  expect_match(html, "Champions League Quali")
+  expect_match(html, "<td>7</td><td>14</td>")
 })
 
 test_that("die Frauen-Bundesliga hat zwei Abstiegsplaetze", {
-  # "Die letzten zwei Teams steigen ab" -- von unten gezaehlt, weil die Liga
-  # 2025 von 12 auf 14 Teams gewachsen ist.
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "league_views.R"), local = env)
-  v <- env$league_views()$frauen_bundesliga
+  # "Die letzten zwei Teams steigen ab" -- und zwar die letzten, egal ob die
+  # Liga 12 oder 14 Teams hat. 2025 ist sie gewachsen.
+  gen <- source_generator()
+  v <- gen$league_views()$frauen_bundesliga
 
   expect_equal(v$bottom$labels, "Abstieg")
-  expect_equal(v$bottom$groups, cbind(c(-2, -1)))
+
+  # 2/14 = 14 %, 2/12 = 17 %. Waere die Aufloesung kaputt (R liest negative
+  # Indizes als Ausschluss), stuenden hier 86 % bzw. 83 %.
+  expect_match(gen$render_panel_table(mk_ergebnis(14), v$bottom), "<td>14</td>")
+  expect_match(gen$render_panel_table(mk_ergebnis(12), v$bottom), "<td>17</td>")
+})
+
+test_that("das Abstiegspanel trifft wirklich die letzten Plaetze", {
+  # Schaerfster Test der Aufloesung: eine Prognose, in der ein Team sicher
+  # Letzter wird. Nur wenn -2:-1 auf die Plaetze 13-14 zeigt, steht dort
+  # 100 % -- zeigte es auf 1-12, waere es 0 %.
+  gen <- source_generator()
+  v <- gen$league_views()$frauen_bundesliga
+
+  m <- matrix(0, nrow = 14, ncol = 14,
+              dimnames = list(paste0("T", 1:14), as.character(1:14)))
+  m[1, 14] <- 1      # T1 wird sicher Letzter
+  m[2, 1] <- 1       # T2 wird sicher Meister
+  for (i in 3:14) m[i, i - 1] <- 1
+
+  html <- gen$render_panel_table(as.table(m), v$bottom)
+
+  expect_match(html, "T1")
+  expect_no_match(html, "T2")   # der Meister taucht im Abstiegspanel nicht auf
 })
 
 test_that("die 2. Frauen-Bundesliga hat drei Abstiegsplaetze", {
