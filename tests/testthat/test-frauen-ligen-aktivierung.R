@@ -94,6 +94,31 @@ test_that("die Fenstergrenzen stehen nur in den Konstanten", {
   expect_length(konstanten, 2)
 })
 
+test_that("DURATION deckelt das Fenster nicht", {
+  # Die eigentliche Falle: Fenster und DURATION sind zwei Groessen, und die
+  # kleinere gewinnt. Stuende DURATION weiterhin auf den alten 480 Minuten,
+  # hoerte der Scheduler um 19:00 auf -- das Fenster waere nicht verlaengert,
+  # sondern VERSCHOBEN, und die Abendspiele der Altligen fielen aus.
+  #
+  # Der Default folgt deshalb der Fensterlaenge, statt eine eigene Zahl zu
+  # sein. Geprueft wird die WIRKSAME Laufzeit, nicht nur die Konstante.
+  withr::local_envvar(c(DURATION = ""))
+  env <- source_scheduler()
+
+  fenster <- env$SCHEDULE_END_MINUTES - env$SCHEDULE_START_MINUTES
+  expect_equal(env$DURATION, fenster)
+  expect_equal(min(fenster, env$DURATION), fenster)
+})
+
+test_that("ein gesetztes DURATION begrenzt weiterhin", {
+  # Der Deckel bleibt als Betriebsmittel erhalten -- etwa fuer kurze
+  # Testlaeufe im Container.
+  withr::local_envvar(c(DURATION = "60"))
+  env <- source_scheduler()
+
+  expect_equal(env$DURATION, 60)
+})
+
 test_that("calculate_loops rechnet mit dem neuen Fenster", {
   env <- source_scheduler()
 

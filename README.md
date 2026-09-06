@@ -6,7 +6,7 @@ Live site: <https://fussball.csdatascience.de>
 
 ## What it does
 
-- Pulls match results from [api-football](https://rapidapi.com/api-sports/api/api-football) every two minutes between 14:45 and 22:45 Berlin time.
+- Pulls match results from [api-football](https://rapidapi.com/api-sports/api/api-football) every two minutes between 11:00 and 23:00 Berlin time.
 - Runs 10,000 Monte Carlo simulations through the rest of the season for each league after each match-day update.
 - Produces a probability matrix per league (each team × each final position) and renders it to four static HTML pages (see `docs/deployment/static-site.md`).
 - Re-runs ELO updates after every match.

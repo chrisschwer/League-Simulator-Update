@@ -7,13 +7,13 @@ The League Simulator runs as a single Docker container that combines the Rust si
 - **`Dockerfile`** — multi-stage build: Rust 1.81 (alpine) compiles the simulation binary in stage 1; `rocker/r-ver:4.3.1` runs the R scheduler in stage 2.
 - **`docker-compose.yml`** — single service `scheduler` (container `fussball-scheduler`). The Rust API stays container-internal; the generated static site is written to the external named volume `fussball-site`.
 - **`docker-start.sh`** — container entrypoint. Starts the Rust server on `localhost:8080`, waits for it to be healthy, then runs `Rscript RCode/updateScheduler.R` with retry logic.
-- **`RCode/updateScheduler.R`** — the R scheduler. Wakes at 14:45 Berlin time, polls api-football, calls the in-process Rust server when new fixtures arrive, renders the static site (see [`static-site.md`](static-site.md)).
+- **`RCode/updateScheduler.R`** — the R scheduler. Wakes at 11:00 Berlin time, polls api-football, calls the in-process Rust server when new fixtures arrive, renders the static site (see [`static-site.md`](static-site.md)).
 
 ## Schedule
 
-- **Active hours:** 14:45 – 22:45 Berlin time (`updateScheduler.R` enforces both bounds).
+- **Active hours:** 11:00 – 23:00 Berlin time (`updateScheduler.R` enforces both bounds; the 11:00 start covers the 2. Frauen-Bundesliga, which kicks off from 11:00).
 - **Loop frequency:** every 2 minutes inside the active window (Rust engine is fast enough to allow this).
-- **Outside the window:** the scheduler sleeps until the next 14:45.
+- **Outside the window:** the scheduler sleeps until the next 11:00.
 
 ## Required environment variables
 
@@ -21,9 +21,9 @@ The League Simulator runs as a single Docker container that combines the Rust si
 |---|---|---|---|
 | `RAPIDAPI_KEY` | yes | — | api-football access via RapidAPI |
 | `SEASON` | no | auto-detect | Season year (e.g., `2026`); auto-detects from current month if unset |
-| `DURATION` | no | `480` | Cap on scheduler runtime in minutes |
+| `DURATION` | no | window length (720) | Cap on scheduler runtime in minutes. Leave unset — a fixed value silently truncates the window when its bounds move. |
 | `RUST_API_URL` | no | `http://localhost:8080` | Rust server endpoint inside the container |
-| `TZ` | no | `Europe/Berlin` | Container timezone (load-bearing for the 14:45–22:45 window) |
+| `TZ` | no | `Europe/Berlin` | Container timezone (load-bearing for the 11:00–23:00 window) |
 | `STATIC_SITE_DIR` | no | `ShinyApp/public` | Output directory for the generated static site |
 
 A ready-to-copy template with all variables lives at [`.env.example`](../../.env.example): `cp .env.example .env`, then fill in `RAPIDAPI_KEY`. `.env` itself is gitignored.

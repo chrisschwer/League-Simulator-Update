@@ -44,7 +44,7 @@ docker-compose exec scheduler curl -f http://localhost:8080/health
 docker-compose logs -f scheduler
 ```
 
-The R scheduler wakes at 14:45 Berlin time, polls api-football every 2 minutes through 22:45, calls the in-process Rust server when new fixtures arrive, then renders the static site into the `fussball-site` volume.
+The R scheduler wakes at 11:00 Berlin time, polls api-football every 2 minutes through 23:00, calls the in-process Rust server when new fixtures arrive, then renders the static site into the `fussball-site` volume.
 
 ## Common operations
 

@@ -57,9 +57,11 @@ The heart of the system, built as a Rust REST server (`league-simulator-rust/`) 
 Automated scheduling system for regular updates.
 
 **Schedule:**
-- Active hours: 14:45 - 23:00 Berlin time
-- Update times: 15:00, 15:30, 16:00, 17:30, 18:00, 21:00, 23:00
-- Sleep period: 3 hours after last update
+- Active hours: 11:00 - 23:00 Berlin time
+- Polling: every two minutes; a cheap live poll gates the expensive full
+  fetch, so idle loops cost one request (see `update_all_leagues_loop.R`).
+  The fixed update times listed here previously were retired with that gating.
+- Outside the window the scheduler sleeps until the next 11:00 (12 hours)
 
 **Features:**
 - Timezone-aware scheduling

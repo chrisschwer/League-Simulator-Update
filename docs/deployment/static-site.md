@@ -115,7 +115,7 @@ curl -sI https://fussball.example.org/              # 200, Cache-Control: no-cac
 curl -s  https://fussball.example.org/ | grep -c Saisonprognose
 ```
 
-Check the logs for the first loop at 14:45 **MESZ/MEZ** — `TZ=Europe/Berlin`
+Check the logs for the first loop at 11:00 **MESZ/MEZ** — `TZ=Europe/Berlin`
 is load-bearing for the scheduler's wall-clock window.
 
 ## Generating manually

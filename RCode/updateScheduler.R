@@ -23,7 +23,18 @@ SCHEDULE_END_MINUTES <- 23 * 60
 # Load configuration from environment
 
 RAPIDAPI_KEY <- Sys.getenv("RAPIDAPI_KEY")
-DURATION <- as.numeric(Sys.getenv("DURATION", "480"))
+# Obergrenze der Laufzeit je Scheduler-Lauf. Der Default ist die volle
+# Fensterlaenge -- eine feste Zahl waere eine zweite Quelle, die beim
+# Verschieben des Fensters stillschweigend zur Bremse wird: Stuende hier
+# weiterhin 480, hoerte der Scheduler um 19:00 auf und verpasste die
+# Abendspiele.
+# Eine gesetzte, aber LEERE Variable liefert "" statt des Defaults -- genau
+# so uebergibt docker-compose sie, wenn der Operator nichts angibt.
+SCHEDULE_WINDOW_MINUTES <- SCHEDULE_END_MINUTES - SCHEDULE_START_MINUTES
+DURATION <- local({
+  gesetzt <- Sys.getenv("DURATION")
+  if (nzchar(gesetzt)) as.numeric(gesetzt) else SCHEDULE_WINDOW_MINUTES
+})
 SEASON <- Sys.getenv("SEASON", format(Sys.Date(), "%Y"))
 RUST_API_URL <- Sys.getenv("RUST_API_URL", "http://localhost:8080")
 

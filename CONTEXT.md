@@ -11,7 +11,7 @@ Berechnet nach jedem Spiel Wahrscheinlichkeiten für die Endplatzierung in Bunde
 **TeamList**: Die Saisondatei `RCode/TeamList_<Jahr>.csv` mit Team-IDs, Kurznamen, Aufstiegs-Flag und Start-ELO.
 **Kurzname** (`ShortText`): Das Kürzel eines Teams; wird in `transform_data()` zum **Spaltennamen** des Simulations-Data-Frames. Muss deshalb innerhalb einer **Wechselgemeinschaft** eindeutig sein — dort wechseln Teams die Liga. Über die Grenze hinweg ist Gleichheit erlaubt und erwünscht: Die Frauenmannschaft eines Vereins trägt dasselbe Kürzel wie die Herrenmannschaft (SGE, HSV, SCF, RBL, …), weil beide nie in derselben Simulation und nie auf derselben Seite stehen. _Avoid_: global eindeutig
 **Saisonwechsel**: Einmal jährlich (Juli) auf dem Entwicklerrechner ausgeführter Vorgang, der die neue TeamList erzeugt und committet. _Avoid_: Migration
-**Scheduler**: Der Dauerprozess, der täglich 14:45–22:45 (Berlin) alle zwei Minuten Ergebnisse holt, bei Bedarf simuliert und die statische Seite rendert.
+**Scheduler**: Der Dauerprozess, der täglich 11:00–23:00 (Berlin) alle zwei Minuten Ergebnisse holt, bei Bedarf simuliert und die statische Seite rendert. Der frühe Start deckt die Vormittagsspiele der 2. Frauen-Bundesliga ab (Anstoß ab 11:00).
 **Live-Poll**: Die billige Einzelanfrage nach laufenden Spielen aller drei Ligen, die der Scheduler fast jeden Loop stellt.
 **Vollabruf**: Der teure Abruf aller Saisonspiele einer Liga; nur nach Spielende oder alle 30 Loops.
 **Statische Seite**: Die vom Scheduler gerenderten HTML-Seiten (drei Liga-Seiten und die Methodik-Seite; bis zum Relaunch 2026: drei Seiten samt PNG-Heatmaps). _Avoid_: Shiny-App, Dashboard (historisch)

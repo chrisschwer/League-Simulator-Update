@@ -12,7 +12,10 @@ services:
     environment:
       - RAPIDAPI_KEY=${RAPIDAPI_KEY}
       - SEASON=${SEASON}
-      - DURATION=${DURATION:-480}
+      # Leer lassen: Der Scheduler nimmt dann die volle Fensterlaenge
+      # (RCode/updateScheduler.R). Ein fester Wert hier wuerde beim
+      # Verschieben des Fensters stillschweigend zur Bremse.
+      - DURATION=${DURATION:-}
       - RUST_API_URL=http://localhost:8080
       - TZ=Europe/Berlin
       - STATIC_SITE_DIR=/app/ShinyApp/public
