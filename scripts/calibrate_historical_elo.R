@@ -250,8 +250,21 @@ cat("dafuer braeuchte. Bewusst nicht nachjustiert -- siehe docs/reports/.\n")
 
 regions <- derive_club_regions(2019:2025, refresh = FALSE)
 
+# Die 3. Liga dient als Anker; ihre Teams stehen bereits in der TeamList.
+# ABER: Wer sie verlaesst, steht dort in der falschen Liga -- und wer sie
+# durchgehend bespielt hat, taucht in keiner anderen Liga auf und faellt
+# unten aus `last_league` heraus. Beides betrifft genau die Absteiger.
+#
+# Ohne diese Ausnahme fehlten in der Saison 2026 Erzgebirge Aue (-> RL
+# Nordost) und TSV 1860 Muenchen (-> RL Bayern) vollstaendig; Schweinfurt
+# und Ulm kamen nur durch, weil sie im Betrachtungszeitraum ZUSAETZLICH in
+# einer Regionalliga gespielt hatten.
+#
+# Ihr Walk-Endwert wird unveraendert uebernommen: Sie stehen bereits auf der
+# Drittliga-Skala, an die der RL-Block geankert wurde (ADR 0003). Eine
+# Staffelverschiebung waere hier falsch.
 records <- do.call(rbind, lapply(names(walked), function(lid) {
-  if (lid == "80") return(NULL)   # 3. Liga steht schon in der TeamList
+  if (lid == "80") return(NULL)   # ueber liga3_leavers unten behandelt
   e <- walked[[lid]]
   data.frame(
     TeamID = as.integer(names(e)),
@@ -264,7 +277,7 @@ records <- do.call(rbind, lapply(names(walked), function(lid) {
 # Betrachtungszeitraums, etwa zwischen den beiden Frauen-Ligen). Es gehoert
 # genau einmal in die TeamList -- und zwar in die Liga, in der es zuletzt
 # gespielt hat.
-last_league <- do.call(rbind, lapply(setdiff(names(walked), "80"), function(lid) {
+last_league <- do.call(rbind, lapply(setdiff(names(walked), "80"), function(lid) {  # nolint
   seen <- integer(0)
   for (s in SEASONS[[lid]]) {
     m <- load_season_matches(lid, s, refresh = FALSE)
@@ -288,6 +301,32 @@ last_league <- last_league[!duplicated(last_league$TeamID), c("TeamID", "League"
 records <- records[!duplicated(records[, c("TeamID", "League")]), ]
 records <- merge(records[, c("TeamID", "InitialELO", "League")],
                  last_league, by = c("TeamID", "League"))
+
+# Absteiger aus der 3. Liga nachtragen: Teams, die zuletzt dort spielten,
+# in der Zielsaison aber in einer der neuen Ligen stehen. Sie fehlen oben,
+# weil `last_league` die 3. Liga ausklammert.
+liga3_final <- walked[["80"]]
+if (!is.null(liga3_final)) {
+  ziel_ligen <- setdiff(names(SEASONS), "80")
+  leavers <- do.call(rbind, lapply(ziel_ligen, function(lid) {
+    m <- load_season_matches(lid, target_season, refresh = FALSE)
+    if (is.null(m)) return(NULL)
+    ids <- unique(c(m$teams_home_id, m$teams_away_id))
+    treffer <- ids[as.character(ids) %in% names(liga3_final) &
+                     !(ids %in% records$TeamID)]
+    if (length(treffer) == 0) return(NULL)
+    data.frame(
+      TeamID = as.integer(treffer),
+      InitialELO = as.numeric(liga3_final[as.character(treffer)]),
+      League = lid,
+      stringsAsFactors = FALSE
+    )
+  }))
+  if (!is.null(leavers) && nrow(leavers) > 0) {
+    cat(sprintf("\nAbsteiger aus der 3. Liga nachgetragen: %d\n", nrow(leavers)))
+    records <- rbind(records, leavers)
+  }
+}
 
 records <- merge(records, regions, by = "TeamID", all.x = TRUE)
 records$Region[is.na(records$Region)] <- ""

@@ -119,7 +119,9 @@ test_that("load_team_list akzeptiert die echte TeamList_2026", {
 
   teams <- load_team_list(pfad)
 
-  expect_equal(nrow(teams), 237)
+  # 237 aus der Kalibrierung + 10 fuer die Saison 2026 nachgetragene Teams
+  # (zwei Drittliga-Absteiger, acht Aufsteiger aus Oberligen).
+  expect_equal(nrow(teams), 247)
   expect_false(any(duplicated(teams$TeamID)))
 
   # Eindeutig je Wechselgemeinschaft, nicht global: 14 Kürzel teilen sich
