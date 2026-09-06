@@ -109,7 +109,8 @@ test_that("die Zuordnung traegt die echte 3. Liga", {
   # Teams ohne Region tragen NA, nicht 0.
   expect_equal(sum(is.na(idx)), sum(liga3$Region == ""))
   # Die zugeordneten Indizes liegen im gueltigen Bereich.
-  expect_true(all(idx[!is.na(idx)] %in% seq_along(env$STAFFELN) - 1L))
+  # Klammern noetig: %in% bindet staerker als das Minus.
+  expect_true(all(idx[!is.na(idx)] %in% (seq_along(env$STAFFELN) - 1L)))
 })
 
 test_that("Engine-Antwort und Staffelnamen passen zusammen", {
