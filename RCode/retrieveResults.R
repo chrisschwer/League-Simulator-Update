@@ -87,7 +87,19 @@ retrieveResults <- function(league = "78", season = "2022") {
 #' @return Integer vector of live fixture IDs (integer(0) if none are live),
 #'   or NULL if the request failed - callers must treat NULL as "unknown"
 #'   and fall back to a full fetch.
-retrieveLiveFixtures <- function(league_ids = league_ids()) {
+#' @param league_ids Ligen, die der Live-Poll abdeckt. NULL (Default) nimmt
+#'   die aktiven Ligen aus der Registry.
+#'
+#'   Der Default ist bewusst NULL und wird erst im Rumpf aufgeloest: Stuende
+#'   hier `league_ids = league_ids()`, suchte R den Namen im Funktions-Scope,
+#'   fande dort das ARGUMENT und riefe es rekursiv auf --
+#'   "promise already under evaluation". Der Fehler traefe nur den
+#'   parameterlosen Aufruf, also genau den Produktivpfad.
+retrieveLiveFixtures <- function(league_ids = NULL) {
+  if (is.null(league_ids)) {
+    # get() umgeht die Verdeckung durch das gleichnamige Argument.
+    league_ids <- get("league_ids", mode = "function")()
+  }
   require(httr)
   require(jsonlite)
 

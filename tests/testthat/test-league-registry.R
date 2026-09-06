@@ -1,4 +1,5 @@
 library(testthat)
+library(mockery)
 
 # Phase 1 des Ligen-Ausbaus: eine zentrale Liga-Registry ersetzt die
 # verstreuten Liga-Literale.
@@ -267,14 +268,44 @@ test_that("get_league_name liefert die Namen aller zehn Ligen", {
 
 test_that("retrieveLiveFixtures pollt die aktiven Ligen", {
   # Der Live-Poll deckt alle Ligen mit EINEM Request ab (API-Syntax
-  # "78-79-80"). Die Ligamenge kam bisher aus einem Default-Argument, das
-  # unabhaengig von der Fetch-Liste im Update-Loop gepflegt wurde -- zwei
-  # Quellen, die auseinanderlaufen koennen.
+  # "78-79-80"). Die Ligamenge kommt aus der Registry, nicht aus einer
+  # zweiten Liste, die unabhaengig gepflegt wird.
+  #
+  # Geprueft wird der PARAMETERLOSE Aufruf -- so ruft der Produktivpfad die
+  # Funktion auf (update_all_leagues_loop.R). Eine frühere Fassung dieses
+  # Tests las stattdessen das Default-Argument aus. Damit blieb unbemerkt,
+  # dass `league_ids = league_ids()` sich im Funktions-Scope selbst findet
+  # und rekursiv aufruft: Der Scheduler stuerzte ab Loop 2 reproduzierbar ab,
+  # waehrend der Test gruen blieb.
   env <- new.env()
+  source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
   source(test_path("..", "..", "RCode", "retrieveResults.R"), local = env)
 
-  expect_equal(formals(env$retrieveLiveFixtures)$league_ids |> eval(),
-               c("78", "79", "80", "82", "1034"))
+  gesehen <- NULL
+  mockery::stub(env$retrieveLiveFixtures, "VERB", function(verb, url, ..., query) {
+    gesehen <<- query$live
+    stop("abbruch nach payload-erfassung")
+  })
+
+  try(env$retrieveLiveFixtures(), silent = TRUE)
+
+  expect_equal(gesehen, "78-79-80-82-1034")
+})
+
+test_that("retrieveLiveFixtures nimmt eine explizite Ligamenge", {
+  env <- new.env()
+  source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
+  source(test_path("..", "..", "RCode", "retrieveResults.R"), local = env)
+
+  gesehen <- NULL
+  mockery::stub(env$retrieveLiveFixtures, "VERB", function(verb, url, ..., query) {
+    gesehen <<- query$live
+    stop("abbruch nach payload-erfassung")
+  })
+
+  try(env$retrieveLiveFixtures(c("78", "82")), silent = TRUE)
+
+  expect_equal(gesehen, "78-82")
 })
 
 test_that("get_league_promotion_rules kennt die Regionalligen als Ziel", {
