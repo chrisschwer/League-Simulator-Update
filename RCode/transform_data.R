@@ -18,6 +18,20 @@ if (!exists("is_regular_season_round") || !exists("assert_rounds_kept")) {
   })
 }
 
+# Die beiden Wechselgemeinschaften (ADR 0004, CONTEXT.md): Ligen, zwischen
+# denen Mannschaften auf- und absteigen. Herren umfasst 78, 79, 80 und die
+# fuenf Regionalligen 83-87; Frauen die beiden Frauen-Bundesligen 82 und 1034.
+# Sie tauschen nie Teams -- ELO und Tormodell gelten nur innerhalb einer.
+FRAUEN_LIGEN <- c("82", "1034")
+
+#' Wechselgemeinschaft je Liga-ID.
+#'
+#' @param league_id Vektor von Liga-IDs (Zahl oder Zeichen).
+#' @return Zeichenvektor "herren" / "frauen".
+wechselgemeinschaft <- function(league_id) {
+  ifelse(as.character(league_id) %in% FRAUEN_LIGEN, "frauen", "herren")
+}
+
 #' Laedt die TeamList und prueft die Invarianten, auf die transform_data baut.
 #'
 #' transform_data() macht aus jedem ShortText einen SPALTENNAMEN des
@@ -29,8 +43,22 @@ if (!exists("is_regular_season_round") || !exists("assert_rounds_kept")) {
 #' (generate_unique_short_name() bekommt die Namen einer Liga). Bei 56 Teams
 #' in drei Ligen trug das; bei 237 Teams in zehn Ligen, darunter rund 30
 #' Zweitvertretungen, sind Kollisionen ueber Ligagrenzen hinweg der Normalfall.
-#' TeamList_2026.csv ist heute global kollisionsfrei -- diese Pruefung haelt
-#' das fest.
+#'
+#' Massgeblich ist die WECHSELGEMEINSCHAFT, nicht die gesamte Liste. Zwei
+#' Gruende:
+#'
+#'  - Notwendig: Innerhalb einer Wechselgemeinschaft wechseln Teams die Liga.
+#'    Ein Kurzname muss deshalb ueber alle ihre Ligen hinweg eindeutig sein,
+#'    nicht nur innerhalb einer.
+#'  - Ausreichend: transform_data() wird JE LIGA aufgerufen; nur Teams
+#'    derselben Liga werden je zu Spalten desselben Data-Frames. Herren und
+#'    Frauen tauschen nie Teams (ADR 0004) und teilen nie einen Data-Frame --
+#'    eine Kollision zwischen ihnen kann keinen Schaden anrichten.
+#'
+#' Und sie ist erwuenscht: So traegt die Frauenmannschaft eines Vereins
+#' dasselbe Kuerzel wie die Herrenmannschaft (SCF, RBL, HSV) statt eines
+#' Ausweichnamens (SCFA, RBLA, HAM). In der Darstellung ueberschneiden sie
+#' sich nicht -- jede Liga hat ihre eigene Seite.
 #'
 #' Bewusst NICHT geprueft wird die Laenge der Kurznamen: Die neuen Ligen
 #' brauchen vier Zeichen (WACA, BAYB, FR2B). Entscheidend ist Eindeutigkeit,
@@ -55,13 +83,24 @@ load_team_list <- function(file_path) {
     ), call. = FALSE)
   }
 
-  dup_short <- unique(teams$ShortText[duplicated(teams$ShortText)])
+  # Kurznamen je Wechselgemeinschaft pruefen. Ohne League-Spalte (TeamList
+  # bis Saison 2025) gilt die ganze Liste als eine Gruppe -- dort gab es nur
+  # die drei Herren-Ligen.
+  gruppe <- if ("League" %in% names(teams)) {
+    wechselgemeinschaft(teams$League)
+  } else {
+    rep("herren", nrow(teams))
+  }
+
+  dup_short <- unique(unlist(lapply(split(teams$ShortText, gruppe), function(x) {
+    x[duplicated(x)]
+  })))
   if (length(dup_short) > 0) {
     stop(sprintf(
       paste0(
-        "load_team_list: Kurznamen sind nicht eindeutig in %s: %s. ",
-        "ShortText wird in transform_data() zum Spaltennamen -- doppelte ",
-        "Kurznamen vertauschen Teams stillschweigend."
+        "load_team_list: Kurznamen sind innerhalb einer Wechselgemeinschaft ",
+        "nicht eindeutig in %s: %s. ShortText wird in transform_data() zum ",
+        "Spaltennamen -- doppelte Kurznamen vertauschen Teams stillschweigend."
       ),
       file_path, paste(dup_short, collapse = ", ")
     ), call. = FALSE)

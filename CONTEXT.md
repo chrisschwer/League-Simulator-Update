@@ -9,6 +9,7 @@ Berechnet nach jedem Spiel Wahrscheinlichkeiten für die Endplatzierung in Bunde
 **Ergebnis3_Aufstieg**: Die 3.-Liga-Prognose mit −50-Punkte-Malus für Zweitvertretungen; Quelle der Aufstiegstabelle, nicht der Heatmap.
 **Zweitvertretung**: Reserveteam eines Profivereins (Kurzname endet auf „2“); darf nicht aufsteigen.
 **TeamList**: Die Saisondatei `RCode/TeamList_<Jahr>.csv` mit Team-IDs, Kurznamen, Aufstiegs-Flag und Start-ELO.
+**Kurzname** (`ShortText`): Das Kürzel eines Teams; wird in `transform_data()` zum **Spaltennamen** des Simulations-Data-Frames. Muss deshalb innerhalb einer **Wechselgemeinschaft** eindeutig sein — dort wechseln Teams die Liga. Über die Grenze hinweg ist Gleichheit erlaubt und erwünscht: Die Frauenmannschaft eines Vereins trägt dasselbe Kürzel wie die Herrenmannschaft (SGE, HSV, SCF, RBL, …), weil beide nie in derselben Simulation und nie auf derselben Seite stehen. _Avoid_: global eindeutig
 **Saisonwechsel**: Einmal jährlich (Juli) auf dem Entwicklerrechner ausgeführter Vorgang, der die neue TeamList erzeugt und committet. _Avoid_: Migration
 **Scheduler**: Der Dauerprozess, der täglich 14:45–22:45 (Berlin) alle zwei Minuten Ergebnisse holt, bei Bedarf simuliert und die statische Seite rendert.
 **Live-Poll**: Die billige Einzelanfrage nach laufenden Spielen aller drei Ligen, die der Scheduler fast jeden Loop stellt.
