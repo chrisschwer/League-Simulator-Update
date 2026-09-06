@@ -5,6 +5,37 @@ use serde::{Deserialize, Serialize};
 /// Server-side ceiling on Monte Carlo iterations (production uses 10,000).
 const MAX_ITERATIONS: usize = 100_000;
 
+/// Liest das ELO-Neutral-Flag fuer Spiel `i`.
+///
+/// Fehlt der Vektor, ist kein Spiel neutral -- das ist das Verhalten vor
+/// Issue #157. Die Laengengleichheit ist vorher validiert; `unwrap_or(false)`
+/// ist nur die defensive Untergrenze.
+fn elo_neutral_flag(flags: &Option<Vec<bool>>, i: usize) -> bool {
+    flags
+        .as_ref()
+        .and_then(|v| v.get(i))
+        .copied()
+        .unwrap_or(false)
+}
+
+/// Prueft, dass `elo_neutral` genau so lang ist wie `schedule`.
+///
+/// Ein zu kurzer oder zu langer Vektor waere eine stille Fehlzuordnung: Ab
+/// der Abweichung traegt jedes Spiel das Flag eines anderen. Das faellt
+/// niemandem auf -- deshalb ein harter 400er statt einer Auffuellung.
+fn validate_elo_neutral(elo_neutral: &Option<Vec<bool>>, n_matches: usize) -> Result<(), String> {
+    if let Some(flags) = elo_neutral {
+        if flags.len() != n_matches {
+            return Err(format!(
+                "elo_neutral must have one entry per schedule row: got {}, expected {}",
+                flags.len(),
+                n_matches
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn validate_request(payload: &SimulateRequest) -> Result<(), String> {
     if payload.schedule.is_empty() {
         return Err("schedule must not be empty".to_string());
@@ -13,6 +44,7 @@ fn validate_request(payload: &SimulateRequest) -> Result<(), String> {
     if number_teams == 0 {
         return Err("elo_values must not be empty".to_string());
     }
+    validate_elo_neutral(&payload.elo_neutral, payload.schedule.len())?;
     if let Some(iterations) = payload.iterations {
         if iterations == 0 || iterations > MAX_ITERATIONS {
             return Err(format!(
@@ -75,6 +107,12 @@ pub struct SimulateRequest {
     /// Schedule matrix: each row is [team_home, team_away, goals_home, goals_away]
     /// goals are null/None for unplayed matches
     schedule: Vec<[Option<i32>; 4]>,
+
+    /// Je Spiel: Ergebnis zaehlt fuer die Tabelle, bewegt aber den ELO-Walk
+    /// nicht. Paralleler Vektor zu `schedule` (gleiche Laenge und
+    /// Reihenfolge); fehlt das Feld, verhaelt sich alles wie bisher.
+    /// Gedacht fuer am gruenen Tisch gewertete Spiele (Issue #157).
+    elo_neutral: Option<Vec<bool>>,
 
     /// Initial ELO values for each team
     elo_values: Vec<f64>,
@@ -143,13 +181,15 @@ pub async fn simulate_league(
     let matches: Vec<Match> = payload
         .schedule
         .iter()
-        .map(|row| Match {
+        .enumerate()
+        .map(|(i, row)| Match {
             // Validated above: indices are Some and within 1..=number_teams.
             // R uses 1-indexed, Rust uses 0-indexed.
             team_home: row[0].unwrap() as usize - 1,
             team_away: row[1].unwrap() as usize - 1,
             goals_home: row[2],
             goals_away: row[3],
+            elo_neutral: elo_neutral_flag(&payload.elo_neutral, i),
         })
         .collect();
 
@@ -277,6 +317,12 @@ pub struct LeagueDetailsRequest {
     /// [team_home, team_away, goals_home, goals_away], goals null if open.
     schedule: Vec<[Option<i32>; 4]>,
 
+    /// Je Spiel: Ergebnis zaehlt fuer die Tabelle, bewegt aber den ELO-Walk
+    /// nicht. Paralleler Vektor zu `schedule` (gleiche Laenge und
+    /// Reihenfolge); fehlt das Feld, verhaelt sich alles wie bisher.
+    /// Gedacht fuer am gruenen Tisch gewertete Spiele (Issue #157).
+    elo_neutral: Option<Vec<bool>>,
+
     /// Season-start ELO per team.
     elo_values: Vec<f64>,
 
@@ -354,6 +400,7 @@ fn validate_league_details_request(payload: &LeagueDetailsRequest) -> Result<(),
             }
         }
     }
+    validate_elo_neutral(&payload.elo_neutral, payload.schedule.len())?;
     Ok(())
 }
 
@@ -367,12 +414,14 @@ pub async fn league_details(
     let matches: Vec<Match> = payload
         .schedule
         .iter()
-        .map(|row| Match {
+        .enumerate()
+        .map(|(i, row)| Match {
             // Validated above; request is 1-indexed, internals 0-indexed.
             team_home: row[0].unwrap() as usize - 1,
             team_away: row[1].unwrap() as usize - 1,
             goals_home: row[2],
             goals_away: row[3],
+            elo_neutral: elo_neutral_flag(&payload.elo_neutral, i),
         })
         .collect();
 

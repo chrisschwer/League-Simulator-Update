@@ -92,36 +92,42 @@ fn test_season_simulation() {
                 team_away: 1,
                 goals_home: Some(2),
                 goals_away: Some(1),
+                elo_neutral: false,
             },
             Match {
                 team_home: 1,
                 team_away: 2,
                 goals_home: Some(1),
                 goals_away: Some(1),
+                elo_neutral: false,
             },
             Match {
                 team_home: 2,
                 team_away: 0,
                 goals_home: None,
                 goals_away: None,
+                elo_neutral: false,
             }, // To simulate
             Match {
                 team_home: 0,
                 team_away: 2,
                 goals_home: None,
                 goals_away: None,
+                elo_neutral: false,
             }, // To simulate
             Match {
                 team_home: 1,
                 team_away: 0,
                 goals_home: None,
                 goals_away: None,
+                elo_neutral: false,
             }, // To simulate
             Match {
                 team_home: 2,
                 team_away: 1,
                 goals_home: None,
                 goals_away: None,
+                elo_neutral: false,
             }, // To simulate
         ],
         team_elos: vec![1500.0, 1600.0, 1400.0],
@@ -168,18 +174,21 @@ fn test_table_calculation() {
             team_away: 1,
             goals_home: Some(2),
             goals_away: Some(1),
+            elo_neutral: false,
         },
         Match {
             team_home: 1,
             team_away: 2,
             goals_home: Some(3),
             goals_away: Some(1),
+            elo_neutral: false,
         },
         Match {
             team_home: 2,
             team_away: 0,
             goals_home: Some(0),
             goals_away: Some(0),
+            elo_neutral: false,
         },
     ];
 
@@ -223,6 +232,7 @@ fn test_table_with_adjustments() {
         team_away: 1,
         goals_home: Some(1),
         goals_away: Some(1),
+        elo_neutral: false,
     }];
 
     let adj_points = vec![-50, 0, 0]; // Penalize team 0
@@ -273,6 +283,7 @@ fn test_deterministic_simulation() {
             team_away: 1,
             goals_home: None,
             goals_away: None,
+            elo_neutral: false,
         }],
         team_elos: vec![1500.0, 1500.0],
         number_teams: 2,

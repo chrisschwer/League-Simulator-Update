@@ -28,6 +28,21 @@ pub struct Match {
     pub team_away: usize,
     pub goals_home: Option<i32>,
     pub goals_away: Option<i32>,
+
+    /// Das Ergebnis steht fest und zaehlt fuer die Tabelle, soll den ELO-Walk
+    /// aber nicht bewegen.
+    ///
+    /// Hintergrund: Die Engine leitet "gespielt" sonst allein aus der Praesenz
+    /// beider Tore ab und aktualisiert dann zwingend auch das ELO. Fuer ein am
+    /// gruenen Tisch gewertetes Spiel ist das falsch -- es ist sportrechtlich
+    /// ein Ergebnis, sagt aber nichts ueber Spielstaerke (Issue #157).
+    ///
+    /// Die Engine kennt bewusst keine Verbandsstatus; sie erfaehrt nur, dass
+    /// dieses eine Ergebnis ELO-neutral ist. Ohne Tore hat das Flag keine
+    /// Wirkung: Ein ungespieltes Spiel wird simuliert, und das simulierte
+    /// Ergebnis zaehlt wie immer.
+    #[serde(default)]
+    pub elo_neutral: bool,
 }
 
 /// Season schedule with matches

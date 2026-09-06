@@ -59,7 +59,8 @@ simulate_league_rust <- function(schedule, elo_values, team_names,
                                  adj_points = NULL,
                                  adj_goals = NULL,
                                  adj_goals_against = NULL,
-                                 adj_goal_diff = NULL) {
+                                 adj_goal_diff = NULL,
+                                 elo_neutral = NULL) {
   # Convert schedule matrix to list format for JSON
   schedule_list <- lapply(seq_len(nrow(schedule)), function(i) {
     goals_home <- if (is.na(schedule[i, 3])) NULL else as.integer(schedule[i, 3])
@@ -93,6 +94,13 @@ simulate_league_rust <- function(schedule, elo_values, team_names,
   if (!is.null(adj_goals)) payload$adj_goals <- as.integer(adj_goals)
   if (!is.null(adj_goals_against)) payload$adj_goals_against <- as.integer(adj_goals_against)
   if (!is.null(adj_goal_diff)) payload$adj_goal_diff <- as.integer(adj_goal_diff)
+
+  # Am grünen Tisch gewertete Spiele: Das Ergebnis zählt für die Endtabelle,
+  # bewegt aber den ELO-Walk nicht (Issue #157). Nur senden, wenn überhaupt
+  # eines vorkommt -- so bleibt der Payload der Altligen unverändert.
+  if (!is.null(elo_neutral) && any(elo_neutral)) {
+    payload$elo_neutral <- as.logical(elo_neutral)
+  }
 
   json_body <- toJSON(payload, auto_unbox = TRUE, null = "null")
 
@@ -192,6 +200,11 @@ leagueSimulatorRust <- function(season, n = 10000,
   # Call Rust simulator
   start_time <- Sys.time()
 
+  # transform_data() hinterlegt zeilengleich, welche Spiele am grünen Tisch
+  # gewertet wurden. Fehlt das Attribut (handgebaute Testdaten, ältere
+  # Aufrufer), ist kein Spiel ELO-neutral -- das Verhalten vor Issue #157.
+  eloNeutral <- attr(season, "elo_neutral")
+
   result <- simulate_league_rust(
     schedule = schedule,
     elo_values = ELOValues,
@@ -202,7 +215,8 @@ leagueSimulatorRust <- function(season, n = 10000,
     adj_points = adjPoints,
     adj_goals = adjGoals,
     adj_goals_against = adjGoalsAgainst,
-    adj_goal_diff = adjGoalDiff
+    adj_goal_diff = adjGoalDiff,
+    elo_neutral = eloNeutral
   )
 
   end_time <- Sys.time()

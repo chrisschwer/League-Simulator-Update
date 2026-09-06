@@ -129,8 +129,12 @@ pub fn compute_league_details(
     // pre-match ELO state and the home team's shift.
     let mut walk: Vec<Option<(f64, f64, f64)>> = Vec::with_capacity(season.matches.len());
     for m in &season.matches {
+        // elo_neutral: Das Ergebnis steht fest, bewegt aber die
+        // Staerkeschaetzung nicht -- der Walk behandelt es wie ein noch nicht
+        // gespieltes Spiel (kein Delta, keine ELO-Aenderung), waehrend die
+        // Tore andernorts weiter zaehlen (Issue #157).
         match (m.goals_home, m.goals_away) {
-            (Some(goals_home), Some(goals_away)) => {
+            (Some(goals_home), Some(goals_away)) if !m.elo_neutral => {
                 let pre_home = elos[m.team_home];
                 let pre_away = elos[m.team_away];
                 let result = calculate_elo_change(&EloParams {

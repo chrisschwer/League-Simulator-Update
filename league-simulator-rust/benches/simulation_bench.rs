@@ -21,6 +21,7 @@ fn create_bundesliga_season() -> Season {
                     } else {
                         None
                     },
+                    elo_neutral: false,
                 });
             }
         }
