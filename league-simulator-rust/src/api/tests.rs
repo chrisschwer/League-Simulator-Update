@@ -433,3 +433,143 @@ async fn league_details_defaults_goal_model_when_absent() {
         implicit["matches"][0]["score_matrix"]
     );
 }
+
+// --- elo_neutral: Ergebnis zaehlt fuer die Tabelle, nicht fuer den ELO-Walk ---
+//
+// Issue #157. Ein am gruenen Tisch gewertetes Spiel (api-football AWD/WO) ist
+// sportrechtlich ein Ergebnis und gehoert in die Tabelle -- es sagt aber nichts
+// ueber Spielstaerke und darf den ELO-Walk nicht bewegen.
+//
+// Die Engine kennt keine Verbandsstatus. Sie bekommt deshalb ein neutrales
+// Flag je Spiel: `elo_neutral` ist ein paralleler bool-Vektor zu `schedule`
+// (gleiche Laenge, gleiche Reihenfolge) -- dieselbe Bauform wie die
+// bestehenden adj_*-Vektoren, und rueckwaertskompatibel, weil `schedule`
+// selbst ein Array fester Breite 4 bleibt.
+//
+// Semantik: elo_neutral[i] == true heisst "Tore zaehlen fuer Tabelle und
+// Endstand, das Spiel wird NICHT simuliert, aber der ELO-Walk ueberspringt
+// es". Fehlt das Feld, verhaelt sich alles wie bisher.
+
+#[tokio::test]
+async fn league_details_elo_neutral_match_does_not_move_elo() {
+    // Spiel 1 (2:1) bewegt das ELO, Spiel 2 (0:0) ist elo-neutral.
+    let mut payload = minimal_league_details_payload();
+    payload["elo_neutral"] = json!([false, true, false]);
+
+    let (status, body) = send(post_league_details_json(payload)).await;
+    assert_eq!(status, StatusCode::OK);
+
+    // Team 3 und 4 bestreiten nur das neutrale Spiel -- ihr ELO muss exakt
+    // auf dem Startwert stehen.
+    let elos = body["current_elos"].as_array().unwrap();
+    assert_eq!(elos[2].as_f64().unwrap(), 1500.0);
+    assert_eq!(elos[3].as_f64().unwrap(), 1500.0);
+}
+
+#[tokio::test]
+async fn league_details_elo_neutral_reports_no_elo_delta() {
+    // Die Anzeige darf fuer ein gewertetes Spiel keine ELO-Anpassung
+    // ausweisen -- sonst behauptet die Seite eine Staerkeaenderung, die es
+    // nicht gab.
+    let mut payload = minimal_league_details_payload();
+    payload["elo_neutral"] = json!([false, true, false]);
+
+    let (status, body) = send(post_league_details_json(payload)).await;
+    assert_eq!(status, StatusCode::OK);
+
+    assert!(body["matches"][1]["elo_delta_home"].is_null());
+}
+
+#[tokio::test]
+async fn league_details_without_elo_neutral_is_unchanged() {
+    // Verhaltensneutralitaet: Ohne das Feld muss byteweise dasselbe
+    // herauskommen wie mit einem reinen false-Vektor.
+    let (_, implicit) = send(post_league_details_json(minimal_league_details_payload())).await;
+
+    let mut explicit_payload = minimal_league_details_payload();
+    explicit_payload["elo_neutral"] = json!([false, false, false]);
+    let (_, explicit) = send(post_league_details_json(explicit_payload)).await;
+
+    assert_eq!(implicit["current_elos"], explicit["current_elos"]);
+    assert_eq!(implicit["matches"], explicit["matches"]);
+}
+
+#[tokio::test]
+async fn league_details_rejects_elo_neutral_of_wrong_length() {
+    // Ein zu kurzer Vektor waere eine stille Fehlzuordnung: Ab dem fehlenden
+    // Eintrag verschoebe sich die Zuordnung Spiel -> Flag.
+    let mut payload = minimal_league_details_payload();
+    payload["elo_neutral"] = json!([false, true]); // schedule hat 3 Zeilen
+
+    let (status, _) = send(post_league_details_json(payload)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn simulate_elo_neutral_match_counts_for_table_but_not_elo() {
+    // Der Simulationspfad (/simulate) traegt dieselbe Semantik: Das Ergebnis
+    // steht fest und geht in die Endtabelle ein -- das Spiel wird also nicht
+    // neu ausgewuerfelt --, aber der ELO-Walk laesst es aus.
+    //
+    // Messbar ueber die Prognose: Ein 9:0 fuer Team 1 als NORMALES Ergebnis
+    // hebt dessen ELO deutlich und damit seine Meisterwahrscheinlichkeit;
+    // als elo-neutrales Ergebnis zaehlen nur die drei Punkte.
+    let base = json!({
+        "schedule": [
+            [1, 2, 9, 0],
+            [3, 4, null, null],
+            [1, 3, null, null],
+            [2, 4, null, null],
+            [1, 4, null, null],
+            [2, 3, null, null]
+        ],
+        "elo_values": [1500.0, 1500.0, 1500.0, 1500.0],
+        "team_names": ["AAA", "BBB", "CCC", "DDD"],
+        "iterations": 2000
+    });
+
+    let (status_normal, normal) = send(post_simulate_json(base.clone())).await;
+    assert_eq!(status_normal, StatusCode::OK);
+
+    let mut neutral_payload = base.clone();
+    neutral_payload["elo_neutral"] = json!([true, false, false, false, false, false]);
+    let (status_neutral, neutral) = send(post_simulate_json(neutral_payload)).await;
+    assert_eq!(status_neutral, StatusCode::OK);
+
+    let p_first_normal = normal["probability_matrix"][0][0].as_f64().unwrap();
+    let p_first_neutral = neutral["probability_matrix"][0][0].as_f64().unwrap();
+
+    assert!(
+        p_first_neutral < p_first_normal,
+        "ohne ELO-Schub muss Team 1 seltener Erster werden: {} (neutral) vs {} (normal)",
+        p_first_neutral,
+        p_first_normal
+    );
+
+    // Aber die Punkte zaehlen weiterhin: Gegen ein Feld, in dem dieses Spiel
+    // gar nicht gespielt waere, muss Team 1 klar besser dastehen.
+    let mut ungespielt = base.clone();
+    ungespielt["schedule"][0] = json!([1, 2, null, null]);
+    let (_, offen) = send(post_simulate_json(ungespielt)).await;
+    let p_first_offen = offen["probability_matrix"][0][0].as_f64().unwrap();
+
+    assert!(
+        p_first_neutral > p_first_offen,
+        "die drei Punkte muessen zaehlen: {} (neutral) vs {} (ungespielt)",
+        p_first_neutral,
+        p_first_offen
+    );
+}
+
+#[tokio::test]
+async fn simulate_rejects_elo_neutral_of_wrong_length() {
+    // schedule hat zwei Zeilen, elo_neutral nur eine.
+    let req = post_simulate_json(json!({
+        "schedule": [[1, 2, null, null], [2, 1, null, null]],
+        "elo_values": [1500.0, 1500.0],
+        "elo_neutral": [true]
+    }));
+
+    let (status, _) = send(req).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
