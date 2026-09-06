@@ -386,30 +386,87 @@ render_league_page <- function(view, data_env, output_dir,
   invisible(NULL)
 }
 
-generate_static_site <- function(Ergebnis, Ergebnis2, Ergebnis3,
+#' Rendert die statische Seite.
+#'
+#' Zwei Aufrufformen, absichtlich in dieser Reihenfolge:
+#'
+#'  - NEU: `ergebnisse` als benannte Liste, Schluessel = Registry-/
+#'    league_views()-Schluessel plus `dritte_liga_aufstieg` fuer den zweiten
+#'    Lauf der 3. Liga. Traegt beliebig viele Ligen.
+#'  - ALT: die vier Einzelargumente auf Position 1-4.
+#'
+#' `ergebnisse` steht ans ENDE der Signatur, nicht an den Anfang: Sieben
+#' bestehende Aufrufe uebergeben die vier Ergebnisse POSITIONAL. Stuende
+#' `ergebnisse` vorn, schluckte es das erste davon -- lautlos, weil beides
+#' `table`-Objekte sind.
+# Abbildung Registry-Schluessel -> Objektname, den league_views() aufloest.
+# Die Namen sind historisch gewachsen (Ergebnis, Ergebnis2, Ergebnis3) und
+# stehen als Strings in league_views(); sie bleiben, damit die Renderlogik
+# unveraendert bleibt. Fuer neue Ligen gilt die generische Form
+# "Ergebnis_<schluessel>".
+.ERGEBNIS_OBJEKTNAMEN <- c(
+  bundesliga = "Ergebnis",
+  zweite_bundesliga = "Ergebnis2",
+  dritte_liga = "Ergebnis3",
+  dritte_liga_aufstieg = "Ergebnis3_Aufstieg"
+)
+
+.ergebnis_objektname <- function(key) {
+  bekannt <- .ERGEBNIS_OBJEKTNAMEN[[key]]
+  if (is.null(bekannt)) paste0("Ergebnis_", key) else bekannt
+}
+
+generate_static_site <- function(Ergebnis = NULL, Ergebnis2 = NULL,
+                                 Ergebnis3 = NULL,
                                  Ergebnis3_Aufstieg = Ergebnis3,
                                  output_dir = Sys.getenv("STATIC_SITE_DIR",
                                                          "ShinyApp/public"),
                                  now = Sys.time(),
-                                 league_data = NULL) {
-  have_data <- !is.null(Ergebnis) && !is.null(Ergebnis2) && !is.null(Ergebnis3)
+                                 league_data = NULL,
+                                 ergebnisse = NULL) {
+  # Alte Form in die neue uebersetzen, damit es intern nur einen Pfad gibt.
+  if (is.null(ergebnisse)) {
+    ergebnisse <- list(
+      bundesliga = Ergebnis,
+      zweite_bundesliga = Ergebnis2,
+      dritte_liga = Ergebnis3,
+      dritte_liga_aufstieg =
+        if (is.null(Ergebnis3_Aufstieg)) Ergebnis3 else Ergebnis3_Aufstieg
+    )
+  }
 
-  if (!have_data) {
+  # Keine Prognose vorhanden -> Fallback-Seite. Frueher pruefte der Guard drei
+  # feste Objekte; jetzt zaehlt, ob ueberhaupt Ergebnisse vorliegen.
+  vorhanden <- Filter(Negate(is.null), ergebnisse)
+  if (length(vorhanden) == 0) {
     message("generate_static_site: no simulation data, writing fallback page")
     return(invisible(.render_fallback_page(output_dir)))
   }
 
+  views <- league_views()
+
+  # Jede gerenderte Liga braucht ihre Ergebnisse. Fehlen sie, scheitert sonst
+  # erst tief im Renderer ein get() gegen ein leeres Environment -- mit einer
+  # Meldung, die die Liga nicht nennt.
+  fehlend <- setdiff(names(views), names(vorhanden))
+  if (length(fehlend) > 0) {
+    stop(sprintf(
+      "generate_static_site: Ergebnisse fehlen fuer: %s",
+      paste(fehlend, collapse = ", ")
+    ), call. = FALSE)
+  }
+
+  # data_env traegt die Ergebnisse unter den Namen, die league_views() in
+  # plot_source/top$source/bottom$source erwartet. Die namensbasierte
+  # Aufloesung bleibt unangetastet -- sie traegt die 3.-Liga-Asymmetrie
+  # (Aufstiegstabelle aus einem anderen Objekt als Heatmap und Abstieg).
   data_env <- new.env(parent = emptyenv())
-  assign("Ergebnis", Ergebnis, envir = data_env)
-  assign("Ergebnis2", Ergebnis2, envir = data_env)
-  assign("Ergebnis3", Ergebnis3, envir = data_env)
-  assign("Ergebnis3_Aufstieg",
-         if (is.null(Ergebnis3_Aufstieg)) Ergebnis3 else Ergebnis3_Aufstieg,
-         envir = data_env)
+  for (key in names(ergebnisse)) {
+    assign(.ergebnis_objektname(key), ergebnisse[[key]], envir = data_env)
+  }
 
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
-  views <- league_views()
   league_paths <- vapply(names(views), function(key) {
     view <- views[[key]]
     message(sprintf("generate_static_site: rendering %s", view$slug))
