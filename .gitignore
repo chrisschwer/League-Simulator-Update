@@ -19,6 +19,9 @@ api_test_results.json
 # Shiny deployment files
 ShinyApp/data/Ergebnis.Rds
 ShinyApp/rsconnect/shinyapps.io/chrisschwer/FussballPrognosen.dcf
+# Das Umzugsbanner-Tool erzeugt dieselbe Deploy-Metadatei unter tools/;
+# rsconnect schreibt sie bei jedem Deploy neu (bundleId aendert sich).
+rsconnect/
 
 # Rust build artifacts
 league-simulator-rust/target/
@@ -54,3 +57,6 @@ processing_*.log
 testthat-summary.txt
 ShinyApp/public/
 .superpowers/
+
+# Fixture-Cache der Offline-ELO-Kalibrierung (jederzeit neu holbar)
+data/fixture_cache/

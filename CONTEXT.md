@@ -23,6 +23,10 @@ Berechnet nach jedem Spiel Wahrscheinlichkeiten für die Endplatzierung in Bunde
 **Ausblick**: Sektion je Liga-Seite mit den offenen, nicht verschobenen Spielen des laufenden bzw. des nächsten Spieltags plus früher angesetzten Nachholspielen; je Spiel Termin, 1/X/2 und Score-Matrix.
 **Score-Matrix**: Die analytisch aus dem Poisson-Tormodell berechnete Wahrscheinlichkeitsmatrix Heimtore × Auswärtstore eines einzelnen Spiels; kein Monte-Carlo-Ergebnis.
 **Methodik-Seite**: Die statische Seite mit den Erläuterungen des Prognosemodells (Basis: Blogartikel „Was die Prognosen mit Schach zu tun haben“, 2015, aktualisiert).
+**Wechselgemeinschaft**: Die Menge von Ligen, zwischen denen Mannschaften auf- und absteigen. Innerhalb einer Wechselgemeinschaft müssen alle Ligen dasselbe **Tormodell** benutzen, weil ELO das Einzige ist, was ein Team über eine Ligagrenze mitnimmt. Es gibt zwei: Herren (78, 79, 80, 83–87) und Frauen (82, 1034). _Avoid_: Ligafamilie, Liga-Gruppe
+**Tormodell**: Das Paar `tore_slope`/`tore_intercept`, das aus der ELO-Differenz die Torerwartung beider Seiten macht. Es gilt `E[Tore/Spiel] = 2 × tore_intercept`, weil die ELO-Steigungen sich aufheben. Je **Wechselgemeinschaft** ein Wert.
+**Staffel**: Eine der fünf regionalen Regionalligen (Bayern, Nord, Nordost, SüdWest, West). Sie spielen nie gegeneinander; verglichen werden sie nur über ihre Aufsteiger in die 3. Liga.
+**Stammregion**: Die Staffel, der ein Verein dauerhaft zugeordnet ist (Spalte `Region` der **TeamList**). Über sieben Saisons hat kein Verein sie gewechselt.
 
 ## Relationships
 
@@ -30,6 +34,7 @@ Berechnet nach jedem Spiel Wahrscheinlichkeiten für die Endplatzierung in Bunde
 - Der **Scheduler** erzeugt aus vier **Ergebnis**-Objekten genau eine **Statische Seite** (drei Unterseiten).
 - **Ergebnis3_Aufstieg** speist nur die Aufstiegstabelle der 3. Liga; Heatmap und Abstiegstabelle kommen aus **Ergebnis3**.
 - **Ligatabelle**, **Rückblick**, **Ausblick** und **Score-Matrix** entstehen deterministisch zur Renderzeit aus TeamList + Spielergebnissen ([ADR 0002](docs/adr/0002-spieldetails-deterministisch-zur-renderzeit.md)); nur die **Prognose** braucht die Monte-Carlo-Simulation.
+- Ein **Tormodell** gehört zu genau einer **Wechselgemeinschaft**; die Frauen-Ligen tragen seit September 2026 eigene Werte, weil sie nie Teams mit den Herren tauschen.
 - Der **Rückblick** endet, wo der **Ausblick** beginnt: Die Grenze ist der Spielstatus, nicht der Spieltag — ein **laufender Spieltag** kann in beiden Sektionen zugleich vertreten sein.
 
 ## Example dialogue
@@ -46,3 +51,5 @@ Berechnet nach jedem Spiel Wahrscheinlichkeiten für die Endplatzierung in Bunde
 
 - [ADR 0001](docs/adr/0001-statische-seiten-statt-gehostetem-shiny.md) — statische Seiten statt gehostetem Shiny; shinyapps.io-Pfad entfernt.
 - [ADR 0002](docs/adr/0002-spieldetails-deterministisch-zur-renderzeit.md) — Spieldetails (ELO-Verlauf, 1/X/2, Score-Matrix) werden deterministisch zur Renderzeit berechnet, nicht persistiert.
+- [ADR 0003](docs/adr/0003-elo-eichung-fuer-ligen-ohne-historie.md) — Start-ELOs für Ligen ohne Historie werden offline erzeugt und über Auf-/Absteiger geankert; Frauen und Herren gelten per Konvention als gleich stark, ELO ist nur innerhalb einer **Wechselgemeinschaft** vergleichbar.
+- [ADR 0004](docs/adr/0004-tormodell-je-wechselgemeinschaft.md) — das **Tormodell** gilt je **Wechselgemeinschaft**, nicht je Liga; die Frauen-Ligen tragen eigene Werte.

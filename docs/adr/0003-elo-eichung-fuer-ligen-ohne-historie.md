@@ -1,0 +1,17 @@
+---
+status: accepted
+date: 2026-09-05
+---
+# ELO-Eichung für Ligen ohne Historie
+
+Der Ausbau von drei auf zehn Ligen bringt sieben Ligen ins Modell, für die es keine ELO-Historie gibt: fünf Regionalligen sowie die beiden Frauen-Bundesligen. Der Simulator kennt eine Liga aber ausschließlich über die ELO-Werte ihrer Teams. Ohne Startwerte auf der bestehenden Skala ist keine dieser Ligen simulierbar — die Eichung ist die Voraussetzung für alles Weitere und zugleich eine Modellentscheidung, weil sie festlegt, was ein ELO-Wert über Ligagrenzen hinweg bedeutet.
+
+Entschieden: Ein einmaliges Offline-Skript (`scripts/calibrate_historical_elo.R`) lässt die verfügbare Historie je Liga chronologisch durchlaufen und ankert das Ergebnis an die bestehende Skala. Alle Teams einer Liga starten auf einem gemeinsamen Wert; die Rangfolge entsteht allein aus den Ergebnissen. Gerechnet wird der ELO-Walk im Rust-Server über `POST /league-details`, nicht in R — ADR 0002 verwirft den Nachbau der Modelllogik ausdrücklich, und `current_elos` liefert genau diesen Walk auf derselben Physik wie jede Prognose. Danach führt der reguläre Saisonwechsel die Werte fort.
+
+Die Ankerung nutzt aus, dass der Walk ELO-erhaltend ist: Der Mittelwert einer geschlossenen Liga bleibt über die Saison konstant, die Eichung ist deshalb eine reine Frage des Startniveaus und braucht keine Iteration. Verglichen werden Ligen ausschließlich über die Teams, die zwischen ihnen wechseln — die Regionalligen an die 3. Liga über Auf- und Absteiger, die fünf Staffeln untereinander über die Stärke ihrer Aufsteiger in der 3. Liga (auf die Hälfte gedämpft, weil je Staffel nur zwei bis sechs Aufsteiger vorliegen), die 2. Frauen-Bundesliga an die Frauen-Bundesliga ebenso.
+
+Für das Verhältnis Frauen zu Herren gibt es diese Brücke nicht: Die beiden Wechselgemeinschaften spielen nie gegeneinander, es existiert kein Spiel, aus dem sich ein Stärkeverhältnis ableiten ließe. Entschieden: Beide obersten Ligen werden per **Konvention** auf denselben Mittelwert gesetzt. Das ist ausdrücklich keine Messung und keine Behauptung über Spielstärke, sondern die einzige neutrale Wahl — jede Abstufung wäre unbelegbar. ELO-Werte sind damit nur **innerhalb** einer Wechselgemeinschaft vergleichbar; ein Vergleich über die Grenze hinweg ist bedeutungslos und darf auf den Seiten nicht nahegelegt werden.
+
+Bewusst in Kauf genommen: Die ELO-Streuung lässt sich nicht auf die beobachtete Remisquote eichen. Sie ist ein Gleichgewicht des Walks — ELO ist selbstkorrigierend, der k-Faktor 20 begrenzt bei rund 34 Spielen je Saison, wie weit Bewertungen auseinanderlaufen können. Eine künstlich aufgeprägte Streuung von 400 fällt in einer Saison auf 181. Bei den Frauen-Ligen bleibt dadurch eine Remis-Lücke von rund vier Prozentpunkten stehen; sie wird dokumentiert statt nachjustiert, weil ihre Ursache die Verteilungsform des unabhängigen Poisson-Modells ist (Überdispersion 1,20) und nicht die Lage der Parameter.
+
+Verworfen: nachträgliches Strecken der Frauen-ELOs auf die rechnerisch nötige Streuung (die Werte hätten dann nicht mehr die Bedeutung, die der Walk ihnen gibt, und der Auf-/Abstieg zwischen den beiden Frauen-Ligen würde verzerrt); ein handkuratierte Vereins→Staffel-Karte (über sieben Saisons hat kein Verein die Staffel gewechselt, 163 von 163 — die Zuordnung fällt aus den Spielplänen); ein `tore_intercept` je Staffel, wie ursprünglich skizziert (siehe ADR 0004).

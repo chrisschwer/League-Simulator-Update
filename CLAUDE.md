@@ -50,6 +50,44 @@ RAPIDAPI_KEY=your_api_key  # Required for API-Football access
 
 For all environment variables, see @docs/deployment/quick-start.md
 
+## Modellkonstanten
+
+Zwei Parametergruppen bestimmen jede Prognose. Sie leben **ausschliesslich
+im Rust-Server** (`league-simulator-rust/src/models/mod.rs`); R sendet sie
+nur, wenn eine Liga bewusst abweicht (ADR 0002).
+
+| Konstante | Wert | Gilt für |
+|---|---|---|
+| `home_advantage` | 40 | alle Ligen |
+| `mod_factor` (k) | 20 | alle Ligen |
+| `tore_slope` | 0.0017854953143549 | Herren-Ligen |
+| `tore_intercept` | 1.3218390804597700 | Herren-Ligen |
+| `tore_slope` | 0.0024058833 | **Frauen-Ligen** (82, 1034) |
+| `tore_intercept` | 1.6527603153 | **Frauen-Ligen** (82, 1034) |
+
+**Warum das Tormodell je Liga abweichen darf — aber fast nie sollte:** ELO
+ist das Einzige, was ein Team über eine Ligagrenze mitnimmt. Nur wenn Ligen,
+die Mannschaften austauschen, dasselbe Tormodell benutzen, bedeutet ein
+ELO-Wert dies- und jenseits der Grenze dasselbe. Massgeblich ist deshalb
+nicht die einzelne Liga, sondern die **Wechselgemeinschaft**:
+
+- *Herren* (78, 79, 80, 83–87) — tauschen Teams aus, ein gemeinsames Tormodell.
+- *Frauen* (82, 1034) — untereinander verbunden, nie mit den Herren,
+  daher ein eigenes.
+
+Die Frauen-Werte sind an 1917 Spielen geschätzt und out-of-sample validiert
+(Brier −2,96 %); Herleitung in
+[`docs/reports/2026-09-05-frauen-tormodell.md`](docs/reports/2026-09-05-frauen-tormodell.md).
+
+**Bekannte Schwächen** (Projekt „Prognosequalität", Sommer 2027):
+`E[Tore/Spiel] = 2 × tore_intercept` — der Herren-Wert impliziert 2,64 Tore
+gegen gemessene 3,18 in der Bundesliga. Und das unabhängige Poisson-Modell
+erzeugt strukturell zu wenig Remis (Überdispersion 1,20); bei den
+Frauen-Ligen bleiben 3,7 Prozentpunkte Lücke, in der 2. Bundesliga ist die
+beobachtete Quote gar nicht darstellbar. Beides braucht ein korreliertes
+Tormodell (Dixon-Coles), keine neuen Parameterwerte. Siehe
+[`docs/reports/2026-09-05-liga-empirie-zehn-ligen.md`](docs/reports/2026-09-05-liga-empirie-zehn-ligen.md).
+
 ## Conventions
 
 Shared vocabulary lives in `CONTEXT.md`; architecture decisions in `docs/adr/`.

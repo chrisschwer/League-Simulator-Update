@@ -198,10 +198,24 @@ fetch_league_results <- function(league, season) {
   fixtures <- data$response
 
   # Extract match data
+  #
+  # fixture_id und round kamen mit der Offline-ELO-Kalibrierung dazu: Sie
+  # braucht die Rundenbezeichnung, um Relegationspartien von der Hauptrunde
+  # zu trennen (die Regionalligen liefern "Bayern - 34" statt
+  # "Regular Season - N"). Rein additiv -- bestehende Aufrufer sehen die
+  # Spalten schlicht nicht.
   match_data <- data.frame(
+    fixture_id = fixtures$fixture$id,
     fixture_date = fixtures$fixture$date,
+    round = if (!is.null(fixtures$league$round)) {
+      fixtures$league$round
+    } else {
+      NA_character_
+    },
     teams_home_id = fixtures$teams$home$id,
     teams_away_id = fixtures$teams$away$id,
+    teams_home_name = fixtures$teams$home$name,
+    teams_away_name = fixtures$teams$away$name,
     goals_home = fixtures$goals$home,
     goals_away = fixtures$goals$away,
     fixture_status_short = fixtures$fixture$status$short,
@@ -426,7 +440,11 @@ validate_elo_calculations <- function(season) {
         max_elo = max(final_elos$FinalELO),
         mean_elo = mean(final_elos$FinalELO),
         teams_with_valid_elos = sum(final_elos$FinalELO > 0),
-        teams_with_extreme_elos = sum(final_elos$FinalELO < 800 | final_elos$FinalELO > 2200)
+        # Untergrenze 600 statt 800: Mit den Regionalligen reicht die
+        # Skala tiefer (RL-Mittel ~940, schwaechste Teams ~700). Die 800
+        # stammten aus einer Zeit mit drei Ligen und wuerden sonst zwei
+        # Dutzend voellig regulaere RL-Teams als "extrem" melden.
+        teams_with_extreme_elos = sum(final_elos$FinalELO < 600 | final_elos$FinalELO > 2400)
       )
 
       # Log validation results
