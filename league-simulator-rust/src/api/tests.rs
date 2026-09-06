@@ -44,6 +44,22 @@ async fn send(req: Request<Body>) -> (StatusCode, Value) {
     (status, body)
 }
 
+/// Prueft Statuscode UND Grund einer abgelehnten Anfrage.
+///
+/// Der Statuscode allein genuegt nicht: Er faellt auch dann auf 400, wenn
+/// die Anfrage aus einem ganz anderen Grund scheitert als dem geprueften --
+/// ein Test fuer "zu viele Iterationen" bliebe gruen, obwohl in Wahrheit
+/// eine leere ELO-Liste bemaengelt wurde. Die Meldung ist die einzige
+/// Stelle, an der die Ablehnung ihren Grund nennt.
+fn assert_bad_request(status: StatusCode, body: &Value, erwartet: &str) {
+    assert_eq!(status, StatusCode::BAD_REQUEST, "Statuscode; Body: {body}");
+    let text = body.as_str().unwrap_or_default();
+    assert!(
+        text.contains(erwartet),
+        "Fehlermeldung sollte {erwartet:?} enthalten, war: {text:?}"
+    );
+}
+
 fn post_simulate_json(payload: Value) -> Request<Body> {
     Request::builder()
         .method("POST")
@@ -96,9 +112,9 @@ async fn simulate_returns_400_when_schedule_is_empty() {
         "iterations": 10
     }));
 
-    let (status, _body) = send(req).await;
+    let (status, body) = send(req).await;
 
-    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_bad_request(status, &body, "schedule must not be empty");
 }
 
 #[tokio::test]
@@ -109,9 +125,9 @@ async fn simulate_returns_400_when_elo_values_is_empty() {
         "iterations": 10
     }));
 
-    let (status, _body) = send(req).await;
+    let (status, body) = send(req).await;
 
-    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_bad_request(status, &body, "elo_values must not be empty");
 }
 
 #[tokio::test]
@@ -212,9 +228,9 @@ async fn simulate_rejects_team_index_zero() {
         "elo_values": [1500.0, 1500.0]
     }));
 
-    let (status, _body) = send(req).await;
+    let (status, body) = send(req).await;
 
-    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_bad_request(status, &body, "team_home index 0 out of range 1..=2");
 }
 
 #[tokio::test]
@@ -224,9 +240,9 @@ async fn simulate_rejects_null_team_index() {
         "elo_values": [1500.0, 1500.0]
     }));
 
-    let (status, _body) = send(req).await;
+    let (status, body) = send(req).await;
 
-    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_bad_request(status, &body, "team_home must not be null");
 }
 
 #[tokio::test]
@@ -236,9 +252,9 @@ async fn simulate_rejects_out_of_range_team_index() {
         "elo_values": [1500.0, 1500.0]
     }));
 
-    let (status, _body) = send(req).await;
+    let (status, body) = send(req).await;
 
-    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_bad_request(status, &body, "team_away index 3 out of range 1..=2");
 }
 
 #[tokio::test]
@@ -249,9 +265,9 @@ async fn simulate_rejects_excessive_iterations() {
         "iterations": 100_000_000
     }));
 
-    let (status, _body) = send(req).await;
+    let (status, body) = send(req).await;
 
-    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_bad_request(status, &body, "iterations must be between 1 and 100000");
 }
 
 #[tokio::test]
@@ -262,9 +278,9 @@ async fn simulate_rejects_mismatched_adjustment_length() {
         "adj_points": [0, 0, 0]
     }));
 
-    let (status, _body) = send(req).await;
+    let (status, body) = send(req).await;
 
-    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_bad_request(status, &body, "adj_points has length 3, expected 2");
 }
 
 // ======================================================================
@@ -352,24 +368,24 @@ async fn league_details_returns_wire_contract() {
 
 #[tokio::test]
 async fn league_details_rejects_empty_schedule() {
-    let (status, _body) = send(post_league_details_json(json!({
+    let (status, body) = send(post_league_details_json(json!({
         "schedule": [],
         "elo_values": [1500.0, 1500.0]
     })))
     .await;
 
-    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_bad_request(status, &body, "schedule must not be empty");
 }
 
 #[tokio::test]
 async fn league_details_rejects_out_of_range_team_index() {
-    let (status, _body) = send(post_league_details_json(json!({
+    let (status, body) = send(post_league_details_json(json!({
         "schedule": [[1, 5, null, null]],
         "elo_values": [1500.0, 1500.0]
     })))
     .await;
 
-    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_bad_request(status, &body, "team_away index 5 out of range 1..=2");
 }
 
 #[tokio::test]
@@ -501,8 +517,12 @@ async fn league_details_rejects_elo_neutral_of_wrong_length() {
     let mut payload = minimal_league_details_payload();
     payload["elo_neutral"] = json!([false, true]); // schedule hat 3 Zeilen
 
-    let (status, _) = send(post_league_details_json(payload)).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, body) = send(post_league_details_json(payload)).await;
+    assert_bad_request(
+        status,
+        &body,
+        "elo_neutral must have one entry per schedule row",
+    );
 }
 
 #[tokio::test]
@@ -580,8 +600,12 @@ async fn simulate_rejects_elo_neutral_of_wrong_length() {
         "elo_neutral": [true]
     }));
 
-    let (status, _) = send(req).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, body) = send(req).await;
+    assert_bad_request(
+        status,
+        &body,
+        "elo_neutral must have one entry per schedule row",
+    );
 }
 
 // --- relegation_group_counts: Absteiger je Staffel exakt auszaehlen ---------

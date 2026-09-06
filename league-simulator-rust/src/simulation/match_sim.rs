@@ -86,6 +86,12 @@ pub fn poisson_quantile_direct(p: f64, lambda: f64) -> f64 {
     let mut k: u64 = 0;
     let mut prob = (-lambda).exp(); // P(X = 0)
     let mut cumulative = prob;
+    // k < 1000 ist eine Notbremse, keine Modellgrenze: Sie soll nur
+    // verhindern, dass die Schleife bei einem absurden lambda oder einem
+    // p, das sich durch Rundung nie erreichen laesst, endlos laeuft.
+    // Erreicht wird sie nie -- bei den Tormodell-Werten (lambda 1,32 bzw.
+    // 1,65) ist die Summe schon nach rund 19 Schritten auf 1 - 1e-15,
+    // selbst bei lambda = 5 nach 31. p >= 1.0 ist oben abgefangen.
     while cumulative < p && k < 1000 {
         k += 1;
         prob *= lambda / (k as f64);
