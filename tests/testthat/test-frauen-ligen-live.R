@@ -18,6 +18,11 @@ library(testthat)
 #  3. Die zweistufige Navigation, weil zehn Ligen die flache Zeile sprengen.
 #  4. scripts/preview_site.R muss weiterlaufen, obwohl seine Fixture nur die
 #     drei Altligen kennt.
+#
+# Die europaeischen Plaetze stehen bewusst in league_views() und NICHT in der
+# Registry -- wie schon bei der Bundesliga. Sie folgen dem UEFA-Koeffizienten
+# und aendern sich unabhaengig von Auf- und Abstieg; ein Registry-Feld
+# suggerierte eine Systematik, die es nicht gibt.
 
 source_generator <- function() {
   source(test_path("..", "..", "RCode", "generate_static_site.R"), local = TRUE)
@@ -105,16 +110,30 @@ test_that("league_views enthaelt die beiden Frauen-Ligen", {
   expect_length(views, 5)
 })
 
-test_that("die Frauen-Bundesliga hat kein Aufstiegs-, aber ein Abstiegspanel", {
-  # Sie ist die oberste Liga ihrer Wechselgemeinschaft: kein Aufstieg,
-  # zwei Absteiger.
+test_that("die Frauen-Bundesliga zeigt Meister und CL-Qualifikation", {
+  # Sie ist die oberste Liga ihrer Wechselgemeinschaft -- kein Aufstieg,
+  # aber europaeische Plaetze: "Der Meister erreicht direkt die Ligaphase der
+  # Champions League. Vizemeister und Drittplatzierter erreichen die
+  # Qualifikation." Zwei Gruppen, weil sich die Konsequenz unterscheidet.
   env <- new.env()
   source(test_path("..", "..", "RCode", "league_views.R"), local = env)
   v <- env$league_views()$frauen_bundesliga
 
   expect_equal(v$slug, "frauen-bundesliga")
+  expect_equal(v$top$labels, c("Meister", "Champions League Quali"))
+  expect_equal(v$top$groups, cbind(c(1, 1), c(2, 3)))
+  expect_equal(v$top$filter_cols, 1:3)
+})
+
+test_that("die Frauen-Bundesliga hat zwei Abstiegsplaetze", {
+  # "Die letzten zwei Teams steigen ab" -- von unten gezaehlt, weil die Liga
+  # 2025 von 12 auf 14 Teams gewachsen ist.
+  env <- new.env()
+  source(test_path("..", "..", "RCode", "league_views.R"), local = env)
+  v <- env$league_views()$frauen_bundesliga
+
   expect_equal(v$bottom$labels, "Abstieg")
-  expect_true(all(v$bottom$groups < 0))
+  expect_equal(v$bottom$groups, cbind(c(-2, -1)))
 })
 
 test_that("die 2. Frauen-Bundesliga hat drei Abstiegsplaetze", {
