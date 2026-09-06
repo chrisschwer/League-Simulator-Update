@@ -16,6 +16,15 @@
 # wie viele Teams aus der 3. Liga in die jeweilige Staffel fallen, und ein
 # festes Abstiegs-Panel waere auf der Seite sichtbar falsch.
 #
+# Die amtliche Regelgrundlage dafuer steht in
+# docs/abstieg_aufstieg_RL_2026_2027.md. Achtung beim Aktivieren: Die
+# promotion_slots/playoff_slots der Regionalligen unten bilden das allgemeine
+# Muster ab, nicht die Saison 2026/27 -- nach § 55b DFB-SpO haben West und
+# SuedWest dauerhaft Direktaufstieg, den dritten Direktplatz rotieren Nord,
+# Nordost und Bayern jaehrlich unter sich aus (2026/27: Nordost direkt,
+# Nord gegen Bayern in zwei Aufstiegsspielen). Die Zuordnung gehoert deshalb
+# an eine saisonabhaengige Stelle, nicht als Konstante hierher.
+#
 # Der Produktivpfad sieht ueber league_ids() nur die aktiven Ligen;
 # der Saisonwechsel und die Validierung kennen die neuen bereits. So ist die
 # Struktur an den echten Anforderungen erprobt, bevor sie live gehen.

@@ -14,7 +14,9 @@ ligaunabhängig (Teamzahl aus `elo_values.len()`, keine Auf-/Abstiegssemantik) �
 2. **Initiale ELO-Bewertung**: Für die neuen Ligen gibt es keine Historie. Sie muss offline
    erzeugt und auf die bestehende ELO-Skala geeicht werden.
 3. **Abstiegskopplung**: Wie viele Teams aus einer Regionalliga absteigen, hängt davon ab,
-   wer aus der 3. Liga in diese Staffel fällt.
+   wer aus der 3. Liga in diese Staffel fällt. Die amtlichen Regeln aller fünf Staffeln
+   sind recherchiert und belegt in
+   [`docs/abstieg_aufstieg_RL_2026_2027.md`](../abstieg_aufstieg_RL_2026_2027.md).
 
 ## Empirische Befunde (gemessen, Saisons 2024+2025, beendete Hauptrundenspiele)
 
