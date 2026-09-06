@@ -267,14 +267,24 @@ test_that("generate_static_site rendert sechs Seiten", {
 test_that("preview_site laeuft mit einer Fixture, die nur die Altligen kennt", {
   # scripts/preview_site.R laedt ShinyApp/data/Ergebnis.Rds -- dort stehen
   # nur die drei Altligen. Der Guard aus Phase 2 wuerde sonst abbrechen.
-  skip_if_not(file.exists(test_path("..", "..", "scripts", "preview_site.R")))
+  #
+  # processx::run statt system2(): Der Projektpfad enthaelt Leerzeichen
+  # ("Coding Projects/"), die system2() bei unquoted args zerlegt -- und im
+  # CI-Container scheitert system2() ganz ("Function not implemented").
+  # processx nutzt exec() direkt und ist eine testthat-Abhaengigkeit, also
+  # immer verfuegbar. Dasselbe Muster wie in
+  # test-season-transition-cleanup-wrapper.R.
+  project_root <- normalizePath(file.path(testthat::test_path(), "..", ".."))
+  skript <- file.path(project_root, "scripts", "preview_site.R")
+  skip_if_not(file.exists(skript))
 
   out <- withr::local_tempdir()
-  res <- system2("Rscript", c(shQuote(test_path("..", "..", "scripts", "preview_site.R")),
-                              shQuote(test_path("..", "..", "ShinyApp", "data", "Ergebnis.Rds")),
-                              shQuote(out)),
-                 stdout = TRUE, stderr = TRUE)
+  p <- processx::run(
+    "Rscript",
+    args = c(skript, file.path(project_root, "ShinyApp", "data", "Ergebnis.Rds"), out),
+    error_on_status = FALSE
+  )
 
   expect_true(file.exists(file.path(out, "index.html")),
-              info = paste(res, collapse = "\n"))
+              info = paste(p$stdout, p$stderr, sep = "\n"))
 })

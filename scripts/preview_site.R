@@ -19,7 +19,13 @@ if (!file.exists(ergebnis_path)) {
   stop(sprintf("preview_site: Ergebnis-Datei nicht gefunden: %s", ergebnis_path))
 }
 
-script_dir <- dirname(sub("^--file=", "", grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)))
+# R kodiert Leerzeichen im --file=-Argument als "~+~" (siehe ?commandArgs).
+# Ohne Dekodierung scheitert jeder Aufruf mit absolutem Pfad, sobald ein
+# Verzeichnis ein Leerzeichen enthaelt -- etwa "Coding Projects/".
+file_arg <- sub("^--file=", "",
+                grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE))
+file_arg <- gsub("~+~", " ", file_arg, fixed = TRUE)
+script_dir <- dirname(file_arg)
 rcode_dir <- if (length(script_dir) == 1 && nzchar(script_dir)) {
   file.path(dirname(script_dir), "RCode")
 } else {
