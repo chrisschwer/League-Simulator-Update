@@ -90,6 +90,34 @@ pub struct SimulationParams {
     pub adj_goals_against: Option<Vec<i32>>,
     /// Optional goal difference adjustments per team
     pub adj_goal_diff: Option<Vec<i32>>,
+
+    /// Staffel-Index je Team, parallel zu den Teams (0-basiert).
+    ///
+    /// Die 3. Liga schickt ihre Absteiger in fuenf regionale Staffeln, je
+    /// nach Stammregion des Vereins. Wie viele in eine bestimmte Staffel
+    /// fallen, entscheidet dort mit ueber die Zahl der Absteiger.
+    ///
+    /// None = keine Auszaehlung; die Antwort traegt dann kein
+    /// `relegation_group_counts`.
+    pub group_of_team: Option<Vec<usize>>,
+
+    /// Zahl der Abstiegsplaetze am Tabellenende.
+    pub relegation_places: Option<usize>,
+
+    /// Zahl der Staffeln -- bestimmt die Zeilenzahl der Ergebnismatrix.
+    ///
+    /// Der HTTP-Handler leitet sie als `max(group_of_team) + 1` ab. Das
+    /// genuegt, solange die hoechstnummerierte Staffel (Bayern, Index 4) in
+    /// der Liga vertreten ist -- in TeamList_2026 trifft das auf alle drei
+    /// Herren-Ligen zu.
+    ///
+    /// GRENZE: Stellt eine Liga kein Team der hintersten Staffel, faellt
+    /// deren Zeile weg und die Matrix ist kuerzer als erwartet. Wer die
+    /// Zeilen fest einer Staffel zuordnet, muss die Laenge also pruefen,
+    /// statt sie vorauszusetzen. Als Feld ist `group_count` bereits
+    /// vorgesehen, damit ein Aufrufer die Zahl spaeter explizit setzen
+    /// kann, ohne die Signatur zu aendern.
+    pub group_count: Option<usize>,
 }
 
 impl Default for SimulationParams {
@@ -104,6 +132,9 @@ impl Default for SimulationParams {
             adj_goals: None,
             adj_goals_against: None,
             adj_goal_diff: None,
+            group_of_team: None,
+            relegation_places: None,
+            group_count: None,
         }
     }
 }
@@ -115,4 +146,16 @@ pub struct SimulationResult {
     /// probability[team_id][position] = probability of team finishing in that position
     pub probability_matrix: Vec<Vec<f64>>,
     pub team_names: Vec<String>,
+
+    /// Absteiger je Staffel, exakt ausgezaehlt: `[staffel][anzahl]` ist die
+    /// Zahl der Iterationen, in denen genau `anzahl` Teams dieser Staffel
+    /// auf einem Abstiegsplatz landeten.
+    ///
+    /// Exakt statt aus der Prognosematrix rekonstruiert: Die Matrix enthaelt
+    /// nur die Randverteilung je Team. Ein Poisson-Binomial darueber
+    /// behandelte die Teams als unabhaengig -- sie sind es aber nicht, weil
+    /// genau `relegation_places` Teams die Abstiegsplaetze belegen und damit
+    /// stark negativ korreliert sind. Der Fehler waere strukturell, nicht
+    /// numerisch (Erwartungswert 4,12 statt exakt 4,00 bei vier Plaetzen).
+    pub relegation_group_counts: Option<Vec<Vec<usize>>>,
 }

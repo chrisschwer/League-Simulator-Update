@@ -45,6 +45,33 @@ fn validate_request(payload: &SimulateRequest) -> Result<(), String> {
         return Err("elo_values must not be empty".to_string());
     }
     validate_elo_neutral(&payload.elo_neutral, payload.schedule.len())?;
+
+    // group_of_team und relegation_places gehoeren zusammen. Eines allein ist
+    // mehrdeutig und vermutlich ein Fehler beim Aufrufer.
+    match (&payload.group_of_team, payload.relegation_places) {
+        (Some(groups), Some(places)) => {
+            if groups.len() != number_teams {
+                return Err(format!(
+                    "group_of_team must have one entry per team: got {}, expected {}",
+                    groups.len(),
+                    number_teams
+                ));
+            }
+            if places == 0 || places > number_teams {
+                return Err(format!(
+                    "relegation_places must be between 1 and {}, got {}",
+                    number_teams, places
+                ));
+            }
+        }
+        (None, None) => {}
+        (Some(_), None) => {
+            return Err("group_of_team requires relegation_places".to_string());
+        }
+        (None, Some(_)) => {
+            return Err("relegation_places requires group_of_team".to_string());
+        }
+    }
     if let Some(iterations) = payload.iterations {
         if iterations == 0 || iterations > MAX_ITERATIONS {
             return Err(format!(
@@ -108,6 +135,14 @@ pub struct SimulateRequest {
     /// goals are null/None for unplayed matches
     schedule: Vec<[Option<i32>; 4]>,
 
+    /// Staffel-Index je Team, parallel zu `elo_values` (0-basiert). Nur
+    /// zusammen mit `relegation_places` gueltig; loest die Auszaehlung der
+    /// Absteiger je Staffel aus (Antwortfeld `relegation_group_counts`).
+    group_of_team: Option<Vec<usize>>,
+
+    /// Zahl der Abstiegsplaetze am Tabellenende.
+    relegation_places: Option<usize>,
+
     /// Je Spiel: Ergebnis zaehlt fuer die Tabelle, bewegt aber den ELO-Walk
     /// nicht. Paralleler Vektor zu `schedule` (gleiche Laenge und
     /// Reihenfolge); fehlt das Feld, verhaelt sich alles wie bisher.
@@ -161,6 +196,12 @@ pub struct SimulateResponse {
     /// Team names in the same order as probability_matrix rows
     team_names: Vec<String>,
 
+    /// Absteiger je Staffel: `[staffel][anzahl]` = Zahl der Iterationen, in
+    /// denen genau `anzahl` Teams dieser Staffel abgestiegen sind. Fehlt,
+    /// wenn keine Staffel-Zuordnung uebergeben wurde.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    relegation_group_counts: Option<Vec<Vec<usize>>>,
+
     /// Number of simulations actually performed
     simulations_performed: usize,
 
@@ -201,7 +242,20 @@ pub async fn simulate_league(
     };
 
     // Set simulation parameters
+    // Zeilenzahl der Ergebnismatrix: hoechster vorkommender Index + 1.
+    // Staffeln, die in DIESER Liga kein Team stellen, behalten ihre Zeile,
+    // solange eine hoeher nummerierte besetzt ist -- eine leere Zeile
+    // zwischendrin summiert sich schlicht auf null Absteiger.
+    // Zur Grenze dieses Verfahrens siehe SimulationParams::group_count.
+    let group_count = payload
+        .group_of_team
+        .as_ref()
+        .map(|g| g.iter().max().map_or(0, |m| m + 1));
+
     let params = SimulationParams {
+        group_of_team: payload.group_of_team.clone(),
+        relegation_places: payload.relegation_places,
+        group_count,
         iterations: payload.iterations.unwrap_or(10000),
         mod_factor: payload.mod_factor.unwrap_or(20.0),
         home_advantage: payload.home_advantage.unwrap_or(40.0),
@@ -226,6 +280,7 @@ pub async fn simulate_league(
     let elapsed = start.elapsed();
 
     Ok(Json(SimulateResponse {
+        relegation_group_counts: result.relegation_group_counts.clone(),
         probability_matrix: result.probability_matrix,
         team_names: result.team_names,
         simulations_performed: params.iterations,

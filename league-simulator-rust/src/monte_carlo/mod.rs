@@ -66,15 +66,38 @@ fn run_monte_carlo_simulation_with_seeds(
         matches: Vec<crate::models::Match>,
         elos: Vec<f64>,
         counts: Vec<Vec<usize>>,
+        /// Zweiter Zaehler neben `counts`: je Staffel, wie oft genau k ihrer
+        /// Teams auf einem Abstiegsplatz landeten. Leer, wenn keine
+        /// Staffel-Zuordnung uebergeben wurde.
+        group_counts: Vec<Vec<usize>>,
     }
 
-    let position_counts: Vec<Vec<usize>> = seeds
+    // Staffel-Auszaehlung nur, wenn beides vorliegt. Die Zeilenzahl kommt aus
+    // group_count, nicht aus dem Maximum der Zuordnung: Eine Staffel ohne
+    // Teams braucht trotzdem ihre Zeile, sonst verschiebt sich alles
+    // dahinter.
+    let group_setup = match (
+        params.group_of_team.as_ref(),
+        params.relegation_places,
+        params.group_count,
+    ) {
+        (Some(groups), Some(places), Some(n_groups)) if places > 0 => {
+            Some((groups.clone(), places, n_groups))
+        }
+        _ => None,
+    };
+
+    let gezaehlt: (Vec<Vec<usize>>, Vec<Vec<usize>>) = seeds
         .par_iter()
         .fold(
             || IterState {
                 matches: Vec::with_capacity(season.matches.len()),
                 elos: Vec::with_capacity(n_teams),
                 counts: vec![vec![0usize; n_teams]; n_teams],
+                group_counts: match &group_setup {
+                    Some((_, places, n_groups)) => vec![vec![0usize; places + 1]; *n_groups],
+                    None => Vec::new(),
+                },
             },
             |mut state, &seed| {
                 let mut rng = StdRng::seed_from_u64(seed);
@@ -106,14 +129,49 @@ fn run_monte_carlo_simulation_with_seeds(
                 for standing in &table.standings {
                     state.counts[standing.team_id][standing.position - 1] += 1;
                 }
+
+                // Wie viele Teams JEDER Staffel stehen auf einem
+                // Abstiegsplatz? Auch null wird gezaehlt -- nur so summiert
+                // sich jede Zeile auf die Iterationszahl, und nur so laesst
+                // sich spaeter P(mindestens j Absteiger) ablesen.
+                if let Some((groups, places, n_groups)) = &group_setup {
+                    let mut je_staffel = vec![0usize; *n_groups];
+                    for standing in &table.standings {
+                        if standing.position > n_teams - places {
+                            je_staffel[groups[standing.team_id]] += 1;
+                        }
+                    }
+                    for (staffel, anzahl) in je_staffel.iter().enumerate() {
+                        state.group_counts[staffel][*anzahl] += 1;
+                    }
+                }
+
                 state
             },
         )
-        .map(|state| state.counts)
+        .map(|state| (state.counts, state.group_counts))
         .reduce(
-            || vec![vec![0usize; n_teams]; n_teams],
+            || {
+                (
+                    vec![vec![0usize; n_teams]; n_teams],
+                    match &group_setup {
+                        Some((_, places, n_groups)) => {
+                            vec![vec![0usize; places + 1]; *n_groups]
+                        }
+                        None => Vec::new(),
+                    },
+                )
+            },
+            // Dieselbe kommutative Addition wie bisher, jetzt fuer beide
+            // Zaehler: Die Reihenfolge, in der rayon die Teilergebnisse
+            // zusammenfuehrt, kann das Ergebnis nicht beeinflussen.
             |mut a, b| {
-                for (row_a, row_b) in a.iter_mut().zip(b) {
+                for (row_a, row_b) in a.0.iter_mut().zip(b.0) {
+                    for (cell_a, cell_b) in row_a.iter_mut().zip(row_b) {
+                        *cell_a += cell_b;
+                    }
+                }
+                for (row_a, row_b) in a.1.iter_mut().zip(b.1) {
                     for (cell_a, cell_b) in row_a.iter_mut().zip(row_b) {
                         *cell_a += cell_b;
                     }
@@ -121,6 +179,8 @@ fn run_monte_carlo_simulation_with_seeds(
                 a
             },
         );
+
+    let (position_counts, relegation_group_counts) = gezaehlt;
 
     // Convert counts to probabilities
     let mut probability_matrix = vec![vec![0.0; n_teams]; n_teams];
@@ -159,6 +219,11 @@ fn run_monte_carlo_simulation_with_seeds(
     }
 
     SimulationResult {
+        relegation_group_counts: if group_setup.is_some() {
+            Some(relegation_group_counts)
+        } else {
+            None
+        },
         probability_matrix: sorted_matrix,
         team_names: sorted_names,
     }
