@@ -1,6 +1,21 @@
 # Input Validation Functions
 # Validates and sanitizes user input for security and correctness
 
+# Liga-Registry: die eine Quelle fuer Liga-IDs und Teamzahl-Spannen.
+if (!exists("league_ids") || !exists("league_teams_range")) {
+  local({
+    d <- NULL
+    for (f in rev(sys.frames())) {
+      if (!is.null(f$ofile)) {
+        d <- dirname(f$ofile)
+        break
+      }
+    }
+    if (is.null(d) || is.na(d) || !nzchar(d)) d <- "RCode"
+    source(file.path(d, "league_registry.R"))
+  })
+}
+
 validate_team_count <- function(file_path) {
   # Validate that the team count is within expected range
   # Returns validation result
@@ -18,18 +33,32 @@ validate_team_count <- function(file_path) {
       team_data <- read.csv(file_path, sep = ";", stringsAsFactors = FALSE)
       team_count <- nrow(team_data)
 
-      # Expected range: 56-62 teams (3 leagues)
-      if (team_count < 56) {
+      # Die Spanne folgt der Registry statt fester Zahlen. Frueher standen
+      # hier 56-62 (18+18+20 plus willkuerliche Toleranz) -- mit zehn Ligen
+      # und 237 Teams haette der Saisonwechsel hart abgebrochen
+      # (season_processor.R stoppt bei Ablehnung).
+      #
+      # Untergrenze ist die kleinste Liga: Der Saisonwechsel validiert auch
+      # Einzelligen-Dateien, nicht nur die zusammengefuehrte Liste. Obergrenze
+      # ist die Summe aller Ligen plus Reserve fuer Teams, die im Laufe der
+      # Historie dazukamen (die TeamList fuehrt alle je aufgetretenen).
+      ranges <- lapply(league_ids(active_only = FALSE), league_teams_range)
+      min_teams <- min(vapply(ranges, function(r) r[[1]], integer(1)))
+      max_teams <- sum(vapply(ranges, function(r) r[[2]], integer(1))) * 2L
+
+      if (team_count < min_teams) {
         return(list(
           valid = FALSE,
-          message = paste("Too few teams:", team_count, "- expected at least 56")
+          message = paste("Too few teams:", team_count,
+                          "- expected at least", min_teams)
         ))
       }
 
-      if (team_count > 62) {
+      if (team_count > max_teams) {
         return(list(
           valid = FALSE,
-          message = paste("Too many teams:", team_count, "- expected at most 62")
+          message = paste("Too many teams:", team_count,
+                          "- expected at most", max_teams)
         ))
       }
 
@@ -321,8 +350,9 @@ validate_league_id <- function(league_id) {
   # Convert to string and sanitize
   league_id <- sanitize_user_input(as.character(league_id))
 
-  # Check against supported leagues
-  valid_leagues <- c("78", "79", "80")
+  # Check against supported leagues. Auch die noch inaktiven: Der
+  # Saisonwechsel muss sie verarbeiten koennen, bevor sie live gehen.
+  valid_leagues <- league_ids(active_only = FALSE)
 
   if (!league_id %in% valid_leagues) {
     return(list(

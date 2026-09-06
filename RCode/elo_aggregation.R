@@ -1,3 +1,18 @@
+# Liga-Registry: die eine Quelle fuer die Ligamenge.
+if (!exists("league_ids")) {
+  local({
+    d <- NULL
+    for (f in rev(sys.frames())) {
+      if (!is.null(f$ofile)) {
+        d <- dirname(f$ofile)
+        break
+      }
+    }
+    if (is.null(d) || is.na(d) || !nzchar(d)) d <- "RCode"
+    source(file.path(d, "league_registry.R"))
+  })
+}
+
 # ELO Aggregation Functions
 # Calculates final ELO ratings and Liga3 relegation baselines
 #
@@ -63,7 +78,7 @@ calculate_final_elos <- function(season) {
       )
 
       # Process all leagues
-      leagues <- c("78", "79", "80") # Bundesliga, 2. Bundesliga, 3. Liga
+      leagues <- league_ids()  # aus der Liga-Registry
 
       for (league in leagues) {
         cat("Processing ELO updates for league", league, "season", season, "\n")

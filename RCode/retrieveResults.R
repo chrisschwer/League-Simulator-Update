@@ -1,3 +1,19 @@
+# Liga-Registry: Die Ligamenge des Live-Polls kommt von dort, damit sie nicht
+# unabhaengig von der Fetch-Liste im Update-Loop gepflegt wird.
+if (!exists("league_ids")) {
+  local({
+    d <- NULL
+    for (f in rev(sys.frames())) {
+      if (!is.null(f$ofile)) {
+        d <- dirname(f$ofile)
+        break
+      }
+    }
+    if (is.null(d) || is.na(d) || !nzchar(d)) d <- "RCode"
+    source(file.path(d, "league_registry.R"))
+  })
+}
+
 # Last-seen API-Football rate-limit headers, shared across callers so
 # checkAPILimits() can avoid spending a request just to read them.
 .api_rate_limit <- new.env(parent = emptyenv())
@@ -71,7 +87,7 @@ retrieveResults <- function(league = "78", season = "2022") {
 #' @return Integer vector of live fixture IDs (integer(0) if none are live),
 #'   or NULL if the request failed - callers must treat NULL as "unknown"
 #'   and fall back to a full fetch.
-retrieveLiveFixtures <- function(league_ids = c("78", "79", "80")) {
+retrieveLiveFixtures <- function(league_ids = league_ids()) {
   require(httr)
   require(jsonlite)
 

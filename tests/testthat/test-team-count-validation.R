@@ -25,14 +25,16 @@ test_that("validate_team_count validates correct range", {
 })
 
 test_that("validate_team_count rejects too few teams", {
-  # Create test file with too few teams (55)
+  # Die Untergrenze folgt seit der Liga-Registry der kleinsten Liga (12 Teams,
+  # Frauen-Bundesliga) statt der festen 56 fuer drei Ligen: Der Saisonwechsel
+  # validiert auch Einzelligen-Dateien, nicht nur die zusammengefuehrte Liste.
   test_file <- tempfile(fileext = ".csv")
-  
+
   test_data <- data.frame(
-    TeamID = 1:55,
-    ShortText = paste0("TM", 1:55),
-    Promotion = rep(0, 55),
-    InitialELO = rep(1500, 55)
+    TeamID = 1:8,
+    ShortText = paste0("TM", 1:8),
+    Promotion = rep(0, 8),
+    InitialELO = rep(1500, 8)
   )
   write.table(test_data, test_file, sep = ";", row.names = FALSE, quote = FALSE)
   
@@ -45,14 +47,18 @@ test_that("validate_team_count rejects too few teams", {
 })
 
 test_that("validate_team_count rejects too many teams", {
-  # Create test file with too many teams (63)
+  # Die Obergrenze folgt der Summe aller zehn Ligen (mit Reserve, weil die
+  # TeamList alle je aufgetretenen Teams fuehrt) statt der festen 62. Die
+  # echte TeamList_2026 mit 237 Teams muss durchgehen -- das prueft
+  # test-league-registry.R.
   test_file <- tempfile(fileext = ".csv")
-  
+
+  n <- 2000
   test_data <- data.frame(
-    TeamID = 1:63,
-    ShortText = paste0("TM", 1:63),
-    Promotion = rep(0, 63),
-    InitialELO = rep(1500, 63)
+    TeamID = 1:n,
+    ShortText = paste0("TM", 1:n),
+    Promotion = rep(0, n),
+    InitialELO = rep(1500, n)
   )
   write.table(test_data, test_file, sep = ";", row.names = FALSE, quote = FALSE)
   

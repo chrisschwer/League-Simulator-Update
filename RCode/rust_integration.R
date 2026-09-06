@@ -60,7 +60,9 @@ simulate_league_rust <- function(schedule, elo_values, team_names,
                                  adj_goals = NULL,
                                  adj_goals_against = NULL,
                                  adj_goal_diff = NULL,
-                                 elo_neutral = NULL) {
+                                 elo_neutral = NULL,
+                                 tore_slope = NULL,
+                                 tore_intercept = NULL) {
   # Convert schedule matrix to list format for JSON
   schedule_list <- lapply(seq_len(nrow(schedule)), function(i) {
     goals_home <- if (is.na(schedule[i, 3])) NULL else as.integer(schedule[i, 3])
@@ -102,7 +104,19 @@ simulate_league_rust <- function(schedule, elo_values, team_names,
     payload$elo_neutral <- as.logical(elo_neutral)
   }
 
-  json_body <- toJSON(payload, auto_unbox = TRUE, null = "null")
+  # Tormodell je Wechselgemeinschaft (ADR 0004). Wie beim home_advantage gilt:
+  # Nur eine ABWEICHUNG wird gesendet -- fuer die Herren-Ligen haelt der
+  # Rust-Server seine Defaults, und zwei Quellen koennten auseinanderlaufen
+  # (ADR 0002). Die Werte kommen aus der Liga-Registry.
+  if (!is.null(tore_slope)) payload$tore_slope <- as.numeric(tore_slope)
+  if (!is.null(tore_intercept)) payload$tore_intercept <- as.numeric(tore_intercept)
+
+  # digits = NA: volle Praezision statt der vier Nachkommastellen, auf die
+  # jsonlite sonst rundet. Bei tore_slope (0,0024058833) waeren das 0,245 %
+  # Fehler -- der Parameter ist klein genug, dass die Rundung ihn in einer
+  # signifikanten Stelle trifft. Fuer ELO-Werte macht es keinen Unterschied
+  # (5e-05 Punkte), schadet aber nicht.
+  json_body <- toJSON(payload, auto_unbox = TRUE, null = "null", digits = NA)
 
   # Make API request
   response <- POST(
@@ -157,6 +171,7 @@ simulate_league_rust <- function(schedule, elo_values, team_names,
 #' @export
 leagueSimulatorRust <- function(season, n = 10000,
                                 modFactor = 20, homeAdvantage = NULL,
+                                toreSlope = NULL, toreIntercept = NULL,
                                 numberTeams = 18,
                                 adjPoints = rep_len(0, numberTeams),
                                 adjGoals = rep_len(0, numberTeams),
@@ -216,7 +231,9 @@ leagueSimulatorRust <- function(season, n = 10000,
     adj_goals = adjGoals,
     adj_goals_against = adjGoalsAgainst,
     adj_goal_diff = adjGoalDiff,
-    elo_neutral = eloNeutral
+    elo_neutral = eloNeutral,
+    tore_slope = toreSlope,
+    tore_intercept = toreIntercept
   )
 
   end_time <- Sys.time()

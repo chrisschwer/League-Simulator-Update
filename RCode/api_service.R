@@ -1,3 +1,20 @@
+# Liga-Registry: die eine Quelle fuer Liga-IDs und Anzeigenamen. Vorher hielt
+# diese Datei zwei identische Namens-Maps (get_league_name und
+# fetch_all_leagues_teams); eine dritte lag in scripts/analyze_league_empirics.R.
+if (!exists("league_ids") || !exists("league_name")) {
+  local({
+    d <- NULL
+    for (f in rev(sys.frames())) {
+      if (!is.null(f$ofile)) {
+        d <- dirname(f$ofile)
+        break
+      }
+    }
+    if (is.null(d) || is.na(d) || !nzchar(d)) d <- "RCode"
+    source(file.path(d, "league_registry.R"))
+  })
+}
+
 # API Service Layer
 # Handles API calls to fetch team data and manage authentication
 
@@ -149,10 +166,9 @@ get_league_name <- function(league_id) {
   # Get human-readable league name
   # Returns league name string
 
-  league_names <- list(
-    "78" = "Bundesliga",
-    "79" = "2. Bundesliga",
-    "80" = "3. Liga"
+  league_names <- stats::setNames(
+    as.list(vapply(league_ids(active_only = FALSE), league_name, character(1))),
+    league_ids(active_only = FALSE)
   )
 
   if (league_id %in% names(league_names)) {
@@ -218,10 +234,11 @@ fetch_all_leagues_teams <- function(season) {
   # Fetch teams for all three leagues
   # Returns list organized by league
 
-  leagues <- list(
-    "78" = "Bundesliga",
-    "79" = "2. Bundesliga",
-    "80" = "3. Liga"
+  # Nur die aktiven Ligen: Diese Funktion holt Teamdaten fuer den laufenden
+  # Betrieb, nicht fuer den Bestand.
+  leagues <- stats::setNames(
+    as.list(vapply(league_ids(), league_name, character(1))),
+    league_ids()
   )
 
   all_teams <- list()
