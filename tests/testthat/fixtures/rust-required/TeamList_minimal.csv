@@ -1,4 +1,4 @@
-TeamID;ShortName;Promotion;InitialELO
+TeamID;ShortText;Promotion;InitialELO
 1;TST;0;1500
 2;UAA;0;1500
 3;UBB;0;1500
