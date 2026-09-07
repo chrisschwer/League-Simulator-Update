@@ -250,20 +250,38 @@ graph TB
 
 ### Simulation Performance
 
+Gemessen 2026-09-07 auf einem Entwicklerrechner, 18 Teams, vollstaendiger
+Spielplan ohne gespielte Partien (der teuerste Fall — jedes Spiel muss simuliert
+werden):
+
 | Metric | Value | Notes |
 |--------|-------|-------|
-| Single simulation | ~50ms | One complete season |
-| 10,000 iterations | ~8-10 minutes | Full probability calculation |
-| Memory usage | ~2GB peak | During simulation |
-| CPU usage | 100% (multi-core) | Parallel processing |
+| 10,000 iterations | **~42 ms** | eine Liga, komplette Wahrscheinlichkeitsmatrix |
+| 50,000 iterations | ~218 ms | skaliert linear |
+| Single simulation | ~4 µs | eine Saison, abgeleitet |
+| HTTP + JSON overhead | ~20 ms | R-seitig, unabhaengig von der Iterationszahl |
+| CPU usage | 100% (multi-core) | rayon work-stealing |
+
+Zehn Ligen kosten damit rund **0,5 Sekunden** Rechenzeit je Zyklus. Die Laufzeit
+eines Update-Zyklus wird vollstaendig von den API-Abrufen bestimmt, nicht von der
+Simulation; Optimierungsaufwand an der Engine lohnt nicht.
+
+> Hier standen bis 2026-09-07 „~8–10 Minuten" fuer 10.000 Iterationen und „~50 ms"
+> fuer eine Saison. Das waren Werte der R/Rcpp-Implementierung vor der
+> Rust-Migration — rund Faktor 14.000 daneben. Wer damit plant, dimensioniert
+> Zeitfenster und Ligazahl falsch.
 
 ### API Performance
 
 | Endpoint | Response Time | Rate Limit |
 |----------|---------------|------------|
-| Team data | ~500ms | 100/hour |
-| Match results | ~1s | 100/hour |
-| League standings | ~800ms | 100/hour |
+| Team data | ~500ms | siehe unten |
+| Match results | ~1s | siehe unten |
+| League standings | ~800ms | siehe unten |
+
+Das Limit gilt nicht je Endpunkt, sondern fuer den Zugang insgesamt: Pro-Plan mit
+**7.500 Requests/Tag** und **300/Minute** (CLAUDE.md, „Current Status"). Die frueher
+hier genannten „100/hour" trafen auf keinen der Endpunkte zu.
 
 ## Deployment Architecture
 

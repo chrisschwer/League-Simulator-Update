@@ -791,3 +791,269 @@ async fn simulate_rejects_group_of_team_without_relegation_places() {
     let (status, _) = send(post_simulate_json(payload)).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
+
+// --- /match-preview: ein virtuelles Spiel ohne Spielplan ---------------------
+//
+// Fuer die Aufstiegsspiele Nord gegen Bayern (Par. 55b DFB-SpO) braucht R die
+// Tor-Raten einer Paarung, die in keinem Ligaspielplan steht. ADR 0002
+// verwirft den Nachbau der Formel ELO -> lambda in R; also liefert sie der
+// Server: POST /match-preview nimmt zwei ELO-Werte und antwortet mit dem,
+// was /league-details je Spiel liefert -- lambda_home, lambda_away,
+// p_home_win, p_draw, p_away_win, score_matrix -- gerechnet mit DERSELBEN
+// Funktion (league_details::match_probabilities), kein zweiter Rechenweg.
+//
+// Request:  { elo_home, elo_away,
+//             home_advantage?, tore_slope?, tore_intercept?, max_goals? }
+//           Defaults wie /league-details: 40, 0.0017854953143549,
+//           1.3218390804597700, 6.
+// Response: { lambda_home, lambda_away, p_home_win, p_draw, p_away_win,
+//             score_matrix }  -- score_matrix ist (max_goals+1)^2, letzte
+//           Zeile/Spalte tragen die Schwanzmasse.
+//
+// Die R-Seite (tests/testthat/test-aufstiegsspiele.R) macht auf diesen
+// Raten nur noch Kombinatorik: Faltung ueber zwei Spiele, Verlaengerung
+// mit lambda / 3 ohne Heimvorteil, Elfmeter 50:50.
+
+fn post_match_preview_json(payload: Value) -> Request<Body> {
+    Request::builder()
+        .method("POST")
+        .uri("/match-preview")
+        .header("content-type", "application/json")
+        .body(Body::from(serde_json::to_vec(&payload).unwrap()))
+        .unwrap()
+}
+
+fn f64_at(body: &Value, key: &str) -> f64 {
+    body[key]
+        .as_f64()
+        .unwrap_or_else(|| panic!("Feld {key} fehlt oder ist keine Zahl; Body: {body}"))
+}
+
+#[tokio::test]
+async fn match_preview_returns_rust_goal_model_lambdas() {
+    // 1500 gegen 1400 mit dem Default-Heimvorteil 40: elo_delta = 140.
+    //   lambda_home = 140 * 0.0017854953143549 + 1.32183908045977
+    //               = 1.57180842446946
+    //   lambda_away = -140 * 0.0017854953143549 + 1.32183908045977
+    //               = 1.07186973645008
+    let (status, body) = send(post_match_preview_json(json!({
+        "elo_home": 1500.0,
+        "elo_away": 1400.0
+    })))
+    .await;
+
+    assert_eq!(status, StatusCode::OK, "Body: {body}");
+    assert!((f64_at(&body, "lambda_home") - 1.57180842446946).abs() < 1e-12);
+    assert!((f64_at(&body, "lambda_away") - 1.07186973645008).abs() < 1e-12);
+
+    // Ohne Heimvorteil: elo_delta = 100.
+    let (status, body) = send(post_match_preview_json(json!({
+        "elo_home": 1500.0,
+        "elo_away": 1400.0,
+        "home_advantage": 0.0
+    })))
+    .await;
+
+    assert_eq!(status, StatusCode::OK, "Body: {body}");
+    assert!((f64_at(&body, "lambda_home") - 1.50038861189526).abs() < 1e-12);
+    assert!((f64_at(&body, "lambda_away") - 1.14328954902428).abs() < 1e-12);
+}
+
+#[tokio::test]
+async fn match_preview_home_advantage_is_additive_on_elo_delta() {
+    // Der Heimvorteil ist ELO-Punkte, kein Faktor auf lambda:
+    // lambda_home(40) - lambda_home(0) = 40 * tore_slope, und die Summe
+    // beider Raten ist immer 2 * tore_intercept.
+    let (_, mit) = send(post_match_preview_json(json!({
+        "elo_home": 1500.0,
+        "elo_away": 1500.0
+    })))
+    .await;
+    let (_, ohne) = send(post_match_preview_json(json!({
+        "elo_home": 1500.0,
+        "elo_away": 1500.0,
+        "home_advantage": 0.0
+    })))
+    .await;
+
+    let slope = 0.0017854953143549;
+    let intercept = 1.3218390804597700;
+    assert!((f64_at(&mit, "lambda_home") - f64_at(&ohne, "lambda_home") - 40.0 * slope).abs() < 1e-13);
+    assert!((f64_at(&ohne, "lambda_away") - f64_at(&mit, "lambda_away") - 40.0 * slope).abs() < 1e-13);
+    assert!((f64_at(&mit, "lambda_home") + f64_at(&mit, "lambda_away") - 2.0 * intercept).abs() < 1e-13);
+    // Ohne Heimvorteil und bei gleicher ELO: beide Raten exakt der Intercept.
+    assert!((f64_at(&ohne, "lambda_home") - intercept).abs() < 1e-15);
+    assert!((f64_at(&ohne, "lambda_away") - intercept).abs() < 1e-15);
+}
+
+#[tokio::test]
+async fn match_preview_clamps_lambda_at_0_001() {
+    // ELO-Differenz 1000 ohne Heimvorteil: die Gastrate waere -0.4637 und
+    // wird auf 0.001 geklemmt -- wie in simulate_match und league_details.
+    let (status, body) = send(post_match_preview_json(json!({
+        "elo_home": 2500.0,
+        "elo_away": 1500.0,
+        "home_advantage": 0.0
+    })))
+    .await;
+
+    assert_eq!(status, StatusCode::OK, "Body: {body}");
+    assert_eq!(f64_at(&body, "lambda_away"), 0.001);
+    assert!((f64_at(&body, "lambda_home") - (1000.0 * 0.0017854953143549 + 1.3218390804597700)).abs() < 1e-12);
+    assert!(f64_at(&body, "lambda_home") > 0.0);
+}
+
+#[tokio::test]
+async fn match_preview_agrees_with_league_details_for_an_open_match() {
+    // Kein zweiter Rechenweg: Fuer ein offenes Spiel ohne gespielte Partien
+    // rechnet /league-details mit den Start-ELOs -- genau das, was
+    // /match-preview mit denselben ELOs liefern muss, Feld fuer Feld.
+    let (status_ld, ld) = send(post_league_details_json(json!({
+        "schedule": [[1, 2, null, null]],
+        "elo_values": [1500.0, 1400.0],
+        "max_goals": 8
+    })))
+    .await;
+    assert_eq!(status_ld, StatusCode::OK, "Body: {ld}");
+
+    let (status_mp, mp) = send(post_match_preview_json(json!({
+        "elo_home": 1500.0,
+        "elo_away": 1400.0,
+        "max_goals": 8
+    })))
+    .await;
+    assert_eq!(status_mp, StatusCode::OK, "Body: {mp}");
+
+    let spiel = &ld["matches"][0];
+    for key in ["lambda_home", "lambda_away", "p_home_win", "p_draw", "p_away_win"] {
+        assert_eq!(mp[key], spiel[key], "Feld {key}");
+    }
+    assert_eq!(mp["score_matrix"], spiel["score_matrix"]);
+}
+
+#[tokio::test]
+async fn match_preview_respects_goal_model_parameters() {
+    // Frauen-Tormodell (Ligen 82, 1034): bei gleicher ELO und ohne
+    // Heimvorteil sind beide Raten exakt der Frauen-Intercept.
+    let (status, body) = send(post_match_preview_json(json!({
+        "elo_home": 1500.0,
+        "elo_away": 1500.0,
+        "home_advantage": 0.0,
+        "tore_slope": 0.0024058833,
+        "tore_intercept": 1.6527603153
+    })))
+    .await;
+
+    assert_eq!(status, StatusCode::OK, "Body: {body}");
+    assert!((f64_at(&body, "lambda_home") - 1.6527603153).abs() < 1e-12);
+    assert!((f64_at(&body, "lambda_away") - 1.6527603153).abs() < 1e-12);
+
+    // Und mit Steigung: 1600 gegen 1450, Heimvorteil 40, Delta 190.
+    //   lambda_home = 190 * 0.0024058833 + 1.6527603153 = 2.1098781423
+    let (_, body) = send(post_match_preview_json(json!({
+        "elo_home": 1600.0,
+        "elo_away": 1450.0,
+        "tore_slope": 0.0024058833,
+        "tore_intercept": 1.6527603153
+    })))
+    .await;
+    assert!((f64_at(&body, "lambda_home") - 2.1098781423).abs() < 1e-10);
+}
+
+#[tokio::test]
+async fn match_preview_score_matrix_shape_and_mass() {
+    // max_goals = 15 -> 16 x 16; die Masse summiert auf 1, weil die letzte
+    // Zeile/Spalte den Schwanz traegt. P(0:0) = exp(-lambda_home - lambda_away).
+    let (status, body) = send(post_match_preview_json(json!({
+        "elo_home": 1500.0,
+        "elo_away": 1400.0,
+        "max_goals": 15
+    })))
+    .await;
+
+    assert_eq!(status, StatusCode::OK, "Body: {body}");
+    let grid = body["score_matrix"].as_array().expect("score_matrix array");
+    assert_eq!(grid.len(), 16);
+    let mut masse = 0.0;
+    for row in grid {
+        let row = row.as_array().expect("score_matrix row");
+        assert_eq!(row.len(), 16);
+        masse += row.iter().map(|v| v.as_f64().unwrap()).sum::<f64>();
+    }
+    assert!((masse - 1.0).abs() < 1e-12, "Masse {masse}");
+
+    let nil_nil = grid[0][0].as_f64().unwrap();
+    let lh = f64_at(&body, "lambda_home");
+    let la = f64_at(&body, "lambda_away");
+    assert!((nil_nil - (-lh - la).exp()).abs() < 1e-14);
+
+    // Default wie /league-details: max_goals = 6 -> 7 x 7.
+    let (_, body) = send(post_match_preview_json(json!({
+        "elo_home": 1500.0,
+        "elo_away": 1400.0
+    })))
+    .await;
+    assert_eq!(body["score_matrix"].as_array().unwrap().len(), 7);
+}
+
+#[tokio::test]
+async fn match_preview_outcome_probabilities_sum_to_one_and_are_symmetric_without_home_advantage() {
+    let (status, body) = send(post_match_preview_json(json!({
+        "elo_home": 1500.0,
+        "elo_away": 1500.0,
+        "home_advantage": 0.0
+    })))
+    .await;
+
+    assert_eq!(status, StatusCode::OK, "Body: {body}");
+    let (h, d, a) = (
+        f64_at(&body, "p_home_win"),
+        f64_at(&body, "p_draw"),
+        f64_at(&body, "p_away_win"),
+    );
+    assert!((h + d + a - 1.0).abs() < 1e-12);
+    assert!((h - a).abs() < 1e-14, "ohne Heimvorteil symmetrisch: {h} vs {a}");
+    // P(Remis) bei lambda 1.3218 beidseitig: sum_k dpois(k)^2 = 0.2614 --
+    // die Decke aus elo_calibration.R::poisson_draw_ceiling().
+    assert!((d - 0.261363).abs() < 5e-6, "P(Remis) = {d}");
+
+    // Mit Heimvorteil kippt es zum Heimteam.
+    let (_, body) = send(post_match_preview_json(json!({
+        "elo_home": 1500.0,
+        "elo_away": 1500.0
+    })))
+    .await;
+    assert!(f64_at(&body, "p_home_win") > f64_at(&body, "p_away_win"));
+}
+
+#[tokio::test]
+async fn match_preview_rejects_max_goals_out_of_range() {
+    let (status, body) = send(post_match_preview_json(json!({
+        "elo_home": 1500.0,
+        "elo_away": 1400.0,
+        "max_goals": 0
+    })))
+    .await;
+    assert_bad_request(status, &body, "max_goals must be between 1 and 100");
+
+    let (status, body) = send(post_match_preview_json(json!({
+        "elo_home": 1500.0,
+        "elo_away": 1400.0,
+        "max_goals": 101
+    })))
+    .await;
+    assert_bad_request(status, &body, "max_goals must be between 1 and 100");
+}
+
+#[tokio::test]
+async fn match_preview_rejects_missing_elo() {
+    // Ohne elo_home gibt es kein Spiel. Die Ablehnung kommt aus der
+    // JSON-Deserialisierung (axum: 422) und muss das fehlende Feld nennen.
+    let (status, body) = send(post_match_preview_json(json!({
+        "elo_away": 1400.0
+    })))
+    .await;
+    assert!(status.is_client_error(), "Statuscode {status}; Body: {body}");
+    let text = body.as_str().unwrap_or_default();
+    assert!(text.contains("elo_home"), "Meldung sollte elo_home nennen, war: {text:?}");
+}

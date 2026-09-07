@@ -207,14 +207,75 @@ deren Zeile.
 korrekt, denn ohne Teams steigt dorthin niemand ab. Mehr als fünf Zeilen ist ein
 Fehler, kein stilles Abschneiden.
 
-### 5.6 `p_sieg` ist Eingang, nicht Herleitung — *Abgrenzung*
+### 5.6 Die Aufstiegsspiele Nord–Bayern — *modelliert*
 
-Die Gewinnquote über zwei Aufstiegsspiele geht als Matrix **ein**; wie sie
-entsteht, ist hier nicht festgelegt. Offen: Verlängerung, das vor Saisonbeginn
-ausgeloste Heimrecht, ob der Heimvorteil sich über zwei Spiele wirklich aufhebt.
+Die Gewinnquote über zwei Spiele wird analytisch aus dem Tormodell gerechnet,
+nicht angenommen (Entscheidung Christoph, 2026-09-07):
 
-Angenommen ist lediglich, dass es **keinen Unentschieden-Ausgang** gibt:
-Gegenrichtung = `1 − t(p_sieg)`.
+| Stufe | Rechnung |
+|---|---|
+| Hinspiel | 90 Minuten, Heimvorteil für A |
+| Rückspiel | 90 Minuten, Heimvorteil für B |
+| Verlängerung bei Gleichstand | 30 Minuten, `λ_ev = λ_90 / 3`, **ohne Heimvorteil** |
+| danach | Elfmeterschießen, **50:50** |
+
+Kein Monte Carlo: Die Gesamttordifferenz über zwei Spiele ist die Faltung der
+Einzelspiel-Differenzen, beides exakt aus zwei unabhängigen Poisson-Verteilungen.
+
+**Die reguläre Spielzeit trägt den Heimvorteil**, getauscht zwischen den beiden
+Spielen — so, wie die Partie tatsächlich gespielt wird.
+
+> *Nachgerechnet:* In diesem Modell hebt er sich über beide Spiele **exakt** auf
+> — nicht nur im Erwartungswert, sondern in der ganzen Verteilung. Geprüft an
+> 1600/1400 und 1000/1080 ELO: Gesamtquote und P(Gleichstand) sind auf 16 Stellen
+> identisch mit der Rechnung auf neutralem Platz.
+>
+> Der Grund ist strukturell. λ ist affin-linear in der ELO-Differenz, und der
+> Heimvorteil wirkt additiv auf sie:
+>
+> ```
+> λ_A(Hin)  = slope · (Δ + ha) + intercept
+> λ_A(Rück) = slope · (Δ − ha) + intercept
+> ```
+>
+> Die Summe ist `2 · (slope · Δ + intercept)` — `ha` fällt heraus. Da die Summe
+> zweier unabhängiger Poisson-Variablen wieder Poisson mit der Summe der λ ist,
+> hängt die Verteilung der Gesamttore nur davon ab. Der Heimvorteil verschiebt
+> Tore *zwischen* den Spielen, nicht ihre Gesamtzahl.
+>
+> Modelliert wird er trotzdem, weil er zum tatsächlichen Ablauf gehört und die
+> Rechnung nicht von dieser Eigenschaft abhängen soll. Sie bricht, sobald λ nicht
+> mehr affin-linear ist oder die Tore korrelieren — bei Dixon-Coles (in CLAUDE.md
+> als bekannte Modellschwäche vermerkt) wäre das der Fall. Ein Test hält beide
+> Zahlen gegeneinander fest, damit die Änderung dann auffällt.
+
+**Nur die Verlängerung läuft ohne Heimvorteil**, weil das Heimrecht bei
+Nord/Bayern vor Saisonbeginn ausgelost wird und nicht ermittelbar ist, wer sie zu
+Hause bestreitet.
+
+Die Symmetrie bleibt trotz asymmetrischer Einzelspiele erhalten — wer im Hinspiel
+Heimrecht hat, hat es im Rückspiel nicht. Bei gleicher Stärke muss die Quote
+exakt 0,5 sein; ein Test prüft das und fängt damit auch den Fehler, den
+Heimvorteil nur einmal oder zweimal derselben Seite zuzuschlagen.
+
+> *Bewusste Auslassung — Auswärtstorregel.* Da es Heimrecht gibt, gibt es auch
+> Auswärtstore. Modelliert werden sie nicht: In der DFB-Aufstiegsrelegation ist
+> die Regel abgeschafft.
+
+> *Annahme — λ/3.* Die Verlängerung wird rein über die Spielzeit skaliert, ohne
+> Verhaltensannahme. Empirisch sind Verlängerungen torärmer als ein Spieldrittel
+> (vorsichtigeres Spiel, das Elfmeterschießen im Blick); die Literatur nennt eher
+> 25–30 %. Ein kleineres λ hieße mehr Elfmeterschießen und damit mehr 50:50, zöge
+> das Ergebnis also näher an die Mitte. Der Effekt ist zweiter Ordnung, weil er
+> nur den ohnehin seltenen Gleichstandsfall betrifft — und λ/3 setzt keine Zahl,
+> die wir nicht belegen können.
+
+Das ELO-Modell trägt über die Staffelgrenze, weil Nord und Bayern zur selben
+Wechselgemeinschaft gehören (ADR 0004). Bei Bayerns *Abstiegs*relegation geht das
+nicht: Die Bayernligisten simulieren wir nicht, deshalb bleibt sie ein eigenes
+Band (§ 3).
+
+Ein explizit übergebenes `p_sieg` hat weiterhin Vorrang vor der Herleitung.
 
 ### 5.7 Nicht modellierte Sonderfälle — *bewusst ausgelassen*
 
