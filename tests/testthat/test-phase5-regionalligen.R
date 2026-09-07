@@ -3,8 +3,9 @@ library(testthat)
 # Phase 5: Die fuenf Regionalligen gehen live.
 #
 # Bisher aktiv: 78, 79, 80 (Herren) und 82, 1034 (Frauen) -- fuenf Ligen,
-# fuenf Seiten plus Methodik. Danach: zehn Ligen, zehn Seiten plus Methodik,
-# und eine Navigation mit drei Gruppen (Herren / Frauen / Regionalliga).
+# fuenf Seiten plus Methodik. Danach: zehn Ligen, zehn Liga-Seiten, die
+# Seite "Aufstieg in die 3. Liga" und Methodik -- zwoelf Seiten -- sowie
+# eine Navigation mit drei Gruppen (Herren / Frauen / Regionalliga).
 #
 # Diese Datei ist test-first geschrieben: Sie MUSS rot sein, solange
 # `active = FALSE` in RCode/league_registry.R steht und league_views() die
@@ -133,53 +134,32 @@ library(testthat)
 # sind -- sonst waere die Vereinfachung eine stille Abweichung.
 #
 # ---------------------------------------------------------------------------
-# ENTWURF, NOCH NICHT FESTGELEGT: eine Seite "Aufstieg in die 3. Liga"
+# EIGENE SEITE "Aufstieg in die 3. Liga" -- entschieden
 # ---------------------------------------------------------------------------
 #
-# Idee des Nutzers: eine eigene Seite, die den ganzen Aufstiegsweg in die
-# 3. Liga zeigt -- die drei gesetzten Direktaufsteiger mit ihrer
-# Meisterwahrscheinlichkeit, und fuer Nord/Bayern die Aufstiegsspiele.
-# Hier bewusst KEINE festlegenden Tests, sondern drei Varianten zur Wahl.
+# Der Nutzer hat am 2026-09-07 Variante 2 gewaehlt (Randsummen), Navigation
+# unter "Regionalliga". Die Tests dazu stehen in Abschnitt 4a; hier nur die
+# verworfenen Alternativen, damit die Entscheidung nachvollziehbar bleibt.
 #
-# Die Rohdaten liegen vor: p_sieg_matrix() liefert die Zweikampfquoten
-# (Zeilen = Nord, Spalten = Bayern -- STAFFELN-Reihenfolge), die
-# Meisterchancen stehen in Spalte 1 der jeweiligen Prognose.
+#   Variante 1 -- die volle Paarungsmatrix, 18 x 19 Zellen. VERWORFEN:
+#     342 Zellen, praktisch alle nahe null. Die Meisterwahrscheinlichkeit
+#     konzentriert sich je Staffel auf zwei, drei Teams; das Produkt
+#     zweier kleiner Zahlen ist noch kleiner. Auf Mobil unlesbar -- sie
+#     zeigt viel und sagt wenig.
 #
-#   Variante 1 -- die volle Matrix, 18 x 19 Zellen.
-#     Jede Zelle: P(genau diese Paarung UND Nord-Team gewinnt) =
-#     P(X Meister) * P(Y Meister) * P(X schlaegt Y).
-#     PRO: zeigt die Struktur vollstaendig, nichts ist weggerechnet.
-#     CONTRA: 342 Zellen, und praktisch alle davon nahe null -- die
-#     Meisterwahrscheinlichkeit konzentriert sich auf zwei, drei Teams je
-#     Staffel, das Produkt zweier kleiner Zahlen ist noch kleiner. Auf
-#     Mobil ist die Tabelle nicht lesbar. Sie zeigt viel und sagt wenig.
-#
-#   Variante 2 -- Randsummen als zwei kurze Listen (EMPFEHLUNG).
-#     Je Staffel eine Tabelle: Team, P(Meister), P(Aufstieg). Das ist
-#     genau die Doppelsumme, ueber den Gegner ausintegriert -- also die
-#     Zeilen- bzw. Spaltensummen der Matrix aus Variante 1.
-#     PRO: beantwortet die Frage, die der Leser hat ("steigt mein Verein
-#     auf?"); zwei Tabellen mit 18 bzw. 19 Zeilen; dieselbe Form wie die
-#     Liga-Seiten. Der Quotient P(Aufstieg)/P(Meister) ist die
-#     durchschnittliche Siegquote im Aufstiegsspiel und laesst sich als
-#     dritte Spalte danebenstellen.
-#     CONTRA: die Paarung selbst verschwindet -- man sieht nicht, GEGEN
-#     WEN es voraussichtlich geht.
+#   Variante 2 -- Randsummen je Team. GEWAEHLT: Team, P(Meister),
+#     P(Aufstieg), Siegquote. Das ist die ueber den Gegner ausintegrierte
+#     Matrix, also dieselbe Information ohne die 342 Zellen. Beantwortet
+#     die Frage, die der Leser hat.
 #
 #   Variante 3 -- Variante 2 plus die wahrscheinlichsten Paarungen.
-#     Unter den beiden Listen eine kurze dritte Tabelle: die Paarungen
-#     X-Y, absteigend nach P(X Meister) * P(Y Meister), abgeschnitten bei
-#     einem Schwellwert (etwa 1 %) oder bei den Top 10, mit einer
-#     Restzeile "alle uebrigen Paarungen: n %".
-#     PRO: bringt die Paarung zurueck, ohne die 342 Zellen; die Restzeile
-#     macht sichtbar, wie viel weggelassen wurde.
-#     CONTRA: der Schwellwert ist eine willkuerliche Setzung, und die
-#     Tabelle wechselt ihre Laenge im Saisonverlauf.
+#     VERWORFEN: Der Schwellwert waere eine willkuerliche Setzung, und die
+#     Tabelle wechselte im Saisonverlauf ihre Laenge.
 #
-# Zu klaeren, bevor Tests entstehen: Bekommt die Seite einen eigenen
-# nav_group-Eintrag oder haengt sie unter "Regionalliga"? Und was steht
-# dort ausserhalb der Aufstiegsspiel-Saisons, in denen Nord und Bayern
-# nicht gegeneinander spielen -- die Rotation wechselt jaehrlich.
+# Begruendung des Nutzers fuer die einfachste Form: "Fuer naechste Saison
+# muessen wir eh vermutlich neue Aufstiegsregeln implementieren, und dann
+# bauen wir halt auch die Aufstiegsseite passend um." Also kein Vorbau fuer
+# Regeln, die es noch nicht gibt.
 #
 # ===========================================================================
 
@@ -205,6 +185,22 @@ source_generator <- function() {
 source_round_filter <- function() {
   env <- new.env()
   source(test_path("..", "..", "RCode", "round_filter.R"), local = env)
+  env
+}
+
+# Der Aufstiegsteil braucht VIER Dateien, und die Reihenfolge ist nicht
+# beliebig: rl_aufstieg.R ruft pruefe_staffel() auf, das in
+# rl_abstiegskopplung.R steht, und p_sieg_matrix() aus aufstiegsspiele.R.
+# Fehlt eine, faellt die Aufloesung ueber die Elternumgebung auf zufaellig
+# vorhandene Definitionen aus anderen Testdateien zurueck -- der Test waere
+# dann von der Ausfuehrungsreihenfolge abhaengig.
+source_aufstieg <- function() {
+  env <- new.env()
+  for (datei in c("league_registry.R", "staffel_zuordnung.R",
+                  "rl_abstiegskopplung.R", "aufstiegsspiele.R",
+                  "rl_aufstieg.R")) {
+    source(test_path("..", "..", "RCode", datei), local = env)
+  }
   env
 }
 
@@ -453,10 +449,7 @@ test_that("bei den Direktaufsteigern sind Meister und Aufstieg wirklich gleich",
   # Die Rechtfertigung der einen Spalte: Nur wenn rl_aufstiegsprognose()
   # dort exakt die Meisterwahrscheinlichkeit liefert, ist die Vereinfachung
   # keine stille Abweichung. Nicht angenommen, sondern nachgerechnet.
-  auf <- new.env()
-  source(test_path("..", "..", "RCode", "staffel_zuordnung.R"), local = auf)
-  source(test_path("..", "..", "RCode", "aufstiegsspiele.R"), local = auf)
-  source(test_path("..", "..", "RCode", "rl_aufstieg.R"), local = auf)
+  auf <- source_aufstieg()
 
   # Ungleiche Meisterchancen, damit ein versehentliches "alle gleich"
   # nicht durchginge.
@@ -514,10 +507,7 @@ test_that("P(Aufstieg) ist fuer Nord und Bayern strikt kleiner als P(Meister)", 
   # Der inhaltliche Grund fuer die zweite Spalte: Wer Meister wird, muss
   # noch zwei Aufstiegsspiele gewinnen. Waeren beide Zahlen gleich, brauchte
   # es die Spalte nicht -- und die Seite behauptete einen Direktaufstieg.
-  auf <- new.env()
-  source(test_path("..", "..", "RCode", "staffel_zuordnung.R"), local = auf)
-  source(test_path("..", "..", "RCode", "aufstiegsspiele.R"), local = auf)
-  source(test_path("..", "..", "RCode", "rl_aufstieg.R"), local = auf)
+  auf <- source_aufstieg()
 
   nord <- matrix(1 / 18, nrow = 18, ncol = 18,
                  dimnames = list(paste0("N", 1:18), as.character(1:18)))
@@ -883,7 +873,9 @@ test_that(".nav_groups bildet drei Gruppen in Registry-Reihenfolge", {
                    c("Herren", "Frauen", "Regionalliga"))
   expect_length(gruppen[[1]]$items, 3)
   expect_length(gruppen[[2]]$items, 2)
-  expect_length(gruppen[[3]]$items, 5)
+  # Fuenf Staffeln plus die Seite "Aufstieg in die 3. Liga", die der
+  # Nutzer bewusst unter "Regionalliga" haengt statt in eine eigene Gruppe.
+  expect_length(gruppen[[3]]$items, 6)
 })
 
 test_that("jede Liga steht in genau der Gruppe ihrer Registry", {
@@ -902,7 +894,8 @@ test_that("jede Liga steht in genau der Gruppe ihrer Registry", {
                    c("index", "2-bundesliga", "3-liga"))
   expect_identical(slugs_je_gruppe$Frauen,
                    c("frauen-bundesliga", "2-frauen-bundesliga"))
-  expect_identical(slugs_je_gruppe$Regionalliga, RL_SLUGS)
+  expect_identical(slugs_je_gruppe$Regionalliga,
+                   c(RL_SLUGS, AUFSTIEGSSEITE_SLUG))
 })
 
 test_that("das Navigations-HTML ordnet die RL-Links der Regionalliga-Zeile zu", {
@@ -925,15 +918,17 @@ test_that("das Navigations-HTML ordnet die RL-Links der Regionalliga-Zeile zu", 
   # Drei Ligagruppen plus die label-lose Methodik-Zeile.
   expect_identical(labels, c("Herren", "Frauen", "Regionalliga", ""))
 
+  # Die fuenf Staffeln UND die Aufstiegsseite -- sie haengt bewusst hier
+  # und nicht in einer eigenen Gruppe.
   rl_zeile <- zeilen[labels == "Regionalliga"]
-  for (slug in RL_SLUGS) {
+  for (slug in c(RL_SLUGS, AUFSTIEGSSEITE_SLUG)) {
     expect_match(rl_zeile, paste0('href="', slug, '.html"'), fixed = TRUE,
                  info = slug)
   }
 
   # Kein RL-Link verirrt sich in eine andere Zeile.
   for (andere in zeilen[labels != "Regionalliga"]) {
-    for (slug in RL_SLUGS) {
+    for (slug in c(RL_SLUGS, AUFSTIEGSSEITE_SLUG)) {
       expect_no_match(andere, paste0('href="', slug, '.html"'), fixed = TRUE,
                       info = slug)
     }
@@ -1006,10 +1001,12 @@ test_that("generate_static_site schreibt zehn Liga-Seiten und die Methodik", {
     ergebnisse = alle_ergebnisse()
   )
 
-  expect_length(paths, 11)
+  # Zehn Liga-Seiten, die Aufstiegsseite und Methodik.
+  expect_length(paths, 12)
   for (f in c("index.html", "2-bundesliga.html", "3-liga.html",
               "frauen-bundesliga.html", "2-frauen-bundesliga.html",
-              paste0(RL_SLUGS, ".html"), "methodik.html")) {
+              paste0(RL_SLUGS, ".html"),
+              paste0(AUFSTIEGSSEITE_SLUG, ".html"), "methodik.html")) {
     expect_true(file.exists(file.path(out, f)), info = f)
   }
 })
@@ -1117,6 +1114,457 @@ test_that("die berechnete Abstiegsspalte landet unveraendert in der Tabelle", {
   html <- paste(readLines(file.path(out, "rl-nord.html"), warn = FALSE),
                 collapse = "\n")
   expect_match(html, "<td>41</td>", fixed = TRUE)
+})
+
+# ===========================================================================
+# 4a. Die Seite "Aufstieg in die 3. Liga"
+# ===========================================================================
+#
+# ENTSCHIEDEN (Nutzer, 2026-09-07): Variante 2 aus dem Kopfentwurf --
+# Randsummen, keine Matrix. Navigation unter "Regionalliga".
+#
+# Je Team eine Zeile mit vier Spalten:
+#
+#   Team | P(Meister) | P(Aufstieg) | Siegquote
+#
+# P(Meister) ist Spalte 1 der jeweiligen Prognose, P(Aufstieg) kommt aus
+# rl_aufstiegsprognose(), und die Siegquote ist deren Quotient:
+#
+#   Siegquote = P(Aufstieg) / P(Meister)
+#
+# Das ist die ueber den Gegner ausintegrierte Zweikampfquote -- also genau
+# die Zahl, die die 18x19-Matrix aus Variante 1 zusammenfasst. Fuer die
+# Direktaufsteiger ist sie 1, weil dort P(Aufstieg) = P(Meister) gilt.
+#
+# WAS BEWUSST NICHT GEBAUT WIRD: keine Paarungsmatrix, keine Liste der
+# wahrscheinlichsten Paarungen. Begruendung des Nutzers: "Fuer naechste
+# Saison muessen wir eh vermutlich neue Aufstiegsregeln implementieren, und
+# dann bauen wir halt auch die Aufstiegsseite passend um." Also die
+# einfachste tragfaehige Form, kein Vorbau fuer Regeln, die es noch nicht
+# gibt. Wer hier spaeter eine Matrix ergaenzt, faengt bewusst neu an --
+# diese Tests stehen ihm nicht im Weg, weil sie nur die vier Spalten
+# festhalten.
+#
+# DIE UNDEFINIERTE STELLE: Bei P(Meister) = 0 ist der Quotient undefiniert
+# (0/0). Festgelegt: Die Zelle bleibt LEER. Weder 0 noch NaN noch "100 %".
+#
+#   Eine 0 waere eine Aussage ueber die Spielstaerke ("verliert das
+#   Aufstiegsspiel sicher"), die aus den Daten nicht folgt -- das Team
+#   erreicht das Spiel ja gar nicht. NaN waere ein sichtbarer Rechenfehler
+#   auf einer veroeffentlichten Seite. Leer sagt genau das Richtige: Zu
+#   dieser Frage weiss das Modell nichts, weil sie sich nicht stellt.
+#
+#   Dieselbe Konvention wie in der Heatmap, wo eine Null-Zelle leer bleibt
+#   (render_heatmap / .heatmap_cell).
+#
+# SAISONABHAENGIGKEIT -- die Falle: Die Paarung Nord-Bayern gilt fuer
+# 2026/27 und NUR dafuer. Wer den dritten Direktplatz bekommt, beschliesst
+# das DFB-Praesidium jaehrlich (Regeldoku 3.3). Die Seite darf die Paarung
+# deshalb nicht verdrahten, sondern muss aufstiegsmodus(season) folgen.
+# Ein Test injiziert eine ANDERE Rotation und verlangt eine andere
+# Playoff-Staffel -- ohne Fakten fuer kuenftige Saisons zu erfinden: Die
+# injizierte Rotation ist Testeingabe, keine Behauptung ueber 2027/28.
+# Eine unbekannte Saison muss abbrechen.
+
+# Erwarteter Registry-/View-Schluessel der Seite.
+AUFSTIEGSSEITE_SLUG <- "rl-aufstieg"
+
+# Prognosematrix mit vorgegebenen Meisterchancen. Nur Spalte 1 traegt die
+# Aussage; der Rest ist Fuellmasse, damit die Matrix quadratisch bleibt.
+mk_meister <- function(praefix, p_meister) {
+  n <- length(p_meister)
+  m <- matrix(0, nrow = n, ncol = n,
+              dimnames = list(paste0(praefix, seq_len(n)),
+                              as.character(seq_len(n))))
+  m[, 1] <- p_meister
+  m
+}
+
+# Realistische, ungleiche Meisterchancen -- ein versehentliches "alle
+# gleich" wuerde damit auffallen. Nord und Bayern spielen 2026/27 mit 18
+# bzw. 19 Vereinen.
+aufstiegs_prognosen <- function() {
+  list(
+    Nord     = mk_meister("N", c(0.42, 0.31, 0.15, 0.08, 0.04, rep(0, 13))),
+    Nordost  = mk_meister("O", c(0.50, 0.30, 0.20, rep(0, 15))),
+    West     = mk_meister("W", c(0.45, 0.35, 0.20, rep(0, 15))),
+    SuedWest = mk_meister("S", c(0.60, 0.25, 0.15, rep(0, 15))),
+    Bayern   = mk_meister("B", c(0.55, 0.20, 0.12, 0.09, 0.04, rep(0, 14)))
+  )
+}
+
+# Ungleiche Zweikampfquoten: Zeilen = Nord (in STAFFELN frueher), Spalten
+# = Bayern. Eine konstante Matrix wuerde einen Positionsfehler in der
+# Doppelsumme nicht sichtbar machen.
+aufstiegs_p_sieg <- function(prognosen = aufstiegs_prognosen()) {
+  n <- nrow(prognosen$Nord)
+  m <- nrow(prognosen$Bayern)
+  matrix(seq(0.2, 0.8, length.out = n * m), nrow = n, ncol = m,
+         dimnames = list(rownames(prognosen$Nord),
+                         rownames(prognosen$Bayern)))
+}
+
+# --- Die Seite existiert und haengt unter "Regionalliga" --------------------
+
+test_that("die Aufstiegsseite steht in der Regionalliga-Gruppe der Navigation", {
+  # Entscheidung des Nutzers: keine eigene Gruppe. Geprueft wird die
+  # ZUGEHOERIGKEIT, nicht nur das Vorhandensein des Links -- ein Test auf
+  # "rl-aufstieg.html steht irgendwo im HTML" bestuende auch, wenn die
+  # Seite unter "Frauen" haengt.
+  gen <- source_generator()
+  gruppen <- gen$.nav_groups()
+
+  namen <- vapply(gruppen, function(g) g$group, character(1))
+  expect_true("Regionalliga" %in% namen)
+
+  rl_gruppe <- gruppen[[which(namen == "Regionalliga")]]
+  slugs <- vapply(rl_gruppe$items, function(i) i$slug, character(1))
+
+  expect_true(AUFSTIEGSSEITE_SLUG %in% slugs)
+  # Fuenf Staffeln plus die Aufstiegsseite, und die Seite steht hinter den
+  # Staffeln -- sie fasst sie zusammen, sie leitet sie nicht ein.
+  expect_identical(slugs, c(RL_SLUGS, AUFSTIEGSSEITE_SLUG))
+})
+
+test_that("die Aufstiegsseite wird mitgerendert und traegt ihren Titel", {
+  gen <- source_generator()
+  out <- withr::local_tempdir()
+
+  gen$generate_static_site(
+    output_dir = out,
+    now = as.POSIXct("2026-09-07 12:00", tz = "Europe/Berlin"),
+    ergebnisse = alle_ergebnisse()
+  )
+
+  pfad <- file.path(out, paste0(AUFSTIEGSSEITE_SLUG, ".html"))
+  expect_true(file.exists(pfad))
+
+  html <- paste(readLines(pfad, warn = FALSE), collapse = "\n")
+  expect_match(html, "Aufstieg in die 3. Liga", fixed = TRUE)
+  expect_match(html, 'aria-current="page"', fixed = TRUE)
+})
+
+# --- Die vier Spalten -------------------------------------------------------
+
+test_that("die Aufstiegstabelle traegt genau vier Spalten", {
+  # Team, P(Meister), P(Aufstieg), Siegquote. Nicht mehr -- die
+  # Paarungsmatrix ist bewusst nicht Teil dieser Seite.
+  views <- source_views()$league_views()
+  v <- views[[AUFSTIEGSSEITE_SLUG]]
+
+  expect_identical(v$columns, c("Meister", "Aufstieg", "Siegquote"))
+})
+
+test_that("die Aufstiegsseite deckt alle fuenf Staffeln ab", {
+  # Auch die drei Direktaufsteiger stehen dort -- die Seite zeigt den
+  # ganzen Weg in die 3. Liga, nicht nur die Aufstiegsspiele.
+  views <- source_views()$league_views()
+  v <- views[[AUFSTIEGSSEITE_SLUG]]
+
+  expect_identical(v$staffeln, c("Nord", "Nordost", "West", "SuedWest",
+                                 "Bayern"))
+})
+
+# --- Direktaufsteiger: Meister = Aufstieg, Siegquote 100 % ------------------
+
+test_that("bei den Direktaufsteigern sind Meister und Aufstieg exakt gleich", {
+  # Die Rechtfertigung dafuer, dass die Siegquote dort entfaellt: Es gibt
+  # kein Spiel, das noch zu gewinnen waere. Exakt gleich, nicht ungefaehr
+  # -- rl_aufstiegsprognose() reicht P(Meister) unveraendert durch.
+  auf <- source_aufstieg()
+  prognosen <- aufstiegs_prognosen()
+
+  for (staffel in c("Nordost", "West", "SuedWest")) {
+    df <- auf$rl_aufstiegsprognose(staffel, prognosen, 2026)
+    expect_identical(unname(df$Aufstieg),
+                     unname(prognosen[[staffel]][, 1]), info = staffel)
+  }
+})
+
+test_that("die Siegquote der Direktaufsteiger ist exakt eins, wo es einen Meister gibt", {
+  # Der Quotient P(Aufstieg)/P(Meister) ist dort definitionsgemaess 1. Die
+  # Seite darf ihn als "100 %" zeigen oder weglassen -- was sie NICHT darf,
+  # ist eine andere Zahl.
+  auf <- source_aufstieg()
+  prognosen <- aufstiegs_prognosen()
+
+  for (staffel in c("Nordost", "West", "SuedWest")) {
+    df <- auf$rl_aufstiegsprognose(staffel, prognosen, 2026)
+    p_meister <- prognosen[[staffel]][, 1]
+    hat_chance <- p_meister > 0
+
+    quote <- unname(df$Aufstieg[hat_chance]) / unname(p_meister[hat_chance])
+    expect_equal(quote, rep(1, sum(hat_chance)), tolerance = 1e-12,
+                 info = staffel)
+  }
+})
+
+# --- Nord und Bayern: die Doppelsumme und ihr Quotient ----------------------
+
+test_that("die Siegquote von Nord und Bayern liegt strikt zwischen null und eins", {
+  # Der inhaltliche Kern der Spalte: Wer Meister wird, muss noch zwei
+  # Spiele gewinnen -- also weniger als 1. Und die Gegner sind nicht
+  # unschlagbar -- also mehr als 0. Genau eine Zahl dazwischen macht die
+  # Spalte ueberhaupt sinnvoll.
+  auf <- source_aufstieg()
+  prognosen <- aufstiegs_prognosen()
+  p_sieg <- aufstiegs_p_sieg(prognosen)
+
+  for (staffel in c("Nord", "Bayern")) {
+    df <- auf$rl_aufstiegsprognose(staffel, prognosen, 2026, p_sieg = p_sieg)
+    p_meister <- prognosen[[staffel]][, 1]
+    hat_chance <- p_meister > 0
+
+    quote <- unname(df$Aufstieg[hat_chance]) / unname(p_meister[hat_chance])
+    expect_true(all(quote > 0), info = staffel)
+    expect_true(all(quote < 1), info = staffel)
+  }
+})
+
+test_that("die Siegquote ist wirklich die ausintegrierte Zweikampfquote", {
+  # Nicht nur ein Wertebereich, sondern die Zahl selbst: Bei einer
+  # konstanten Zweikampfquote q muss der Quotient fuer JEDES Nord-Team
+  # exakt q sein, weil die Meisterchancen der Gegenstaffel auf 1 summieren.
+  # Damit ist die Formel gepinnt, nicht nur ihr Vorzeichen.
+  auf <- source_aufstieg()
+  prognosen <- aufstiegs_prognosen()
+
+  q <- 0.37
+  p_sieg <- matrix(q, nrow = nrow(prognosen$Nord),
+                   ncol = nrow(prognosen$Bayern),
+                   dimnames = list(rownames(prognosen$Nord),
+                                   rownames(prognosen$Bayern)))
+
+  df_nord <- auf$rl_aufstiegsprognose("Nord", prognosen, 2026,
+                                      p_sieg = p_sieg)
+  p_meister <- prognosen$Nord[, 1]
+  hat_chance <- p_meister > 0
+
+  quote <- unname(df_nord$Aufstieg[hat_chance]) / unname(p_meister[hat_chance])
+  expect_equal(quote, rep(q, sum(hat_chance)), tolerance = 1e-12)
+
+  # Und die Gegenrichtung: Ueber zwei Spiele gibt es kein Remis, Bayern
+  # traegt also 1 - q.
+  df_bayern <- auf$rl_aufstiegsprognose("Bayern", prognosen, 2026,
+                                        p_sieg = p_sieg)
+  p_meister_b <- prognosen$Bayern[, 1]
+  hat_chance_b <- p_meister_b > 0
+  quote_b <- unname(df_bayern$Aufstieg[hat_chance_b]) /
+    unname(p_meister_b[hat_chance_b])
+  expect_equal(quote_b, rep(1 - q, sum(hat_chance_b)), tolerance = 1e-12)
+})
+
+test_that("ohne Meisterchance ist die Aufstiegschance exakt null", {
+  # Die Vorbedingung fuer die Leer-Regel: Wo P(Meister) = 0 ist, muss auch
+  # P(Aufstieg) IDENTISCH 0 sein -- nicht 1e-18. Sonst zeigte die Seite
+  # ein "<1" fuer ein Team, das rechnerisch gar nicht aufsteigen kann, und
+  # der Quotient waere kein 0/0, sondern eine erfundene Zahl.
+  auf <- source_aufstieg()
+  prognosen <- aufstiegs_prognosen()
+  p_sieg <- aufstiegs_p_sieg(prognosen)
+
+  df <- auf$rl_aufstiegsprognose("Nord", prognosen, 2026, p_sieg = p_sieg)
+  ohne_chance <- prognosen$Nord[, 1] == 0
+  expect_gt(sum(ohne_chance), 0)   # der Fall kommt in der Fixture vor
+
+  expect_identical(unname(df$Aufstieg[ohne_chance]),
+                   rep(0, sum(ohne_chance)))
+})
+
+test_that("die Siegquote bleibt leer, wo es keine Meisterchance gibt", {
+  # FESTGELEGT: leer, nicht 0 und nicht NaN. Eine 0 waere eine Aussage
+  # ueber die Spielstaerke, die aus den Daten nicht folgt -- das Team
+  # erreicht das Aufstiegsspiel ja gar nicht. NaN waere ein sichtbarer
+  # Rechenfehler auf einer veroeffentlichten Seite.
+  gen <- source_generator()
+
+  # 0/0 muss zur leeren Zelle werden, jeder definierte Wert bleibt.
+  expect_identical(gen$.siegquote(0, 0), "")
+  expect_identical(gen$.siegquote(0.2, 0.4), gen$prozent(0.5))
+
+  # Auch der Grenzfall "Aufstieg > 0, Meister = 0" darf nicht durchrutschen
+  # -- er ist rechnerisch unmoeglich und deshalb ein Fehler in den Daten,
+  # keine Unendlichkeit auf der Seite.
+  expect_identical(gen$.siegquote(0.1, 0), "")
+})
+
+test_that("die gerenderte Seite laesst die Zelle ohne Meisterchance leer", {
+  # Ende zu Ende: Weder "0" noch "NaN" noch "Inf" darf im HTML stehen.
+  gen <- source_generator()
+  out <- withr::local_tempdir()
+
+  gen$generate_static_site(
+    output_dir = out,
+    now = as.POSIXct("2026-09-07 12:00", tz = "Europe/Berlin"),
+    ergebnisse = alle_ergebnisse()
+  )
+
+  html <- paste(readLines(file.path(out, paste0(AUFSTIEGSSEITE_SLUG, ".html")),
+                          warn = FALSE), collapse = "\n")
+
+  expect_no_match(html, "NaN", fixed = TRUE)
+  expect_no_match(html, "Inf", fixed = TRUE)
+  # Eine leere Zelle, nicht eine mit Inhalt.
+  expect_match(html, "<td></td>", fixed = TRUE)
+})
+
+# --- Die beiden Pflicht-Invarianten -----------------------------------------
+
+test_that("Nord und Bayern stellen zusammen genau einen Aufsteiger", {
+  # PFLICHTTEST (Vorgabe des Nutzers). Genau eine der beiden Staffeln
+  # gewinnt die Aufstiegsspiele, also summiert P(Aufstieg) ueber BEIDE
+  # Staffeln auf exakt 1.
+  #
+  # Das ist keine Zufallseigenschaft der Zahlen: P(X Meister) summiert je
+  # Staffel auf 1, und p_sieg[x, y] + (1 - p_sieg[x, y]) = 1 fuer jede
+  # Paarung -- ueber zwei Spiele gibt es keinen dritten Ausgang. Die
+  # Doppelsumme zerlegt damit die Eins vollstaendig.
+  #
+  # Toleranz 1e-9, nicht 0.01: Eine Doppelsumme, die Masse verliert (etwa
+  # weil eine Zeile ueber die Position statt ueber den Namen zugeordnet
+  # wird), faellt bei weiter Toleranz nicht auf.
+  auf <- source_aufstieg()
+  prognosen <- aufstiegs_prognosen()
+  p_sieg <- aufstiegs_p_sieg(prognosen)
+
+  df_nord <- auf$rl_aufstiegsprognose("Nord", prognosen, 2026,
+                                      p_sieg = p_sieg)
+  df_bayern <- auf$rl_aufstiegsprognose("Bayern", prognosen, 2026,
+                                        p_sieg = p_sieg)
+
+  expect_equal(sum(df_nord$Aufstieg) + sum(df_bayern$Aufstieg), 1,
+               tolerance = 1e-9)
+
+  # Und beide Anteile sind echt positiv -- die Eins liegt nicht ganz auf
+  # einer Seite, sonst pruefte die Summe nichts.
+  expect_gt(sum(df_nord$Aufstieg), 0)
+  expect_gt(sum(df_bayern$Aufstieg), 0)
+})
+
+test_that("jede Direktaufsteiger-Staffel stellt genau einen Aufsteiger", {
+  # PFLICHTTEST (Vorgabe des Nutzers). Genau ein Team wird Meister, und der
+  # Meister steigt auf -- die Spalte summiert je Staffel auf exakt 1.
+  auf <- source_aufstieg()
+  prognosen <- aufstiegs_prognosen()
+
+  for (staffel in c("Nordost", "West", "SuedWest")) {
+    df <- auf$rl_aufstiegsprognose(staffel, prognosen, 2026)
+    expect_equal(sum(df$Aufstieg), 1, tolerance = 1e-9, info = staffel)
+  }
+})
+
+test_that("ueber alle fuenf Staffeln steigen genau vier Teams auf", {
+  # Die Zusammenschau beider Invarianten -- und die Zahl, die Par. 55b
+  # DFB-SpO vorgibt: drei Direktaufsteiger plus einer aus den
+  # Aufstiegsspielen. Waere eine Staffel doppelt gezaehlt oder eine
+  # vergessen, stuende hier 3 oder 5.
+  auf <- source_aufstieg()
+  prognosen <- aufstiegs_prognosen()
+  p_sieg <- aufstiegs_p_sieg(prognosen)
+
+  summe <- sum(vapply(c("Nord", "Nordost", "West", "SuedWest", "Bayern"),
+                      function(s) {
+                        df <- auf$rl_aufstiegsprognose(s, prognosen, 2026,
+                                                       p_sieg = p_sieg)
+                        sum(df$Aufstieg)
+                      }, numeric(1)))
+
+  expect_equal(summe, 4, tolerance = 1e-9)
+})
+
+# --- Saisonabhaengigkeit: die Paarung ist nicht verdrahtet ------------------
+
+test_that("die Seite folgt einer injizierten Rotation statt der verdrahteten Paarung", {
+  # DIE FALLE: Nord gegen Bayern gilt fuer 2026/27 und NUR dafuer. Wer den
+  # dritten Direktplatz bekommt, beschliesst das DFB-Praesidium jaehrlich.
+  #
+  # Der Test injiziert eine ANDERE Rotation und verlangt eine andere
+  # Playoff-Paarung. Die injizierte Rotation ist Testeingabe, KEINE
+  # Behauptung darueber, wer 2027/28 wirklich dran ist -- deshalb eine
+  # Saison, die in AUFSTIEGSROTATION bewusst nicht steht.
+  auf <- source_aufstieg()
+
+  # Stand 2026/27: Nordost direkt, Nord gegen Bayern.
+  modus_2026 <- auf$aufstiegsmodus(2026)
+  expect_setequal(modus_2026$direkt, c("West", "SuedWest", "Nordost"))
+  expect_setequal(modus_2026$playoff, c("Nord", "Bayern"))
+
+  # Injiziert: Nord traegt den Rotationsplatz -- dann spielen Nordost und
+  # Bayern.
+  modus_alt <- auf$aufstiegsmodus(2027, rotation = c("2027" = "Nord"))
+  expect_setequal(modus_alt$direkt, c("West", "SuedWest", "Nord"))
+  expect_setequal(modus_alt$playoff, c("Nordost", "Bayern"))
+
+  # Und der dritte Fall, damit nicht bloss zwei Zustaende geprueft sind.
+  modus_bayern <- auf$aufstiegsmodus(2027, rotation = c("2027" = "Bayern"))
+  expect_setequal(modus_bayern$playoff, c("Nord", "Nordost"))
+})
+
+test_that("die Aufstiegsprognose folgt der injizierten Rotation", {
+  # Nicht nur der Modus, sondern die RECHNUNG: Unter einer Rotation, in der
+  # Nord direkt aufsteigt, muss Nord P(Meister) bekommen -- und Nordost
+  # stattdessen die Doppelsumme gegen Bayern. Waere die Paarung
+  # verdrahtet, kaeme hier weiterhin die Nord-Bayern-Rechnung heraus.
+  auf <- source_aufstieg()
+  prognosen <- aufstiegs_prognosen()
+  rotation <- c("2027" = "Nord")
+
+  df_nord <- auf$rl_aufstiegsprognose("Nord", prognosen, 2027,
+                                      rotation = rotation)
+  expect_identical(unname(df_nord$Aufstieg),
+                   unname(prognosen$Nord[, 1]))
+
+  # Nordost bestreitet jetzt die Aufstiegsspiele -- gegen Bayern. Zeilen =
+  # Nordost (in STAFFELN frueher als Bayern), Spalten = Bayern.
+  p_sieg <- matrix(0.5, nrow = nrow(prognosen$Nordost),
+                   ncol = nrow(prognosen$Bayern),
+                   dimnames = list(rownames(prognosen$Nordost),
+                                   rownames(prognosen$Bayern)))
+  df_nordost <- auf$rl_aufstiegsprognose("Nordost", prognosen, 2027,
+                                         p_sieg = p_sieg, rotation = rotation)
+  df_bayern <- auf$rl_aufstiegsprognose("Bayern", prognosen, 2027,
+                                        p_sieg = p_sieg, rotation = rotation)
+
+  # Halbe Meisterchance, weil jede Paarung 50:50 steht.
+  expect_equal(unname(df_nordost$Aufstieg),
+               unname(prognosen$Nordost[, 1]) / 2, tolerance = 1e-12)
+  # Die Invariante gilt auch unter der anderen Rotation.
+  expect_equal(sum(df_nordost$Aufstieg) + sum(df_bayern$Aufstieg), 1,
+               tolerance = 1e-9)
+})
+
+test_that("eine unbekannte Saison bricht ab, statt die Paarung zu raten", {
+  # Der wichtigste Teil der Saisonabhaengigkeit: Fuer 2027/28 ist noch
+  # nicht bekannt, wer den Rotationsplatz traegt. Die Seite darf dann NICHT
+  # mit dem Vorjahreswert weiterrechnen -- das waere eine Prognose, die
+  # falsch ist, ohne dass etwas fehlschlaegt.
+  auf <- source_aufstieg()
+
+  expect_error(auf$aufstiegsmodus(2027), "2027")
+  expect_error(auf$aufstiegsmodus(2027), "DFB-Praesidium")
+
+  # Auch die ganze Kette bricht ab, nicht erst irgendein Folgeschritt.
+  expect_error(
+    auf$rl_aufstiegsprognose("Nord", aufstiegs_prognosen(), 2027),
+    "2027"
+  )
+})
+
+test_that("die Aufstiegsseite verdrahtet keine Staffelnamen im Renderer", {
+  # Maschineller Schutz gegen die Falle: Stuende "Bayern" oder "Nord" als
+  # Playoff-Paarung im Seitengenerator, waere die Seite ab 2027/28 lautlos
+  # falsch. Die Namen duerfen dort nur als Anzeigetext vorkommen, nicht als
+  # Bedingung.
+  #
+  # Geprueft wird der Code OHNE Kommentare -- ein Staffelname im Kommentar
+  # ist eine Erklaerung, keine Verdrahtung.
+  code <- readLines(test_path("..", "..", "RCode", "generate_static_site.R"))
+  code <- sub("#.*$", "", code)
+
+  for (muster in c('"Bayern"\\s*(==|%in%)', '(==|%in%)\\s*c?\\(?"Bayern"',
+                   '"Nord"\\s*(==|%in%)', '(==|%in%)\\s*c?\\(?"Nord"')) {
+    expect_false(any(grepl(muster, code)), info = muster)
+  }
 })
 
 # ===========================================================================

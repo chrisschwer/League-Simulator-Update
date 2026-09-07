@@ -7,7 +7,26 @@
 # die beiden anderen ermitteln in zwei Aufstiegsspielen den vierten
 # Aufsteiger.
 #
-# Setzt STAFFELN aus RCode/staffel_zuordnung.R voraus.
+# Setzt STAFFELN (staffel_zuordnung.R) und pruefe_staffel()
+# (rl_abstiegskopplung.R) voraus. Beide werden hier geladen, falls sie
+# fehlen: Ohne das laesst sich die Datei nicht allein sourcen, und in den
+# Tests haengt das Ergebnis davon ab, welche Datei zufaellig vorher lief --
+# genau so war ein Test gruen, der es nicht haette sein duerfen.
+# Muster wie in fixture_cache.R.
+if (!exists("pruefe_staffel") || !exists("STAFFELN")) {
+  local({
+    d <- NULL
+    for (f in rev(sys.frames())) {
+      if (!is.null(f$ofile)) {
+        d <- dirname(f$ofile)
+        break
+      }
+    }
+    if (is.null(d) || is.na(d) || !nzchar(d)) d <- "RCode"
+    if (!exists("STAFFELN")) source(file.path(d, "staffel_zuordnung.R"))
+    if (!exists("pruefe_staffel")) source(file.path(d, "rl_abstiegskopplung.R"))
+  })
+}
 
 # Staffeln mit dauerhaftem Direktplatz -- sie rotieren nie (Par. 55b Nr. 2).
 AUFSTIEG_DAUERPLAETZE <- c("West", "SuedWest")
