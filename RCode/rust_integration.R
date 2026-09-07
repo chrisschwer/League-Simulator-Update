@@ -348,3 +348,135 @@ simulate_leagues_batch_rust <- function(leagues) {
 
 # Helper function for null coalescing
 `%||%` <- function(x, y) if (is.null(x)) y else x
+
+# --- Aufstiegsspiele: Tor-Raten je Paarung ---------------------------------
+#
+# Der Endpunkt /match-preview rechnet ein virtuelles Spiel ohne Spielplan.
+# Er ist die EINZIGE Quelle fuer den Schritt ELO -> lambda; RCode/
+# aufstiegsspiele.R bekommt von hier nur fertige Raten (ADR 0002).
+
+#' Ein virtuelles Spiel: die Tor-Raten und Ergebniswahrscheinlichkeiten.
+#'
+#' @param elo_home,elo_away ELO-Werte beider Teams.
+#' @param home_advantage Heimvorteil in ELO-Punkten. NULL (Default) laesst
+#'   das Feld weg, damit der Rust-Server seinen eigenen Wert nimmt -- die
+#'   einzige Quelle der Modellkonstanten (ADR 0002). Nur eine ABWEICHUNG
+#'   wird gesendet; 0 fuer ein Spiel auf neutralem Platz ist eine solche.
+#' @param tore_slope,tore_intercept Tormodell einer abweichenden
+#'   Wechselgemeinschaft (ADR 0004), sonst NULL.
+#' @param max_goals Groesse der score_matrix, sonst der Server-Default.
+#' @return list(lambda_home, lambda_away, p_home_win, p_draw, p_away_win,
+#'   score_matrix).
+match_preview_rust <- function(elo_home, elo_away, home_advantage = NULL,
+                               tore_slope = NULL, tore_intercept = NULL,
+                               max_goals = NULL) {
+  payload <- list(
+    elo_home = as.numeric(elo_home),
+    elo_away = as.numeric(elo_away)
+  )
+
+  # NULL-Felder werden nicht gesendet -- sonst haette R eine zweite Kopie
+  # jedes Defaults, und die beiden liefen frueher oder spaeter auseinander.
+  if (!is.null(home_advantage)) payload$home_advantage <- as.numeric(home_advantage)
+  if (!is.null(tore_slope)) payload$tore_slope <- as.numeric(tore_slope)
+  if (!is.null(tore_intercept)) payload$tore_intercept <- as.numeric(tore_intercept)
+  if (!is.null(max_goals)) payload$max_goals <- as.integer(max_goals)
+
+  # digits = NA wie bei /simulate: volle Praezision statt der vier
+  # Nachkommastellen, auf die jsonlite sonst rundet.
+  response <- POST(
+    paste0(RUST_API_URL, "/match-preview"),
+    body = toJSON(payload, auto_unbox = TRUE, null = "null", digits = NA),
+    content_type_json(),
+    accept_json()
+  )
+
+  if (status_code(response) != 200) {
+    stop(sprintf(
+      "match_preview_rust: /match-preview antwortete mit Status %d: %s",
+      status_code(response), content(response, "text")
+    ), call. = FALSE)
+  }
+
+  result <- content(response, "parsed")
+
+  score_matrix <- do.call(rbind, lapply(result$score_matrix, as.numeric))
+
+  list(
+    lambda_home = as.numeric(result$lambda_home),
+    lambda_away = as.numeric(result$lambda_away),
+    p_home_win = as.numeric(result$p_home_win),
+    p_draw = as.numeric(result$p_draw),
+    p_away_win = as.numeric(result$p_away_win),
+    score_matrix = score_matrix
+  )
+}
+
+#' Tor-Raten aller Paarungen zweier Staffeln fuer die Aufstiegsspiele.
+#'
+#' @param elo_a Benannter ELO-Vektor der Staffel A (Hinspiel zu Hause).
+#' @param elo_b Benannter ELO-Vektor der Staffel B (Rueckspiel zu Hause).
+#' @param tore_slope,tore_intercept Abweichendes Tormodell (ADR 0004).
+#' @return data.frame mit a, b, hin_a, hin_b, rueck_a, rueck_b, neutral_a,
+#'   neutral_b -- eine Zeile je Paarung, wie p_sieg_matrix() es erwartet.
+zweikampf_paarungen_rust <- function(elo_a, elo_b, tore_slope = NULL,
+                                     tore_intercept = NULL) {
+  if (is.null(names(elo_a)) || is.null(names(elo_b))) {
+    stop(
+      paste0(
+        "zweikampf_paarungen_rust: elo_a und elo_b brauchen Teamnamen. Ohne ",
+        "sie bliebe nur die Zuordnung ueber die Position, und die ist ",
+        "zwischen zwei Simulationslaeufen zufaellig."
+      ),
+      call. = FALSE
+    )
+  }
+
+  zeilen <- vector("list", length(elo_a) * length(elo_b))
+  k <- 0L
+
+  for (a in names(elo_a)) {
+    for (b in names(elo_b)) {
+      # Hinspiel: A hat Heimrecht. Rueckspiel: B hat Heimrecht.
+      hin <- match_preview_rust(elo_a[[a]], elo_b[[b]],
+                                tore_slope = tore_slope,
+                                tore_intercept = tore_intercept)
+      rueck <- match_preview_rust(elo_b[[b]], elo_a[[a]],
+                                  tore_slope = tore_slope,
+                                  tore_intercept = tore_intercept)
+
+      hin_a <- hin$lambda_home
+      hin_b <- hin$lambda_away
+      rueck_a <- rueck$lambda_away
+      rueck_b <- rueck$lambda_home
+
+      # WARUM DIE NEUTRALE RATE NICHT ABGEFRAGT WIRD: Der Heimvorteil geht
+      # im Modell additiv auf lambda ein, mit vertauschtem Vorzeichen fuer
+      # den Gast. Ueber Hin- und Rueckspiel hebt er sich deshalb exakt auf:
+      # hin + rueck = 2 * neutral. Das ist keine Modellannahme, die hier
+      # nachgebaut wuerde, sondern eine ARITHMETISCHE Identitaet auf den
+      # beiden bereits gelieferten Werten -- die Integrationstests pruefen
+      # sie ausdruecklich. Ein dritter Aufruf je Paarung wuerde denselben
+      # Wert noch einmal holen: Bei 18 x 19 Teams sind das 342 statt 513
+      # HTTP-Aufrufe je Zyklus, fuer eine Simulation, die selbst 42 ms
+      # dauert.
+      #
+      # Weiter gehende Abkuerzungen (etwa eine Interpolation ueber die
+      # ELO-Differenz) waeren NICHT erlaubt: Sie braeuchten die Annahme,
+      # lambda sei linear in ELO, und die gehoert in den Rust-Server.
+      neutral_a <- (hin_a + rueck_a) / 2
+      neutral_b <- (hin_b + rueck_b) / 2
+
+      k <- k + 1L
+      zeilen[[k]] <- data.frame(
+        a = a, b = b,
+        hin_a = hin_a, hin_b = hin_b,
+        rueck_a = rueck_a, rueck_b = rueck_b,
+        neutral_a = neutral_a, neutral_b = neutral_b,
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+
+  do.call(rbind, zeilen)
+}

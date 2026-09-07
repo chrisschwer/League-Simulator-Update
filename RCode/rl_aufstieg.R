@@ -184,9 +184,17 @@ aufstiegswahrscheinlichkeit <- function(p_meister_x, p_meister_y, p_sieg) {
 #'   spaeteren. Fuer die Gegenrichtung gilt 1 - t(p_sieg): Ueber zwei Spiele
 #'   gibt es keinen Unentschieden-Ausgang.
 #' @param rotation Benannter Vektor Saison -> Rotationsstaffel.
+#' @param paarungen Optional das data.frame der Tor-Raten je Paarung, wie
+#'   zweikampf_paarungen_rust() es liefert (Spalten a, b, hin_a, hin_b,
+#'   rueck_a, rueck_b, neutral_a, neutral_b). Daraus wird p_sieg ueber
+#'   p_sieg_matrix() hergeleitet -- a = Teams der in STAFFELN frueheren
+#'   Staffel, b = Teams der spaeteren, dieselbe Orientierung wie p_sieg.
+#'   Ein explizit uebergebenes p_sieg hat Vorrang; liegt beides nicht vor,
+#'   bricht die Funktion ab.
 #' @return data.frame mit rownames = Teams und der Spalte "Aufstieg".
 rl_aufstiegsprognose <- function(staffel, prognosen, season, p_sieg = NULL,
-                                 rotation = AUFSTIEGSROTATION) {
+                                 rotation = AUFSTIEGSROTATION,
+                                 paarungen = NULL) {
   staffel <- pruefe_staffel(staffel, "rl_aufstiegsprognose")
   modus <- aufstiegsmodus(season, rotation)
 
@@ -214,6 +222,43 @@ rl_aufstiegsprognose <- function(staffel, prognosen, season, p_sieg = NULL,
       ),
       staffel, as.integer(season), as.integer(season) + 1L, gegner, gegner
     ), call. = FALSE)
+  }
+
+  # Vorrang: ein explizit uebergebenes p_sieg gilt unveraendert. Erst wenn
+  # keins vorliegt, wird es aus den Tor-Raten hergeleitet. Die Reihenfolge
+  # ist bewusst: Wer die Quote selbst kennt (Kalibrierung, Testfixture,
+  # Sonderregel), soll sie nicht gegen eine Herleitung verteidigen muessen.
+  if (is.null(p_sieg) && !is.null(paarungen)) {
+    p_sieg <- p_sieg_matrix(paarungen)
+
+    # Die Herleitung deckt nur die Teams ab, die in paarungen vorkommen.
+    # Fehlt eines, waere die Doppelsumme unvollstaendig -- und zwar
+    # lautlos, weil sie ueber die vorhandenen Namen einfach weiterrechnete.
+    # Beide Seiten werden hier geprueft, damit der Fehler das TEAM nennt
+    # und nicht erst weiter unten die fehlende Zeile oder Spalte.
+    frueher <- if (match(staffel, STAFFELN) < match(gegner, STAFFELN)) {
+      staffel
+    } else {
+      gegner
+    }
+    spaeter <- setdiff(c(staffel, gegner), frueher)
+
+    fehlend <- c(
+      setdiff(names(meisterwahrscheinlichkeit(prognosen[[frueher]])),
+              rownames(p_sieg)),
+      setdiff(names(meisterwahrscheinlichkeit(prognosen[[spaeter]])),
+              colnames(p_sieg))
+    )
+    if (length(fehlend)) {
+      stop(sprintf(
+        paste0(
+          "rl_aufstiegsprognose: in paarungen fehlen die Tor-Raten fuer: %s. ",
+          "Ohne sie bliebe die Doppelsumme unvollstaendig, ohne dass etwas ",
+          "fehlschlaegt."
+        ),
+        paste(fehlend, collapse = ", ")
+      ), call. = FALSE)
+    }
   }
 
   # Keine erfundene 50:50. Wer die Zweikampfquote nicht liefert, bekommt

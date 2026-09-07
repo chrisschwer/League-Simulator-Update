@@ -878,9 +878,15 @@ async fn match_preview_home_advantage_is_additive_on_elo_delta() {
 
     let slope = 0.0017854953143549;
     let intercept = 1.3218390804597700;
-    assert!((f64_at(&mit, "lambda_home") - f64_at(&ohne, "lambda_home") - 40.0 * slope).abs() < 1e-13);
-    assert!((f64_at(&ohne, "lambda_away") - f64_at(&mit, "lambda_away") - 40.0 * slope).abs() < 1e-13);
-    assert!((f64_at(&mit, "lambda_home") + f64_at(&mit, "lambda_away") - 2.0 * intercept).abs() < 1e-13);
+    assert!(
+        (f64_at(&mit, "lambda_home") - f64_at(&ohne, "lambda_home") - 40.0 * slope).abs() < 1e-13
+    );
+    assert!(
+        (f64_at(&ohne, "lambda_away") - f64_at(&mit, "lambda_away") - 40.0 * slope).abs() < 1e-13
+    );
+    assert!(
+        (f64_at(&mit, "lambda_home") + f64_at(&mit, "lambda_away") - 2.0 * intercept).abs() < 1e-13
+    );
     // Ohne Heimvorteil und bei gleicher ELO: beide Raten exakt der Intercept.
     assert!((f64_at(&ohne, "lambda_home") - intercept).abs() < 1e-15);
     assert!((f64_at(&ohne, "lambda_away") - intercept).abs() < 1e-15);
@@ -899,7 +905,10 @@ async fn match_preview_clamps_lambda_at_0_001() {
 
     assert_eq!(status, StatusCode::OK, "Body: {body}");
     assert_eq!(f64_at(&body, "lambda_away"), 0.001);
-    assert!((f64_at(&body, "lambda_home") - (1000.0 * 0.0017854953143549 + 1.3218390804597700)).abs() < 1e-12);
+    assert!(
+        (f64_at(&body, "lambda_home") - (1000.0 * 0.0017854953143549 + 1.3218390804597700)).abs()
+            < 1e-12
+    );
     assert!(f64_at(&body, "lambda_home") > 0.0);
 }
 
@@ -925,7 +934,13 @@ async fn match_preview_agrees_with_league_details_for_an_open_match() {
     assert_eq!(status_mp, StatusCode::OK, "Body: {mp}");
 
     let spiel = &ld["matches"][0];
-    for key in ["lambda_home", "lambda_away", "p_home_win", "p_draw", "p_away_win"] {
+    for key in [
+        "lambda_home",
+        "lambda_away",
+        "p_home_win",
+        "p_draw",
+        "p_away_win",
+    ] {
         assert_eq!(mp[key], spiel[key], "Feld {key}");
     }
     assert_eq!(mp["score_matrix"], spiel["score_matrix"]);
@@ -1012,7 +1027,10 @@ async fn match_preview_outcome_probabilities_sum_to_one_and_are_symmetric_withou
         f64_at(&body, "p_away_win"),
     );
     assert!((h + d + a - 1.0).abs() < 1e-12);
-    assert!((h - a).abs() < 1e-14, "ohne Heimvorteil symmetrisch: {h} vs {a}");
+    assert!(
+        (h - a).abs() < 1e-14,
+        "ohne Heimvorteil symmetrisch: {h} vs {a}"
+    );
     // P(Remis) bei lambda 1.3218 beidseitig: sum_k dpois(k)^2 = 0.2614 --
     // die Decke aus elo_calibration.R::poisson_draw_ceiling().
     assert!((d - 0.261363).abs() < 5e-6, "P(Remis) = {d}");
@@ -1053,7 +1071,13 @@ async fn match_preview_rejects_missing_elo() {
         "elo_away": 1400.0
     })))
     .await;
-    assert!(status.is_client_error(), "Statuscode {status}; Body: {body}");
+    assert!(
+        status.is_client_error(),
+        "Statuscode {status}; Body: {body}"
+    );
     let text = body.as_str().unwrap_or_default();
-    assert!(text.contains("elo_home"), "Meldung sollte elo_home nennen, war: {text:?}");
+    assert!(
+        text.contains("elo_home"),
+        "Meldung sollte elo_home nennen, war: {text:?}"
+    );
 }
