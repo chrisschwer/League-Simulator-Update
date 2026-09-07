@@ -132,21 +132,46 @@ Das NOFV-Schema kennt nur zwei Varianten (0 oder 1 Drittliga-Absteiger), weil
 *Wirkung:* Nur bei einem zweiten NOFV-Drittligisten überhaupt erreichbar. Beim
 Saisonwechsel zu prüfen.
 
-### 5.2 Nord: zwei Regeln nicht modelliert — *Lücke*
+### 5.2 Nord: Kopplung an den eigenen Aufstieg — *modelliert, mit Näherung*
 
-Getestet ist `3 + k`. **Nicht** abgebildet:
+Nord hat 18 Teams, 3 Regelabsteiger, 3 Oberliga-Aufsteiger; die Bilanz geht auf
+(18 − 3 + 3 = 18). Steigt der **Nord-Meister** in die 3. Liga auf, fehlt ein
+Team (18 − 1 − 3 + 3 = 17), die Staffelstärke wird unterschritten, und nach
+§ 6 Abs. 3 a. E. geht „ein freier Platz zunächst an den bestplatzierten
+zugelassenen Absteiger" — der dritte Absteiger bleibt drin.
 
-- **§ 6 Abs. 3 a. E.** — gewinnt Nord die Aufstiegsspiele, wird die
-  Staffelstärke unterschritten, und ein freier Platz geht an den bestplatzierten
-  Absteiger. Die Absteigerzahl hinge damit auch am *Playoff-Ausgang*.
-- **§ 6 Abs. 4 S. 2 f.** — steigt eine Mannschaft „ohne Anrechnung auf die Zahl
-  der Regelabsteiger" ab, erhöht sich die Zahl zunächst *nicht*; die Rückführung
-  auf 18 erfolgt erst im Folgejahr. Die Kopplung wirkt dann **mit einem Jahr
-  Verzögerung**.
+```
+w[d] = P(Meister bleibt) · P(k ≥ d−2)  +  P(Meister steigt auf) · P(k ≥ d−1)
+```
 
-*Wirkung:* Beide senken die Absteigerzahl in Sonderfällen. Das Modell ist dort
-also eher zu pessimistisch. Die erste Lücke ist die interessantere — sie
-verknüpft Auf- und Abstiegsrechnung, die heute getrennt laufen.
+also `abstiegsplaetze` mit Basis 3 bzw. 2, gemischt über die binäre
+Aufstiegsvariable. Die letzten beiden Plätze sind in beiden Ästen sicher.
+
+**Das ist kein Randfall.** Nord ist 2026/27 eine der beiden Playoff-Staffeln;
+die Aufstiegswahrscheinlichkeit ist entsprechend hoch und verschiebt die
+Abstiegsschwelle regelmäßig.
+
+> *Annahme — Unabhängigkeit.* Anders als bei den Drittliga-Absteigern stammen
+> beide Faktoren aus **derselben** Nord-Simulation: „Team X wird Drittletzter"
+> und „der Nord-Meister steigt auf" sind über dieselbe Tabelle verbunden. Das
+> Produkt ist hier also eine **Näherung**, kein exaktes Ergebnis.
+>
+> Sie ist vertretbar, weil dasselbe Team praktisch nie Meister- *und*
+> Abstiegskandidat ist und sich beide Zonen gegen Saisonende ohnehin trennen
+> (Entscheidung Christoph, 2026-09-07). Wer den Unterschied zu § 1 sucht: Dort
+> ist die Unabhängigkeit strukturell gegeben (disjunkte Wettbewerbe), hier ist
+> sie eine begründete Vereinfachung.
+
+`P(Meister steigt auf)` wird als fertige Zahl übergeben, nicht intern aus
+`rl_aufstieg.R` geholt — das hält die Module getrennt und die Zahl im Test
+setzbar.
+
+**Weiterhin nicht modelliert:** § 6 Abs. 4 S. 2 f. — steigt eine Mannschaft
+„ohne Anrechnung auf die Zahl der Regelabsteiger" ab, erhöht sich die Zahl
+zunächst *nicht*; die Rückführung auf 18 erfolgt erst im Folgejahr. Die
+Kopplung wirkt dann **mit einem Jahr Verzögerung**.
+
+*Wirkung:* Das Modell ist in diesem Sonderfall eher zu pessimistisch.
 
 ### 5.3 West: `max(4 − k, 0)` ist eine Lesart — *Interpretation*
 
@@ -213,8 +238,16 @@ man sie einmalig ableiten könnte:
 2. **Bayerns Teilnehmerzahl** — 2026/27 sind es 19, und daran hängen sowohl der
    Relegationsmodus als auch die Zahl der Direktabsteiger (RO § 21 Nr. 1: „vor
    Saisonbeginn festgelegt").
-3. **Zahl der NOFV-Drittligisten** — bestimmt, ob Annahme 5.1 überhaupt relevant
-   wird.
+3. **Zahl der Drittligisten je Stammregion** — sie deckelt `k` faktisch. Für
+   2026/27 aus dem Spielplan (`data/fixture_cache/80_2026.json`) und der
+   TeamList: Nord 2 (Havelse, SV Meppen), Nordost 1 (Hansa Rostock), Bayern 3,
+   SüdWest 6, West 8. Für Nordost bestimmt das, ob Annahme 5.1 überhaupt
+   relevant wird.
+
+   > Diese Zahlen gehören an den Spielplan geprüft, nicht an Sekundärquellen.
+   > Die Regeldoku hatte Havelse und Meppen zunächst als Regionalligisten
+   > geführt (nach einer NFV-Meldung, die die Vorsaison beschrieb) — am
+   > Spielplan der 3. Liga 2026/27 widerlegt und dort am 2026-09-07 korrigiert.
 4. **Reformstand.** Das Vereinsvotum vom 30.06.2026 hat beide Modelle abgelehnt;
    für 2026/27 und mangels Beschluss auch 2027/28 gilt der heutige Modus. Es
    kursieren Darstellungen, die „vier Direktaufsteiger ab 2028/29" als

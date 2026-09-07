@@ -146,13 +146,23 @@ Zwei weitere Regeln sind für die Simulation relevant:
   erzielte Tore, dann Entscheidungsspiel auf neutralem Platz. Das weicht von
   Bayern (RO § 19 Nr. 2: direkter Vergleich als Kriterium 2.4) ab.
 
-> **Hinweis zu einer verbreiteten Falschangabe.** Die deutsche Wikipedia nennt
-> für 2026/27 „die letzten zwei" als Regelabsteiger und begründet Erhöhungen mit
-> möglichen Drittliga-Abstiegen von *TSV Havelse* und *SV Meppen*. Beide sind
-> laut NFV für 2026/27 regulär **in der Regionalliga Nord zugelassen**, also
-> keine potenziellen Drittliga-Absteiger; die Angabe beschreibt die Vorsaison.
-> Maßgeblich ist § 6 Abs. 3 NFV-SpO mit **drei** Regelabsteigern — wortgleich in
-> beiden geprüften Fassungen (Statut 20.09.2025 und Spielordnung 19.03.2026).
+> **Korrigiert am 2026-09-07.** Hier stand, *TSV Havelse* und *SV Meppen* seien
+> für 2026/27 in der Regionalliga Nord zugelassen und damit keine potenziellen
+> Drittliga-Absteiger. **Das ist falsch.** Der Spielplan der 3. Liga 2026/27
+> (`data/fixture_cache/80_2026.json`, 20 Teams) führt beide als Drittligisten;
+> in `RCode/TeamList_2026.csv` stehen sie mit Liga 80 und Stammregion Nord.
+> Sie sind damit die **einzigen beiden** Drittligisten mit Nord-Zugehörigkeit —
+> für die Regionalliga Nord ist `k` also 0, 1 oder 2.
+>
+> Die zurückgewiesene Wikipedia-Angabe lag in diesem Punkt richtig; die
+> Zurückweisung stützte sich auf eine NFV-Zulassungsmeldung (S3), die die
+> Vorsaison beschrieb. Belegt ist jetzt am tatsächlichen Spielplan, nicht an
+> einer Sekundärquelle.
+>
+> **Unberührt** bleibt die Zahl der Regelabsteiger: § 6 Abs. 3 NFV-SpO nennt
+> **drei**, wortgleich in beiden geprüften Fassungen (Statut 20.09.2025 und
+> Spielordnung 19.03.2026). Wikipedias „letzte zwei" beschreibt den Fall, dass
+> der Nord-Meister aufsteigt — siehe § 6 Abs. 3 a. E. und Abschnitt 3.2.
 
 ### 2.2 Regionalliga Nordost — 18 Mannschaften
 
@@ -393,7 +403,23 @@ in zwei verschiedenen Bauarten:
 |---|---:|---|---:|
 | **SüdWest** | 3 | + 1 je Drittliga-Absteiger (§ 47 Nr. 1) | 5 |
 | **Nordost** | 1 | + 1 je Drittliga-Absteiger (Schema A/B) | Schema bis 2 |
-| **Nord** | 3 | + 1, sofern Staffelstärke überschritten (§ 6 Abs. 4) | — |
+| **Nord** | 3, **2 bei Meisteraufstieg** | + 1, sofern Staffelstärke überschritten (§ 6 Abs. 4) | — |
+
+**Nord koppelt zusätzlich an den eigenen Aufstieg.** Die Staffel hat 18 Teams,
+drei Regelabsteiger und drei Oberliga-Aufsteiger — die Bilanz geht auf
+(18 − 3 + 3 = 18). Steigt der Nord-Meister aber in die 3. Liga auf, fehlt ein
+Team (18 − 1 − 3 + 3 = 17), die Staffelstärke wird *unterschritten*, und nach
+§ 6 Abs. 3 a. E. geht „ein freier Platz zunächst an den bestplatzierten
+zugelassenen Absteiger". Der dritte Absteiger bleibt also drin:
+
+| | Meister bleibt | Meister steigt auf |
+|---|---:|---:|
+| Regelabsteiger Nord | 3 | **2** |
+
+Das ist 2026/27 kein Randfall, sondern der Regelbetrieb: Nord ist eine der
+beiden Playoff-Staffeln, die Aufstiegswahrscheinlichkeit ist entsprechend hoch.
+Für das Modell heißt das, die Abstiegsschwelle verschiebt sich um eins —
+gemischt über die Aufstiegswahrscheinlichkeit, nicht als Fallunterscheidung.
 
 **Typ „Verminderung"** (feste Zahl, die sich reduziert):
 

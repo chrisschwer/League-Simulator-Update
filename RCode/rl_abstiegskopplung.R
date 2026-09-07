@@ -22,6 +22,12 @@
 # Formel auf einen anderen Fall uebertraegt, muss zuerst pruefen, ob die
 # Unabhaengigkeit dort ebenfalls gilt.
 #
+# ZWEITE KOPPLUNG, NUR NORD: Dort haengt die Absteigerzahl zusaetzlich am
+# EIGENEN Meisteraufstieg (Basis 3 bzw. 2, s. platz_gewichte()). Diese zweite
+# Mischung ist -- anders als die an die 3. Liga -- eine Naeherung, weil beide
+# Groessen aus derselben Nord-Simulation stammen; die Begruendung steht bei
+# platz_gewichte(), damit sie niemand mit dem exakten Fall oben verwechselt.
+#
 # Amtliche Regeln mit Fundstellen: docs/abstieg_aufstieg_RL_2026_2027.md
 # Annahmen und Luecken:           docs/modellannahmen-rl-kopplung.md
 #
@@ -39,10 +45,16 @@
 #'   Nordost   1 + k, gedeckelt auf 2   (NOFV A. Nr. 5, Schema A/B; der Deckel
 #'                                       ist eine ANNAHME, s. Modellannahmen 5.1)
 #'   Nord      3 + k, ohne Deckel       (NFV-SpO Par. 6 Abs. 3 und 4)
-#'   West      4 - k, GEGENLAEUFIG      (WDFV Abstieg Nr. 1, 3, 4) -- ein
-#'                                       Drittliga-Absteiger verdraengt einen
-#'                                       Oberliga-Aufsteiger, die Zahl der
-#'                                       sportlichen Absteiger SINKT
+#'   West      konstant 4               (WDFV Abstieg Nr. 1) -- ENTKOPPELT.
+#'                                       Nr. 3 haengt an den Oberligen, Nr. 5
+#'                                       an der Lizenzierung; nur Nr. 4
+#'                                       beruehrt die 3. Liga, und der Fall
+#'                                       (Zweitvertretung eines absteigenden
+#'                                       Lizenzvereins) kann 2026/27 nicht
+#'                                       eintreten: Die Erstvertretungen
+#'                                       aller West-Zweitvertretungen spielen
+#'                                       in Liga 78/79 und koennen in einer
+#'                                       Saison nicht bis in die RL fallen.
 #'   Bayern    konstant 2               (BFV A&A II. Nr. 1) -- koppelt gar
 #'                                       nicht; die Relegation (II. Nr. 3) ist
 #'                                       eine eigene Groesse, s. unten
@@ -65,7 +77,7 @@ abstiegsplaetze <- function(staffel, drittliga_absteiger) {
     staffel,
     Nord     = 3L + k,
     Nordost  = pmin(1L + k, 2L),
-    West     = pmax(4L - k, 0L),
+    West     = rep(4L, length(k)),
     SuedWest = pmin(3L + k, 5L),
     Bayern   = rep(2L, length(k))
   )
@@ -237,17 +249,31 @@ p_mindestens <- function(verteilung, staffel, j) {
 #' schlaegt nicht fehl, sie liefert nur falsche Zahlen.
 #'
 #' Der Platz d-ter-von-unten ist genau dann Abstiegsplatz, wenn die Staffel
-#' mindestens d Abstiegsplaetze hat. Fuer die monoton STEIGENDEN Staffeln
-#' (Nord, Nordost, SuedWest) heisst das P(k >= d - Basis); fuer West, wo die
-#' Zahl mit k faellt, ist es P(k <= 4 - d). Statt beide Faelle getrennt zu
-#' fuehren, wird hier ueber die Verteilung summiert -- das deckt jede
-#' Richtung ab und bleibt richtig, wenn eine Regel sich aendert.
+#' mindestens d Abstiegsplaetze hat. Fuer die koppelnden Staffeln (Nord,
+#' Nordost, SuedWest) heisst das P(k >= d - Basis); West und Bayern koppeln
+#' nicht, dort ist es 0 oder 1. Statt die Faelle getrennt zu fuehren, wird
+#' hier ueber die Verteilung summiert -- das deckt jede Richtung ab und
+#' bleibt richtig, falls eine Regel sich aendert (etwa wenn West doch wieder
+#' koppelt).
+#'
+#' NORD UND DER EIGENE MEISTERAUFSTIEG: Nord spielt mit 18 Teams, drei
+#' Regelabsteigern und drei Oberliga-Aufsteigern -- die Bilanz 18 - 3 + 3 = 18
+#' geht auf. Steigt der Nord-MEISTER in die 3. Liga auf, fehlt ein Team
+#' (18 - 1 - 3 + 3 = 17), die Staffelstaerke wird unterschritten, und nach
+#' NFV-SpO Par. 6 Abs. 3 a.E. geht "ein freier Platz zunaechst an den
+#' bestplatzierten zugelassenen Absteiger": Der dritte Absteiger bleibt drin.
+#' Also Basis 3, wenn der Meister bleibt, und Basis 2, wenn er aufsteigt.
+#' `p_meister_aufstieg` mischt beide Aeste. Nur Nord ist betroffen -- Nordost,
+#' West und SuedWest stellen Direktaufsteiger, deren Meisteraufstieg steckt
+#' schon in der Basis, und Bayerns Absteigerzahl ist ohnehin konstant.
 #'
 #' @param staffel Name einer Staffel aus STAFFELN.
 #' @param verteilung Ergebnis von absteiger_verteilung().
 #' @param teams Zahl der Mannschaften in der Staffel.
+#' @param p_meister_aufstieg Eine Zahl in [0, 1]: P(der Meister DIESER Staffel
+#'   steigt in die 3. Liga auf). Default 0 = Verhalten ohne Kopplung.
 #' @return Numerischer Vektor der Laenge `teams`.
-platz_gewichte <- function(staffel, verteilung, teams) {
+platz_gewichte <- function(staffel, verteilung, teams, p_meister_aufstieg = 0) {
   staffel <- pruefe_staffel(staffel, "platz_gewichte")
   teams <- as.integer(teams)
   if (length(teams) != 1L || is.na(teams) || teams < 1L) {
@@ -256,25 +282,74 @@ platz_gewichte <- function(staffel, verteilung, teams) {
       paste(format(teams), collapse = ", ")
     ), call. = FALSE)
   }
+  # Staffelunabhaengig geprueft: Fuer vier der fuenf Staffeln wird der Wert
+  # zwar ignoriert, aber ein Wert ausserhalb [0, 1] ist trotzdem ein
+  # Aufruferfehler und darf nicht davon abhaengen, welche Staffel gerade
+  # gerechnet wird. 1.1 wuerde still negative Gewichte erzeugen, ein Vektor
+  # wuerde still recyceln.
+  p <- pruefe_p_meister_aufstieg(p_meister_aufstieg, "platz_gewichte")
 
   zeile <- verteilung[staffel, ]
   k_werte <- seq_len(length(zeile)) - 1L
   n_plaetze <- abstiegsplaetze(staffel, k_werte)
 
-  # Von unten gezaehlt: d = 1 ist der Letzte, d = teams der Meister.
-  # P(Platz d-von-unten ist Abstiegsplatz) = SUMME ueber k mit
-  # abstiegsplaetze(k) >= d von P(k).
+  if (!identical(staffel, "Nord") || p == 0) {
+    return(gewichte_aus_platzzahlen(zeile, n_plaetze, teams))
+  }
+
+  # Der Ast "Meister steigt auf": eine Basis weniger, also ein Abstiegsplatz
+  # weniger je k. pmax(., 0L) ist nur Vorsicht -- 3 + k - 1 wird nie negativ.
+  n_plaetze_auf <- pmax(n_plaetze - 1L, 0L)
+
+  w_bleibt <- gewichte_aus_platzzahlen(zeile, n_plaetze, teams)
+  w_auf    <- gewichte_aus_platzzahlen(zeile, n_plaetze_auf, teams)
+
+  # NAEHERUNG, und zwar eine bewusste: "Team X landet auf Platz d" und "der
+  # Meister dieser Staffel steigt auf" stammen aus DERSELBEN Nord-Simulation
+  # und sind korreliert. Trotzdem wird hier multiplikativ gemischt: Dasselbe
+  # Team ist praktisch nie zugleich Meister- und Abstiegskandidat, und gegen
+  # Saisonende trennen sich beide Zonen ohnehin. Der Fehler ist klein und
+  # beschraenkt.
   #
-  # Nur ueber die tatsaechlich moeglichen k summiert, nie ueber alle mit
-  # Gewicht 0 multipliziert: Wo rechnerisch kein Absteiger mehr moeglich
-  # ist, muss das Gewicht IDENTISCH 0 sein und nicht 1e-17. sum() eines
-  # leeren Vektors ist exakt 0.
+  # Das ist ausdruecklich ANDERS als die Kopplung an die 3. Liga oben: Dort
+  # sind die Wettbewerbe disjunkt, das Produkt ist exakt (s. Dateikopf). Wer
+  # beide Faelle verwechselt, haelt hier eine Naeherung fuer exakt -- oder
+  # rechnet dort umstaendlich, wo nichts zu naehern ist.
+  (1 - p) * w_bleibt + p * w_auf
+}
+
+#' Platzgewichte aus einer Verteilung ueber k und den zugehoerigen
+#' Abstiegsplatzzahlen.
+#'
+#' Von unten gezaehlt: d = 1 ist der Letzte, d = teams der Meister.
+#' P(Platz d-von-unten ist Abstiegsplatz) = SUMME ueber k mit
+#' n_plaetze(k) >= d von P(k).
+#'
+#' Nur ueber die tatsaechlich moeglichen k summiert, nie ueber alle mit
+#' Gewicht 0 multipliziert: Wo rechnerisch kein Absteiger mehr moeglich ist,
+#' muss das Gewicht IDENTISCH 0 sein und nicht 1e-17. sum() eines leeren
+#' Vektors ist exakt 0.
+gewichte_aus_platzzahlen <- function(zeile, n_plaetze, teams) {
   gewichte <- numeric(teams)
   for (d in seq_len(teams)) {
     gewichte[teams - d + 1L] <- sum(zeile[n_plaetze >= d])
   }
-
   gewichte
+}
+
+#' Bricht ab, wenn `p` keine einzelne Wahrscheinlichkeit ist.
+#'
+#' Gleicher Fehlerstil wie die uebrigen Pruefungen dieser Datei: der
+#' beanstandete Wert steht im Text, call. = FALSE.
+pruefe_p_meister_aufstieg <- function(p, wo) {
+  p <- suppressWarnings(as.numeric(p))
+  if (length(p) != 1L || is.na(p) || p < 0 || p > 1) {
+    stop(sprintf(
+      "%s: p_meister_aufstieg muss eine einzelne Zahl in [0, 1] sein, war: %s",
+      wo, paste(format(p), collapse = ", ")
+    ), call. = FALSE)
+  }
+  p
 }
 
 # --- Die Kernformel --------------------------------------------------------
@@ -316,15 +391,24 @@ abstiegswahrscheinlichkeit <- function(prognose, gewichte) {
 #' @param staffel Name einer Staffel aus STAFFELN.
 #' @param prognose Prognosematrix Teams x Plaetze (rownames = Teams).
 #' @param relegation_group_counts Zaehlmatrix der 3. Liga (Matrix oder Liste).
+#' @param p_meister_aufstieg P(Meister dieser Staffel steigt in die 3. Liga
+#'   auf), eine Zahl in [0, 1]. Wirkt nur auf Nord (s. platz_gewichte()).
+#'   Wird als fertige Zahl hereingereicht und NICHT intern aus rl_aufstieg.R
+#'   geholt: Das haelt die Module getrennt und die Zahl im Test setzbar.
 #' @return data.frame mit rownames = Teams. Spalte "Abstieg"; fuer Bayern die
 #'   zwei Spalten "Relegation" und "Abstieg".
-rl_abstiegsprognose <- function(staffel, prognose, relegation_group_counts) {
+rl_abstiegsprognose <- function(staffel, prognose, relegation_group_counts,
+                                p_meister_aufstieg = 0) {
   staffel <- pruefe_staffel(staffel, "rl_abstiegsprognose")
+  # Vor der teuren Auszaehlung geprueft, damit ein Aufruferfehler nicht erst
+  # nach der Verteilungsrechnung auffaellt.
+  pruefe_p_meister_aufstieg(p_meister_aufstieg, "rl_abstiegsprognose")
   prognose <- as.matrix(prognose)
   teams <- ncol(prognose)
 
   verteilung <- absteiger_verteilung(relegation_group_counts)
-  gewichte <- platz_gewichte(staffel, verteilung, teams)
+  gewichte <- platz_gewichte(staffel, verteilung, teams,
+                             p_meister_aufstieg = p_meister_aufstieg)
   abstieg <- abstiegswahrscheinlichkeit(prognose, gewichte)
 
   if (!identical(staffel, "Bayern")) {

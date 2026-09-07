@@ -28,8 +28,14 @@ library(testthat)
 #   SuedWest  Basis 3, +1 je Drittliga-Absteiger, Deckel 5   (RLSW-SpO Par. 47)
 #   Nordost   Basis 1, +1 je Drittliga-Absteiger, Schema bis 2 (NOFV A. Nr. 5)
 #   Nord      Basis 3, +1 je Drittliga-Absteiger, kein Deckel (NFV-SpO Par. 6 Abs. 4)
-#   West      GEGENLAEUFIG: feste 4, die sich je Drittliga-Absteiger
-#             um eins VERMINDERN (WDFV Abstieg Nr. 3, 4)
+#   West      ENTKOPPELT: feste 4, unabhaengig von k (WDFV Abstieg Nr. 1).
+#             Die Verminderungsgruende Nr. 3 (weniger Oberliga-Aufsteiger)
+#             und Nr. 5 (Nichtlizenzierung) haengen NICHT an der 3. Liga;
+#             Nr. 4 (Zweitvertretung eines absteigenden Lizenzvereins rueckt
+#             ans Tabellenende) kann 2026/27 nicht eintreten -- die
+#             Erstvertretungen aller West-Zweitvertretungen spielen in Liga
+#             78/79 und koennen in einer Saison nicht bis in die RL
+#             durchfallen.
 #   Bayern    Zahl aendert sich NICHT: 2 Direktabsteiger (die zwei Letzten)
 #             und 2 Relegationsteilnehmer (die zwei davor). Die Relegation
 #             wird NICHT aufgeloest -- Bayernligisten werden nicht
@@ -380,15 +386,22 @@ test_that("Nord: 3 + k, ohne Deckel", {
   expect_equal(f("Nord", 0:4), c(3L, 4L, 5L, 6L, 7L))
 })
 
-test_that("West: feste 4, die sich je Drittliga-Absteiger um eins vermindern", {
-  # WDFV Abstieg Nr. 1 (vier bei 18 Vereinen) und Nr. 3/4: Ein
-  # Drittliga-Absteiger verdraengt einen Aufsteiger bzw. belegt einen
-  # Abstiegsplatz vor; die Zahl der sportlichen Absteiger SINKT.
+test_that("West: feste 4, unabhaengig von der 3. Liga", {
+  # WDFV Abstieg Nr. 1: "bei 18 teilnehmenden Vereinen die vier Vereine mit
+  # der geringsten Punktezahl". Kein Term, der an der 3. Liga haengt.
+  #
+  # Hier stand zuvor 4 - k. Das folgte der Zusammenschau in Regeldoku 3.2,
+  # nicht dem Ordnungstext: Von den drei Verminderungsgruenden haengt Nr. 3
+  # an den Oberligen und Nr. 5 an der Lizenzierung; nur Nr. 4 beruehrt die
+  # 3. Liga, und der Fall kann 2026/27 nicht eintreten (s. Kopfkommentar).
+  # Bilanzlogisch war 4 - k sogar verkehrt herum: Ein Drittliga-Absteiger
+  # ERHOEHT die Teamzahl auf 19; der WDFV gleicht das ueber die
+  # Aufstiegsseite und die Ligagroesse aus, nicht ueber weniger Absteiger.
   env <- source_kopplung()
   f <- fn(env, "abstiegsplaetze")
-  expect_equal(f("West", 0:4), c(4L, 3L, 2L, 1L, 0L))
-  # Monoton fallend -- das ist die Gegenlaeufigkeit.
-  expect_true(all(diff(f("West", 0:4)) < 0))
+  expect_equal(f("West", 0:4), rep(4L, 5))
+  # Konstant -- keine Kopplung in irgendeine Richtung.
+  expect_true(all(diff(f("West", 0:4)) == 0))
 })
 
 test_that("Bayern: zwei Direktabsteiger, unabhaengig von k", {
@@ -476,13 +489,11 @@ test_that("SuedWest: gemischte Zaehlung gewichtet Platz 15 und 14 unterschiedlic
   expect_identical(unname(w[13]), 0)
 })
 
-test_that("West: mehr Drittliga-Absteiger bedeuten WENIGER Abstiegsplaetze", {
-  # West: P(k=0) = 0.5, P(k=1) = 0.5 (E = 0.5); SuedWest P(k=1)=P(k=2)=0.5
-  # (E = 1.5); Nord P(k=2) = 1 (E = 2). Summe 4.
-  #
-  # Abstiegsplaetze West: 4 bei k=0, 3 bei k=1.
-  #   Platz 16-18: immer                      -> 1
-  #   Platz 15:    nur bei k = 0              -> 0.5   (nicht 1!)
+test_that("West: die Zaehlung der 3. Liga aendert die Abstiegsplaetze nicht", {
+  # West ist entkoppelt (WDFV Abstieg Nr. 1): immer die vier Letzten,
+  # egal wie viele Drittligisten in die Staffel fallen. Das ist die
+  # Gegenprobe -- zwei voellig verschiedene Zaehlungen, identische
+  # Gewichte.
   env <- source_kopplung()
   f <- fn(env, "absteiger_verteilung")
   g <- fn(env, "platz_gewichte")
@@ -490,21 +501,17 @@ test_that("West: mehr Drittliga-Absteiger bedeuten WENIGER Abstiegsplaetze", {
   v <- f(zaehlung(West = c(5000, 5000, 0, 0, 0),
                   SuedWest = c(0, 5000, 5000, 0, 0),
                   Nord = c(0, 0, N_ITER, 0, 0)))
-  w <- g("West", v, teams = 18L)
-  expect_equal(unname(w[16:18]), c(1, 1, 1))
-  expect_equal(unname(w[15]), 0.5)
-  expect_identical(unname(w[14]), 0)
-
-  # Sicher zwei Drittliga-Absteiger nach West: nur noch zwei Plaetze.
   v2 <- f(zaehlung(West = c(0, 0, N_ITER, 0, 0), Nord = c(0, 0, N_ITER, 0, 0)))
-  w2 <- g("West", v2, teams = 18L)
-  expect_equal(unname(w2[17:18]), c(1, 1))
-  expect_identical(unname(w2[16]), 0)
-  expect_identical(unname(w2[15]), 0)
 
-  # Die Gegenlaeufigkeit als Zahl: Erwartete Absteiger sinken von 3.5 auf 2.
-  expect_equal(sum(w), 3.5)
-  expect_equal(sum(w2), 2)
+  w <- g("West", v, teams = 18L)
+  w2 <- g("West", v2, teams = 18L)
+
+  expect_identical(w, w2)
+  expect_equal(unname(w[15:18]), c(1, 1, 1, 1))
+  expect_identical(unname(w[14]), 0)
+  # Erwartete Absteigerzahl konstant 4, nicht 3.5 oder 2.
+  expect_equal(sum(w), 4)
+  expect_equal(sum(w2), 4)
 })
 
 test_that("Nord: 3 + k ohne Deckel -- zwei Drittliga-Absteiger machen fuenf Plaetze", {
@@ -719,8 +726,8 @@ test_that("rl_abstiegsprognose: Nord und SuedWest liefern verschiedene Zahlen al
   #   Team A: 0.30 + 0.30 + 0.20 + 0.10 * 1 = 0.90
   # SuedWest (Basis 3, P(k>=1) = 1, P(k>=2) = 0):
   #   Team A: 0.30 + 0.30 + 0.20 + 0.10 * 1 = 0.90
-  # West (4 - k, P(k=1) = 1 -> 3 Plaetze):
-  #   Team A: 0.30 + 0.30 + 0.20 + 0.10 * 0 = 0.80
+  # West (entkoppelt, immer 4 Plaetze -> 15 bis 18):
+  #   Team A: 0.30 + 0.30 + 0.20 + 0.10 * 1 = 0.90
   env <- source_kopplung()
   f <- fn(env, "rl_abstiegsprognose")
   prognose <- prognose_zeile(18L, plaetze = c(1, 15, 16, 17, 18),
@@ -730,7 +737,7 @@ test_that("rl_abstiegsprognose: Nord und SuedWest liefern verschiedene Zahlen al
   expect_equal(f("Nordost", prognose, counts)["A", "Abstieg"], 0.567, tolerance = 1e-12)
   expect_equal(f("Nord", prognose, counts)["A", "Abstieg"], 0.90, tolerance = 1e-12)
   expect_equal(f("SuedWest", prognose, counts)["A", "Abstieg"], 0.90, tolerance = 1e-12)
-  expect_equal(f("West", prognose, counts)["A", "Abstieg"], 0.80, tolerance = 1e-12)
+  expect_equal(f("West", prognose, counts)["A", "Abstieg"], 0.90, tolerance = 1e-12)
 })
 
 test_that("rl_abstiegsprognose bricht bei unbekannter Staffel ab, statt still zu raten", {
