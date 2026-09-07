@@ -164,8 +164,13 @@ league_registry <- function() {
       promotion_to = "80", relegation_to = NULL,
       # Dauerhafter Direktaufstieg (Par. 55b DFB-SpO Nr. 2) -- rotiert nie.
       promotion_slots = 1L, playoff_slots = 0L,
-      # Vier Absteiger bei 18 Vereinen (WDFV Abstieg Nr. 1). GEGENLAEUFIG:
-      # je Drittliga-Absteiger sinkt die Zahl um eins (Nr. 3, 4).
+      # Vier Absteiger bei 18 Vereinen (WDFV Abstieg Nr. 1). ENTKOPPELT --
+      # anders als bei Nord, Nordost und SuedWest aendert die 3. Liga die
+      # Zahl nicht: Nr. 3 haengt an den Oberligen, Nr. 5 an der
+      # Lizenzierung, und Nr. 4 (Zweitvertretung eines absteigenden
+      # Lizenzvereins) kann 2026/27 nicht eintreten -- die Erstvertretungen
+      # aller West-Zweitvertretungen spielen in Liga 78/79 und koennen in
+      # einer Saison nicht bis in die RL fallen.
       relegation_slots = 4L
     ),
     rl_suedwest = list(
