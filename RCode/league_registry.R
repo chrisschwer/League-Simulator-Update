@@ -17,13 +17,16 @@
 # festes Abstiegs-Panel waere auf der Seite sichtbar falsch.
 #
 # Die amtliche Regelgrundlage dafuer steht in
-# docs/abstieg_aufstieg_RL_2026_2027.md. Achtung beim Aktivieren: Die
-# promotion_slots/playoff_slots der Regionalligen unten bilden das allgemeine
-# Muster ab, nicht die Saison 2026/27 -- nach § 55b DFB-SpO haben West und
+# docs/abstieg_aufstieg_RL_2026_2027.md. Nach § 55b DFB-SpO haben West und
 # SuedWest dauerhaft Direktaufstieg, den dritten Direktplatz rotieren Nord,
 # Nordost und Bayern jaehrlich unter sich aus (2026/27: Nordost direkt,
-# Nord gegen Bayern in zwei Aufstiegsspielen). Die Zuordnung gehoert deshalb
-# an eine saisonabhaengige Stelle, nicht als Konstante hierher.
+# Nord gegen Bayern in zwei Aufstiegsspielen).
+#
+# Die promotion_slots/playoff_slots der Regionalligen unten tragen den Stand
+# 2026/27. Sie sind aber nur ABGELEITET: Wer den Rotationsplatz bekommt,
+# beschliesst das DFB-Praesidium jaehrlich und steht in keiner Ordnung.
+# Massgeblich ist deshalb AUFSTIEGSROTATION in RCode/rl_aufstieg.R; ein Test
+# haelt beide Stellen gegeneinander, damit sie nicht auseinanderlaufen.
 #
 # Der Produktivpfad sieht ueber league_ids() nur die aktiven Ligen;
 # der Saisonwechsel und die Validierung kennen die neuen bereits. So ist die
@@ -130,7 +133,15 @@ league_registry <- function() {
       display_name = "Regionalliga Nord",
       teams_range = c(16L, 22L), first_season = 2019L,
       promotion_to = "80", relegation_to = NULL,
-      promotion_slots = 1L, playoff_slots = 1L
+      # 2026/27: kein Direktplatz, sondern das Aufstiegsspiel gegen Bayern
+      # (BFV A&A 2026/27 I. Nr. 1). Die Rotation des dritten Direktplatzes
+      # legt das DFB-Praesidium jaehrlich fest -- massgeblich ist
+      # AUFSTIEGSROTATION in RCode/rl_aufstieg.R, hier steht nur der
+      # abgeleitete Stand der laufenden Saison.
+      promotion_slots = 0L, playoff_slots = 1L,
+      # Basis OHNE Kopplung: drei Regelabsteiger (NFV-SpO Par. 6 Abs. 3);
+      # je Drittliga-Absteiger kommt einer hinzu (Abs. 4, kein Deckel).
+      relegation_slots = 3L
     ),
     rl_nordost = list(
       api_id = "85", active = FALSE, family = "herren", staffel = "Nordost",
@@ -138,7 +149,12 @@ league_registry <- function() {
       display_name = "Regionalliga Nordost",
       teams_range = c(16L, 22L), first_season = 2019L,
       promotion_to = "80", relegation_to = NULL,
-      promotion_slots = 1L, playoff_slots = 1L
+      # 2026/27 traegt Nordost den rotierenden dritten Direktplatz -- die
+      # Kehrseite davon, dass Bayern gegen Nord spielt.
+      promotion_slots = 1L, playoff_slots = 0L,
+      # Basis ein Absteiger, bei einem Drittliga-Absteiger zwei
+      # (NOFV A&A A. Nr. 5, Schema A/B).
+      relegation_slots = 1L
     ),
     rl_west = list(
       api_id = "87", active = FALSE, family = "herren", staffel = "West",
@@ -146,7 +162,11 @@ league_registry <- function() {
       display_name = "Regionalliga West",
       teams_range = c(16L, 22L), first_season = 2019L,
       promotion_to = "80", relegation_to = NULL,
-      promotion_slots = 1L, playoff_slots = 0L
+      # Dauerhafter Direktaufstieg (Par. 55b DFB-SpO Nr. 2) -- rotiert nie.
+      promotion_slots = 1L, playoff_slots = 0L,
+      # Vier Absteiger bei 18 Vereinen (WDFV Abstieg Nr. 1). GEGENLAEUFIG:
+      # je Drittliga-Absteiger sinkt die Zahl um eins (Nr. 3, 4).
+      relegation_slots = 4L
     ),
     rl_suedwest = list(
       api_id = "86", active = FALSE, family = "herren", staffel = "SuedWest",
@@ -154,7 +174,11 @@ league_registry <- function() {
       display_name = "Regionalliga SüdWest",
       teams_range = c(16L, 22L), first_season = 2019L,
       promotion_to = "80", relegation_to = NULL,
-      promotion_slots = 1L, playoff_slots = 0L
+      # Dauerhafter Direktaufstieg (Par. 55b DFB-SpO Nr. 2) -- rotiert nie.
+      promotion_slots = 1L, playoff_slots = 0L,
+      # Drei Absteiger, je Drittliga-Absteiger einer mehr, Deckel 5
+      # (RLSW-SpO Par. 47 Nr. 1 und Nr. 2).
+      relegation_slots = 3L
     ),
     rl_bayern = list(
       api_id = "83", active = FALSE, family = "herren", staffel = "Bayern",
@@ -162,7 +186,18 @@ league_registry <- function() {
       display_name = "Regionalliga Bayern",
       teams_range = c(16L, 22L), first_season = 2019L,
       promotion_to = "80", relegation_to = NULL,
-      promotion_slots = 1L, playoff_slots = 1L
+      # 2026/27: Aufstiegsspiel gegen Nord statt Direktplatz
+      # (BFV A&A 2026/27 I. Nr. 1).
+      promotion_slots = 0L, playoff_slots = 1L,
+      # Zwei Direktabsteiger, unabhaengig von der 3. Liga -- Bayern koppelt
+      # als einzige Staffel gar nicht (BFV A&A II. Nr. 1).
+      relegation_slots = 2L,
+      # Eigenes Feld, weil playoff_slots richtungslos ist: In der
+      # Bundesliga meint es die Abstiegsrelegation, in der 3. Liga den
+      # Aufstieg. Bayern hat BEIDES -- ein Aufstiegsspiel nach oben und
+      # zwei Relegationsplaetze nach unten (BFV A&A II. Nr. 3). In einem
+      # gemeinsamen Feld waere jeder Wert falsch.
+      relegation_playoff_slots = 2L
     )
   )
 }

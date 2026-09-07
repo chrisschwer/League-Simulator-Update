@@ -529,3 +529,88 @@ pub async fn league_details(
         team_names,
     }))
 }
+
+/// Obergrenze fuer `max_goals`. Die Antwort waechst quadratisch: 100 bedeutet
+/// schon 101x101 Zellen. Alles darueber ist kein Anwendungsfall, sondern ein
+/// Fehler beim Aufrufer.
+const MAX_GOALS_LIMIT: usize = 100;
+
+/// Ein einzelnes virtuelles Spiel (ADR 0002): zwei ELO-Werte rein, die
+/// Tor-Raten und die Ergebnisverteilung raus.
+///
+/// Gedacht fuer Paarungen, die in keinem Ligaspielplan stehen -- etwa die
+/// Aufstiegsspiele Nord gegen Bayern (Par. 55b DFB-SpO). R soll die Formel
+/// ELO -> lambda nicht nachbauen, also liefert sie der Server.
+#[derive(Deserialize)]
+pub struct MatchPreviewRequest {
+    /// ELO des Heimteams.
+    elo_home: f64,
+
+    /// ELO des Gastteams.
+    elo_away: f64,
+
+    /// Heimvorteil in ELO-Punkten (Default: 40). Fuer ein Spiel auf
+    /// neutralem Platz 0 uebergeben.
+    home_advantage: Option<f64>,
+
+    /// Steigung des Tormodells (Default: 0.0017854953143549). Siehe
+    /// `LeagueDetailsRequest::tore_slope`.
+    tore_slope: Option<f64>,
+
+    /// Achsenabschnitt des Tormodells (Default: 1.3218390804597700).
+    tore_intercept: Option<f64>,
+
+    /// Kantenlaenge des Ergebnisgitters minus eins (Default: 6 -> 7x7);
+    /// letzte Zeile/Spalte tragen die Schwanzmasse.
+    max_goals: Option<usize>,
+}
+
+#[derive(Serialize)]
+pub struct MatchPreviewResponse {
+    lambda_home: f64,
+    lambda_away: f64,
+    p_home_win: f64,
+    p_draw: f64,
+    p_away_win: f64,
+    score_matrix: Vec<Vec<f64>>,
+}
+
+fn validate_match_preview_request(payload: &MatchPreviewRequest) -> Result<(), String> {
+    if let Some(max_goals) = payload.max_goals {
+        if max_goals == 0 || max_goals > MAX_GOALS_LIMIT {
+            return Err(format!(
+                "max_goals must be between 1 and {}, got {}",
+                MAX_GOALS_LIMIT, max_goals
+            ));
+        }
+    }
+    Ok(())
+}
+
+pub async fn match_preview(
+    Json(payload): Json<MatchPreviewRequest>,
+) -> Result<Json<MatchPreviewResponse>, (StatusCode, String)> {
+    validate_match_preview_request(&payload).map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+
+    // Kein zweiter Rechenweg: dieselbe Funktion, die /league-details je Spiel
+    // aufruft (ADR 0002). Weichen die Defaults hier ab, antworten beide
+    // Endpunkte fuer dasselbe Spiel verschieden -- deshalb stehen sie
+    // wortgleich wie in `league_details`.
+    let probabilities = crate::league_details::match_probabilities(
+        payload.elo_home,
+        payload.elo_away,
+        payload.home_advantage.unwrap_or(40.0),
+        payload.tore_slope.unwrap_or(0.0017854953143549),
+        payload.tore_intercept.unwrap_or(1.3218390804597700),
+        payload.max_goals.unwrap_or(6),
+    );
+
+    Ok(Json(MatchPreviewResponse {
+        lambda_home: probabilities.lambda_home,
+        lambda_away: probabilities.lambda_away,
+        p_home_win: probabilities.p_home_win,
+        p_draw: probabilities.p_draw,
+        p_away_win: probabilities.p_away_win,
+        score_matrix: probabilities.score_matrix,
+    }))
+}
