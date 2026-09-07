@@ -13,6 +13,10 @@ Abstiegs-Panel wäre auf der Seite sichtbar falsch."  Dieses Dokument liefert di
 Regelgrundlage dafür (Phasen 6–7 in
 [`docs/plans/2026-09-05-ligen-ausbau-regionalliga-frauen.md`](plans/2026-09-05-ligen-ausbau-regionalliga-frauen.md)).
 
+> **Gegenstueck:** Was das Modell aus diesen Regeln uebernimmt, was es
+> auslaesst und wo eine Regel mehr als eine Lesart zulaesst, steht in
+> [`modellannahmen-rl-kopplung.md`](modellannahmen-rl-kopplung.md).
+
 Die Staffelreihenfolge folgt `STAFFELN` aus `RCode/staffel_zuordnung.R`
 (Nord, Nordost, West, SüdWest, Bayern) — sie ist dort Vertrag, weil der Index
 die Zeilen der Ergebnismatrix bestimmt.
