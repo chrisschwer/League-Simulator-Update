@@ -49,11 +49,17 @@ test_that("load_team_list lädt eine kollisionsfreie Liste", {
 })
 
 test_that("load_team_list bricht bei kollidierenden Kurznamen ab", {
-  # Zwei Teams aus VERSCHIEDENEN Ligen mit demselben Kurznamen -- genau der
-  # Fall, den die ligaweise Vergabe nicht verhindert.
+  # Zwei Teams DERSELBEN Liga mit demselben Kurznamen. Hier wird ShortText
+  # zum Spaltennamen des Simulations-Data-Frames -- eine Dopplung
+  # vertauschte die Teams stillschweigend.
+  #
+  # Der Test pruefte bis September 2026 zwei VERSCHIEDENE Ligen (78 und 83).
+  # Das ist seit Regel 3 erlaubt: Wo ein Kuerzel fuer einen Verein
+  # eingefuehrt ist, bekommt er es, auch wenn ein anderer Verein in einer
+  # anderen Liga dasselbe traegt.
   pfad <- schreibe_teamlist(c(
     "157;FCB;0;2057.2;78;;Bayern München",
-    "9001;FCB;0;950.0;83;Bayern;FC Bamberg"
+    "9001;FCB;0;1500.0;78;;FC Bamberg"
   ))
 
   # Präzise auf den Kollisionsbefund prüfen, nicht auf irgendeinen Fehler --
@@ -69,9 +75,9 @@ test_that("load_team_list nennt alle kollidierenden Kurznamen", {
   # Aufräumen zum Ratespiel über mehrere Läufe.
   pfad <- schreibe_teamlist(c(
     "157;FCB;0;2057.2;78;;Bayern München",
-    "9001;FCB;0;950.0;83;Bayern;FC Bamberg",
+    "9001;FCB;0;950.0;78;Bayern;FC Bamberg",
     "165;BVB;0;1876.1;78;;Borussia Dortmund",
-    "9002;BVB;0;930.0;87;West;BV Bocholt"
+    "9002;BVB;0;930.0;78;West;BV Bocholt"
   ))
 
   err <- expect_error(load_team_list(pfad))
@@ -157,15 +163,104 @@ test_that("load_team_list erlaubt gleiche Kurznamen über Wechselgemeinschaften"
   expect_equal(sum(teams$ShortText == "SCF"), 2)
 })
 
-test_that("load_team_list bricht bei Kollision innerhalb der Frauen-Ligen ab", {
-  # Die Lockerung gilt NUR über die Grenze hinweg. 82 und 1034 bilden
-  # gemeinsam eine Wechselgemeinschaft -- dort steigen Teams auf und ab, also
-  # muss der Kurzname über beide Ligen eindeutig bleiben.
+test_that("load_team_list erlaubt gleiche Kurznamen in den beiden Frauen-Ligen", {
+  # Seit Regel 3 (September 2026) ist auch das erlaubt: 82 und 1034 sind
+  # verschiedene Ligen und stehen auf getrennten Seiten. Steigt eines der
+  # beiden Teams auf oder ab, wird der Konflikt dann geloest -- die
+  # Alternative waere, jede denkbare kuenftige Paarung heute zu verbieten.
+  #
+  # Der Test verlangte bis dahin einen Abbruch. Christoph hat die Regel
+  # bewusst auf "eindeutig je Liga" gestellt, mit der einzigen Ausnahme
+  # Nord/Nordost/Bayern (s. u.).
   pfad <- schreibe_teamlist(c(
     "9012;WOL;0;1700.0;82;;VfL Wolfsburg W",
     "9013;WOL;0;1300.0;1034;;Werder Oldenburg W"
   ))
 
+  teams <- load_team_list(pfad)
+  expect_equal(nrow(teams), 2)
+})
+
+# --- Regel 3: Dopplungen zwischen Ligen sind zulaessig ----------------------
+#
+# Entscheidung Christoph (2026-09-09): Wo ein Kuerzel fuer einen Verein
+# eingefuehrt ist, bekommt er es -- auch wenn ein anderer Verein in einer
+# ANDEREN Liga dasselbe traegt. Der VfB ist Stuttgart, in der RL Nord ist der
+# VfB Luebeck; der FCK ist Kaiserslautern. Massgeblich ist nicht die
+# Haeufigkeit des Namensbestandteils, sondern welcher Verein unter dem
+# Kuerzel bekannt ist.
+#
+# Bis dahin galt Eindeutigkeit je WECHSELGEMEINSCHAFT. Das war zu streng: Es
+# verbot VFB fuer Stuttgart (78) neben Luebeck (84), obwohl beide Ansprueche
+# belegt sind und die Ligen auf getrennten Seiten stehen.
+#
+# Die Grenze bleibt scharf, wo sie zaehlt:
+#   - INNERHALB einer Liga bleibt das Kuerzel eindeutig. Dort wird es zum
+#     Spaltennamen des Simulations-Data-Frames; eine Dopplung vertauschte
+#     Teams stillschweigend.
+#   - Zwischen Nord, Nordost und Bayern ebenfalls. Zwei von ihnen bestreiten
+#     jaehrlich die Aufstiegsspiele (rl_aufstieg.R), und dort ordnet
+#     aufstiegswahrscheinlichkeit() ueber NAMEN zu. Welche zwei es sind,
+#     beschliesst das DFB-Praesidium jaehrlich -- alle drei untereinander
+#     frei zu halten ist die einzige Fassung, die nicht jedes Jahr
+#     nachgezogen werden muss.
+
+test_that("load_team_list erlaubt dasselbe Kuerzel in verschiedenen Ligen", {
+  # Die drei echten Faelle aus TeamList_2026: VFB (Stuttgart 78 / Luebeck 84),
+  # FCH (Heidenheim 79 / Hansa Rostock 80), RWE (Essen 80 / Erfurt 85).
+  # Alle sechs Ansprueche sind einzeln belegt.
+  pfad <- schreibe_teamlist(c(
+    "172;VFB;0;1805.0;78;SuedWest;VfB Stuttgart",
+    "1625;VFB;0;950.0;84;Nord;VfB Luebeck",
+    "180;FCH;0;1520.0;79;SuedWest;1. FC Heidenheim",
+    "1330;FCH;0;1160.0;80;Nordost;Hansa Rostock",
+    "1324;RWE;0;1150.0;80;West;Rot-Weiss Essen",
+    "1329;RWE;0;900.0;85;Nordost;FC Rot-Weiss Erfurt"
+  ))
+
+  teams <- load_team_list(pfad)
+
+  expect_equal(nrow(teams), 6)
+  expect_equal(sum(teams$ShortText == "VFB"), 2)
+  expect_equal(sum(teams$ShortText == "FCH"), 2)
+})
+
+test_that("load_team_list bricht bei Kollision INNERHALB einer Liga ab", {
+  # Die Lockerung gilt nur ueber Ligagrenzen. Innerhalb einer Liga wird der
+  # Kurzname zum Spaltennamen -- hier muss es weiter knallen.
+  pfad <- schreibe_teamlist(c(
+    "9020;VFB;0;1800.0;78;SuedWest;VfB Stuttgart",
+    "9021;VFB;0;1700.0;78;Nord;VfB Anderswo"
+  ))
+
   err <- expect_error(load_team_list(pfad))
-  expect_match(conditionMessage(err), "WOL")
+  expect_match(conditionMessage(err), "VFB")
+})
+
+test_that("load_team_list bricht bei Kollision zwischen Nord, Nordost und Bayern ab", {
+  # Die harte Ausnahme. Zwei dieser drei Staffeln spielen jaehrlich die
+  # Aufstiegsspiele gegeneinander, und die Doppelsumme ordnet ueber Namen zu.
+  # Ein doppeltes Kuerzel vertauschte dort zwei Teams -- ohne Fehlermeldung.
+  for (paar in list(c("84", "83"), c("84", "85"), c("85", "83"))) {
+    pfad <- schreibe_teamlist(c(
+      sprintf("9030;SVA;0;950.0;%s;Nord;SV Alpha", paar[[1]]),
+      sprintf("9031;SVA;0;940.0;%s;Bayern;SV Alpha Zwei", paar[[2]])
+    ))
+    err <- expect_error(load_team_list(pfad),
+                        info = paste(paar, collapse = " vs "))
+    expect_match(conditionMessage(err), "SVA")
+  }
+})
+
+test_that("load_team_list erlaubt dasselbe Kuerzel in West und SuedWest", {
+  # Gegenprobe zur harten Regel: West (87) und SuedWest (86) bestreiten die
+  # Aufstiegsspiele NIE -- sie haben dauerhafte Direktplaetze (Par. 55b
+  # DFB-SpO). Zwischen ihnen ist eine Dopplung deshalb zulaessig.
+  pfad <- schreibe_teamlist(c(
+    "9040;SVB;0;950.0;87;West;SV Beta",
+    "9041;SVB;0;940.0;86;SuedWest;SV Beta Zwei"
+  ))
+
+  teams <- load_team_list(pfad)
+  expect_equal(nrow(teams), 2)
 })
