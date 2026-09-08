@@ -320,15 +320,15 @@ riskanteste Arbeit (die Daten der neuen Ligen) landet zuletzt auf geprüftem Fun
 
 | # | Inhalt | Ergebnis |
 |---|---|---|
-| 0 | **Schutznetz, keine Verhaltensänderung**: Rundenfilter-Postcondition (Abbruch statt leerer Liga) und globale Kurznamen-Eindeutigkeit; Empirie-Skript + Fixture-Cache | beide Blocker scheitern künftig laut statt leise |
-| 1 | Liga-Registry; Literale ersetzen; `round_pattern`; `checkAPILimits` skalieren | Verhalten der 3 Altligen unverändert, Tests grün |
-| 2 | Update-Loop + `generate_static_site()` entflechten (kompatible Signatur) | n Ligen technisch möglich |
+| 0 | **Schutznetz, keine Verhaltensänderung**: Rundenfilter-Postcondition (Abbruch statt leerer Liga) und globale Kurznamen-Eindeutigkeit; Empirie-Skript + Fixture-Cache | **erledigt** — beide Blocker scheitern laut statt leise |
+| 1 | Liga-Registry; Literale ersetzen; `round_pattern`; `checkAPILimits` skalieren | **erledigt** — `RCode/league_registry.R`, Verhalten der 3 Altligen unverändert |
+| 2 | Update-Loop + `generate_static_site()` entflechten (kompatible Signatur) | **erledigt** — n Ligen technisch möglich |
 | 3 | Rust: `tore_slope`/`tore_intercept` als Request-Parameter (beide Endpunkte); `relegation_group_counts` als optionale Zusatzstatistik | **erledigt** (PR #172) — Tormodell je Liga steuerbar, Abstiegsverteilung exakt auszählbar |
-| 4 | ELO-Kalibrierung offline; Ankerung (i)+(ii); Streuung gegen Remisquote | committete Startwerte |
-| 5 | Neue Ligen in Registry + TeamList; Menü zweistufig | 10 Ligen live |
-| 6 | RL-Abstiegskopplung (R-Seite) + Vereins→Staffel-Karte | echte Abstiegswahrscheinlichkeiten |
-| 7 | Aufstiegsrelegation | echte Aufstiegswahrscheinlichkeiten |
-| 8 | CONTEXT.md, ADR, Methodik-Seite, `docs/user-guide/` | Doku konsistent |
+| 4 | ELO-Kalibrierung offline; Ankerung (i)+(ii); Streuung gegen Remisquote | **erledigt** — committete Startwerte, `TeamList_2026.csv` mit 237 Teams (ADR 0003) |
+| 5 | Neue Ligen in Registry + TeamList; Menü zweistufig | **erledigt** (PR #175, #176) — 10 Ligen live, zwölf Seiten |
+| 6 | RL-Abstiegskopplung (R-Seite) + ~~Vereins→Staffel-Karte~~ Spalte `Region` | **erledigt** (PR #174) — echte Abstiegswahrscheinlichkeiten |
+| 7 | Aufstiegsrelegation | **erledigt** — echte Aufstiegswahrscheinlichkeiten für Nord und Bayern |
+| 8 | CONTEXT.md, ADR, Methodik-Seite, `docs/user-guide/` | **erledigt** — dieser Nachtrag, CONTEXT.md, ADR 0005/0006, Methodik-Seite |
 
 ### Stand Phase 3 (September 2026, PR #172)
 
@@ -457,3 +457,138 @@ Offen aus diesem Plan: Phasen 1–3 (Registry, Entflechtung), 5 (Menü),
 - Kalibrierung: simulierte vs. beobachtete Remis-/Heimsiegquote je Liga innerhalb Toleranz.
 - Ein voller Scheduler-Lauf gegen die echte API mit Beobachtung der Request-Zahl gegen die
   Prognose von ~844/Tag.
+
+## Nachtrag: Stand nach Abschluss (September 2026)
+
+Der Ausbau ist funktional durch: Zehn Ligen simulieren, die Regionalligen
+tragen die Abstiegskopplung an die 3. Liga, Nord und Bayern echte
+Aufstiegswahrscheinlichkeiten, zwölf Seiten mit zweistufiger Navigation
+(zehn Liga-Seiten, die Aufstiegsseite `rl-aufstieg` und Methodik).
+
+Dieser Abschnitt hält fest, welche Aussagen des Plans überholt sind. Sie
+bleiben oben stehen — der Plan ist ein Dokument seiner Zeit, keine
+Beschreibung des Ist-Zustands. Wer den Ist-Zustand sucht, liest
+`RCode/league_registry.R`, [`docs/modellannahmen-rl-kopplung.md`](../modellannahmen-rl-kopplung.md)
+und die ADRs 0003–0006.
+
+### Sechs überholte Stellen
+
+**1. Heimvorteil 65 → 40.** Der Plan nennt 65 im Registry-Beispiel (§1), in
+der Kalibrierungsbeschreibung (§5.2) und unter den Doku-Folgearbeiten. Der
+Wert ist seit dem Nachtrag zu [ADR 0002](../adr/0002-spieldetails-deterministisch-zur-renderzeit.md)
+**40** — empirisch geeicht, nicht geraten: Über eine realistische
+ELO-Verteilung integriert liefert 40 die beobachteten Anteile
+(41,0 / 24,4 / 34,7 gegen gemessen 41,2 / 25,0 / 33,8), 65 dagegen 43,0 %
+Heimsiege. Der Plan war insofern richtig, als er den Wert nicht selbst
+anfassen wollte (§ Getroffene Entscheidungen Nr. 7) — die Korrektur kam über
+den eigenen Kalibrierungspfad, nicht über diesen Ausbau. Die Methodik-Seite
+nennt bereits 40.
+
+**2. `club_staffel_map.csv` existiert nicht und wird nicht gebaut.** §7 sah
+eine handkuratierte CSV für die Vereins→Staffel-Zuordnung vor. Der
+Phase-4-Nachtrag hatte das bereits relativiert (über sieben Saisons hat kein
+Verein die Staffel gewechselt), umgesetzt ist es jetzt: Die Zuordnung steht
+in der Spalte `Region` der TeamList, die Übersetzung nach Staffel-Index in
+`RCode/staffel_zuordnung.R`. Eine unbekannte Region bricht dort ab, statt
+still in Staffel 0 zu landen.
+
+**3. API-Budget: 844/Tag → ~1.264/Tag.** Die Zahl im Abschnitt „API-Budget"
+galt für das damalige Zeitfenster 14:45–22:45. Seit Phase 5b läuft der
+Scheduler 11:00–23:00 (`SCHEDULE_START_MINUTES`/`SCHEDULE_END_MINUTES` in
+`RCode/updateScheduler.R`), also 720 Minuten alle zwei Minuten = 361 Loops
+pro Tag. Bei zehn Ligen und 25 % aktiven Loops sind das
+`0,75 · 361 · 1 + 0,25 · 361 · 11 ≈ 1.264` Requests/Tag, im Worst Case aller
+Loops aktiv 3.971. Gegen 7.500/Tag weiterhin unkritisch — aber die Zahl im
+Plan ist falsch. `checkAPILimits()` leitet seinen Default inzwischen aus der
+Registry ab (`1 + length(league_ids()) / 2`), nicht mehr aus einer Konstante.
+
+**4. Die Kopplungsformel gilt nicht einheitlich.** §Getroffene Entscheidungen
+Nr. 4 beschreibt eine additive Regel „Basis `c` plus `j`" für alle Staffeln.
+Nach der amtlichen Recherche ([`docs/abstieg_aufstieg_RL_2026_2027.md`](../abstieg_aufstieg_RL_2026_2027.md))
+trifft das nur drei von fünf:
+
+| Staffel | Abstiegsplätze bei k Drittliga-Absteigern | Belegstelle |
+|---|---|---|
+| Nord | 3 + k, ohne Deckel | NFV-SpO § 6 Abs. 3 und 4 |
+| Nordost | 1 + k, gedeckelt auf 2 (Deckel ist Annahme) | NOFV A. Nr. 5, Schema A/B |
+| SüdWest | 3 + k, gedeckelt auf 5 | RLSW-SpO § 47 Nr. 1 und 2 |
+| **West** | **konstant 4 — koppelt nicht** | WDFV Abstieg Nr. 1 |
+| **Bayern** | **konstant 2 — koppelt nicht** | BFV A&A II. Nr. 1 |
+
+Ein einheitliches „Basis + k" wäre für West und Bayern schlicht falsch
+gewesen. Und Nord trägt eine **zweite Kopplung, die der Plan nirgends
+kennt**: an den *eigenen* Meisteraufstieg. Nord spielt mit 18 Teams, drei
+Regelabsteigern und drei Oberliga-Aufsteigern; die Bilanz geht auf. Steigt
+der Nord-Meister auf, fehlt ein Team, die Staffelstärke wird unterschritten,
+und nach § 6 Abs. 3 a. E. bleibt der dritte Absteiger drin — Basis 3 bzw. 2,
+gemischt über P(Meister steigt auf). Anders als die Kopplung an die 3. Liga
+ist diese Mischung eine **Näherung**: Beide Größen stammen aus derselben
+Nord-Simulation. Die Begründung steht bei `platz_gewichte()` in
+`RCode/rl_abstiegskopplung.R` und in den Modellannahmen §5.2.
+
+**5. Die Aufstiegsrotation liegt nicht in der Registry.** §8 schrieb
+„Konfiguration je Saison in der Registry". Sie steht bewusst woanders: in
+`AUFSTIEGSROTATION` (`RCode/rl_aufstieg.R`). Wer den dritten Direktplatz
+bekommt, beschließt das DFB-Präsidium jährlich; es steht in keiner Ordnung.
+Deshalb enthält die Tabelle nur belegte Saisons, und eine unbekannte Saison
+**bricht ab**, statt mit dem Vorjahreswert weiterzurechnen. Die Registry
+führt `promotion_slots`/`playoff_slots` nur als abgeleiteten Stand mit; ein
+Test hält beide Stellen gegeneinander. Für 2027/28 ist die Rotation neu zu
+recherchieren.
+
+Zugleich: **der Plan nannte für 2026/27 die falsche Staffel.** Amtlich ist
+Nordost der dritte Direktaufsteiger, Nord und Bayern spielen gegeneinander
+(BFV A&A 2026/27 I. Nr. 1). kicker und Wikipedia führen dieselbe Zuordnung um
+eine Saison verschoben.
+
+**6. Phasenstand.** Der Phase-4-Nachtrag schloss mit „Offen: Phasen 1–3, 5,
+6–7, 8". Durch sind 0 bis 7; offen war nur noch Phase 8 — die Arbeit, aus der
+dieser Nachtrag stammt. Die Phasentabelle oben ist entsprechend
+fortgeschrieben.
+
+### Was der Plan nicht vorsah
+
+Drei Dinge sind entstanden, die im Plan nicht stehen:
+
+**Ein maschineller Wächter für ADR 0002.**
+`tests/testthat/test-modellkonstanten-nur-in-rust.R` durchsucht `RCode/` nach
+den literalen Modellkonstanten und schlägt fehl, sobald eine zweite Kopie
+entsteht. Der Anlass steht im Nachtrag zu ADR 0002: Genau diese Regel war
+schon einmal unbemerkt gebrochen — der Heimvorteil stand zusätzlich an vier
+Stellen in R und wurde bei jedem Aufruf mitgesendet, der Rust-Default griff
+nie. Dass die Zahlen trotzdem übereinstimmten, lag allein daran, dass die
+Defaults zufällig gleich waren. Der Wächter kennt zwei dokumentierte
+Ausnahmen: `elo_calibration.R` (Offline-Diagnostik) und `league_registry.R`
+(die Frauen-Werte nach ADR 0004 — kein Duplikat, sondern der Abweichungsfall,
+den R senden *muss*).
+
+**[`docs/modellannahmen-rl-kopplung.md`](../modellannahmen-rl-kopplung.md) als
+Gegenstück zur Regeldoku.** Die Regeldoku sagt, was in den Ordnungen steht.
+Die Modellannahmen sagen, wo zwischen Ordnung und Code eine Entscheidung
+liegt, die keine Ordnung vorgibt — der Nordost-Deckel bei 2, Bayerns
+Relegationsplätze bei 19 statt 18 Vereinen, die nicht aufgelöste
+Bayern-Relegation, die Näherung bei Nord. Beim Saisonwechsel ist das die
+Checkliste.
+
+**Der Rust-Endpunkt `POST /match-preview`.** §8 rechnete die Aufstiegsspiele
+über „Bausteine in `/league-details`". Gebraucht wurde etwas anderes: ein
+*virtuelles* Spiel zweier Teams, die keinen gemeinsamen Spielplan haben —
+zwei Staffelmeister aus disjunkten Ligen. `/league-details` setzt einen
+Spielplan voraus. Der neue Endpunkt nimmt zwei ELO-Werte und liefert die
+Tor-Raten des Rust-Tormodells; R leitet daraus über
+`RCode/aufstiegsspiele.R` die Zweikampfquote über zwei Spiele ab. Damit
+bleibt das Tormodell auch für die Aufstiegsspiele eine einzige Quelle
+(ADR 0002).
+
+### Zwei Grenzen, die bleiben
+
+Beide stehen jetzt auch auf der Methodik-Seite:
+
+- **Bayerns Abstiegsrelegation wird nicht aufgelöst.** Die zwei Letzten
+  steigen direkt ab, die zwei davor spielen gegen zwei Bayernligisten. Wir
+  simulieren die Bayernligen nicht; jede Gewinnquote wäre erfunden. Die Seite
+  weist Relegation und Abstieg deshalb getrennt aus.
+- **Die Remisquote der Frauen-Ligen wird überschätzt.** Rund 3,7
+  Prozentpunkte; Ursache ist die Verteilungsform (Überdispersion 1,20), nicht
+  die Parameterlage. Das braucht ein korreliertes Tormodell (Dixon-Coles) und
+  gehört ins Projekt „Prognosequalität" (ADR 0004).

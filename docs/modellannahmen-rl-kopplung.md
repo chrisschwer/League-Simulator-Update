@@ -13,7 +13,7 @@ vorgibt.
 niemand wieder, wenn sich die Regel ändert — und die Zahlen ändern sich
 jährlich. Beim Saisonwechsel ist dieses Dokument die Checkliste.
 
-Stand: 2026-09-07, Phase 6/7 (PR #174). Getestet in
+Stand: 2026-09-08, Phase 6/7/8 (PR #174, Nachtrag zur Entkopplung von West). Getestet in
 `tests/testthat/test-rl-abstiegskopplung.R` und `test-rl-aufstieg.R`.
 
 ---
@@ -51,21 +51,26 @@ Stammregion, Spalte `Region` der TeamList).
 | SüdWest | 3 | 4 | 5 | 5 | 5 | RLSW-SpO § 47 Nr. 1, Deckel Nr. 2 |
 | Nordost | 1 | 2 | 2 | — | — | NOFV A. Nr. 5, Schema A/B |
 | Nord | 3 | 4 | 5 | 6 | 7 | NFV-SpO § 6 Abs. 3 und 4 |
-| **West** | **4** | **3** | **2** | **1** | **0** | WDFV Abstieg Nr. 1, 3, 4 |
+| **West** | **4** | **4** | **4** | **4** | **4** | WDFV Abstieg Nr. 1 |
 | **Bayern** | **2** | **2** | **2** | **2** | **2** | BFV A&A II. Nr. 1 |
 
 Zwei Staffeln brechen das Muster, und beide sind leicht zu übersehen:
 
-**West wirkt gegenläufig.** Vier feste Absteiger, die *sinken*. Ein
-Drittliga-Absteiger verdrängt einen Oberliga-Aufsteiger oder belegt einen Platz
-vor — er erhöht die Zahl der sportlichen Absteiger nicht, sondern senkt sie.
+**West koppelt gar nicht.** Vier Absteiger bei 18 Vereinen, unabhängig von
+der 3. Liga. Die übrigen Fälle der WDFV-Regelung hängen nicht an ihr: Nr. 3 an
+den Oberligen, Nr. 5 an der Lizenzierung. Nur Nr. 4 berührt sie — die
+Zweitvertretung eines absteigenden Lizenzvereins —, und der Fall kann 2026/27
+nicht eintreten, weil die Erstvertretungen aller West-Zweitvertretungen in
+Liga 78/79 spielen und in einer Saison nicht bis in die Regionalliga fallen
+können.
 
 **Bayern koppelt gar nicht.** Zwei Direktabsteiger, unabhängig von der 3. Liga.
 Die Kopplung wirkt dort über die Ligagröße (2026/27: 19 statt 18 Vereine) und
 darüber, dass die Zweitvertretung eines Absteigers ans Tabellenende gesetzt wird.
 
 Ein einheitlicher „Basis + k"-Term — so stand es ursprünglich im Ausbauplan —
-wäre für zwei von fünf Staffeln vorzeichenfalsch gewesen.
+wäre für diese beiden Staffeln schlicht falsch gewesen: Er hätte eine Kopplung
+erzeugt, die es dort nicht gibt.
 
 ---
 
@@ -173,16 +178,24 @@ Kopplung wirkt dann **mit einem Jahr Verzögerung**.
 
 *Wirkung:* Das Modell ist in diesem Sonderfall eher zu pessimistisch.
 
-### 5.3 West: `max(4 − k, 0)` ist eine Lesart — *Interpretation*
+### 5.3 West: entkoppelt — *Entscheidung, 2026-09-07*
 
-Der WDFV-Text spricht von verdrängten Oberliga-Aufsteigern und von
-Zweitvertretungen, die ans Tabellenende rücken (Nr. 3, 4) — **nicht** wörtlich
-von „je Drittliga-Absteiger einer weniger". Die Zusammenschau in Regeldoku 3.2
-zieht diese Gleichung; der Ordnungstext selbst gibt sie nicht her.
+Bis zur Durchsicht rechnete das Modell hier `max(4 − k, 0)`: Ein
+Drittliga-Absteiger verdrängt einen Oberliga-Aufsteiger, also ein sportlicher
+Absteiger weniger. Diese Lesart stützte sich auf die Zusammenschau in
+Regeldoku 3.2, **nicht** auf den Ordnungstext — der WDFV spricht von
+verdrängten Oberliga-Aufsteigern und von Zweitvertretungen, die ans
+Tabellenende rücken (Nr. 3, 4), nirgends von „je Drittliga-Absteiger einer
+weniger".
 
-*Wirkung:* Bei `k ≥ 4` fällt der Abstieg in West rechnerisch ganz aus. Das ist
-die aggressivste Extrapolation im ganzen Modell — die Stelle, an der ich am
-ehesten mit einer Korrektur rechne.
+**Entschieden:** konstant 4, unabhängig von der 3. Liga (`West = rep(4L, …)` in
+`abstiegsplaetze()`). Die Extrapolation war die aggressivste im ganzen Modell —
+bei `k ≥ 4` wäre der Abstieg in West rechnerisch ganz ausgefallen — und sie
+hätte eine Kopplung behauptet, für die es keine Belegstelle gibt.
+
+*Wirkung:* West rechnet wie Bayern mit fester Absteigerzahl. Beim Saisonwechsel
+zu prüfen bleibt Nr. 4: Sobald die Erstvertretung einer West-Zweitvertretung in
+die 3. Liga absteigt, kann der Fall eintreten, der 2026/27 ausgeschlossen ist.
 
 ### 5.4 Bayerns Relegationsplätze bei 19 Teams — *Annahme*
 
