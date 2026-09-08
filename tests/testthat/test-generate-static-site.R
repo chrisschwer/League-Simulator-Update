@@ -199,13 +199,25 @@ test_that("every page links all leagues and the Methodik page", {
   # league_views() auch die Frauen-Ligen. Gerendert wird, wofuer Daten da
   # sind -- die Aussage des Tests (jede Seite verlinkt alle anderen) gilt
   # unabhaengig davon, weil die Navigation aus league_views() kommt.
+  #
+  # ANGEPASST in Phase 5: Die Zielliste stand bis dahin als feste Aufzaehlung
+  # der fuenf Slugs im Test. Mit den fuenf Regionalligen waeren es zehn --
+  # und eine handgepflegte Liste, die bei der naechsten Liga wieder
+  # nachgezogen werden muesste. Sie kommt jetzt aus league_views() selbst,
+  # womit der Test dieselbe Aussage schaerfer traegt: JEDE bekannte Liga ist
+  # verlinkt, nicht nur die, an die jemand gedacht hat.
+  alle_slugs <- c(
+    vapply(gen$league_views(), function(v) v$slug, character(1)),
+    "methodik"
+  )
+  expect_gte(length(alle_slugs), 6)
+
   altligen <- c("bundesliga", "zweite_bundesliga", "dritte_liga")
   for (view in gen$league_views()[altligen]) {
     path <- gen$render_league_page(view, env, out, now = now)
     html <- read_html(path)
-    for (f in c("index.html", "2-bundesliga.html", "3-liga.html",
-                "frauen-bundesliga.html", "2-frauen-bundesliga.html",
-                "methodik.html")) {
+    for (slug in alle_slugs) {
+      f <- paste0(slug, ".html")
       expect_true(grepl(f, html, fixed = TRUE), info = paste(view$slug, f))
     }
     expect_true(grepl('aria-current="page"', html, fixed = TRUE), info = view$slug)
@@ -316,7 +328,19 @@ test_that("the stale banner is embedded hidden and revealed by inline JS", {
   expect_true(grepl("> 24", html, fixed = TRUE))
 })
 
-test_that("generate_static_site writes four pages and no PNGs", {
+test_that("generate_static_site rendert nur die Ligen, fuer die Daten vorliegen", {
+  # ANGEPASST in Phase 5 (Regionalligen live). Der Test hiess bis dahin
+  # "writes four pages" und zaehlte auf 4 -- drei Altligen plus Methodik.
+  #
+  # Diese Zahl war nie eine Aussage ueber die Ligen, sondern eine ueber die
+  # FIXTURE: make_data_env() liefert genau die drei Altligen, und der
+  # Generator ueberspringt seit Phase 2 jede Liga ohne Ergebnisse. Mit den
+  # Frauen-Ligen (Phase 5a) und den fuenf Regionalligen (Phase 5) kennt
+  # league_views() zehn Ligen; gerendert werden hier weiterhin drei.
+  #
+  # Statt die Zahl mitzufuehren, prueft der Test jetzt die AUSSAGE: Was
+  # Daten hat, wird gerendert; was keine hat, taucht nicht auf. Diese Form
+  # ueberlebt die naechste neue Liga.
   gen <- source_generator()
   out <- withr::local_tempdir()
   env <- make_data_env()
@@ -330,6 +354,11 @@ test_that("generate_static_site writes four pages and no PNGs", {
   expect_length(paths, 4)
   for (f in c("index.html", "2-bundesliga.html", "3-liga.html", "methodik.html")) {
     expect_true(file.exists(file.path(out, f)), info = f)
+  }
+  # Ohne Ergebnisse keine Seite -- die Datei darf nicht halb gefuellt
+  # entstehen.
+  for (f in c("frauen-bundesliga.html", "rl-nord.html", "rl-bayern.html")) {
+    expect_false(file.exists(file.path(out, f)), info = f)
   }
   expect_length(list.files(out, pattern = "\\.png$", recursive = TRUE), 0)
 })

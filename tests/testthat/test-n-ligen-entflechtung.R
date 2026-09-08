@@ -29,10 +29,15 @@ test_that("die Registry liefert Schluessel in Fetch-Reihenfolge", {
   env <- new.env()
   source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
 
+  # ANGEPASST in Phase 5: Die Aufzaehlung wuchs mit jedem Livegang mit. Die
+  # Aussage dieses Tests ist die REIHENFOLGE -- dass sie die der Registry
+  # ist, nicht welche Ligen es gerade sind. Die konkrete Liste pinnt
+  # test-phase5-regionalligen.R.
   expect_equal(env$active_league_keys(),
-               c("bundesliga", "zweite_bundesliga", "dritte_liga",
-                 "frauen_bundesliga", "zweite_frauen_bundesliga"))
+               names(Filter(function(l) isTRUE(l$active), env$league_registry())))
   expect_equal(env$active_league_keys(), names(env$active_leagues()))
+  expect_equal(head(env$active_league_keys(), 3),
+               c("bundesliga", "zweite_bundesliga", "dritte_liga"))
 })
 
 test_that("active_leagues liefert die vollstaendigen Eintraege", {
@@ -40,7 +45,7 @@ test_that("active_leagues liefert die vollstaendigen Eintraege", {
   source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
 
   aktiv <- env$active_leagues()
-  expect_length(aktiv, 5)
+  expect_length(aktiv, length(env$league_ids()))
   expect_equal(aktiv$bundesliga$api_id, "78")
   expect_equal(aktiv$dritte_liga$api_id, "80")
   expect_true(all(vapply(aktiv, function(l) isTRUE(l$active), logical(1))))
@@ -254,7 +259,9 @@ test_that("der Loop holt die Ligen aus der Registry, in Registry-Reihenfolge", {
   # test-update-loop-league-data.R sie über SENTINEL-1/2/3 pinnt.
   cap <- run_loop_capturing()
 
-  expect_equal(cap$fetched, c("78", "79", "80", "82", "1034"))
+  reg <- new.env()
+  source(test_path("..", "..", "RCode", "league_registry.R"), local = reg)
+  expect_equal(cap$fetched, reg$league_ids())
 })
 
 test_that("der Loop uebergibt die Ergebnisse als benannte Liste", {
@@ -264,13 +271,30 @@ test_that("der Loop uebergibt die Ergebnisse als benannte Liste", {
   expect_type(cap$ergebnisse, "list")
   # Je aktive Liga ein Eintrag, plus ein Aufstiegslauf je Liga, aus der
   # Zweitvertretungen nicht aufsteigen duerfen.
+  #
+  # ANGEPASST in Phase 5: Der Schluessel des Aufstiegslaufs war "<key>_aufstieg".
+  # Bei den Regionalligen ist dieser Name jetzt von der BERECHNETEN
+  # Aufstiegsspalte belegt (rl_aufstiegsprognose()); der Simulationslauf heisst
+  # dort "<key>_aufstiegstabelle". Massgeblich ist die View: Liest ihr oberes
+  # Panel aus "<key>_aufstieg", landet der Lauf dort, sonst daneben.
   reg <- new.env()
   source(test_path("..", "..", "RCode", "league_registry.R"), local = reg)
-  erwartet <- reg$active_league_keys()
-  erwartet <- c(erwartet, paste0(
-    Filter(function(k) reg$has_promotion_restriction(reg$league_registry()[[k]]$api_id),
-           reg$active_league_keys()),
-    "_aufstieg"))
+  source(test_path("..", "..", "RCode", "league_views.R"), local = reg)
+  source(test_path("..", "..", "RCode", "generate_static_site.R"), local = reg)
+
+  mit_lauf <- Filter(
+    function(k) reg$has_promotion_restriction(reg$league_registry()[[k]]$api_id),
+    reg$active_league_keys()
+  )
+  erwartet <- c(reg$active_league_keys(), vapply(mit_lauf, function(k) {
+    schluessel <- paste0(k, "_aufstieg")
+    if (identical(reg$league_views()[[k]]$top$source,
+                  reg$.ergebnis_objektname(schluessel))) {
+      schluessel
+    } else {
+      paste0(k, "_aufstiegstabelle")
+    }
+  }, character(1)))
 
   expect_setequal(names(cap$ergebnisse), erwartet)
   expect_false(any(vapply(cap$ergebnisse, is.null, logical(1))))
@@ -282,9 +306,9 @@ test_that("league_data behaelt seine Schluessel und Reihenfolge", {
   # keine Tabellendaten -- die Seite degradiert, ohne zu scheitern.
   cap <- run_loop_capturing()
 
-  expect_equal(names(cap$league_data),
-               c("bundesliga", "zweite_bundesliga", "dritte_liga",
-                 "frauen_bundesliga", "zweite_frauen_bundesliga"))
+  reg <- new.env()
+  source(test_path("..", "..", "RCode", "league_registry.R"), local = reg)
+  expect_equal(names(cap$league_data), reg$active_league_keys())
 })
 
 test_that("Loop 1 simuliert jede Liga plus den Aufstiegslauf", {

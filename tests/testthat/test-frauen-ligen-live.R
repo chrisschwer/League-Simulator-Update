@@ -107,7 +107,9 @@ test_that("league_views enthaelt die beiden Frauen-Ligen", {
 
   expect_true("frauen_bundesliga" %in% names(views))
   expect_true("zweite_frauen_bundesliga" %in% names(views))
-  expect_length(views, 5)
+  # ANGEPASST in Phase 5: Hier stand `expect_length(views, 5)`. Die Zahl war
+  # nie die Aussage dieses Tests -- er prueft, dass die beiden Frauen-Ligen
+  # dabei sind. Die vollstaendige Liste pinnt test-league-views.R.
 })
 
 # Die folgenden Tests pruefen die GERENDERTE TABELLE, nicht die Konfiguration.
@@ -214,10 +216,15 @@ test_that("die drei Altligen bleiben unveraendert", {
 test_that("die Navigation gruppiert nach nav_group", {
   # Fuenf Ligen sprengen die flache Zeile. Gruppen in Registry-Reihenfolge:
   # Herren, Frauen -- Methodik bleibt eigenstaendig.
+  #
+  # ANGEPASST in Phase 5: Dazu kommt die Gruppe "Regionalliga". Geprueft
+  # wird hier weiterhin nur die Aussage dieser Phase -- Herren und Frauen
+  # sind die ersten beiden Gruppen und haben drei bzw. zwei Ligen. Die
+  # vollstaendige Gruppenliste pinnt test-phase5-regionalligen.R.
   gen <- source_generator()
   gruppen <- gen$.nav_groups()
 
-  expect_equal(vapply(gruppen, function(g) g$group, character(1)),
+  expect_equal(head(vapply(gruppen, function(g) g$group, character(1)), 2),
                c("Herren", "Frauen"))
   expect_length(gruppen[[1]]$items, 3)
   expect_length(gruppen[[2]]$items, 2)

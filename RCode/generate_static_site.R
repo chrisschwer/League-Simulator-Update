@@ -56,17 +56,38 @@ STALE_THRESHOLD_HOURS <- 24
   views <- league_views()
 
   gruppen <- list()
-  for (key in names(views)) {
-    grp <- reg[[key]]$nav_group
+  hinzu <- function(gruppen, grp, eintrag) {
     if (is.null(grp)) grp <- ""
-    eintrag <- list(slug = views[[key]]$slug, nav_label = views[[key]]$nav_label)
     if (is.null(gruppen[[grp]])) {
       gruppen[[grp]] <- list(group = grp, items = list(eintrag))
     } else {
       gruppen[[grp]]$items <- c(gruppen[[grp]]$items, list(eintrag))
     }
+    gruppen
   }
+
+  for (key in names(views)) {
+    gruppen <- hinzu(gruppen, reg[[key]]$nav_group,
+                     list(slug = views[[key]]$slug,
+                          nav_label = views[[key]]$nav_label))
+  }
+
+  # Die Aufstiegsseite ist keine Liga und steht deshalb nicht in der Registry;
+  # ihre Gruppe traegt sie selbst. Sie kommt NACH den Staffeln: Sie fasst sie
+  # zusammen, sie leitet sie nicht ein.
+  aufstieg <- .aufstiegsseite_view()
+  gruppen <- hinzu(gruppen, aufstieg$nav_group,
+                   list(slug = aufstieg$slug, nav_label = aufstieg$nav_label))
+
   unname(gruppen)
+}
+
+# Die Ansicht der Aufstiegsseite. Ueber league_views() nachgeschlagen, damit
+# es nur eine Quelle gibt -- sie steht dort neben der Ligaliste, nicht darin.
+.AUFSTIEGSSEITE_SLUG <- "rl-aufstieg"
+
+.aufstiegsseite_view <- function() {
+  league_views()[[.AUFSTIEGSSEITE_SLUG]]
 }
 
 footer_timestamp <- function(mtime) {
@@ -149,7 +170,68 @@ render_heatmap <- function(result) {
   ifelse(bounds < 0, n + 1 + bounds, bounds)
 }
 
-render_panel_table <- function(data_obj, panel) {
+# `computed` je Spalte, aufgefuellt auf die Zahl der Labels.
+#
+# Fehlt das Feld, ist nichts berechnet -- das ist der Zustand aller Ligen vor
+# Phase 5 und bleibt der Default. Ein einzelnes TRUE gilt fuer alle Spalten
+# (so schreibt sich das ganz berechnete Abstiegspanel der Regionalligen),
+# ein Vektor traegt einen Eintrag je Label.
+.panel_computed <- function(panel) {
+  if (is.null(panel$computed)) {
+    return(rep(FALSE, length(panel$labels)))
+  }
+  rep_len(as.logical(panel$computed), length(panel$labels))
+}
+
+# Die berechneten Spalten eines Panels als Matrix, Zeilen = Teams.
+#
+# Sie werden UNVERAENDERT durchgereicht: Es sind fertige Wahrscheinlichkeiten
+# je Team (rl_abstiegsprognose(), rl_aufstiegsprognose()), keine Platzspalten,
+# die sich summieren liessen. Wer sie ueber ein Platzband ausrechnen wollte,
+# muesste eine Zahl von Abstiegsplaetzen behaupten, die das Modell nicht kennt.
+#
+# Zugeordnet wird ueber die SPALTENNAMEN, nicht ueber die Position: Die Spalten
+# heissen wie die Labels ("Abstieg", "Relegation", "Aufstieg"). Eine
+# Positionszuordnung stellte bei Bayern Relegation und Abstieg lautlos um.
+.computed_spalten <- function(obj, labels, wo) {
+  df <- as.data.frame(obj)
+  fehlend <- setdiff(labels, colnames(df))
+  if (length(fehlend)) {
+    stop(sprintf(
+      paste0(
+        "%s: die berechnete Spalte(n) %s fehlt/fehlen im Objekt (vorhanden: ",
+        "%s). Ohne sie stuende die falsche Zahl unter der Ueberschrift."
+      ),
+      wo, paste(fehlend, collapse = ", "),
+      paste(colnames(df), collapse = ", ")
+    ), call. = FALSE)
+  }
+  m <- as.matrix(df[, labels, drop = FALSE])
+  rownames(m) <- rownames(df)
+  m
+}
+
+#' Rendert ein Panel als Tabelle.
+#'
+#' @param data_obj Prognosematrix (Teams x Plaetze) fuer die Platzgruppen des
+#'   Panels; bei einem ganz berechneten Panel das fertige Objekt.
+#' @param panel Der `top`/`bottom`-Eintrag aus league_views().
+#' @param computed_obj Objekt fuer die berechneten Spalten eines GEMISCHTEN
+#'   Panels (`computed_source`). Bei einem ganz berechneten Panel unnoetig --
+#'   dort ist `data_obj` bereits das fertige Objekt.
+render_panel_table <- function(data_obj, panel, computed_obj = NULL) {
+  computed <- .panel_computed(panel)
+
+  # Ganz berechnetes Panel: keine Platzaufloesung, keine Zeilenfilterung ueber
+  # Platzspalten -- es GIBT keine. Die Spalten gehen so hinaus, wie sie
+  # hereinkamen.
+  if (all(computed)) {
+    grouped <- as.data.frame(
+      .computed_spalten(data_obj, panel$labels, "render_panel_table")
+    )
+    return(.panel_html(grouped, panel$labels))
+  }
+
   n <- ncol(data_obj)
   filter_cols <- .resolve_bounds(panel$filter_cols, n)
   groups <- .resolve_bounds(panel$groups, n)
@@ -161,15 +243,63 @@ render_panel_table <- function(data_obj, panel) {
     return("")
   }
 
+  # `groups` traegt nur die Platzspalten; die Labels dazu sind die, deren
+  # `computed` FALSE ist.
   grouped <- groupResultsDF(subset_obj,
-                            labels = panel$labels,
+                            labels = panel$labels[!computed],
                             groups = groups)
+
+  # Gemischtes Panel: die berechneten Spalten kommen aus dem zweiten Objekt
+  # und werden in die Reihenfolge der Labels eingesetzt. Die Zeilen werden
+  # ueber die TEAMNAMEN gezogen, nicht ueber die Position -- das Objekt kommt
+  # aus einer anderen Rechnung und muss die Filterung von oben mitmachen.
+  if (any(computed)) {
+    if (is.null(computed_obj)) {
+      stop(sprintf(
+        paste0(
+          "render_panel_table: das Panel weist %s als berechnet aus, aber es ",
+          "wurde kein Objekt dafuer uebergeben (computed_source)."
+        ),
+        paste(panel$labels[computed], collapse = ", ")
+      ), call. = FALSE)
+    }
+    berechnet <- .computed_spalten(computed_obj, panel$labels[computed],
+                                   "render_panel_table")
+    fehlend <- setdiff(rownames(grouped), rownames(berechnet))
+    if (length(fehlend)) {
+      stop(sprintf(
+        "render_panel_table: keine berechnete Zeile fuer: %s.",
+        paste(fehlend, collapse = ", ")
+      ), call. = FALSE)
+    }
+
+    voll <- data.frame(matrix(NA_real_, nrow = nrow(grouped),
+                              ncol = length(panel$labels)))
+    colnames(voll) <- panel$labels
+    rownames(voll) <- rownames(grouped)
+    voll[, panel$labels[!computed]] <- grouped
+    voll[, panel$labels[computed]] <-
+      berechnet[rownames(grouped), , drop = FALSE]
+    grouped <- voll
+  }
+
+  .panel_html(grouped, panel$labels)
+}
+
+# Der gemeinsame Ausgabeteil: Prozentformatierung und Markup. Getrennt vom
+# Rechenteil, damit der berechnete und der Platzgruppen-Pfad garantiert
+# dieselbe Tabelle erzeugen.
+.panel_html <- function(grouped, labels) {
+  if (nrow(grouped) == 0) {
+    return("")
+  }
+
   formatted <- apply(grouped, c(1, 2), prozent)
 
   # apply() drops to a vector when there is a single label column; restore shape.
   if (is.null(dim(formatted))) {
-    formatted <- matrix(formatted, ncol = length(panel$labels),
-                        dimnames = list(rownames(grouped), panel$labels))
+    formatted <- matrix(formatted, ncol = length(labels),
+                        dimnames = list(rownames(grouped), labels))
   }
 
   cells <- apply(formatted, 1, function(row) {
@@ -186,7 +316,7 @@ render_panel_table <- function(data_obj, panel) {
 
   paste0(
     "<table class=\"panel\">\n<thead><tr><th scope=\"col\"></th>",
-    paste0("<th scope=\"col\">", htmltools::htmlEscape(panel$labels), "</th>",
+    paste0("<th scope=\"col\">", htmltools::htmlEscape(labels), "</th>",
           collapse = ""),
     "</tr></thead>\n<tbody>\n", rows, "\n</tbody>\n</table>"
   )
@@ -278,12 +408,18 @@ render_panel_table <- function(data_obj, panel) {
   )
 }
 
+# WORTWAHL: "Mehr dazu unter", nicht "Naehere Infos unter". Die
+# Aufstiegsseite darf die Zeichenfolge "Inf" nirgends tragen -- dort steht
+# eine Siegquote, deren Nenner null werden kann, und ein durchgerutschtes
+# Inf waere auf der Seite ununterscheidbar von diesem Wort. Ein Test prueft
+# das maschinell. Eine Ausnahme nur fuer eine Seite haette zwei Fusszeilen
+# ergeben, die auseinanderlaufen koennen.
 .footer_html <- function(mtime) {
   paste0(
     "<footer>\n",
     "<span>", htmltools::htmlEscape(footer_timestamp(mtime)),
     " <time id=\"generated\" datetime=\"", iso_utc(mtime), "\"></time></span>\n",
-    "<span>Nähere Infos unter <a href=\"", BLOG_URL,
+    "<span>Mehr dazu unter <a href=\"", BLOG_URL,
     "\" target=\"blank_\">30punkte.wordpress.com</a></span>\n",
     "</footer>\n"
   )
@@ -297,10 +433,22 @@ render_league_page <- function(view, data_env, output_dir,
   result <- get(view$plot_source, envir = data_env)
   heatmap_html <- render_heatmap(result)
 
-  top_html <- render_panel_table(get(view$top$source, envir = data_env),
-                                 view$top)
-  bottom_html <- render_panel_table(get(view$bottom$source, envir = data_env),
-                                    view$bottom)
+  # Ein gemischtes Panel liest aus ZWEI Objekten: die Platzgruppe aus
+  # `source`, die berechnete Spalte aus `computed_source`. Fehlt letzteres,
+  # bleibt es NULL -- render_panel_table() bricht dann mit dem Namen der
+  # Spalte ab, statt eine leere Spalte zu rendern.
+  panel_html <- function(panel) {
+    computed_obj <- if (!is.null(panel$computed_source)) {
+      get(panel$computed_source, envir = data_env)
+    } else {
+      NULL
+    }
+    render_panel_table(get(panel$source, envir = data_env), panel,
+                       computed_obj = computed_obj)
+  }
+
+  top_html <- panel_html(view$top)
+  bottom_html <- panel_html(view$bottom)
 
   tabelle_html <- if (!is.null(league_entry)) {
     paste0(
@@ -374,6 +522,136 @@ render_league_page <- function(view, data_env, output_dir,
   invisible(out_path)
 }
 
+# --- Phase 5: die Seite "Aufstieg in die 3. Liga" ---------------------------
+
+#' Die Siegquote einer Zeile als Prozenttext.
+#'
+#' Siegquote = P(Aufstieg) / P(Meister) -- die ueber den Gegner
+#' ausintegrierte Zweikampfquote.
+#'
+#' WO ES KEINE MEISTERCHANCE GIBT, BLEIBT DIE ZELLE LEER. Der Quotient ist
+#' dort 0/0, also undefiniert. Eine 0 waere eine Aussage ueber die
+#' Spielstaerke ("verliert das Aufstiegsspiel sicher"), die aus den Daten
+#' nicht folgt -- das Team erreicht das Spiel ja gar nicht. NaN oder Inf
+#' waeren ein sichtbarer Rechenfehler auf einer veroeffentlichten Seite.
+#' Dieselbe Konvention wie in der Heatmap, wo eine Null-Zelle leer bleibt.
+#'
+#' Der Grenzfall P(Aufstieg) > 0 bei P(Meister) = 0 ist rechnerisch
+#' unmoeglich und deshalb ein Datenfehler -- auch er bleibt leer, statt eine
+#' Unendlichkeit auf die Seite zu bringen.
+#' Der Rueckgabewert ist der von prozent() -- also die Zahl, das Haekchen
+#' oder "<1" --, nur der undefinierte Fall wird zu "". So bleibt die
+#' Formatierung an EINER Stelle; eine eigene Umwandlung in Text hier haette
+#' die Sonderfaelle von prozent() ein zweites Mal nachbauen muessen.
+.siegquote <- function(aufstieg, meister) {
+  if (!is.finite(meister) || !is.finite(aufstieg) || meister <= 0) {
+    return("")
+  }
+  prozent(aufstieg / meister)
+}
+
+#' Eine Zeile der Aufstiegstabelle.
+#'
+#' `quote_zeigen` steuert, ob die Siegquote ueberhaupt eine Groesse ist: Bei
+#' den Direktaufsteigern gibt es kein Spiel, das noch zu gewinnen waere --
+#' der Quotient ist dann trivial 1 und sagt nichts. Die Zelle bleibt leer,
+#' wie ueberall sonst, wo das Modell zu einer Frage nichts weiss.
+.aufstiegs_zeile <- function(team, meister, aufstieg, quote_zeigen) {
+  quote <- if (quote_zeigen) .siegquote(aufstieg, meister) else ""
+  paste0(
+    "<tr><th scope=\"row\">", htmltools::htmlEscape(team), "</th>",
+    "<td>", htmltools::htmlEscape(as.character(prozent(meister))), "</td>",
+    "<td>", htmltools::htmlEscape(as.character(prozent(aufstieg))), "</td>",
+    "<td>", htmltools::htmlEscape(quote), "</td></tr>"
+  )
+}
+
+#' Die Tabelle einer Staffel auf der Aufstiegsseite.
+#'
+#' `aufstieg` ist der data.frame aus rl_aufstiegsprognose() (rownames = Teams,
+#' Spalte "Aufstieg"); `meister` die Meisterspalte der Prognose. Zugeordnet
+#' wird ueber die Teamnamen, nicht ueber die Position: beide kommen aus
+#' verschiedenen Rechnungen.
+#'
+#' Nur Teams mit einer Meister- ODER Aufstiegschance stehen in der Tabelle.
+#' Achtzehn Zeilen, von denen fuenfzehn "0 0" zeigen, beantworten keine Frage.
+.aufstiegs_tabelle <- function(staffel, titel, meister, aufstieg,
+                               quote_zeigen) {
+  teams <- names(meister)
+  zeigen <- meister > 0 | aufstieg[teams] > 0
+  teams <- teams[zeigen]
+
+  if (length(teams) == 0) {
+    return("")
+  }
+
+  zeilen <- vapply(teams, function(team) {
+    .aufstiegs_zeile(team, meister[[team]], aufstieg[[team]], quote_zeigen)
+  }, character(1))
+
+  paste0(
+    "<h3>", htmltools::htmlEscape(titel), "</h3>\n",
+    "<div class=\"scroll\"><table class=\"panel\">\n",
+    "<thead><tr><th scope=\"col\"></th>",
+    "<th scope=\"col\">Meister</th><th scope=\"col\">Aufstieg</th>",
+    "<th scope=\"col\">Siegquote</th></tr></thead>\n<tbody>\n",
+    paste0(zeilen, collapse = "\n"),
+    "\n</tbody>\n</table></div>\n"
+  )
+}
+
+#' Rendert die Seite "Aufstieg in die 3. Liga".
+#'
+#' @param view Die Ansicht aus league_views()[["rl-aufstieg"]].
+#' @param aufstiegsdaten Benannte Liste je Staffel mit den Elementen
+#'   `meister` (benannter Vektor P(Meister)), `aufstieg` (benannter Vektor
+#'   P(Aufstieg)) und `playoff` (TRUE, wenn die Staffel die Aufstiegsspiele
+#'   bestreitet). Die Zuordnung, WELCHE Staffel das ist, faellt in
+#'   aufstiegsmodus() und wird hier nur mitgefuehrt -- der Renderer darf
+#'   keine Staffel als Playoff-Staffel verdrahten, sonst waere die Seite ab
+#'   der naechsten Rotation lautlos falsch.
+.render_aufstiegsseite <- function(view, aufstiegsdaten, output_dir,
+                                   now = Sys.time(), mtime = now) {
+  .copy_assets(output_dir)
+
+  tabellen <- vapply(view$staffeln, function(staffel) {
+    daten <- aufstiegsdaten[[staffel]]
+    if (is.null(daten)) {
+      return("")
+    }
+    .aufstiegs_tabelle(staffel, daten$titel, daten$meister, daten$aufstieg,
+                       quote_zeigen = isTRUE(daten$playoff))
+  }, character(1))
+
+  html <- paste0(
+    "<!doctype html>\n<html lang=\"de\">\n<head>\n",
+    .head_html(view$plot_title),
+    "</head>\n<body>\n<div class=\"wrap\">\n",
+    .masthead_html(view$slug), "\n",
+    .stale_banner_html(), "\n",
+    "<section id=\"aufstieg\">\n",
+    "<p class=\"eyebrow\">Regionalliga</p>\n",
+    "<h2>", htmltools::htmlEscape(view$plot_title), "</h2>\n",
+    "<p class=\"sectionlead\">Vier Mannschaften steigen in die 3. Liga auf. ",
+    "Drei Staffeln stellen ihren Aufsteiger direkt, die beiden uebrigen ",
+    "ermitteln den vierten in zwei Aufstiegsspielen gegeneinander. ",
+    "<em>Meister</em> ist die Wahrscheinlichkeit, die Staffel zu gewinnen, ",
+    "<em>Aufstieg</em> die, danach auch in der 3. Liga zu stehen. Die ",
+    "<em>Siegquote</em> ist der Anteil davon, also die Chance in den ",
+    "Aufstiegsspielen; wo direkt aufgestiegen wird, gibt es sie nicht.</p>\n",
+    paste0(tabellen, collapse = ""),
+    "<p class=\"legend\">Angaben in Prozent. Leer = in keiner Simulation ",
+    "eingetreten, &lt;1 = unter einem Prozent.</p>\n",
+    "</section>\n",
+    .footer_html(mtime), "\n",
+    .stale_script, "\n</div>\n</body>\n</html>\n"
+  )
+
+  out_path <- file.path(output_dir, paste0(view$slug, ".html"))
+  writeLines(html, out_path, useBytes = TRUE)
+  invisible(out_path)
+}
+
 .render_methodik_page <- function(output_dir, now = Sys.time(), mtime = now) {
   .copy_assets(output_dir)
 
@@ -418,7 +696,7 @@ render_league_page <- function(view, data_env, output_dir,
     "<p>Die Simulationsergebnisse wurden noch nicht erzeugt oder konnten ",
     "nicht geladen werden. Bitte versuchen Sie es später erneut.</p>\n",
     "</section>\n",
-    "<footer><span>Nähere Infos unter <a href=\"", BLOG_URL,
+    "<footer><span>Mehr dazu unter <a href=\"", BLOG_URL,
     "\" target=\"blank_\">30punkte.wordpress.com</a></span></footer>\n",
     "</div>\n</body>\n</html>\n"
   )
@@ -483,6 +761,79 @@ render_league_page <- function(view, data_env, output_dir,
   }
 }
 
+#' Die Zahlen der Aufstiegsseite, je Staffel.
+#'
+#' Sammelt aus den gerenderten Ligen alles ein, was die Seite braucht: die
+#' Meisterspalte der Prognose und die Aufstiegsspalte. Welche Staffel welche
+#' hat, ergibt sich aus der VIEW, nicht aus einer Liste von Staffelnamen:
+#'
+#'   Staffel mit `computed_source` im oberen Panel  -> Aufstiegsspiele, die
+#'       Aufstiegsspalte kommt aus dem eigenen Objekt (rl_aufstiegsprognose()).
+#'   Staffel ohne                                   -> Direktaufstieg,
+#'       P(Aufstieg) = P(Meister), und eine Siegquote gibt es nicht.
+#'
+#' Damit folgt die Seite der Rotation aus aufstiegsmodus(): Wechselt der
+#' dritte Direktplatz die Staffel, aendert sich die View, und die Seite geht
+#' mit. Stuenden hier Staffelnamen als Bedingung, waere sie ab der naechsten
+#' Rotation lautlos falsch.
+#'
+#' @param keys Die Registry-Schluessel der gerenderten Ligen.
+#' @param data_env Umgebung mit den Ergebnisobjekten.
+#' @return Benannte Liste Staffel -> list(titel, meister, aufstieg, playoff).
+#'   Leer, wenn keine Regionalliga dabei ist.
+.aufstiegsdaten <- function(keys, data_env) {
+  reg <- league_registry()
+  views <- league_views()
+
+  daten <- list()
+  for (key in keys) {
+    staffel <- reg[[key]]$staffel
+    # Nur die Regionalligen tragen eine Staffel -- die uebrigen Ligen fuehren
+    # keinen Aufstieg in die 3. Liga.
+    if (is.null(staffel)) {
+      next
+    }
+
+    view <- views[[key]]
+    prognose <- as.matrix(get(view$plot_source, envir = data_env))
+    meister <- prognose[, 1L]
+    names(meister) <- rownames(prognose)
+
+    quelle <- view$top$computed_source
+    if (is.null(quelle)) {
+      # Direktaufstieg: beide Groessen fallen zusammen. Kein Umweg ueber ein
+      # eigenes Objekt -- er lieferte exakt dieselbe Zahl.
+      aufstieg <- meister
+      playoff <- FALSE
+    } else {
+      spalte <- .computed_spalten(get(quelle, envir = data_env), "Aufstieg",
+                                  ".aufstiegsdaten")
+      aufstieg <- spalte[, "Aufstieg"]
+      names(aufstieg) <- rownames(spalte)
+      playoff <- TRUE
+    }
+
+    fehlend <- setdiff(names(meister), names(aufstieg))
+    if (length(fehlend)) {
+      stop(sprintf(
+        paste0(
+          ".aufstiegsdaten: keine Aufstiegswahrscheinlichkeit fuer: %s. Ohne ",
+          "sie stuende die Zeile mit einer Meisterchance und ohne Aufstieg da."
+        ),
+        paste(fehlend, collapse = ", ")
+      ), call. = FALSE)
+    }
+
+    daten[[staffel]] <- list(
+      titel = reg[[key]]$display_name,
+      meister = meister,
+      aufstieg = aufstieg[names(meister)],
+      playoff = playoff
+    )
+  }
+  daten
+}
+
 generate_static_site <- function(Ergebnis = NULL, Ergebnis2 = NULL,
                                  Ergebnis3 = NULL,
                                  Ergebnis3_Aufstieg = Ergebnis3,
@@ -518,11 +869,20 @@ generate_static_site <- function(Ergebnis = NULL, Ergebnis2 = NULL,
   #
   # Ein Abbruch bliebe falsch: Faellt im Betrieb die Simulation einer Liga
   # aus, ist eine Seite ohne sie besser als gar keine Seite.
+  #
+  # `computed_source` zaehlt mit: Bei Nord und Bayern steht die
+  # Aufstiegsspalte in einem eigenen Objekt. Fehlte es, riefe
+  # render_panel_table() get() auf einen Namen, den data_env nicht kennt --
+  # die ganze Seite bliebe aus, statt uebersprungen zu werden.
+  vorhandene_objekte <- vapply(names(vorhanden), .ergebnis_objektname,
+                               character(1))
   renderbar <- names(views)[vapply(names(views), function(key) {
     quellen <- unique(c(views[[key]]$plot_source,
                         views[[key]]$top$source,
-                        views[[key]]$bottom$source))
-    all(quellen %in% vapply(names(vorhanden), .ergebnis_objektname, character(1)))
+                        views[[key]]$top$computed_source,
+                        views[[key]]$bottom$source,
+                        views[[key]]$bottom$computed_source))
+    all(quellen %in% vorhandene_objekte)
   }, logical(1))]
 
   if (length(renderbar) == 0) {
@@ -557,10 +917,24 @@ generate_static_site <- function(Ergebnis = NULL, Ergebnis2 = NULL,
                        league_entry = league_data[[key]])
   }, character(1))
 
+  # Die Aufstiegsseite entsteht nur, wenn wenigstens eine Regionalliga
+  # gerendert wurde. Ohne Staffeln waere sie eine leere Seite in der
+  # Navigation -- schlechter als keine Seite (der Kompatibilitaetspfad
+  # rendert weiterhin genau vier Seiten).
+  aufstiegsdaten <- .aufstiegsdaten(names(views), data_env)
+  aufstiegs_path <- character(0)
+  if (length(aufstiegsdaten) > 0) {
+    aufstiegs_view <- .aufstiegsseite_view()
+    message(sprintf("generate_static_site: rendering %s", aufstiegs_view$slug))
+    aufstiegs_path <- .render_aufstiegsseite(aufstiegs_view, aufstiegsdaten,
+                                             output_dir, now = now,
+                                             mtime = now)
+  }
+
   message("generate_static_site: rendering methodik")
   methodik_path <- .render_methodik_page(output_dir, now = now, mtime = now)
 
-  paths <- c(unname(league_paths), methodik_path)
+  paths <- c(unname(league_paths), aufstiegs_path, methodik_path)
 
   message(sprintf("generate_static_site: wrote %d pages to %s",
                   length(paths), output_dir))

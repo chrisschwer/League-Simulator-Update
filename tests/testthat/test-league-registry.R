@@ -37,17 +37,21 @@ test_that("league_registry kennt alle zehn Ligen", {
   )
 })
 
-test_that("genau die drei Altligen sind aktiv", {
-  # Phase 1 aendert kein Verhalten: Der Produktivpfad sieht weiterhin nur
-  # Bundesliga, 2. Bundesliga und 3. Liga.
-  reg <- source_registry()$league_registry()
+test_that("seit Phase 5 sind alle zehn Ligen aktiv", {
+  # ANGEPASST in Phase 5. Der Test hiess "genau die drei Altligen sind aktiv"
+  # und wuchs seither zweimal mit -- er fuehrte die aktive Menge als zweite
+  # Quelle neben der Registry, und die musste jedes Mal nachgezogen werden.
+  #
+  # Er prueft jetzt die Aussage, die ueber Phasen hinweg gilt: `active` und
+  # league_ids() sagen dasselbe, und der Produktivpfad hat keine Liga
+  # verloren. Die konkrete Liste pinnt test-phase5-regionalligen.R.
+  env <- source_registry()
+  reg <- env$league_registry()
   aktiv <- Filter(function(l) isTRUE(l$active), reg)
 
-  expect_equal(
-    vapply(aktiv, function(l) l$api_id, character(1)),
-    c(bundesliga = "78", zweite_bundesliga = "79", dritte_liga = "80",
-      frauen_bundesliga = "82", zweite_frauen_bundesliga = "1034")
-  )
+  expect_equal(unname(vapply(aktiv, function(l) l$api_id, character(1))),
+               env$league_ids())
+  expect_length(aktiv, length(reg))
 })
 
 test_that("jede Liga traegt die Pflichtfelder", {
@@ -138,13 +142,15 @@ test_that("die Regionalligen tragen ihre Staffel und kein eigenes Tormodell", {
 # --- Zugriffshelfer ---------------------------------------------------------
 
 test_that("league_ids liefert standardmaessig nur die aktiven Ligen", {
-  # Der Produktivpfad fragt die Registry, nicht eine Literalliste. Solange
-  # nur drei Ligen aktiv sind, muss dabei exakt die heutige Menge
-  # herauskommen -- in der heutigen Reihenfolge, weil sie die
-  # Fetch-Reihenfolge im Update-Loop bestimmt.
+  # Der Produktivpfad fragt die Registry, nicht eine Literalliste. Die
+  # aktive Menge muss exakt herauskommen -- in der Registry-Reihenfolge,
+  # weil sie die Fetch-Reihenfolge im Update-Loop bestimmt. Seit Phase 5
+  # sind alle zehn Ligen aktiv; `active_only = FALSE` bleibt trotzdem
+  # gepinnt, damit ein spaeteres Deaktivieren hier auffaellt.
   env <- source_registry()
 
-  expect_equal(env$league_ids(), c("78", "79", "80", "82", "1034"))
+  expect_equal(env$league_ids(),
+               c("78", "79", "80", "82", "1034", "84", "85", "87", "86", "83"))
   expect_length(env$league_ids(active_only = FALSE), 10)
 })
 
@@ -187,8 +193,7 @@ test_that("league_views wird aus der Registry abgeleitet", {
   source(test_path("..", "..", "RCode", "league_views.R"), local = env)
   views <- env$league_views()
 
-  expect_named(views, c("bundesliga", "zweite_bundesliga", "dritte_liga",
-                        "frauen_bundesliga", "zweite_frauen_bundesliga"))
+  expect_named(views, names(source_registry()$league_registry()))
   expect_equal(views$bundesliga$slug, "index")
   expect_equal(views$dritte_liga$teams, 20)
 })
@@ -289,7 +294,7 @@ test_that("retrieveLiveFixtures pollt die aktiven Ligen", {
 
   try(env$retrieveLiveFixtures(), silent = TRUE)
 
-  expect_equal(gesehen, "78-79-80-82-1034")
+  expect_equal(gesehen, "78-79-80-82-1034-84-85-87-86-83")
 })
 
 test_that("retrieveLiveFixtures nimmt eine explizite Ligamenge", {

@@ -205,6 +205,23 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
         # sie -50 Punkte tragen und damit aus dem Rennen sind. Bisher war
         # das an die Liga-ID "80" gebunden; jetzt an die Liga-Eigenschaft --
         # die Regionalligen brauchen dasselbe, sobald sie live gehen.
+        #
+        # NAMENSKOLLISION seit Phase 5: Der Schluessel folgt der VIEW. Wo
+        # sie das obere Panel aus "<key>_aufstieg" liest (3. Liga,
+        # 2. Frauen-Bundesliga), landet der Lauf dort. Bei den
+        # Regionalligen ist dieser Name aber schon vergeben -- er traegt die
+        # BERECHNETE Aufstiegsspalte (rl_aufstiegsprognose(), ein data.frame
+        # je Team). Eine ganze Platzmatrix unter demselben Namen
+        # uebernaehme die Spalte lautlos, und die Seite zeigte statt der
+        # Aufstiegswahrscheinlichkeit eine Platzverteilung -- ohne dass
+        # etwas fehlschlaegt. Der Lauf heisst dort deshalb
+        # "<key>_aufstiegstabelle".
+        aufstiegs_key <- paste0(key, "_aufstieg")
+        if (!identical(league_views()[[key]]$top$source,
+                       .ergebnis_objektname(aufstiegs_key))) {
+          aufstiegs_key <- paste0(key, "_aufstiegstabelle")
+        }
+
         if (has_promotion_restriction(liga_ids[[key]])) {
           adj_points <- rep(0, dim(spielplan)[2] - 4)
           for (j in 5:dim(spielplan)[2]) {
@@ -213,7 +230,7 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
               adj_points[j - 4] <- -50
             }
           }
-          ergebnisse[[paste0(key, "_aufstieg")]] <-
+          ergebnisse[[aufstiegs_key]] <-
             leagueSimulatorRust(spielplan, n = n, adjPoints = adj_points)
         }
 

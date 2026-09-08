@@ -10,9 +10,16 @@ source_league_views <- function() {
 test_that("league_views defines the live leagues in registry order", {
   # Seit Phase 5a sind die beiden Frauen-Bundesligen dabei. Die Reihenfolge
   # ist Vertrag: Sie bestimmt die Navigation und die Fetch-Reihenfolge.
+  #
+  # ANGEPASST in Phase 5: Dazu kommen die fuenf Regionalligen. Die
+  # Reihenfolge folgt weiterhin der Registry -- Herren, Frauen,
+  # Regionalliga; innerhalb der Regionalligen Nord, Nordost, West,
+  # SuedWest, Bayern.
   views <- source_league_views()()
   expect_named(views, c("bundesliga", "zweite_bundesliga", "dritte_liga",
-                        "frauen_bundesliga", "zweite_frauen_bundesliga"))
+                        "frauen_bundesliga", "zweite_frauen_bundesliga",
+                        "rl_nord", "rl_nordost", "rl_west", "rl_suedwest",
+                        "rl_bayern"))
 })
 
 test_that("Bundesliga is the canonical index page", {
@@ -52,14 +59,43 @@ test_that("3. Liga draws its top table from Ergebnis3_Aufstieg but its bottom fr
   expect_equal(v$bottom$filter_cols, 17:20)
 })
 
-test_that("group matrices have two rows and one column per label", {
+test_that("group matrices have two rows and one column per non-computed label", {
+  # ANGEPASST in Phase 5 (Regionalligen live). Bis dahin hatte JEDES Panel
+  # jeder Liga eine `groups`-Matrix, weil jedes Panel eine Platzgruppe war.
+  #
+  # Die Regionalligen brechen das bewusst: Ihre Abstiegszahl steht nicht
+  # fest (sie haengt an der 3. Liga, Phase 6), und die
+  # Aufstiegswahrscheinlichkeit von Nord und Bayern ist eine Doppelsumme
+  # ueber zwei Staffeln (Phase 7). Beides ist keine Summe von Platzspalten
+  # und traegt deshalb `computed` statt `groups`. Begruendung ausfuehrlich
+  # im Kopf von test-phase5-regionalligen.R.
+  #
+  # Der Test prueft weiterhin dieselbe Sache -- die Gruppenmatrix passt zu
+  # den Labels --, jetzt aber nur fuer die Labels, die wirklich eine
+  # Platzgruppe sind. Ein Panel ganz OHNE groups muss dafuer vollstaendig
+  # als berechnet ausgewiesen sein; sonst faellt es hier durch.
   views <- source_league_views()()
   for (nm in names(views)) {
     v <- views[[nm]]
     for (panel in c("top", "bottom")) {
-      g <- v[[panel]]$groups
+      p <- v[[panel]]
+      computed <- if (is.null(p$computed)) {
+        rep(FALSE, length(p$labels))
+      } else {
+        rep_len(as.logical(p$computed), length(p$labels))
+      }
+
+      if (all(computed)) {
+        # Vollstaendig berechnet: keine Platzgruppe, also auch keine
+        # Gruppenmatrix -- und erst recht keine, die stillschweigend
+        # ignoriert wuerde.
+        expect_null(p$groups, info = paste(nm, panel))
+        next
+      }
+
+      g <- p$groups
       expect_equal(nrow(g), 2, info = paste(nm, panel))
-      expect_equal(ncol(g), length(v[[panel]]$labels), info = paste(nm, panel))
+      expect_equal(ncol(g), sum(!computed), info = paste(nm, panel))
       expect_true(all(g[1, ] <= g[2, ]), info = paste(nm, panel))
     }
   }
