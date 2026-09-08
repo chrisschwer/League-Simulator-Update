@@ -1075,3 +1075,621 @@ test_that("die Verdrahtung aendert die Zahl der Simulationen je Runde nicht", {
   expect_identical(lauf$sim_marken[[1]], n_sims_pro_runde())
   expect_length(lauf$simulate, n_sims_pro_runde())
 })
+
+# ===========================================================================
+# 8. Tabelle, ELO-Deltas, Rueckblick und Ausblick auf den RL-Seiten
+# ===========================================================================
+#
+# Die Regionalliga-Seiten sollen dieselben Abschnitte tragen wie die
+# Altligen: Ligatabelle mit ELO und Delta-ELO, Rueckblick, Ausblick. Der
+# Mechanismus ist ligaunabhaengig -- der Loop ruft build_league_page_data()
+# ueber liga_keys fuer alle Ligen auf und reicht das Ergebnis als
+# league_data an generate_static_site() weiter; dort haengen die Abschnitte
+# an league_entry. Belegt war das bisher nur fuer die drei Altligen
+# (test-update-loop-league-data.R, test-ligatabelle-sektion.R). Dass es
+# fuer zehn Ligen und fuer die Rundenlabels der Regionalligen ("North - 7")
+# ebenso laeuft, war Annahme. Diese Tests machen sie zur Zusicherung.
+#
+# ECHTE FIXTURES: data/fixture_cache/84_2025.json (Regionalliga Nord
+# 2025/26, 307 Hauptrundenspiele, 18 Teams, alle beendet). Der Cache liegt
+# FLACH (Spalten fixture_id, round, teams_home_id, ...); extract_fixture_
+# details() erwartet dagegen die API-Form (fixtures$league$round,
+# fixtures$teams$home$id, ...). cache_als_api_form() baut sie nach. Der
+# Cache ist gitignored -- ohne die Datei skippen die betroffenen Tests.
+#
+# Damit die Seite einen Ausblick hat, gilt die Saison bis zu einer
+# Stichrunde als gespielt: Spiele spaeterer Runden werden auf "NS" ohne
+# Tore gesetzt. Stichrunde 10 ergibt ein sauberes Fenster: Rueckblick =
+# Runde 10 plus die Nachholspiele, die nach ihrem Beginn stattfanden;
+# Ausblick = genau Runde 11.
+#
+# DER FAKE MUSS MEHR LIEFERN: Der /league-details-Fake oben antwortet mit
+# `matches = list()` -- fuer die Aufstiegsspiele reicht die aktuelle ELO.
+# Die Seite braucht dagegen je Spiel Quoten, ELO-Anpassung und
+# Ergebnis-Matrix, sonst brechen render_rueckblick()/render_ausblick() ab.
+# rust_fake_mit_spieldetails() erweitert den Fake um genau diese Felder und
+# rechnet die ELO mit derselben +-12-Physik (elo_nach_spielen), damit die
+# Sollwerte der Abschnitte 4 und 8 dieselbe Quelle haben.
+#
+# SOLLWERTE kommen unabhaengig vom Code unter Test aus dem Cache: Punkte
+# und Spiele je Team aus einer eigenen Bilanz, die ELO aus elo_von() plus
+# +-12 je entschiedenem Spiel, die Fenster (Runde 10 / Runde 11 /
+# Nachholspiele) aus Rundennummer und Anstosszeit.
+
+BIS_RUNDE <- 10L
+
+cache_pfad <- function(api_id, saison = 2025L) {
+  test_path("..", "..", "data", "fixture_cache", paste0(api_id, "_", saison, ".json"))
+}
+
+cache_lesen <- function(api_id = "84") {
+  pfad <- cache_pfad(api_id)
+  skip_if_not(file.exists(pfad),
+              sprintf("Fixture-Cache fehlt (gitignored, nur lokal): %s", pfad))
+  as.data.frame(jsonlite::fromJSON(pfad), stringsAsFactors = FALSE)
+}
+
+runde_von <- function(label) as.integer(sub(".*-[ ]*", "", label))
+
+# Flacher Cache -> API-Form, wie retrieveResults()/jsonlite sie liefern:
+# data.frame mit den geschachtelten data.frame-Spalten fixture, league,
+# teams, goals. Spiele nach `gespielt_bis_runde` gelten als offen ("NS",
+# keine Tore). Das Attribut `liga` traegt den Registry-Schluessel fuer den
+# transform_data-Stub des Runners.
+cache_als_api_form <- function(cache, key, gespielt_bis_runde = Inf) {
+  n <- nrow(cache)
+  offen <- runde_von(cache$round) > gespielt_bis_runde
+  df <- data.frame(row.names = seq_len(n))
+  df$fixture <- data.frame(id = cache$fixture_id, date = cache$fixture_date,
+                           stringsAsFactors = FALSE)
+  df$fixture$status <- data.frame(
+    short = ifelse(offen, "NS", cache$fixture_status_short),
+    elapsed = rep(NA_integer_, n),
+    stringsAsFactors = FALSE
+  )
+  df$league <- data.frame(round = cache$round, stringsAsFactors = FALSE)
+  df$teams <- data.frame(row.names = seq_len(n))
+  df$teams$home <- data.frame(id = cache$teams_home_id, name = cache$teams_home_name,
+                              stringsAsFactors = FALSE)
+  df$teams$away <- data.frame(id = cache$teams_away_id, name = cache$teams_away_name,
+                              stringsAsFactors = FALSE)
+  df$goals <- data.frame(
+    home = ifelse(offen, NA_integer_, cache$goals_home),
+    away = ifelse(offen, NA_integer_, cache$goals_away)
+  )
+  attr(df, "liga") <- key
+  df
+}
+
+# Die Teams des Caches in Reihenfolge ihres ersten Auftretens, abgebildet
+# auf die Kurznamen NO01..NO18 der Fake-Liga: So behalten Spielplan-Stub,
+# Fake-Engine und Prognose ihre Kurznamen, waehrend die Seitendaten mit den
+# echten TeamIDs und Namen arbeiten.
+nord_zuordnung <- function(cache) {
+  teams <- unique(data.frame(
+    TeamID = c(cache$teams_home_id, cache$teams_away_id),
+    Name = c(cache$teams_home_name, cache$teams_away_name),
+    stringsAsFactors = FALSE
+  ))
+  rownames(teams) <- NULL
+  kurz <- teams_von("rl_nord")
+  if (nrow(teams) != length(kurz)) {
+    stop(sprintf("Cache traegt %d Teams, die Fake-Liga %d", nrow(teams), length(kurz)))
+  }
+  cbind(ShortText = kurz, teams, stringsAsFactors = FALSE)
+}
+
+# TeamList wie teamlist_datei(), nur tragen die Nord-Zeilen die echten
+# TeamIDs und Namen aus dem Cache. Kurznamen, InitialELO, League und Region
+# bleiben -- auf sie stuetzen sich Spielplan-Stub und Fake-Engine.
+teamlist_df_nord_echt <- function(cache) {
+  df <- teamlist_df()
+  zu <- nord_zuordnung(cache)
+  idx <- match(zu$ShortText, df$ShortText)
+  stopifnot(!anyNA(idx), all(as.character(df$League[idx]) == "84"))
+  df$TeamID[idx] <- zu$TeamID
+  df$Name[idx] <- zu$Name
+  df
+}
+
+teamlist_datei_nord_echt <- function(cache) {
+  pfad <- tempfile("TeamList_rl_nord_echt_", fileext = ".csv")
+  utils::write.table(teamlist_df_nord_echt(cache), pfad, sep = ";",
+                     quote = FALSE, row.names = FALSE)
+  pfad
+}
+
+# Bilanz eines Teams aus dem Cache bis zur Stichrunde -- unabhaengig von
+# build_league_table().
+bilanz_von <- function(cache, team_id, gespielt_bis_runde = BIS_RUNDE) {
+  sp <- cache[runde_von(cache$round) <= gespielt_bis_runde, ]
+  heim <- sp[sp$teams_home_id == team_id, ]
+  gast <- sp[sp$teams_away_id == team_id, ]
+  siege <- sum(heim$goals_home > heim$goals_away) + sum(gast$goals_away > gast$goals_home)
+  remis <- sum(heim$goals_home == heim$goals_away) + sum(gast$goals_away == gast$goals_home)
+  c(spiele = as.numeric(nrow(heim) + nrow(gast)), punkte = as.numeric(3L * siege + remis))
+}
+
+# Aktuelle ELO der Nord-Teams (Kurznamen), wie der Fake sie aus den
+# gespielten Cache-Partien rechnet: Start-ELO aus elo_von() plus +-12 je
+# entschiedenem Spiel.
+elo_nord_erwartet <- function(cache, gespielt_bis_runde = BIS_RUNDE) {
+  zu <- nord_zuordnung(cache)
+  sp <- cache[runde_von(cache$round) <= gespielt_bis_runde, ]
+  elo_nach_spielen(
+    elo_von("rl_nord"),
+    heim = zu$ShortText[match(sp$teams_home_id, zu$TeamID)],
+    gast = zu$ShortText[match(sp$teams_away_id, zu$TeamID)],
+    tore_heim = sp$goals_home, tore_gast = sp$goals_away
+  )
+}
+
+# Erweiterter Fake: /league-details antwortet mit vollen Spieldetails.
+# /simulate und /match-preview bleiben beim Basis-Fake, ebenso das Log.
+rust_fake_mit_spieldetails <- function() {
+  basis <- rust_fake()
+  score_matrix <- lapply(seq_len(7), function(i) as.list(rep(1 / 49, 7)))
+
+  POST <- function(url, body = NULL, ...) {
+    if (!grepl("/league-details$", url)) {
+      return(basis$POST(url, body = body, ...))
+    }
+    payload <- parse_body(body)
+    basis$log$details[[length(basis$log$details) + 1L]] <- payload
+    teams <- as.character(payload$team_names)
+    elo <- stats::setNames(as.numeric(payload$elo_values), teams)
+
+    matches <- lapply(seq_along(payload$schedule_roh), function(i) {
+      z <- payload$schedule_roh[[i]]
+      h <- as.integer(z[[1]])
+      g <- as.integer(z[[2]])
+      th <- if (is.null(z[[3]])) NA_integer_ else as.integer(z[[3]])
+      tg <- if (is.null(z[[4]])) NA_integer_ else as.integer(z[[4]])
+      gespielt <- !is.na(th) && !is.na(tg)
+      l <- fake_lambda(elo[[h]], elo[[g]])
+      d <- unname(elo[[h]] - elo[[g]])
+      p_heim <- min(0.8, max(0.1, 0.4 + 0.0005 * d))
+      delta <- if (!gespielt) NA_real_ else if (th > tg) ELO_SCHRITT else if (th < tg) -ELO_SCHRITT else 0
+      zeile <- list(
+        index = i - 1L, team_home = h, team_away = g, played = gespielt,
+        goals_home = if (gespielt) th else NULL,
+        goals_away = if (gespielt) tg else NULL,
+        elo_home_pre = unname(elo[[h]]), elo_away_pre = unname(elo[[g]]),
+        elo_delta_home = if (gespielt) delta else NULL,
+        lambda_home = l[["home"]], lambda_away = l[["away"]],
+        p_home_win = p_heim, p_draw = 0.25, p_away_win = 0.75 - p_heim,
+        score_matrix = score_matrix
+      )
+      if (gespielt && delta != 0) {
+        elo[[h]] <<- elo[[h]] + delta
+        elo[[g]] <<- elo[[g]] - delta
+      }
+      zeile
+    })
+
+    list(status = 200L, parsed = list(
+      matches = matches,
+      current_elos = unname(elo),
+      team_names = teams
+    ))
+  }
+
+  list(POST = POST, status_code = basis$status_code, content = basis$content,
+       log = basis$log)
+}
+
+# Das Seitendaten-Modul in eigener Umgebung: build_league_page_data() mit
+# seinem echten httr-Client, den der Fake ueber den httr-Namespace bedient.
+seitendaten_modul <- function() {
+  if (is.null(.laeufe$seitendaten)) {
+    env <- new.env()
+    source(rcode("league_details.R"), local = env)
+    .laeufe$seitendaten <- env
+  }
+  .laeufe$seitendaten
+}
+
+# fetch_fn fuer den Direktaufruf ohne Loop: schickt den Payload durch den
+# Fake und liefert den JSON-Text, wie fetch_league_details() es taete.
+fetch_ueber_fake <- function(fake) {
+  function(payload, ...) {
+    antwort <- fake$POST(
+      "http://fake/league-details",
+      body = jsonlite::toJSON(payload, auto_unbox = TRUE, null = "null", digits = NA)
+    )
+    fake$content(antwort, "text")
+  }
+}
+
+# build_league_page_data-Stub fuer den Runner: Ligen mit echten Fixtures
+# (data.frame) gehen durch die ECHTE Funktion, die uebrigen (Fake-Listen)
+# bekommen NULL -- so, wie der Loop es bei einem Endpoint-Fehler saehe.
+seitendaten_fuer_echte_fixtures <- function(fetch_fn = NULL) {
+  modul <- seitendaten_modul()
+  function(fixtures, teams, ...) {
+    if (!is.data.frame(fixtures)) return(NULL)
+    if (is.null(fetch_fn)) {
+      modul$build_league_page_data(fixtures, teams)
+    } else {
+      modul$build_league_page_data(fixtures, teams, fetch_fn = fetch_fn)
+    }
+  }
+}
+
+# Ein Loop-Durchlauf mit injizierbarem build_league_page_data und echten
+# Fixtures je Liga. Eigener Runner statt Parameter an lauf_ausfuehren():
+# Der freigegebene Runner bleibt damit unveraendert. Rueckgabe zusaetzlich
+# das league_data, das an generate_static_site() ging.
+lauf_mit_seitendaten <- function(build_fn, fixtures_echt = list(),
+                                 teamlist = teamlist_datei(),
+                                 fake = rust_fake_mit_spieldetails()) {
+  force(teamlist)
+  force(fixtures_echt)
+  force(fake)
+  capture <- new.env()
+  capture$ergebnisse <- list()
+  capture$league_data <- list()
+
+  reg <- registry_env()
+  keys <- reg$active_league_keys()
+  ids <- vapply(keys, function(k) reg$league_registry()[[k]]$api_id, character(1))
+  spielplaene <- lapply(stats::setNames(keys, keys), spielplan_von)
+
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
+    key <- names(ids)[match(as.character(league), ids)]
+    if (!is.null(fixtures_echt[[key]])) fixtures_echt[[key]] else fake_fixtures(key, c("FT", "NS"))
+  })
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) integer(0))
+  stub(update_all_leagues_loop, "transform_data", function(fixtures, teams) {
+    key <- if (is.data.frame(fixtures)) attr(fixtures, "liga") else fixtures$liga
+    spielplaene[[key]]
+  })
+  stub(update_all_leagues_loop, "build_league_page_data", build_fn)
+  stub(update_all_leagues_loop, "generate_static_site",
+       function(..., league_data = NULL, ergebnisse) {
+    capture$ergebnisse[[length(capture$ergebnisse) + 1L]] <- ergebnisse
+    capture$league_data[[length(capture$league_data) + 1L]] <- league_data
+    invisible(character(0))
+  })
+
+  msgs <- capture_messages(mit_rust_fake(fake, with_repo_root({
+    update_all_leagues_loop(
+      duration = 0, loops = 1L, initial_wait = 0, n = N_ITER,
+      saison = "2026", TeamList_file = teamlist,
+      static_site_dir = tempdir(), full_fetch_every = 30L
+    )
+  })))
+
+  list(
+    ergebnisse = capture$ergebnisse,
+    league_data = capture$league_data,
+    details = fake$log$details,
+    msgs = msgs
+  )
+}
+
+generator_modul <- function() {
+  source(rcode("generate_static_site.R"), local = TRUE)
+  environment()
+}
+
+# Rendert das, was der Loop an generate_static_site() uebergeben hat, mit
+# dem echten Generator. Rueckgabe: Ausgabeverzeichnis und Meldungen.
+seite_rendern <- function(ergebnisse, league_data, out = NULL) {
+  if (is.null(out)) out <- withr::local_tempdir(.local_envir = parent.frame())
+  gen <- generator_modul()
+  msgs <- capture_messages(
+    gen$generate_static_site(
+      output_dir = out,
+      now = as.POSIXct("2026-09-08 12:00", tz = "Europe/Berlin"),
+      ergebnisse = ergebnisse,
+      league_data = league_data
+    )
+  )
+  list(out = out, msgs = msgs)
+}
+
+html_lesen <- function(pfad) {
+  paste(readLines(pfad, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
+}
+
+# Der Ausschnitt <section id="..."> ... </section>; NA, wenn es ihn nicht gibt.
+abschnitt <- function(html, id) {
+  start <- regexpr(sprintf("<section id=\"%s\">", id), html, fixed = TRUE)
+  if (start < 0) return(NA_character_)
+  rest <- substr(html, start, nchar(html))
+  ende <- regexpr("</section>", rest, fixed = TRUE)
+  substr(rest, 1, ende + nchar("</section>") - 1L)
+}
+
+# Die Zeile der Ligatabelle eines Teams (ein <tr data-platz=...>...</tr>).
+tabellenzeile <- function(html, name) {
+  zeilen <- regmatches(html, gregexpr("<tr data-platz=\"[^\"]*\"[^>]*>.*?</tr>", html))[[1]]
+  treffer <- zeilen[grepl(paste0("<th scope=\"row\">", name, "</th>"), zeilen, fixed = TRUE)]
+  if (length(treffer) != 1L) NA_character_ else treffer
+}
+
+# Die Paarung, wie .match_pair() sie setzt: Halbgeviertstrich U+2013 zwischen
+# GESCHUETZTEN Leerzeichen U+00A0 -- mit normalen Leerzeichen greift das
+# Muster nicht.
+paarung <- function(heim, gast) {
+  paste0(heim, "<span class=\"dash\">\u00a0\u2013\u00a0</span>", gast)
+}
+
+# Der Block eines Spiels innerhalb eines Abschnitts: Die Match-Bloecke sind
+# geschachtelte divs, deshalb wird am Blockanfang gesplittet statt mit einem
+# Regex bis zum schliessenden div gesucht.
+spielblock <- function(sektion, heim, gast) {
+  bloecke <- strsplit(sektion, "<div class=\"match( outlook)?\">")[[1]]
+  treffer <- bloecke[grepl(paarung(heim, gast), bloecke, fixed = TRUE)]
+  if (length(treffer) != 1L) NA_character_ else treffer
+}
+
+# Vorzeichenbehaftete Zahl wie .vorzeichen(): U+2212 als Minus, "+-0,0" bei
+# Null, eine Nachkommastelle.
+delta_text <- function(x) {
+  gerundet <- round(x, 1)
+  betrag <- sub(".", ",", formatC(abs(gerundet), digits = 1, format = "f"), fixed = TRUE)
+  if (gerundet > 0) paste0("+", betrag) else if (gerundet < 0) paste0("\u2212", betrag) else paste0("\u00b1", betrag)
+}
+
+komma_text <- function(x) sub(".", ",", formatC(x, digits = 1, format = "f"), fixed = TRUE)
+
+# Die Pruefungen der Nord-Seite, geteilt zwischen dem Loop-Weg und dem
+# Direktaufruf des Generators. `cache` ist der flache Cache, aus dem die
+# Sollwerte kommen.
+expect_nord_abschnitte <- function(html, cache) {
+  zu <- nord_zuordnung(cache)
+  name_von <- function(id) zu$Name[match(id, zu$TeamID)]
+  kurz_von <- function(id) zu$ShortText[match(id, zu$TeamID)]
+  runde <- runde_von(cache$round)
+
+  # Reihenfolge: Prognose, Tabelle, Rueckblick, Ausblick.
+  pos <- vapply(c("prognose", "tabelle", "rueckblick", "ausblick"), function(id) {
+    regexpr(sprintf("<section id=\"%s\">", id), html, fixed = TRUE)
+  }, integer(1))
+  expect_true(all(pos > 0), info = paste("fehlende Abschnitte:", paste(names(pos)[pos < 0], collapse = ", ")))
+  if (any(pos < 0)) return(invisible(FALSE))
+  expect_true(all(diff(pos) > 0), info = "Abschnittsreihenfolge Prognose < Tabelle < Rueckblick < Ausblick")
+
+  # --- Ligatabelle: 18 Zeilen, Tabellenfuehrer, Spiele, ELO, Delta ----------
+  tab <- abschnitt(html, "tabelle")
+  expect_match(tab, "Ligatabelle und ELO", fixed = TRUE)
+  expect_identical(
+    length(regmatches(tab, gregexpr("<tr data-platz=\"", tab, fixed = TRUE))[[1]]),
+    nrow(zu)
+  )
+
+  bilanzen <- t(vapply(zu$TeamID, function(id) bilanz_von(cache, id), numeric(2)))
+  rownames(bilanzen) <- zu$TeamID
+  # Harness-Probe: Ein eindeutiger Tabellenfuehrer, sonst bewiese Platz 1 nichts.
+  expect_identical(sum(bilanzen[, "punkte"] == max(bilanzen[, "punkte"])), 1L)
+  fuehrer <- zu$TeamID[which.max(bilanzen[, "punkte"])]
+  zeile_fuehrer <- tabellenzeile(tab, name_von(fuehrer))
+  expect_false(is.na(zeile_fuehrer), info = sprintf("keine Tabellenzeile fuer %s", name_von(fuehrer)))
+  if (!is.na(zeile_fuehrer)) {
+    expect_match(zeile_fuehrer, sprintf("<tr data-platz=\"1\" data-pkt=\"%d\"", bilanzen[as.character(fuehrer), "punkte"]), fixed = TRUE)
+  }
+
+  elo <- elo_nord_erwartet(cache)
+  start <- elo_von("rl_nord")
+  for (id in c(12804L, 1318L)) { # Kickers Emden, SV Meppen
+    kurz <- kurz_von(id)
+    # Harness-Probe: Die ELO hat sich bewegt, sonst zeigte "+0,0" nichts.
+    expect_true(abs(elo[[kurz]] - start[[kurz]]) > 0, info = kurz)
+    zeile <- tabellenzeile(tab, name_von(id))
+    expect_false(is.na(zeile), info = sprintf("keine Tabellenzeile fuer %s", name_von(id)))
+    if (is.na(zeile)) next
+    expect_match(zeile, sprintf("<td class=\"num opt\">%d</td>", bilanzen[as.character(id), "spiele"]), fixed = TRUE)
+    expect_match(zeile, sprintf("<td class=\"num\">%d</td>", bilanzen[as.character(id), "punkte"]), fixed = TRUE)
+    expect_match(zeile, paste0("<td class=\"num\">", komma_text(elo[[kurz]]), "</td>"), fixed = TRUE)
+    expect_match(zeile, paste0("<td class=\"num\">", delta_text(elo[[kurz]] - start[[kurz]]), "</td>"), fixed = TRUE)
+  }
+
+  # --- Rueckblick: Stichrunde, alle ihre Spiele mit Ergebnis, Nachholspiele --
+  rb <- abschnitt(html, "rueckblick")
+  expect_match(rb, sprintf("<h2>%d. Spieltag</h2>", BIS_RUNDE), fixed = TRUE)
+  stich <- cache[runde == BIS_RUNDE, ]
+  expect_identical(nrow(stich), nrow(zu) %/% 2L)
+  for (i in seq_len(nrow(stich))) {
+    block <- spielblock(rb, name_von(stich$teams_home_id[i]), name_von(stich$teams_away_id[i]))
+    expect_false(is.na(block), info = sprintf("Rueckblick ohne %s - %s", name_von(stich$teams_home_id[i]), name_von(stich$teams_away_id[i])))
+    if (is.na(block)) next
+    expect_match(block, sprintf(">%d:%d<", stich$goals_home[i], stich$goals_away[i]), fixed = TRUE)
+  }
+  # Nachholspiele: aeltere Runden, angepfiffen nach Beginn der Stichrunde.
+  anstoss <- as.POSIXct(sub("([+-]\\d{2}):(\\d{2})$", "\\1\\2", cache$fixture_date),
+                        format = "%Y-%m-%dT%H:%M:%S%z", tz = "UTC")
+  nachhol <- cache[runde < BIS_RUNDE & anstoss >= min(anstoss[runde == BIS_RUNDE]), ]
+  expect_gt(nrow(nachhol), 0) # Harness-Probe: Der Kalender hat welche.
+  for (i in seq_len(nrow(nachhol))) {
+    block <- spielblock(rb, name_von(nachhol$teams_home_id[i]), name_von(nachhol$teams_away_id[i]))
+    expect_false(is.na(block), info = sprintf("Rueckblick ohne Nachholspiel %s - %s", name_von(nachhol$teams_home_id[i]), name_von(nachhol$teams_away_id[i])))
+    if (is.na(block)) next
+    expect_match(block, sprintf("Nachholspiel, %d. Spieltag", runde_von(nachhol$round[i])), fixed = TRUE)
+  }
+
+  # --- Ausblick: die Folgerunde, vollstaendig, und nichts dahinter ----------
+  ab <- abschnitt(html, "ausblick")
+  expect_match(ab, sprintf("<h2>%d. Spieltag</h2>", BIS_RUNDE + 1L), fixed = TRUE)
+  naechste <- cache[runde == BIS_RUNDE + 1L, ]
+  for (i in seq_len(nrow(naechste))) {
+    block <- spielblock(ab, name_von(naechste$teams_home_id[i]), name_von(naechste$teams_away_id[i]))
+    expect_false(is.na(block), info = sprintf("Ausblick ohne %s - %s", name_von(naechste$teams_home_id[i]), name_von(naechste$teams_away_id[i])))
+    if (is.na(block)) next
+    expect_match(block, "Ergebnis-Matrix", fixed = TRUE)
+  }
+  danach <- cache[runde == BIS_RUNDE + 2L, ][1, ]
+  expect_true(is.na(spielblock(ab, name_von(danach$teams_home_id), name_von(danach$teams_away_id))),
+              info = "Ausblick zeigt bereits die uebernaechste Runde")
+  invisible(TRUE)
+}
+
+# Vollstaendige Ergebnisse von Hand (fuer den Generator ohne Loop): je Liga
+# eine gleichverteilte Prognose ueber ihre Fake-Teams, dazu die berechneten
+# RL-Spalten in der Form, die rl_abstiegsprognose()/rl_aufstiegsprognose()
+# liefern.
+ergebnisse_von_hand <- function() {
+  erg <- list()
+  for (key in names(LIGA_GROESSE)) {
+    teams <- teams_von(key)
+    n <- length(teams)
+    erg[[key]] <- as.table(matrix(1 / n, n, n, dimnames = list(teams, as.character(seq_len(n)))))
+  }
+  erg[["dritte_liga_aufstieg"]] <- erg[["dritte_liga"]]
+  erg[["zweite_frauen_bundesliga_aufstieg"]] <- erg[["zweite_frauen_bundesliga"]]
+  for (key in unname(RL_SCHLUESSEL)) {
+    teams <- teams_von(key)
+    n <- length(teams)
+    erg[[paste0(key, "_abstieg")]] <- if (identical(key, "rl_bayern")) {
+      data.frame(Relegation = rep(2 / n, n), Abstieg = rep(2 / n, n), row.names = teams)
+    } else {
+      data.frame(Abstieg = rep(3 / n, n), row.names = teams)
+    }
+  }
+  for (key in c("rl_nord", "rl_bayern")) {
+    teams <- teams_von(key)
+    erg[[paste0(key, "_aufstieg")]] <- data.frame(Aufstieg = rep(0.5 / length(teams), length(teams)), row.names = teams)
+  }
+  erg
+}
+
+test_that("der Loop baut die Seitendaten fuer jede der zehn Ligen -- mit den Fixtures der jeweiligen Liga", {
+  aufrufe <- new.env()
+  aufrufe$liste <- list()
+  merker <- function(fixtures, teams, ...) {
+    key <- if (is.data.frame(fixtures)) attr(fixtures, "liga") else fixtures$liga
+    aufrufe$liste[[length(aufrufe$liste) + 1L]] <- list(key = key, teams = teams)
+    list(tabelle = paste0("SENTINEL-", key))
+  }
+
+  lauf <- lauf_mit_seitendaten(build_fn = merker)
+  keys <- registry_env()$active_league_keys()
+  expect_identical(length(keys), 10L)
+  expect_true(all(unname(RL_SCHLUESSEL) %in% keys))
+
+  # Zehn Aufrufe in Registry-Reihenfolge, jeder mit den Fixtures SEINER Liga
+  # und der ganzen TeamList.
+  expect_identical(vapply(aufrufe$liste, function(a) a$key, character(1)), keys)
+  n_teams <- nrow(teamlist_df())
+  for (a in aufrufe$liste) {
+    expect_true("TeamID" %in% names(a$teams), info = a$key)
+    expect_identical(nrow(a$teams), n_teams, info = a$key)
+  }
+
+  # Und der Generator bekommt sie unter den Registry-Schluesseln, jede Liga
+  # ihren eigenen Eintrag -- die fuenf Regionalligen eingeschlossen.
+  expect_length(lauf$league_data, 1L)
+  ld <- lauf$league_data[[1]]
+  expect_identical(names(ld), keys)
+  for (key in keys) {
+    expect_identical(ld[[key]]$tabelle, paste0("SENTINEL-", key), info = key)
+  }
+})
+
+test_that("die RL-Nord-Seite traegt Ligatabelle mit ELO und Delta, Rueckblick und Ausblick -- aus echten Spielen", {
+  cache <- cache_lesen("84")
+  lauf <- lauf_mit_seitendaten(
+    build_fn = seitendaten_fuer_echte_fixtures(),
+    fixtures_echt = list(rl_nord = cache_als_api_form(cache, "rl_nord", BIS_RUNDE)),
+    teamlist = teamlist_datei_nord_echt(cache)
+  )
+
+  # Harness-Probe: Die echte build_league_page_data() hat die 307 Spiele
+  # samt Rundenlabels "North - N" verarbeitet -- 18 Teams, 18 Tabellenzeilen.
+  expect_length(lauf$league_data, 1L)
+  ld <- lauf$league_data[[1]]
+  expect_false(is.null(ld[["rl_nord"]]), info = "build_league_page_data() lieferte NULL fuer rl_nord")
+  if (is.null(ld[["rl_nord"]])) return(invisible(NULL))
+  expect_identical(nrow(ld[["rl_nord"]]$details), nrow(cache))
+  expect_identical(nrow(ld[["rl_nord"]]$tabelle), 18L)
+  for (key in setdiff(names(ld), "rl_nord")) expect_null(ld[[key]], info = key)
+
+  # Ende zu Ende: Der echte Generator rendert die Nord-Seite MIT den
+  # Abschnitten. Fehlt die Seite, hat der Loop die RL-Objekte (Abstieg,
+  # Aufstieg) nicht abgelegt -- der Generator ueberspringt sie dann.
+  seite <- seite_rendern(lauf$ergebnisse[[1]], ld)
+  pfad <- file.path(seite$out, "rl-nord.html")
+  if (!file.exists(pfad)) {
+    fail(paste0(
+      "rl-nord.html wurde nicht gerendert -- der Loop legt die RL-Objekte nicht ab. Generator: ",
+      paste(grep("uebersprungen", seite$msgs, value = TRUE), collapse = " ")
+    ))
+    return(invisible(NULL))
+  }
+  expect_nord_abschnitte(html_lesen(pfad), cache)
+})
+
+test_that("faellt build_league_page_data() fuer eine Regionalliga aus, rendert die Seite ohne die Abschnitte -- ohne Abbruch", {
+  cache <- cache_lesen("84")
+  lauf <- NULL
+  expect_warning(
+    lauf <- lauf_mit_seitendaten(
+      build_fn = seitendaten_fuer_echte_fixtures(
+        fetch_fn = function(...) stop("league-details: connection refused")
+      ),
+      fixtures_echt = list(rl_nord = cache_als_api_form(cache, "rl_nord", BIS_RUNDE)),
+      teamlist = teamlist_datei_nord_echt(cache)
+    ),
+    "connection refused"
+  )
+  if (is.null(lauf)) return(invisible(NULL))
+
+  # Der Loop hat gerendert, mit NULL fuer Nord -- und mit allen Prognosen.
+  expect_length(lauf$league_data, 1L)
+  ld <- lauf$league_data[[1]]
+  expect_null(ld[["rl_nord"]])
+  expect_false(is.null(lauf$ergebnisse[[1]][["rl_nord"]]))
+
+  seite <- NULL
+  expect_no_error(seite <- seite_rendern(lauf$ergebnisse[[1]], ld))
+  if (is.null(seite)) return(invisible(NULL))
+  pfad <- file.path(seite$out, "rl-nord.html")
+  if (!file.exists(pfad)) {
+    fail(paste0(
+      "rl-nord.html wurde nicht gerendert -- der Loop legt die RL-Objekte nicht ab. Generator: ",
+      paste(grep("uebersprungen", seite$msgs, value = TRUE), collapse = " ")
+    ))
+    return(invisible(NULL))
+  }
+
+  # Die Seite steht -- Prognose ja, die drei Abschnitte nein. Genau wie bei
+  # den Altligen ohne league_entry (test-ligatabelle-sektion.R).
+  for (slug in c("rl-nord", "index")) {
+    html <- html_lesen(file.path(seite$out, paste0(slug, ".html")))
+    expect_match(html, "<section id=\"prognose\">", fixed = TRUE, info = slug)
+    for (id in c("tabelle", "rueckblick", "ausblick")) {
+      expect_false(grepl(sprintf("<section id=\"%s\">", id), html, fixed = TRUE),
+                   info = sprintf("%s: Abschnitt %s trotz fehlender Seitendaten", slug, id))
+    }
+  }
+  expect_match(html_lesen(pfad), "Saisonprognose Regionalliga Nord", fixed = TRUE)
+})
+
+test_that("der Generator haengt die Abschnitte auch ohne Loop an eine RL-Seite -- und nur an die mit Seitendaten", {
+  # Isoliert den Generator vom Loop: Schlaegt der Ende-zu-Ende-Test oben
+  # fehl, sagt dieser, ob es am Rendern oder an der Verdrahtung liegt.
+  cache <- cache_lesen("84")
+  fake <- rust_fake_mit_spieldetails()
+  pd <- seitendaten_modul()$build_league_page_data(
+    cache_als_api_form(cache, "rl_nord", BIS_RUNDE),
+    teamlist_df_nord_echt(cache),
+    fetch_fn = fetch_ueber_fake(fake)
+  )
+  expect_false(is.null(pd))
+  if (is.null(pd)) return(invisible(NULL))
+  expect_identical(nrow(pd$tabelle), 18L)
+
+  seite <- seite_rendern(ergebnisse_von_hand(), list(rl_nord = pd))
+  pfad <- file.path(seite$out, "rl-nord.html")
+  expect_true(file.exists(pfad))
+  if (!file.exists(pfad)) return(invisible(NULL))
+  expect_nord_abschnitte(html_lesen(pfad), cache)
+
+  # Die Nachbarstaffel ohne Seitendaten bleibt ohne die Abschnitte.
+  nordost <- html_lesen(file.path(seite$out, "rl-nordost.html"))
+  for (id in c("tabelle", "rueckblick", "ausblick")) {
+    expect_false(grepl(sprintf("<section id=\"%s\">", id), nordost, fixed = TRUE), info = id)
+  }
+})
