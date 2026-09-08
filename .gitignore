@@ -60,3 +60,15 @@ ShinyApp/public/
 
 # Fixture-Cache der Offline-ELO-Kalibrierung (jederzeit neu holbar)
 data/fixture_cache/
+
+# Interne Berichte: bleiben lokal.
+#
+# Die Regel greift ueber das VERZEICHNIS und nicht ueber Dateinamen. Das
+# hat zwei Gruende: Was hier abgelegt wird, ist von sich aus richtig
+# einsortiert, ohne dass jemand einen Eintrag nachtragen muss -- und eine
+# namentliche Liste stuende in einer versionierten Datei und verriete
+# damit gerade das, was nicht nach aussen soll.
+#
+# Die fachlichen Berichte eine Ebene darueber bleiben committet und aus
+# CLAUDE.md, dem Ausbauplan und der Registry verlinkt.
+docs/reports/internal/
