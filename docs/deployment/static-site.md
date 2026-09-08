@@ -110,7 +110,7 @@ docker compose logs -f scheduler
 
 ```bash
 docker compose ps                                   # fussball-scheduler healthy
-docker run --rm -v fussball-site:/v alpine ls -la /v  # 4 HTML + assets/, owner 1001
+docker run --rm -v fussball-site:/v alpine ls -la /v  # 12 HTML + assets/, owner 1001
 curl -sI https://fussball.example.org/              # 200, Cache-Control: no-cache
 curl -s  https://fussball.example.org/ | grep -c Saisonprognose
 ```

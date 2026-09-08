@@ -26,7 +26,7 @@ graph TD
     end
     
     subgraph "Output"
-        SITE[Static Site<br/>4 HTML pages + assets]
+        SITE[Static Site<br/>12 HTML pages + assets]
         CADDY[Caddy]
     end
     
@@ -139,7 +139,7 @@ simulation_state <- list(
 `ShinyApp/data/Ergebnis.Rds` is a **local-only fixture** — a `save()`-image
 used by [`scripts/preview_site.R`](../../scripts/preview_site.R) and by
 tests, not a production artifact. The production loop never writes it: it
-holds the four matrices in memory and hands them straight to
+holds the per-league matrices in memory and hands them straight to
 `generate_static_site()` (see [Stage 4](#stage-4-result-aggregation) below).
 Where the fixture does exist, it's a `save()`-image, not a single serialized
 object — read it with `load()`, not `readRDS()`. It holds four `table`
@@ -232,8 +232,12 @@ names, column names, and the matrices themselves are the whole of it.
 ### Stage 5: Static Site Rendering
 
 `generate_static_site()` in [`RCode/generate_static_site.R`](../../RCode/generate_static_site.R)
-takes the four matrices directly and renders four self-contained HTML pages
-(`index.html`, `2-bundesliga.html`, `3-liga.html`, `methodik.html`) plus
+takes the per-league matrices directly and renders one self-contained HTML
+page per active league (`index.html`, `2-bundesliga.html`, `3-liga.html`,
+`frauen-bundesliga.html`, `2-frauen-bundesliga.html`, `rl-nord.html`,
+`rl-nordost.html`, `rl-west.html`, `rl-suedwest.html`, `rl-bayern.html`)
+plus `rl-aufstieg.html` and `methodik.html` — twelve since the September 2026
+league expansion — plus
 `assets/site.css`, `assets/fonts/*.woff2`, and `assets/favicon.svg` into
 `STATIC_SITE_DIR`. No PNGs are produced — the probability heatmap is an HTML
 table with per-cell background colour. See

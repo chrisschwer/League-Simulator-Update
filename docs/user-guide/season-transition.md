@@ -427,6 +427,6 @@ docker-compose restart
 ## Related Documentation
 
 - [Team Management](team-management.md)
-- [API Configuration](../deployment/quick-start.md#api-configuration)
+- [Quick Start](../deployment/quick-start.md) und [Deployment Overview](../deployment/README.md) — `RAPIDAPI_KEY` und die übrigen Umgebungsvariablen
 - [Backup Procedures](../operations/backup-recovery.md)
-- [Troubleshooting](../troubleshooting/common-issues.md#season-transition)
+- [Troubleshooting](../troubleshooting/common-issues.md#7-season-transition-failures)
