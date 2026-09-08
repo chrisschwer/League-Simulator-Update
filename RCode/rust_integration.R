@@ -191,7 +191,8 @@ leagueSimulatorRust <- function(season, n = 10000,
                                 adjPoints = rep_len(0, numberTeams),
                                 adjGoals = rep_len(0, numberTeams),
                                 adjGoalsAgainst = rep_len(0, numberTeams),
-                                adjGoalDiff = rep_len(0, numberTeams)) {
+                                adjGoalDiff = rep_len(0, numberTeams),
+                                groupOfTeam = NULL, relegationPlaces = NULL) {
   # Caller (update_all_leagues_loop) has already asserted Rust availability.
   # Per-call connection checks were removed in issue #77 Phase 1; a Rust API
   # call failure surfaces via stop() in simulate_league_rust() below.
@@ -248,7 +249,9 @@ leagueSimulatorRust <- function(season, n = 10000,
     adj_goal_diff = adjGoalDiff,
     elo_neutral = eloNeutral,
     tore_slope = toreSlope,
-    tore_intercept = toreIntercept
+    tore_intercept = toreIntercept,
+    group_of_team = groupOfTeam,
+    relegation_places = relegationPlaces
   )
 
   end_time <- Sys.time()
@@ -274,6 +277,16 @@ leagueSimulatorRust <- function(season, n = 10000,
   rankOrder <- order(rankAverage)
 
   distribution <- distribution[rankOrder, ]
+
+  # Die Auszaehlung der Absteiger je Staffel reist als ATTRIBUT mit, nicht
+  # als zweites Listenelement: Der Rueckgabewert dieser Funktion ist an rund
+  # einem Dutzend Stellen eine Prognosematrix -- er wird gerendert, indiziert,
+  # gespeichert. Eine Liste daraus zu machen haette jede davon gebrochen.
+  # Ein Attribut faellt bei alledem hoechstens weg; es fuehrt nie zu einer
+  # falschen Zahl.
+  if (!is.null(result$relegation_group_counts)) {
+    attr(distribution, "relegation_group_counts") <- result$relegation_group_counts
+  }
 
   return(distribution)
 }
