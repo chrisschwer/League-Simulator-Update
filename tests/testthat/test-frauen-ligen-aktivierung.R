@@ -7,29 +7,34 @@ library(testthat)
 # Schritt ist bewusst getrennt, weil er das Betriebsverhalten aendert: mehr
 # API-Requests, mehr Simulationen, ein laengerer Tag.
 
-# --- Registry: fuenf aktive Ligen -------------------------------------------
+# --- Registry: die Frauen-Ligen sind dabei ----------------------------------
 
 test_that("die Frauen-Ligen sind aktiv", {
+  # ANGEPASST in Phase 5: Die Aussage dieses Tests ist, dass die beiden
+  # Frauen-Bundesligen im Produktivpfad stehen -- nicht, wie viele Ligen es
+  # insgesamt sind. Die Gesamtliste stand hier als feste Aufzaehlung und
+  # wurde mit den Regionalligen falsch; sie ist ohnehin in
+  # test-phase5-regionalligen.R gepinnt.
   env <- new.env()
   source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
 
-  expect_equal(env$league_ids(), c("78", "79", "80", "82", "1034"))
-  expect_equal(env$active_league_keys(),
+  for (id in c("82", "1034")) {
+    expect_true(id %in% env$league_ids(), info = id)
+  }
+  for (key in c("frauen_bundesliga", "zweite_frauen_bundesliga")) {
+    expect_true(key %in% env$active_league_keys(), info = key)
+  }
+  # Und sie stehen hinter den Altligen, vor den Regionalligen -- die
+  # Reihenfolge ist die Fetch-Reihenfolge.
+  expect_equal(head(env$active_league_keys(), 5),
                c("bundesliga", "zweite_bundesliga", "dritte_liga",
                  "frauen_bundesliga", "zweite_frauen_bundesliga"))
 })
 
-test_that("die Regionalligen bleiben inaktiv", {
-  # Sie folgen erst nach Phase 6: Ihre Absteigerzahl haengt an der
-  # Drittliga-Kopplung, ein festes Abstiegs-Panel waere sichtbar falsch.
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
-
-  for (id in c("83", "84", "85", "86", "87")) {
-    expect_false(id %in% env$league_ids(), info = id)
-    expect_true(id %in% env$league_ids(active_only = FALSE), info = id)
-  }
-})
+# Der Test "die Regionalligen bleiben inaktiv" stand hier bis Phase 5. Er
+# entfaellt ersatzlos: Seine Aussage ist genau das, was Phase 5 aufhebt --
+# die fuenf Staffeln sind jetzt aktiv (test-phase5-regionalligen.R,
+# Abschnitt 1).
 
 test_that("beide Frauen-Ligen tragen das Frauen-Tormodell", {
   # Ab jetzt wirksam: Der Loop sendet die Parameter an die Engine.
@@ -143,13 +148,18 @@ test_that("die Saisonvalidierung prueft nur die Altligen", {
 
 # --- Der Loop ruft die neuen Ligen ab ---------------------------------------
 
-test_that("checkAPILimits skaliert mit fuenf Ligen", {
+test_that("checkAPILimits skaliert mit der Zahl der aktiven Ligen", {
   # Ein Live-Poll deckt alle Ligen mit einem Request ab, dazu kommen die
   # Vollabrufe. Der Default folgt der Ligazahl.
+  #
+  # ANGEPASST in Phase 5: Hier stand die 5 als Zahl. Mit den fuenf
+  # Regionalligen waeren es 10 -- und beim naechsten Livegang wieder eine
+  # andere Zahl. Sie kommt jetzt aus league_ids(), womit der Test dieselbe
+  # Aussage traegt, ohne mitgepflegt werden zu muessen.
   env <- new.env()
   source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
   source(test_path("..", "..", "RCode", "checkAPILimits.R"), local = env)
 
   expect_equal(eval(formals(env$checkAPILimits)$avg_calls_per_loop, envir = env),
-               1 + 5 / 2)
+               1 + length(env$league_ids()) / 2)
 })

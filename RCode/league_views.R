@@ -14,9 +14,42 @@
 # Die europaeischen Plaetze stehen bewusst hier und nicht in der Registry:
 # Sie folgen dem UEFA-Koeffizienten und aendern sich unabhaengig von Auf- und
 # Abstieg.
+#
+# ---------------------------------------------------------------------------
+# `computed`: Panels, die KEINE Platzgruppe sind (Phase 5, Regionalligen)
+# ---------------------------------------------------------------------------
+#
+# Bis zu den Regionalligen war jedes Panel eine Summe von Platzspalten: "die
+# letzten beiden", "Platz 1". Das setzt voraus, dass feststeht, WELCHE Plaetze
+# gemeint sind. Fuer die Regionalligen steht das nicht fest:
+#
+#   Abstieg   Nord, Nordost und SuedWest bekommen je Drittliga-Absteiger einen
+#             Abstiegsplatz mehr; wie viele es werden, weiss erst die
+#             Simulation der 3. Liga (RCode/rl_abstiegskopplung.R). West und
+#             Bayern sind zwar konstant, aber West muesste "die letzten vier"
+#             bei schwankender Ligagroesse als NEGATIVE Grenze schreiben --
+#             genau die Stelle, an der dieses Projekt schon zweimal falsch
+#             gerechnet hat -- und Bayern weist unten ZWEI Groessen aus.
+#   Aufstieg  Nord und Bayern haben 2026/27 keinen Direktplatz. Ihre
+#             Aufstiegswahrscheinlichkeit ist eine Doppelsumme ueber beide
+#             Staffeln (RCode/rl_aufstieg.R) und strikt kleiner als P(Meister).
+#
+# Beides kommt deshalb als FERTIGE Spalte herein statt als Platzband. Das Feld
+# `computed` sagt das ausdruecklich -- ein Panel ohne `groups` waere sonst nur
+# ein Fehlen, das der Renderer interpretieren muesste:
+#
+#   computed = TRUE          ganzes Panel berechnet; dann darf weder `groups`
+#                            noch `filter_cols` dastehen, und `source` zeigt
+#                            auf das fertige Objekt (Spalten = `labels`).
+#   computed = c(FALSE,TRUE) gemischtes Panel: die erste Spalte ist eine echte
+#                            Platzgruppe aus `source`/`groups`, die zweite
+#                            kommt aus `computed_source`. Ein Eintrag je Label.
+#
+# Die Reihenfolge der Eintraege in `computed` ist die der `labels`; `groups`
+# traegt nur die Spalten, fuer die `computed` FALSE ist.
 
 league_views <- function() {
-  list(
+  views <- list(
     bundesliga = list(
       slug = "index",
       nav_label = "Bundesliga",
@@ -123,6 +156,193 @@ league_views <- function() {
         labels = "Abstieg",
         groups = cbind(c(-3, -1))
       )
+    ),
+
+    # --- Regionalligen ------------------------------------------------------
+    # Reihenfolge wie in der Registry: Nord, Nordost, West, SuedWest, Bayern.
+    #
+    # Alle fuenf lesen ihr unteres Panel aus einem eigenen Objekt
+    # (Ergebnis_<schluessel>_abstieg, die Ausgabe von rl_abstiegsprognose()).
+    # Die drei Direktaufsteiger 2026/27 lesen ihr oberes Panel dagegen als
+    # gewoehnliche Platzgruppe -- dort ist P(Aufstieg) = P(Meister), und eine
+    # berechnete Spalte waere derselbe Wert auf einem laengeren Weg.
+    #
+    # Die Meisterspalte kommt aus derselben Prognosematrix wie die Heatmap,
+    # nicht aus einem Sonderlauf: Die Aufstiegsseite rechnet die
+    # Zweitvertretungen heraus (rl_aufstiegsprognose() bekommt die
+    # Aufstiegsvariante), die LIGA-Seite zeigt dagegen die Meisterchance so,
+    # wie sie sportlich zustande kommt. Ein Sonderlauf hier haette auf der
+    # Ligaseite eine Meisterchance von 0 fuer ein Team gezeigt, das sehr wohl
+    # Meister werden kann -- nur eben nicht aufsteigen darf.
+    rl_nord = list(
+      slug = "rl-nord",
+      nav_label = "Nord",
+      plot_title = "Saisonprognose Regionalliga Nord",
+      plot_source = "Ergebnis_rl_nord",
+      teams = 18L,
+      # Kein Direktplatz 2026/27: Meister zu werden reicht nicht, es folgen
+      # zwei Aufstiegsspiele. Beide Groessen stehen deshalb nebeneinander --
+      # eine einzige Spalte "Aufstieg" ueber P(Platz 1) waere die Behauptung
+      # "Meister = Aufsteiger" und damit falsch.
+      top = list(
+        source = "Ergebnis_rl_nord",
+        computed = c(FALSE, TRUE),
+        computed_source = "Ergebnis_rl_nord_aufstieg",
+        filter_cols = 1L,
+        labels = c("Meister", "Aufstieg"),
+        groups = cbind(c(1, 1))
+      ),
+      bottom = list(
+        source = "Ergebnis_rl_nord_abstieg",
+        computed = TRUE,
+        labels = "Abstieg"
+      )
+    ),
+    rl_nordost = list(
+      slug = "rl-nordost",
+      nav_label = "Nordost",
+      plot_title = "Saisonprognose Regionalliga Nordost",
+      plot_source = "Ergebnis_rl_nordost",
+      teams = 18L,
+      top = list(
+        source = "Ergebnis_rl_nordost",
+        filter_cols = 1L,
+        labels = "Aufstieg",
+        groups = cbind(c(1, 1))
+      ),
+      bottom = list(
+        source = "Ergebnis_rl_nordost_abstieg",
+        computed = TRUE,
+        labels = "Abstieg"
+      )
+    ),
+    rl_west = list(
+      slug = "rl-west",
+      nav_label = "West",
+      plot_title = "Saisonprognose Regionalliga West",
+      plot_source = "Ergebnis_rl_west",
+      teams = 18L,
+      top = list(
+        source = "Ergebnis_rl_west",
+        filter_cols = 1L,
+        labels = "Aufstieg",
+        groups = cbind(c(1, 1))
+      ),
+      bottom = list(
+        source = "Ergebnis_rl_west_abstieg",
+        computed = TRUE,
+        labels = "Abstieg"
+      )
+    ),
+    rl_suedwest = list(
+      slug = "rl-suedwest",
+      nav_label = "SüdWest",
+      plot_title = "Saisonprognose Regionalliga SüdWest",
+      plot_source = "Ergebnis_rl_suedwest",
+      teams = 18L,
+      top = list(
+        source = "Ergebnis_rl_suedwest",
+        filter_cols = 1L,
+        labels = "Aufstieg",
+        groups = cbind(c(1, 1))
+      ),
+      bottom = list(
+        source = "Ergebnis_rl_suedwest_abstieg",
+        computed = TRUE,
+        labels = "Abstieg"
+      )
+    ),
+    rl_bayern = list(
+      slug = "rl-bayern",
+      nav_label = "Bayern",
+      plot_title = "Saisonprognose Regionalliga Bayern",
+      plot_source = "Ergebnis_rl_bayern",
+      # 2026/27 mit 19 Vereinen; die Zahl ist Anzeigehinweis, gerechnet wird
+      # gegen die tatsaechliche Spaltenzahl der Prognosematrix.
+      teams = 19L,
+      top = list(
+        source = "Ergebnis_rl_bayern",
+        computed = c(FALSE, TRUE),
+        computed_source = "Ergebnis_rl_bayern_aufstieg",
+        filter_cols = 1L,
+        labels = c("Meister", "Aufstieg"),
+        groups = cbind(c(1, 1))
+      ),
+      # Zwei Groessen, die NICHT verrechnet werden: die zwei Letzten steigen
+      # direkt ab, die zwei davor gehen in die Relegation gegen zwei
+      # Bayernligisten. Die Relegation bleibt bewusst unaufgeloest -- wir
+      # simulieren die Bayernligen nicht, jede Gewinnquote waere erfunden.
+      bottom = list(
+        source = "Ergebnis_rl_bayern_abstieg",
+        computed = TRUE,
+        labels = c("Relegation", "Abstieg")
+      )
     )
+  )
+
+  # Die Aufstiegsseite ist KEINE Liga: kein api-football-Wettbewerb, keine
+  # Heatmap, kein Registry-Eintrag. Sie fasst die fuenf Staffeln zu der einen
+  # Frage zusammen, die ueber ihre Grenzen hinweg gestellt wird -- wer steigt
+  # in die 3. Liga auf.
+  #
+  # Deshalb steht sie NEBEN der Ligaliste, nicht darin: names(league_views())
+  # ist an mehreren Stellen die Ligamenge (sie wird gegen names(
+  # league_registry()) geprueft, der Loop und der Renderer iterieren
+  # darueber). Ein elftes Element haette dort ueberall eine Liga vorgetaeuscht,
+  # die es nicht gibt.
+  #
+  # Ueber `[[` bleibt sie trotzdem unter ihrem Slug erreichbar, damit der
+  # Generator sie wie jede andere Ansicht nachschlagen kann.
+  structure(
+    views,
+    class = "league_views",
+    zusatzseiten = list(`rl-aufstieg` = aufstiegsseite_view())
+  )
+}
+
+#' Nachschlagen einer Ansicht ueber ihren Schluessel oder Slug.
+#'
+#' Faellt auf die Zusatzseiten zurueck, wenn der Name keine Liga ist. Alles
+#' andere -- Laenge, names(), Iteration, einfache Klammer -- verhaelt sich
+#' unveraendert wie bei der Liste, die es vorher war.
+`[[.league_views` <- function(x, i, ...) {
+  ligen <- unclass(x)
+  if (is.character(i) && length(i) == 1L && !(i %in% names(ligen))) {
+    zusatz <- attr(x, "zusatzseiten")
+    if (!is.null(zusatz) && i %in% names(zusatz)) {
+      return(zusatz[[i]])
+    }
+  }
+  ligen[[i]]
+}
+
+#' `$` folgt demselben Weg wie `[[`, damit views$`rl-aufstieg` nicht anders
+#' antwortet als views[["rl-aufstieg"]].
+`$.league_views` <- function(x, name) {
+  x[[name]]
+}
+
+#' Die Seite "Aufstieg in die 3. Liga".
+#'
+#' Variante 2 der Entwurfsvarianten (Entscheidung 2026-09-07): Randsummen je
+#' Team statt der vollen 18x19-Paarungsmatrix. Die Matrix haette 342 Zellen,
+#' fast alle nahe null -- sie zeigt viel und sagt wenig. Die Randsummen sind
+#' dieselbe Information, ueber den Gegner ausintegriert.
+#'
+#' Vier Spalten: Team, P(Meister), P(Aufstieg), Siegquote. Die Siegquote ist
+#' der Quotient P(Aufstieg)/P(Meister) -- die ueber den Gegner ausintegrierte
+#' Zweikampfquote. Fuer die Direktaufsteiger ist sie definitionsgemaess 1.
+#'
+#' `staffeln` steht hier und nicht im Renderer: WELCHE Staffel die
+#' Aufstiegsspiele bestreitet, entscheidet aufstiegsmodus() je Saison. Die
+#' Seite kennt nur die fuenf Staffeln, nicht die Paarung.
+aufstiegsseite_view <- function() {
+  list(
+    slug = "rl-aufstieg",
+    nav_label = "Aufstieg",
+    nav_group = "Regionalliga",
+    plot_title = "Aufstieg in die 3. Liga",
+    columns = c("Meister", "Aufstieg", "Siegquote"),
+    staffeln = c("Nord", "Nordost", "West", "SuedWest", "Bayern")
   )
 }

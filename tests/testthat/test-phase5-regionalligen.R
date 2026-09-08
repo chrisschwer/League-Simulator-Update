@@ -21,19 +21,30 @@ library(testthat)
 # Spalten 17 und 18 der Prognosematrix. Das setzt voraus, dass FESTSTEHT,
 # welche Plaetze Abstiegsplaetze sind.
 #
-# Fuer vier der fuenf Regionalligen steht das gerade NICHT fest. Wie viele
+# Fuer DREI der fuenf Regionalligen steht das gerade NICHT fest. Wie viele
 # Teams absteigen, haengt davon ab, wie viele Drittligisten in genau diese
 # Staffel fallen (Phase 6, RCode/rl_abstiegskopplung.R):
 #
-#   SuedWest  3 + k, Deckel 5    -- 3 bis 5 Abstiegsplaetze
-#   Nordost   1 + k, Deckel 2    -- 1 bis 2
 #   Nord      3 + k, kein Deckel -- 3 bis 7, zusaetzlich gekoppelt an den
-#                                   EIGENEN Meisteraufstieg (Basis 2 statt 3)
-#   West      4 - k              -- 0 bis 4, GEGENLAEUFIG
-#   Bayern    konstant 2         -- entkoppelt, als einzige fest
+#                                   EIGENEN Meisteraufstieg (Basis 2 statt
+#                                   3). Die einzige Staffel mit BEIDEN
+#                                   Kopplungen.
+#   Nordost   1 + k, Deckel 2    -- 1 bis 2
+#   SuedWest  3 + k, Deckel 5    -- 3 bis 5
 #
-# Ein `groups = cbind(c(-3, -1))` waere fuer vier von fuenf Staffeln nicht
-# nur ungenau, sondern SICHTBAR FALSCH: Es behauptete eine Zahl von
+# West (konstant 4) und Bayern (konstant 2) koppeln NICHT an die 3. Liga.
+# Sie brauchen die berechnete Spalte aus anderen Gruenden:
+#
+#   West    Die Zahl ist fest, die Ligagroesse aber nicht (teams_range
+#           16-22). "Die letzten vier" liesse sich als feste Gruppe nur
+#           mit NEGATIVEN Grenzen schreiben -- und dort hat dieses Projekt
+#           schon zweimal falsch gerechnet, weil R negative Indizes als
+#           AUSSCHLUSS liest.
+#   Bayern  Weist unten ZWEI Groessen aus (Relegation und Abstieg), von
+#           denen die Relegation bewusst nicht aufgeloest wird.
+#
+# Ein `groups = cbind(c(-3, -1))` waere fuer die drei koppelnden Staffeln
+# nicht nur ungenau, sondern SICHTBAR FALSCH: Es behauptete eine Zahl von
 # Abstiegsplaetzen, die das Modell selbst nicht kennt. Genau darum wurden
 # die RL in Phase 5a zurueckgestellt (test-frauen-ligen-live.R, Kopf).
 #
@@ -219,6 +230,12 @@ RL_SCHLUESSEL <- c("rl_nord", "rl_nordost", "rl_west", "rl_suedwest",
                    "rl_bayern")
 RL_IDS <- c("84", "85", "87", "86", "83")
 RL_SLUGS <- c("rl-nord", "rl-nordost", "rl-west", "rl-suedwest", "rl-bayern")
+
+# Slug der Seite "Aufstieg in die 3. Liga". Steht hier und nicht erst bei
+# den Aufstiegstests: testthat wertet Top-Level-Code sequenziell aus, und
+# die Navigations- und Seitenzahl-Tests weiter oben brauchen den Wert
+# bereits.
+AUFSTIEGSSEITE_SLUG <- "rl-aufstieg"
 
 # Die Staffeln mit Direktaufstieg 2026/27 (Par. 55b DFB-SpO Nr. 2 plus der
 # Rotationsplatz, den 2026/27 Nordost traegt).
@@ -1185,9 +1202,6 @@ test_that("die berechnete Abstiegsspalte landet unveraendert in der Tabelle", {
 # Playoff-Staffel -- ohne Fakten fuer kuenftige Saisons zu erfinden: Die
 # injizierte Rotation ist Testeingabe, keine Behauptung ueber 2027/28.
 # Eine unbekannte Saison muss abbrechen.
-
-# Erwarteter Registry-/View-Schluessel der Seite.
-AUFSTIEGSSEITE_SLUG <- "rl-aufstieg"
 
 # Prognosematrix mit vorgegebenen Meisterchancen. Nur Spalte 1 traegt die
 # Aussage; der Rest ist Fuellmasse, damit die Matrix quadratisch bleibt.

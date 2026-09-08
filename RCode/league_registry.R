@@ -10,11 +10,13 @@
 # Warum R und nicht YAML: bleibt bei den bestehenden Konventionen, ist ohne
 # neue Dependency testbar und kann Ausdruecke tragen.
 #
-# ALLE ZEHN LIGEN stehen hier. Aktiv sind die drei Altligen und die beiden
-# Frauen-Bundesligen; die fuenf Regionalligen folgen, sobald die
-# Abstiegskopplung an die 3. Liga steht -- ihre Absteigerzahl haengt davon ab,
-# wie viele Teams aus der 3. Liga in die jeweilige Staffel fallen, und ein
-# festes Abstiegs-Panel waere auf der Seite sichtbar falsch.
+# ALLE ZEHN LIGEN stehen hier, seit Phase 5 alle aktiv. Die fuenf
+# Regionalligen mussten warten, bis die Abstiegskopplung an die 3. Liga stand
+# (RCode/rl_abstiegskopplung.R): Ihre Absteigerzahl haengt davon ab, wie viele
+# Teams aus der 3. Liga in die jeweilige Staffel fallen. Ein festes
+# Abstiegs-Panel waere auf der Seite sichtbar falsch gewesen -- deshalb kommt
+# ihr unteres Panel aus einer BERECHNETEN Spalte statt aus einer Platzgruppe
+# (league_views(), Feld `computed`).
 #
 # Die amtliche Regelgrundlage dafuer steht in
 # docs/abstieg_aufstieg_RL_2026_2027.md. Nach § 55b DFB-SpO haben West und
@@ -127,8 +129,14 @@ league_registry <- function() {
     # Kein eigenes Tormodell: Sie tauschen Teams mit der 3. Liga, gehoeren
     # also zur Wechselgemeinschaft Herren. Ein staffelweiser Intercept wuerde
     # jeden Auf- und Absteiger stillschweigend umskalieren (ADR 0004).
+    #
+    # Alle fuenf tragen `restrictions`: Auch aus der Regionalliga duerfen
+    # Zweitvertretungen nicht in die 3. Liga aufsteigen (Par. 55b DFB-SpO).
+    # Die Aufstiegstabelle braucht deshalb -- wie in der 3. Liga -- einen
+    # zweiten Lauf mit -50-Malus, sonst stuende auf der Aufstiegsseite eine
+    # Meisterchance fuer ein Team, das gar nicht aufsteigen darf.
     rl_nord = list(
-      api_id = "84", active = FALSE, family = "herren", staffel = "Nord",
+      api_id = "84", active = TRUE, family = "herren", staffel = "Nord",
       slug = "rl-nord", nav_label = "Nord", nav_group = "Regionalliga",
       display_name = "Regionalliga Nord",
       teams_range = c(16L, 22L), first_season = 2019L,
@@ -141,10 +149,11 @@ league_registry <- function() {
       promotion_slots = 0L, playoff_slots = 1L,
       # Basis OHNE Kopplung: drei Regelabsteiger (NFV-SpO Par. 6 Abs. 3);
       # je Drittliga-Absteiger kommt einer hinzu (Abs. 4, kein Deckel).
-      relegation_slots = 3L
+      relegation_slots = 3L,
+      restrictions = "Zweitvertretungen duerfen nicht aufsteigen"
     ),
     rl_nordost = list(
-      api_id = "85", active = FALSE, family = "herren", staffel = "Nordost",
+      api_id = "85", active = TRUE, family = "herren", staffel = "Nordost",
       slug = "rl-nordost", nav_label = "Nordost", nav_group = "Regionalliga",
       display_name = "Regionalliga Nordost",
       teams_range = c(16L, 22L), first_season = 2019L,
@@ -154,10 +163,11 @@ league_registry <- function() {
       promotion_slots = 1L, playoff_slots = 0L,
       # Basis ein Absteiger, bei einem Drittliga-Absteiger zwei
       # (NOFV A&A A. Nr. 5, Schema A/B).
-      relegation_slots = 1L
+      relegation_slots = 1L,
+      restrictions = "Zweitvertretungen duerfen nicht aufsteigen"
     ),
     rl_west = list(
-      api_id = "87", active = FALSE, family = "herren", staffel = "West",
+      api_id = "87", active = TRUE, family = "herren", staffel = "West",
       slug = "rl-west", nav_label = "West", nav_group = "Regionalliga",
       display_name = "Regionalliga West",
       teams_range = c(16L, 22L), first_season = 2019L,
@@ -171,10 +181,11 @@ league_registry <- function() {
       # Lizenzvereins) kann 2026/27 nicht eintreten -- die Erstvertretungen
       # aller West-Zweitvertretungen spielen in Liga 78/79 und koennen in
       # einer Saison nicht bis in die RL fallen.
-      relegation_slots = 4L
+      relegation_slots = 4L,
+      restrictions = "Zweitvertretungen duerfen nicht aufsteigen"
     ),
     rl_suedwest = list(
-      api_id = "86", active = FALSE, family = "herren", staffel = "SuedWest",
+      api_id = "86", active = TRUE, family = "herren", staffel = "SuedWest",
       slug = "rl-suedwest", nav_label = "SüdWest", nav_group = "Regionalliga",
       display_name = "Regionalliga SüdWest",
       teams_range = c(16L, 22L), first_season = 2019L,
@@ -183,10 +194,11 @@ league_registry <- function() {
       promotion_slots = 1L, playoff_slots = 0L,
       # Drei Absteiger, je Drittliga-Absteiger einer mehr, Deckel 5
       # (RLSW-SpO Par. 47 Nr. 1 und Nr. 2).
-      relegation_slots = 3L
+      relegation_slots = 3L,
+      restrictions = "Zweitvertretungen duerfen nicht aufsteigen"
     ),
     rl_bayern = list(
-      api_id = "83", active = FALSE, family = "herren", staffel = "Bayern",
+      api_id = "83", active = TRUE, family = "herren", staffel = "Bayern",
       slug = "rl-bayern", nav_label = "Bayern", nav_group = "Regionalliga",
       display_name = "Regionalliga Bayern",
       teams_range = c(16L, 22L), first_season = 2019L,
@@ -202,7 +214,8 @@ league_registry <- function() {
       # Aufstieg. Bayern hat BEIDES -- ein Aufstiegsspiel nach oben und
       # zwei Relegationsplaetze nach unten (BFV A&A II. Nr. 3). In einem
       # gemeinsamen Feld waere jeder Wert falsch.
-      relegation_playoff_slots = 2L
+      relegation_playoff_slots = 2L,
+      restrictions = "Zweitvertretungen duerfen nicht aufsteigen"
     )
   )
 }
