@@ -130,12 +130,24 @@ test_that("load_team_list akzeptiert die echte TeamList_2026", {
   expect_equal(nrow(teams), 247)
   expect_false(any(duplicated(teams$TeamID)))
 
-  # Eindeutig je Wechselgemeinschaft, nicht global: 14 Kürzel teilen sich
-  # Herren- und Frauenmannschaft desselben Vereins (SGE, HSV, SCF, RBL, ...).
-  # Das ist gewollt -- siehe Kopfkommentar.
-  for (grp in split(teams$ShortText, wechselgemeinschaft(teams$League))) {
+  # Eindeutig je LIGA, nicht je Wechselgemeinschaft: Seit Regel 3
+  # (September 2026) tragen auch zwei Herren-Vereine dasselbe Kuerzel, wenn
+  # beide darunter bekannt sind -- VFB (Stuttgart 78 / Luebeck 84), FCH
+  # (Heidenheim 79 / Hansa Rostock 80), RWE (Essen 80 / Erfurt 85).
+  #
+  # Dieser Test prueft bis dahin je Wechselgemeinschaft. Er lief gruen,
+  # weil die TeamList damals keine Herren-Dopplung enthielt -- die Luecke
+  # fiel erst auf, als die neuen Kuerzel eingetragen wurden.
+  for (grp in split(teams$ShortText, teams$League)) {
     expect_false(any(duplicated(grp)))
   }
+
+  # Die harte Ausnahme gilt weiter: Nord, Nordost und Bayern bleiben
+  # untereinander frei, weil zwei von ihnen jaehrlich die Aufstiegsspiele
+  # bestreiten und die Doppelsumme ueber Namen zuordnet.
+  playoff <- teams$ShortText[teams$League %in% c(83, 84, 85)]
+  expect_false(any(duplicated(playoff)))
+
   expect_true(any(duplicated(teams$ShortText)))
 })
 
