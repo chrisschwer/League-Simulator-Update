@@ -75,6 +75,11 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
   source("RCode/league_details.R")
   source("RCode/generate_static_site.R")
   source("RCode/league_registry.R")
+  source("RCode/staffel_zuordnung.R")
+  source("RCode/rl_abstiegskopplung.R")
+  source("RCode/aufstiegsspiele.R")
+  source("RCode/rl_aufstieg.R")
+  source("RCode/rl_verdrahtung.R")
 
   # Die Ligen dieses Laufs. Reihenfolge = Registry-Reihenfolge und damit
   # Fetch-Reihenfolge; sie ist Vertrag (test-update-loop-league-data.R).
@@ -101,6 +106,14 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
   # sondern der zweite Lauf der 3. Liga mit -50-Malus fuer Zweitvertretungen;
   # league_views() loest ihn ueber seinen Namen auf.
   ergebnisse <- list()
+
+  # Die Auszaehlung der Drittliga-Absteiger je Staffel, ueber Loops hinweg
+  # aufbewahrt. Sie haengt allein an der 3. Liga: Wurde die frueher simuliert
+  # und hat sich seither nicht geaendert, ist ihre Zaehlung nicht veraltet,
+  # sondern gueltig. Eine Regionalliga, die spaeter neu simuliert wird, muss
+  # deshalb mit genau dieser Zaehlung neu gemischt werden -- die Seite zu
+  # ueberspringen waere hier falsch, die Zahlen sind nicht erfunden.
+  drittliga_zaehlung <- NULL
 
   # Start main loop
   for (i in 1:loops) {
@@ -197,8 +210,33 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
           "Loop %d: Simulating %s with %d simulations (Rust engine)",
           i, league_name(liga_ids[[key]]), n
         ))
-        ergebnisse[[key]] <- leagueSimulatorRust(spielplan, n = n)
+        # Nur die 3. Liga sendet die Staffel-Zuordnung: Sie ist die einzige
+        # Liga, deren Absteiger sich auf mehrere Staffeln verteilen. Beide
+        # Felder gehoeren zusammen; simulate_league_rust() laesst sie weg,
+        # wenn ein Team keine Stammregion hat -- dann bleibt die Auszaehlung
+        # aus, statt eine Staffel zu erfinden.
+        zuordnung <- NULL
+        plaetze <- NULL
+        if (identical(key, "dritte_liga")) {
+          zuordnung <- rl_group_of_team(spielplan, TeamList)
+          plaetze <- rl_relegation_places(liga_ids[[key]])
+        }
+
+        ergebnisse[[key]] <- leagueSimulatorRust(
+          spielplan, n = n,
+          groupOfTeam = zuordnung, relegationPlaces = plaetze
+        )
         beendet[[key]] <- beendet_new[[key]]
+
+        # Die Zaehlung ueberlebt den Loop (s. oben) -- aber nur, wenn die
+        # 3. Liga sie diesmal wirklich geliefert hat. Ein NULL hier wuerde
+        # sonst eine gueltige Zaehlung aus einem frueheren Lauf loeschen.
+        if (identical(key, "dritte_liga")) {
+          neue_zaehlung <- attr(ergebnisse[[key]], "relegation_group_counts")
+          if (!is.null(neue_zaehlung)) {
+            drittliga_zaehlung <- neue_zaehlung
+          }
+        }
 
         # Ligen, aus denen Zweitvertretungen nicht aufsteigen duerfen,
         # brauchen eine eigene Aufstiegstabelle: ein zweiter Lauf, in dem
@@ -235,6 +273,110 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
         }
 
         simulation_executed <- TRUE
+      }
+
+      # --- Regionalligen: Abstiegs- und Aufstiegsspalten ------------------
+      #
+      # Beide Spalten sind RECHNUNGEN auf vorhandenen Ergebnissen, keine
+      # weiteren Simulationen -- die Zahl der /simulate-Aufrufe je Runde
+      # bleibt unveraendert.
+      #
+      # Sie werden in jedem Render neu gebildet, nicht nur wenn ihre eigene
+      # Staffel simuliert wurde: Die Aufstiegsspalte einer Playoff-Staffel
+      # ist eine Doppelsumme ueber BEIDE Staffeln. Simuliert der Loop nur
+      # Nord neu, aendert sich Bayerns Aufstiegswahrscheinlichkeit mit --
+      # ohne dass Bayern selbst neu gerechnet wurde.
+      #
+      # Reihenfolge: erst Aufstieg, dann Abstieg. Nords Absteigerzahl haengt
+      # am eigenen Meisteraufstieg (NFV-SpO Par. 6 Abs. 3 a.E.), und die
+      # Zahl steht erst, wenn die Aufstiegsspalte da ist.
+      rl_keys <- Filter(function(k) !is.null(league_registry()[[k]]$staffel),
+                        liga_keys)
+      if (length(rl_keys) > 0) {
+        rl_staffel <- stats::setNames(
+          vapply(rl_keys, function(k) league_registry()[[k]]$staffel, character(1)),
+          rl_keys
+        )
+
+        # Welche zwei Staffeln die Aufstiegsspiele bestreiten, sagt die
+        # Rotation der Saison -- nicht eine Liste von Namen hier. Ist die
+        # Saison nicht belegt, bleibt playoff leer und der ganze Block
+        # entfaellt still.
+        playoff <- tryCatch(aufstiegsmodus(saison)$playoff,
+                            error = function(e) character(0))
+
+        # Aufstiegstabellen der Playoff-Staffeln: der Lauf mit -50-Malus,
+        # in dem Zweitvertretungen aus dem Rennen sind. `[[` und nicht `$`:
+        # `ergebnisse$rl_nord_aufstieg` traefe per partiellem Matching auf
+        # rl_nord_aufstiegstabelle und lieferte lautlos eine Platzmatrix.
+        aufstiegstabellen <- list()
+        aktuelle_elos <- list()
+        for (k in rl_keys[rl_staffel[rl_keys] %in% playoff]) {
+          tabelle <- ergebnisse[[paste0(k, "_aufstiegstabelle")]]
+          if (is.null(tabelle) || is.null(rownames(as.matrix(tabelle)))) {
+            next
+          }
+          aufstiegstabellen[[rl_staffel[[k]]]] <- tabelle
+          # Ein Aufruf von /league-details je Playoff-Staffel, und nur fuer
+          # sie: Die Direktaufsteiger brauchen keine Zweikampfquote, also
+          # auch keine aktuelle ELO.
+          elo <- rl_aktuelle_elo(spielplaene[[k]], goal_model_args(liga_ids[[k]]))
+          if (!is.null(elo)) {
+            aktuelle_elos[[rl_staffel[[k]]]] <- elo
+          }
+        }
+
+        aufstiegsspalten <- rl_aufstiegsspalten(
+          aufstiegstabellen, aktuelle_elos, saison
+        )
+        for (k in rl_keys) {
+          spalte <- aufstiegsspalten[[rl_staffel[[k]]]]
+          if (!is.null(spalte)) {
+            ergebnisse[[paste0(k, "_aufstieg")]] <- spalte
+          }
+        }
+
+        # Ohne Zaehlung der 3. Liga gibt es keine Abstiegsspalte -- und
+        # zwar gar keine, statt einer aus dem Nichts gebauten. Der
+        # Generator ueberspringt die RL-Seiten dann von selbst.
+        if (!is.null(drittliga_zaehlung)) {
+          for (k in rl_keys) {
+            prognose <- ergebnisse[[k]]
+            if (is.null(prognose) || is.null(rownames(as.matrix(prognose)))) {
+              next
+            }
+            # P(Meister steigt auf) nur fuer Nord; die Kopplung wirkt nur
+            # dort (bei Bayern stellt der Aufstieg die Sollstaerke her,
+            # statt sie zu unterschreiten).
+            p_meister <- 0
+            if (identical(rl_staffel[[k]], "Nord")) {
+              eigene <- ergebnisse[[paste0(k, "_aufstieg")]]
+              if (is.null(eigene)) next
+              p_meister <- sum(eigene$Aufstieg)
+            }
+            # An dieser Stelle sind die Voraussetzungen bereits geprueft:
+            # Zaehlung vorhanden, Prognose vorhanden, Staffel bekannt. Ein
+            # Fehler ist hier also KEIN erwartbarer Zustand (wie eine
+            # unbelegte Saison oder ein Team ohne Region), sondern ein
+            # echter Defekt -- und der darf nicht lautlos zu einer fehlenden
+            # Seite werden. Die Seite entfaellt trotzdem, statt den Lauf zu
+            # stoppen; aber der Grund steht im Log.
+            spalte <- tryCatch(
+              rl_abstiegsprognose(rl_staffel[[k]], prognose, drittliga_zaehlung,
+                                  p_meister_aufstieg = p_meister),
+              error = function(e) {
+                message(sprintf(
+                  "Abstiegskopplung %s uebersprungen: %s",
+                  rl_staffel[[k]], conditionMessage(e)
+                ))
+                NULL
+              }
+            )
+            if (!is.null(spalte)) {
+              ergebnisse[[paste0(k, "_abstieg")]] <- spalte
+            }
+          }
+        }
       }
 
       # Regenerate the static site if simulations have been executed OR any

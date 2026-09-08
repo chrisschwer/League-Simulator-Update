@@ -6,9 +6,19 @@
 # open the printed path in a browser yourself.
 #
 # Usage: Rscript scripts/preview_site.R [ergebnis.Rds] [output_dir]
-#   ergebnis.Rds  Path to a save()-image containing Ergebnis, Ergebnis2,
-#                 Ergebnis3, Ergebnis3_Aufstieg (default: ShinyApp/data/Ergebnis.Rds)
-#   output_dir    Directory to render into (default: a fresh tempdir())
+#   ergebnis.Rds  Pfad zu einem save()-Image mit den Ergebnisobjekten
+#                 (default: ShinyApp/data/Ergebnis.Rds)
+#   output_dir    Zielverzeichnis (default: ein frisches tempdir())
+#
+# ALLE Objekte der Datei werden durchgereicht, nicht nur die vier alten:
+# Seit Phase 5 gibt es zehn Ligen, und die Regionalliga-Seiten haengen
+# zusaetzlich an berechneten Spalten (Ergebnis_rl_<staffel>_abstieg,
+# _aufstieg). Wer nur Ergebnis/Ergebnis2/Ergebnis3 weiterreicht, bekommt
+# von der Vorschau eine Seite, die es im Betrieb nicht gibt.
+#
+# Rueckwaertskompatibel: Eine Fixture mit nur den vier alten Objekten
+# rendert weiterhin genau ihre vier Seiten -- der Generator ueberspringt
+# jede Liga, deren Objekte fehlen.
 
 args <- commandArgs(trailingOnly = TRUE)
 
@@ -48,19 +58,43 @@ if (length(missing_vars) > 0) {
                paste(missing_vars, collapse = ", ")))
 }
 
-Ergebnis3_Aufstieg <- if (exists("Ergebnis3_Aufstieg", envir = data_env)) {
-  get("Ergebnis3_Aufstieg", envir = data_env)
-} else {
-  get("Ergebnis3", envir = data_env)
+# Objektname -> Schluessel: die Umkehrung von .ergebnis_objektname(). Sie
+# wird aus derselben Funktion abgeleitet und nicht danebengeschrieben,
+# damit Skript und Generator nicht auseinanderlaufen koennen. Der Generator
+# legt die Objekte gleich wieder unter ihren Namen ab -- der Umweg ueber die
+# Schluessel ist noetig, weil `ergebnisse` die Liste ist, die er nimmt.
+ergebnis_schluessel <- function(objektname) {
+  bekannt <- c("bundesliga", "zweite_bundesliga", "dritte_liga",
+               "dritte_liga_aufstieg")
+  treffer <- bekannt[vapply(bekannt, function(k) {
+    identical(.ergebnis_objektname(k), objektname)
+  }, logical(1))]
+  if (length(treffer) == 1L) {
+    return(treffer)
+  }
+  if (startsWith(objektname, "Ergebnis_")) {
+    return(sub("^Ergebnis_", "", objektname))
+  }
+  NULL
 }
 
-generate_static_site(
-  Ergebnis = get("Ergebnis", envir = data_env),
-  Ergebnis2 = get("Ergebnis2", envir = data_env),
-  Ergebnis3 = get("Ergebnis3", envir = data_env),
-  Ergebnis3_Aufstieg = Ergebnis3_Aufstieg,
-  output_dir = output_dir
-)
+ergebnisse <- list()
+for (objektname in ls(data_env)) {
+  key <- ergebnis_schluessel(objektname)
+  if (!is.null(key)) {
+    ergebnisse[[key]] <- get(objektname, envir = data_env)
+  }
+}
+
+# Die 3. Liga ohne eigenen Aufstiegslauf: Frueher fiel die Aufstiegstabelle
+# per Default-Argument auf Ergebnis3 zurueck. Ueber die Liste `ergebnisse`
+# gibt es diesen Default nicht mehr, also steht er hier -- sonst
+# uebersprungen der Generator die 3. Liga bei alten Fixtures.
+if (is.null(ergebnisse[["dritte_liga_aufstieg"]])) {
+  ergebnisse[["dritte_liga_aufstieg"]] <- ergebnisse[["dritte_liga"]]
+}
+
+generate_static_site(ergebnisse = ergebnisse, output_dir = output_dir)
 
 # The Bundesliga view has slug "index" (see RCode/league_views.R), so it
 # renders to output_dir/index.html -- the landing page for the preview.
