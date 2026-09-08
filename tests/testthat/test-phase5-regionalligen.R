@@ -540,14 +540,34 @@ test_that("P(Aufstieg) ist fuer Nord und Bayern strikt kleiner als P(Meister)", 
 # --- 2b. Unten: variable Abstiegsgrenzen ------------------------------------
 
 test_that("keine Regionalliga stellt den Abstieg als feste Platzgruppe dar", {
-  # DER FACHLICHE KERN. Vier der fuenf Staffeln haben eine variable Zahl
-  # von Abstiegsplaetzen (3-5 / 1-2 / 3-7 / 4-0). Eine `groups`-Matrix
-  # koennte nur EINE Zahl behaupten -- und waere fuer jede andere
-  # Auszaehlung der 3. Liga falsch, ohne dass etwas fehlschlaegt.
+  # DER FACHLICHE KERN, aber nicht fuer alle fuenf aus demselben Grund.
   #
-  # Auch Bayern faellt hierunter, obwohl es entkoppelt ist: Es weist unten
-  # ZWEI Groessen aus (Relegation und Abstieg), von denen die Relegation
-  # bewusst nicht aufgeloest wird -- ebenfalls keine reine Platzsumme.
+  # DREI Staffeln haben eine variable Zahl von Abstiegsplaetzen, abhaengig
+  # davon, wie viele Drittligisten in die Staffel fallen:
+  #   Nord     3-7  (3 + k, dazu 2 statt 3 als Basis, wenn der eigene
+  #                  Meister aufsteigt -- die einzige Staffel mit beiden
+  #                  Kopplungen)
+  #   Nordost  1-2  (1 + k, Schema bis 2)
+  #   SuedWest 3-5  (3 + k, Deckel 5)
+  # Eine `groups`-Matrix koennte dort nur EINE Zahl behaupten und waere
+  # fuer jede andere Auszaehlung falsch, ohne dass etwas fehlschlaegt.
+  #
+  # WEST und BAYERN sind dagegen KONSTANT (4 bzw. 2) -- sie koppeln nicht
+  # an die 3. Liga. Sie stehen aus anderen Gruenden in dieser Gruppe:
+  #
+  #   West:   Die Zahl ist fest, die Ligagroesse aber nicht (teams_range
+  #           16-22). "Die letzten vier" liesse sich nur als NEGATIVE
+  #           Grenze c(-4, -1) schreiben -- und genau dort hat dieses
+  #           Projekt schon zweimal falsch gerechnet, weil R negative
+  #           Indizes als AUSSCHLUSS liest. Die berechnete Spalte loest
+  #           die Plaetze gegen die tatsaechliche Teamzahl auf.
+  #   Bayern: weist unten ZWEI Groessen aus (Relegation und Abstieg), von
+  #           denen die Relegation bewusst nicht aufgeloest wird --
+  #           ebenfalls keine reine Platzsumme.
+  #
+  # Hier stand zuvor "vier der fuenf ... (3-5 / 1-2 / 3-7 / 4-0)". Das
+  # "4-0" beschrieb die gegenlaeufige West-Kopplung, die in babc828
+  # verworfen wurde.
   views <- source_views()$league_views()
 
   for (key in RL_SCHLUESSEL) {
