@@ -90,13 +90,25 @@ load_team_list <- function(file_path) {
     ), call. = FALSE)
   }
 
-  # Kurznamen je Wechselgemeinschaft pruefen. Ohne League-Spalte (TeamList
-  # bis Saison 2025) gilt die ganze Liste als eine Gruppe -- dort gab es nur
-  # die drei Herren-Ligen.
+  # Kurznamen je LIGA pruefen, nicht je Wechselgemeinschaft.
+  #
+  # Bis September 2026 galt Eindeutigkeit je Wechselgemeinschaft. Das war zu
+  # streng: Es verbot VFB fuer den VfB Stuttgart (78) neben dem VfB Luebeck
+  # (84), obwohl beide Vereine unter diesem Kuerzel bekannt sind. Dasselbe
+  # bei FCH (1. FC Heidenheim / F.C. Hansa Rostock) und RWE (Rot-Weiss
+  # Essen / Rot-Weiss Erfurt). Entscheidung Christoph: Wo ein Kuerzel fuer
+  # einen Verein eingefuehrt ist, bekommt er es -- massgeblich ist nicht die
+  # Haeufigkeit des Namensbestandteils, sondern welcher Verein darunter
+  # bekannt ist.
+  #
+  # Innerhalb einer Liga bleibt es scharf: Dort wird ShortText in
+  # transform_data() zum Spaltennamen, eine Dopplung vertauschte Teams
+  # stillschweigend. Ohne League-Spalte (TeamList bis Saison 2025) gilt die
+  # ganze Liste als eine Gruppe.
   gruppe <- if ("League" %in% names(teams)) {
-    wechselgemeinschaft(teams$League)
+    as.character(teams$League)
   } else {
-    rep("herren", nrow(teams))
+    rep("alle", nrow(teams))
   }
 
   dup_short <- unique(unlist(lapply(split(teams$ShortText, gruppe), function(x) {
@@ -105,12 +117,38 @@ load_team_list <- function(file_path) {
   if (length(dup_short) > 0) {
     stop(sprintf(
       paste0(
-        "load_team_list: Kurznamen sind innerhalb einer Wechselgemeinschaft ",
-        "nicht eindeutig in %s: %s. ShortText wird in transform_data() zum ",
-        "Spaltennamen -- doppelte Kurznamen vertauschen Teams stillschweigend."
+        "load_team_list: Kurznamen sind innerhalb einer Liga nicht eindeutig ",
+        "in %s: %s. ShortText wird in transform_data() zum Spaltennamen -- ",
+        "doppelte Kurznamen vertauschen Teams stillschweigend."
       ),
       file_path, paste(dup_short, collapse = ", ")
     ), call. = FALSE)
+  }
+
+  # Die harte Ausnahme: Nord (84), Nordost (85) und Bayern (83) muessen
+  # UNTEREINANDER eindeutig bleiben. Zwei von ihnen bestreiten jaehrlich die
+  # Aufstiegsspiele (rl_aufstieg.R), und aufstiegswahrscheinlichkeit()
+  # ordnet die Zweikampfquoten ueber NAMEN zu -- ein doppeltes Kuerzel
+  # vertauschte dort zwei Teams, ohne dass etwas fehlschlaegt. Welche zwei
+  # Staffeln es trifft, beschliesst das DFB-Praesidium jaehrlich neu; alle
+  # drei frei zu halten ist die einzige Fassung, die nicht jedes Jahr
+  # nachgezogen werden muss.
+  if ("League" %in% names(teams)) {
+    playoff_ligen <- c("83", "84", "85")
+    in_playoff <- as.character(teams$League) %in% playoff_ligen
+    kurz <- teams$ShortText[in_playoff]
+    dup_playoff <- unique(kurz[duplicated(kurz)])
+    if (length(dup_playoff) > 0) {
+      stop(sprintf(
+        paste0(
+          "load_team_list: Kurznamen sind zwischen den Aufstiegsspiel-Staffeln ",
+          "(Nord, Nordost, Bayern) nicht eindeutig in %s: %s. Zwei dieser drei ",
+          "spielen jaehrlich gegeneinander um den Aufstieg; die Doppelsumme ",
+          "ordnet ueber Namen zu und vertauschte die Teams stillschweigend."
+        ),
+        file_path, paste(dup_playoff, collapse = ", ")
+      ), call. = FALSE)
+    }
   }
 
   dup_id <- unique(teams$TeamID[duplicated(teams$TeamID)])
