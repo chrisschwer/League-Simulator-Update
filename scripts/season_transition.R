@@ -70,7 +70,12 @@ required_modules <- c(
 existing_modules <- c(
   "retrieveResults.R",
   "transform_data.R",
-  "Tabelle.R"  # needed by calculate_liga3_relegation_baseline in elo_aggregation.R
+  "Tabelle.R",  # needed by calculate_liga3_relegation_baseline in elo_aggregation.R
+  # Seit Issue #146, Teil 2: calculate_final_elos() holt die End-ELOs ueber
+  # POST /league-details statt sie in R zu rechnen. Ohne dieses Modul fehlten
+  # extract_fixture_details(), build_league_details_payload() und
+  # fetch_league_details() -- der Saisonwechsel braeche beim ersten Liga-Abruf ab.
+  "league_details.R"
 )
 
 # Source all modules

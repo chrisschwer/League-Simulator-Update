@@ -8,8 +8,9 @@
 # Bewusst NICHT hier: der ELO-Walk selbst. Er lebt im Rust-Server
 # (POST /league-details liefert current_elos) und wird ueber
 # calibration_walk() nur angestossen. ADR 0002 verwirft den Nachbau der
-# Modelllogik in R ausdruecklich -- calculate_elo_update() ist bereits ein
-# Teilduplikat, ein zweites kommt nicht dazu.
+# Modelllogik in R ausdruecklich. Das letzte Teilduplikat,
+# calculate_elo_update(), ist mit Issue #146, Teil 2 entfallen -- ein neues
+# kommt nicht dazu.
 #
 # Modellkonstanten: Der Intercept ist fuer ALLE Ligen gleich. ELO ist die
 # einzige Groesse, die ein Team beim Ligawechsel mitnimmt; nur wenn Ligen,

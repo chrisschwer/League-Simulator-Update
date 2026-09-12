@@ -29,6 +29,19 @@ test_that("season_transition pipeline produces byte-identical CSV from cassettes
   skip_if_not(file.exists(expected_csv),
               "Snapshot fixture missing. Run _record.R to capture it.")
 
+  # Die /league-details-Antworten sind AUFGEZEICHNET (Issue #146, Teil 2).
+  #
+  # Seit Teil 2 holt der Saisonwechsel die End-ELOs ueber POST
+  # /league-details. Der Test braucht dafuer trotzdem KEINEN laufenden
+  # Rust-Server: Die Antworten liegen als httptest-Kassetten unter
+  # localhost-8080/ neben den api-football-Kassetten.
+  #
+  # Das ist die bessere Haelfte beider Varianten -- die ELO-Physik bleibt in
+  # der geprueften Kette (die Kassetten stammen aus einem echten Lauf gegen
+  # die Engine), aber die CI braucht keinen Serverstart. Neu aufzuzeichnen ist
+  # nur, wenn sich Payload oder Modellkonstanten aendern; dann schlaegt der
+  # Test fehl, weil httptest keine passende Kassette findet.
+
   # Resolve project root. testthat sets cwd to tests/testthat/ during test_file,
   # so we walk up two levels.
   project_root <- normalizePath(file.path(testthat::test_path(), "..", ".."))

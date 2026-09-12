@@ -57,10 +57,13 @@ seasons <- as.integer(strsplit(get_opt("--seasons", "2024,2025"), ",")[[1]])
 #' Kennzahlen einer Spielmenge.
 #'
 #' Der implizite Heimvorteil wird ueber die ELO-Erwartungsformel aus dem
-#' Heim-Score-Anteil (Sieg + 1/2 Remis) zurueckgerechnet -- dieselbe Formel,
-#' die calculate_elo_update() benutzt. Achtung: Das ist eine andere Skala als
-#' der Heimvorteil des Tormodells (40); die beiden Werte sind nicht direkt
-#' vergleichbar.
+#' Heim-Score-Anteil (Sieg + 1/2 Remis) zurueckgerechnet -- also ueber
+#' 1/(1+10^(-HA/400)). Achtung: Das ist eine andere Skala als der Heimvorteil
+#' des Tormodells (40); die beiden Werte sind nicht direkt vergleichbar.
+#'
+#' Diese Formel war bis Issue #146, Teil 2 auch im Saisonwechsel verbaut
+#' (calculate_elo_update(), mit home_advantage = 100). Sie ist dort entfallen;
+#' hier bleibt sie als reines AUSWERTUNGSMASS, das nichts fortschreibt.
 league_metrics <- function(m) {
   n <- nrow(m)
   if (n == 0) return(NULL)

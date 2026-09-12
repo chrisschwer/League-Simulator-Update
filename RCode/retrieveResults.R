@@ -21,7 +21,12 @@ if (!exists("league_ids")) {
 .record_rate_limit_headers <- function(response) {
   hdrs <- httr::headers(response)
   remaining <- suppressWarnings(as.numeric(hdrs[["x-ratelimit-requests-remaining"]]))
-  if (!is.na(remaining)) {
+  # length(remaining) == 0, wenn der Header fehlt: as.numeric(NULL) ist
+  # numeric(0), und if (!is.na(numeric(0))) ist ein Fehler, kein FALSE.
+  # Fehlende Rate-Limit-Header sind aber voellig normal -- jede aufgezeichnete
+  # httptest-Kassette hat keine. Ohne diese Pruefung reisst das Buchfuehren
+  # ueber das Kontingent den ganzen Aufruf mit.
+  if (length(remaining) == 1L && !is.na(remaining)) {
     .api_rate_limit$remaining <- remaining
     .api_rate_limit$limit <- suppressWarnings(as.numeric(hdrs[["x-ratelimit-requests-limit"]]))
     .api_rate_limit$as_of <- Sys.time()

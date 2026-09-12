@@ -30,10 +30,38 @@ if (!exists("league_ids")) {
 # 3. Identify teams that finished in relegation positions
 # 4. Return mean of those teams' final ELO values
 
-calculate_final_elos <- function(season) {
-  # Aggregate final ELO ratings from all matches in a season
-  # Returns data frame with TeamID and FinalELO
-
+# Die End-ELOs einer Saison -- berechnet vom Rust-Walk, nicht in R.
+#
+# WARUM DIESE FUNKTION KEINE ELO MEHR RECHNET (Issue #146, Teil 2)
+#
+# Bis September 2026 lief hier ein zweiter, vollstaendiger ELO-Walk in R:
+# update_elos_for_match() + calculate_elo_update(). Er war mathematisch
+# identisch mit dem Rust-Walk -- dieselbe Clamp auf +/-400, dieselbe Wurzel
+# der Tordifferenz, derselbe K-Faktor 20 -- bis auf EINEN Wert:
+# home_advantage war 100 statt 40.
+#
+# Die Start-ELOs jeder neuen Saison entstanden damit auf einer Physik, mit
+# der anschliessend keine einzige Prognose rechnete.
+#
+# Einfach 40 einzusetzen war nicht moeglich: Die beiden Werte wirken ueber
+# verschiedene Formeln (Rust ueber das Poisson-Tormodell, R ueber die
+# ELO-Erwartung) und sind nicht vergleichbar; geeicht laege der R-Wert bei
+# ~25,8. Eine 25,8 einzutragen haette die zweite Physik konserviert -- mit
+# einer Zahl, die niemand mehr mit der 40 der Prognose in Beziehung setzen
+# kann. Die einzige Variante, die EINEN Heimvorteil herstellt, ist die
+# Loeschung. Damit erfuellt der Saisonwechsel endlich, was ADR 0002
+# verlangt: keine Modelllogik in R.
+#
+# DIE BEIDEN SEAMS. fetch_fn und fixtures_fn tragen Produktions-Defaults und
+# existieren, damit Tests weder einen Rust-Server noch einen API-Schluessel
+# brauchen -- dasselbe Muster wie build_league_page_data() in
+# league_details.R. Es sind zwei und nicht einer, weil
+# extract_fixture_details() die ROHEN api-football-Fixtures braucht
+# (verschachtelte fixture/league/teams/goals-Spalten); das flachgeklopfte
+# data.frame aus fetch_league_results() passt dort nicht hinein.
+calculate_final_elos <- function(season,
+                                 fetch_fn = fetch_league_details,
+                                 fixtures_fn = retrieveResults) {
   tryCatch(
     {
       # Load team list for the season - check for temporary files first
@@ -70,38 +98,148 @@ calculate_final_elos <- function(season) {
         stop(paste("Team list file not found:", team_list_file))
       }
 
-      # Initialize ELO tracking
+      # Startwert jedes Teams. Wer in keiner Liga ein Spiel hat, behaelt ihn --
+      # das ist Bestandsverhalten und traegt den Saisonwechsel in genau den
+      # Faellen, in denen er sonst abbraeche (eine Liga, die api-football fuer
+      # diese Saison nicht fuehrt; eine Saison ohne ein einziges Spiel).
       current_elos <- data.frame(
         TeamID = team_list$TeamID,
         CurrentELO = team_list$InitialELO,
+        # ShortText reist mit, weil der Payload team_names verlangt. Fehlt die
+        # Spalte (TeamLists bis Saison 2025 kennen sie), tritt die TeamID als
+        # Name ein -- sie ist ohnehin nur ein Etikett fuer die Antwort, die
+        # Zuordnung laeuft ueber die Position in teams$TeamID.
+        ShortText = if ("ShortText" %in% names(team_list)) {
+          as.character(team_list$ShortText)
+        } else {
+          as.character(team_list$TeamID)
+        },
         stringsAsFactors = FALSE
       )
 
-      # Process all leagues
-      leagues <- league_ids()  # aus der Liga-Registry
+      # Alle Ligen der Registry, nicht nur SEASON_TRANSITION_LEAGUES:
+      # Letzteres steuert die Vollstaendigkeitspruefung, nicht den Abruf.
+      # Ohne die sieben seit September 2026 dazugekommenen Ligen verloere der
+      # Saisonwechsel den Grossteil des ELO-Wissens -- Aufsteiger kaemen mit
+      # ihrem Startwert statt mit ihrer erspielten Staerke an.
+      leagues <- league_ids()
+
+      # Der eingefrorene Saison-Startstand (siehe teams-Aufbau unten).
+      start_elos <- current_elos$CurrentELO
 
       for (league in leagues) {
         cat("Processing ELO updates for league", league, "season", season, "\n")
 
-        # Get match results for this league
-        matches <- get_league_matches(league, season)
+        # Ein Fehlschlag EINER Liga darf den Saisonwechsel nicht mitreissen.
+        #
+        # Das alte get_league_matches() hatte diesen tryCatch (es gab bei
+        # Fehler NULL zurueck), und die Eigenschaft ist tragend: Der Lauf
+        # findet einmal im Juli statt und fragt zehn Ligen ab. Bricht er bei
+        # der achten ab, weil api-football fuer eine Liga die neue Saison noch
+        # nicht fuehrt, ist die Arbeit der ersten sieben verloren.
+        #
+        # Die betroffene Liga behaelt ihre Start-ELOs -- dasselbe Verhalten
+        # wie bei einer leeren Antwort, nur eben mit Warnung.
+        fixtures <- tryCatch(
+          fixtures_fn(league, season),
+          error = function(e) {
+            warning(paste("Error fetching fixtures for league", league,
+                          "season", season, ":", conditionMessage(e)))
+            NULL
+          }
+        )
 
-        if (is.null(matches) || nrow(matches) == 0) {
-          cat("No matches found for league", league, "season", season, "- ELO values will remain unchanged\n")
+        if (is.null(fixtures) || nrow(fixtures) == 0) {
+          cat("No matches found for league", league, "season", season,
+              "- ELO values will remain unchanged\n")
           next
         }
 
-        cat("Processing", nrow(matches), "matches for league", league, "season", season, "\n")
+        details <- extract_fixture_details(fixtures)
 
-        # Process each match chronologically
-        matches_sorted <- matches[order(matches$fixture_date), ]
-
-        for (i in seq_len(nrow(matches_sorted))) {
-          match <- matches_sorted[i, ]
-
-          # Update ELOs based on match result
-          current_elos <- update_elos_for_match(current_elos, match)
+        if (is.null(details) || nrow(details) == 0) {
+          cat("No usable fixtures for league", league, "season", season,
+              "- ELO values will remain unchanged\n")
+          next
         }
+
+        # Nur die Teams dieser Liga in den Payload -- und in der Reihenfolge
+        # der TeamList, nicht in der des Spielplans.
+        #
+        # Warum die Reihenfolge ueberhaupt zaehlt: antwort$current_elos kommt
+        # POSITIONAL zurueck, ausgerichtet an teams$TeamID. Wuerde hier nach
+        # Spielplan sortiert, haenge das Ergebnis daran, wer zufaellig am
+        # ersten Spieltag zuhause spielt -- reproduzierbar, aber ohne Grund
+        # verschieden zwischen zwei Laeufen mit anderer Fixture-Reihenfolge.
+        # Die TeamList-Reihenfolge ist stabil und nachvollziehbar.
+        in_liga <- current_elos$TeamID %in% c(details$home_id, details$away_id)
+        idx <- which(in_liga)
+        liga_team_ids <- current_elos$TeamID[idx]
+
+        # Teams im Spielplan, die die TeamList nicht kennt.
+        fehlend <- setdiff(unique(c(details$home_id, details$away_id)),
+                           current_elos$TeamID)
+
+        # Teams, die der Spielplan kennt, die TeamList aber nicht: Sie
+        # koennen nicht in den Payload, weil ihnen der Startwert fehlt.
+        # build_league_details_payload() wuerde sonst mit "Unknown team ID"
+        # abbrechen und den ganzen Saisonwechsel mitreissen -- deshalb fallen
+        # ihre Spiele raus statt des ganzen Laufs.
+        if (length(fehlend) > 0) {
+          warning(paste("League", league, "- Teams nicht in der TeamList, ELO bleibt unveraendert:",
+                        paste(fehlend, collapse = ", ")))
+          details <- details[!(details$home_id %in% fehlend) &
+                               !(details$away_id %in% fehlend), , drop = FALSE]
+          if (nrow(details) == 0) next
+          in_liga <- current_elos$TeamID %in% c(details$home_id, details$away_id)
+          idx <- which(in_liga)
+          liga_team_ids <- current_elos$TeamID[idx]
+        }
+
+        if (length(idx) == 0) next
+
+        # Startwert ist der Saison-Startwert, NICHT ein schon fortgeschriebener
+        # Wert.
+        #
+        # Ein Team spielt in genau einer Liga, also wird sein ELO in genau
+        # einem Schleifendurchlauf gesetzt. Wuerde hier der laufende Stand
+        # gelesen, waere das solange folgenlos -- bis ein Team doch in zwei
+        # Abrufen auftaucht (Ligawechsel waehrend der Saison, ein Team in
+        # zwei Wettbewerben, eine doppelt gefuehrte Liga). Dann liefe sein
+        # ELO-Gewinn zweimal auf, und zwar still: Das Ergebnis saehe wie eine
+        # besonders starke Saison aus.
+        #
+        # start_elos wird vor der Schleife eingefroren, deshalb ist die
+        # Reihenfolge der Ligen ohne Einfluss aufs Ergebnis.
+        teams <- data.frame(
+          TeamID = liga_team_ids,
+          InitialELO = start_elos[idx],
+          ShortText = current_elos$ShortText[idx],
+          stringsAsFactors = FALSE
+        )
+
+        # Tormodell je Wechselgemeinschaft (ADR 0004): goal_model() liefert
+        # NULL, wo der Rust-Default gilt (Herren) -- dann wird nichts
+        # gesendet. Die Frauen-Ligen 82 und 1034 tragen eigene Werte, und sie
+        # muessen hier mit, sonst rechnete der Saisonwechsel ihre End-ELOs mit
+        # dem Herren-Tormodell.
+        tormodell <- goal_model(league)
+
+        payload <- build_league_details_payload(
+          details, teams,
+          tore_slope = tormodell$tore_slope,
+          tore_intercept = tormodell$tore_intercept
+        )
+
+        antwort <- parse_league_details_response(fetch_fn(payload))
+
+        # Zurueckschreiben ueber die ID, nicht ueber die Position in
+        # current_elos: teams$TeamID traegt die Zuordnung, antwort$current_elos
+        # ist an teams ausgerichtet.
+        current_elos$CurrentELO[idx] <- antwort$current_elos
+
+        cat("Processed", nrow(details), "matches for league", league,
+            "season", season, "\n")
       }
 
       # Return final ELOs
@@ -240,76 +378,31 @@ fetch_league_results <- function(league, season) {
   return(match_data)
 }
 
-update_elos_for_match <- function(current_elos, match) {
-  # Update ELO ratings based on a single match result.
-  # Calls calculate_elo_update, the sole ELO primitive.
+# HIER STANDEN update_elos_for_match() UND calculate_elo_update().
+#
+# Beide sind mit Issue #146, Teil 2 entfallen: Sie waren der zweite ELO-Walk
+# des Projekts -- mathematisch identisch mit dem Rust-Walk bis auf
+# home_advantage, das hier 100 war statt 40. Die End-ELOs holt
+# calculate_final_elos() jetzt ueber POST /league-details, also aus derselben
+# Engine, die jede Prognose rechnet (ADR 0002).
+#
+# Wer eine ELO-Rechnung in R braucht, hat fast sicher ein anderes Problem:
+# Zwei Implementierungen widersprechen sich nur in den Zahlen, nie im Typ --
+# deshalb faellt ihr Auseinanderlaufen im Betrieb nicht auf. Der Wachhund in
+# tests/testthat/test-ein-elo-walk.R haelt die Abwesenheit fest.
 
-  home_team_id <- match$teams_home_id
-  away_team_id <- match$teams_away_id
-  goals_home <- match$goals_home
-  goals_away <- match$goals_away
 
-  home_elo <- current_elos$CurrentELO[current_elos$TeamID == home_team_id]
-  away_elo <- current_elos$CurrentELO[current_elos$TeamID == away_team_id]
-
-  if (length(home_elo) == 0 || length(away_elo) == 0) {
-    warning(paste("Team not found in ELO data for match:", home_team_id, "vs", away_team_id))
-    return(current_elos)
-  }
-
-  new_elos <- calculate_elo_update(home_elo[1], away_elo[1], goals_home, goals_away)
-
-  current_elos$CurrentELO[current_elos$TeamID == home_team_id] <- new_elos$home_elo
-  current_elos$CurrentELO[current_elos$TeamID == away_team_id] <- new_elos$away_elo
-
-  return(current_elos)
-}
-
-calculate_elo_update <- function(home_elo, away_elo, goals_home, goals_away) {
-  # Primary ELO calculation function.
-  # Implements standard ELO with goal difference modifier.
-
-  # OFFEN (September 2026): home_advantage steht hier auf 100, während die
-  # Simulation und die Spieldetails in Rust seit der Nachkalibrierung mit 40
-  # rechnen. Die beiden Werte sind NICHT direkt vergleichbar: Rust wirkt über
-  # das Poisson-Tormodell (tore_slope), diese Funktion über die
-  # ELO-Erwartungsformel. An den beobachteten Anteilen geeicht läge der Wert
-  # hier bei ~25 (100 impliziert einen Heim-Score-Anteil von 0,64 gegen
-  # gemessene 0,54).
-  #
-  # Besser als ein neuer Zahlenwert wäre, diese Funktion ganz abzulösen: Sie
-  # ist ein Teilduplikat der Rust-ELO-Logik (siehe ADR 0002, "Verworfen:
-  # Nachbau der Modelllogik in R"). Der deterministische Rust-Walk über
-  # /league-details liefert dieselben End-ELOs auf derselben Physik wie jede
-  # Prognose. Zeitlich unkritisch: läuft nur beim Saisonwechsel im Juli.
-
-  # Standard parameters
-  k_factor <- 20
-  home_advantage <- 100
-
-  # Calculate expected probability
-  elo_diff <- (away_elo - home_elo - home_advantage)
-  elo_diff <- max(min(elo_diff, 400), -400) # Clamp to ±400
-
-  expected_prob <- 1 / (1 + 10^(elo_diff / 400))
-
-  # Calculate actual result
-  goal_diff <- goals_home - goals_away
-  actual_result <- (sign(goal_diff) + 1) / 2 # 0 for loss, 0.5 for draw, 1 for win
-
-  # Goal difference modifier
-  goal_modifier <- sqrt(max(abs(goal_diff), 1))
-
-  # Calculate ELO change
-  elo_change <- (actual_result - expected_prob) * goal_modifier * k_factor
-
-  return(list(
-    home_elo = home_elo + elo_change,
-    away_elo = away_elo - elo_change
-  ))
-}
-
-calculate_liga3_relegation_baseline <- function(season) {
+# ZWEITER AUFRUFER von calculate_final_elos(), leicht zu uebersehen: Er steht
+# in derselben Datei wie der geloeschte R-Walk. Laeuft er ins Leere, faellt er
+# auf den Default 1046 zurueck -- und zwar STILL: mit einer Warnung, aber ohne
+# Fehler, und mit einem Wert, der plausibel aussieht.
+#
+# Die Seams werden durchgereicht, damit ein Test der Baseline keinen
+# Rust-Server braucht und der produktive Aufruf den Endpoint nicht zweimal
+# unterschiedlich konfigurieren muss.
+calculate_liga3_relegation_baseline <- function(season,
+                                                fetch_fn = fetch_league_details,
+                                                fixtures_fn = retrieveResults) {
   # Calculate mean ELO of teams that finished in relegation positions (17-20) in Liga3
   # This baseline is used as initial ELO for new teams entering Liga3
   #
@@ -322,7 +415,22 @@ calculate_liga3_relegation_baseline <- function(season) {
   tryCatch(
     {
       # Get final ELOs for all teams (end-of-season values after all matches)
-      final_elos <- calculate_final_elos(season)
+      #
+      # Die Seams werden nur durchgereicht, wenn die aufgerufene Funktion sie
+      # kennt. Das klingt nach Umstand, verhindert aber einen echten und
+      # besonders unangenehmen Fehlerfall: Wird calculate_final_elos() ersetzt
+      # (in Tests per stub(), im Betrieb durch eine schlankere Fassung) und
+      # nimmt nur `season`, dann scheitert der Aufruf an den unbekannten
+      # Argumenten -- und der tryCatch unten verwandelt das in die
+      # Default-Baseline 1046. Also kein Absturz, sondern eine plausible Zahl,
+      # die still in die Start-ELOs aller Liga-3-Aufsteiger wandert.
+      akzeptiert <- names(formals(calculate_final_elos))
+      final_elos <- if (all(c("fetch_fn", "fixtures_fn") %in% akzeptiert)) {
+        calculate_final_elos(season, fetch_fn = fetch_fn,
+                             fixtures_fn = fixtures_fn)
+      } else {
+        calculate_final_elos(season)
+      }
 
       # Get Liga3 matches (league 80)
       liga3_matches <- get_league_matches("80", season)
