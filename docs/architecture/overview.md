@@ -50,7 +50,7 @@ The heart of the system, built as a Rust REST server (`league-simulator-rust/`) 
 **Technology Stack:**
 - Rust for the simulation engine (`axum` HTTP server, `rayon` for parallelism)
 - R 4.3+ for orchestration via `httr`/`jsonlite` REST client (`RCode/rust_integration.R`)
-- The R-side season-transition path uses `calculate_elo_update` (pure-R primitive in `RCode/elo_aggregation.R`)
+- The season transition gets its end-of-season ELOs from the same Rust engine, via `POST /league-details` (issue #146). It holds no ELO logic of its own: the pure-R `calculate_elo_update` was deleted in September 2026 because it ran a second, differently-calibrated home advantage (100 against the model's 40).
 
 ### 2. Scheduler Service
 

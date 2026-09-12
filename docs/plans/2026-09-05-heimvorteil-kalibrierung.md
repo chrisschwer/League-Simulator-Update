@@ -127,6 +127,14 @@ etwas Unerwartetes verschiebt.
 
 ## Notiz für später (nicht Teil dieses Plans)
 
+> **Erledigt am 12.09.2026** ([Issue #146](https://github.com/chrisschwer/League-Simulator-Update/issues/146), PR #201).
+> Umgesetzt wurde Punkt 2 — und zwar in seiner radikalen Lesart: `calculate_elo_update()`
+> und `update_elos_for_match()` sind gelöscht, der Saisonwechsel holt die End-ELOs über
+> `POST /league-details`. Damit erledigt sich Punkt 1 (der „richtige" zweite Wert) von
+> selbst, genau wie hier vorhergesagt. Der nachstehende Text beschreibt den Stand vom
+> 05.09.2026.
+
+
 `calculate_elo_update()` (`RCode/elo_aggregation.R:239-267`) rechnet den Saisonwechsel mit
 HA=100 und ist ein Teilduplikat der Rust-ELO-Logik — ADR 0002 nennt es selbst als Drift-Risiko.
 Zwei Dinge stehen dort offen:

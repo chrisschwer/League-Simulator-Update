@@ -209,7 +209,7 @@ retrieve_match_data <- function(league_id, season) {
 ELO updates split between two consumers, deliberately:
 
 - **Production loop** (called many times per active window): all ELO + simulation work happens inside the Rust crate at `league-simulator-rust/src/elo/`. R sends the current ELOs and remaining fixtures over the REST seam at `localhost:8080/simulate`; Rust returns the probability matrix. See [`league-simulator-rust/src/elo/mod.rs`](../../league-simulator-rust/src/elo/mod.rs) for the formula and [`league-simulator-rust/src/api/handlers.rs`](../../league-simulator-rust/src/api/handlers.rs) for the wire contract.
-- **Season-transition (run once per season, host R, no Rust server)**: pure-R `calculate_elo_update` in [`RCode/elo_aggregation.R`](../../RCode/elo_aggregation.R). Same formula as Rust, byte-identical results across the cross-engine sweep in `tests/testthat/test-elo-aggregation-engine-selection.R`.
+- **Season transition (run once per season, host R, Rust server required)**: also the Rust engine, via `POST /league-details`. `calculate_final_elos()` in [`RCode/elo_aggregation.R`](../../RCode/elo_aggregation.R) asks the endpoint once per league and adopts the returned `current_elos`; it holds no ELO formula of its own. Until September 2026 a pure-R `calculate_elo_update` ran here — same formula, but with `home_advantage = 100` against the model's 40, so every season started on physics no forecast used (issue #146).
 
 ### Stage 3: Monte Carlo Simulation
 

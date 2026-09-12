@@ -74,7 +74,9 @@ directory as arguments.
 
 ## 5. Season transition (operator workflow)
 
-The season-transition script runs **on your local machine, on host R**. It does not require Docker, the production container, or the Rust simulation server. ELO updates are computed by the pure-R `calculate_elo_update` primitive in `RCode/elo_aggregation.R`, which is sufficient because the script is run once per season and the iteration speed of the production loop isn't needed here.
+The season-transition script runs **on your local machine, on host R**. It does not require Docker or the production container, but it **does require a running Rust server** — since issue #146 the end-of-season ELOs come from `POST /league-details` rather than from a second ELO implementation in R.
+
+Start one before running the script (see section 2 above), or point `RUST_API_URL` at an existing instance. Without it the script aborts at the first league.
 
 ```bash
 # From the repo root, with a valid RAPIDAPI_KEY in the environment:

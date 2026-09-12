@@ -74,6 +74,25 @@ erst hinterher ablehnt.
 - [ ] API key valid and has quota
 - [ ] Backup of current season data completed
 - [ ] Team information for promoted teams available
+- [ ] **Rust simulation server reachable** (see below)
+
+> **The Rust server is required.** Since [issue #146](https://github.com/chrisschwer/League-Simulator-Update/issues/146)
+> the transition gets the end-of-season ELOs from `POST /league-details` instead of computing
+> them in R. There is no fallback: without a reachable server the run aborts at the first
+> league with `Error calculating final ELOs`.
+>
+> Running the command inside the production container (Method 1 and 2 below) satisfies this
+> automatically — the container runs the server on port 8080. On host R, start one first or
+> point `RUST_API_URL` at an existing instance:
+>
+> ```bash
+> cd league-simulator-rust && cargo build --release
+> PORT=8080 ./target/release/league-simulator-rust --api &
+> curl -f http://localhost:8080/health   # expect {"status":"ok",...}
+> ```
+>
+> This replaced a second ELO implementation in R that used a different home advantage
+> (100 against the model's 40), so every season used to start on physics no forecast used.
 
 ## Season Transition Methods
 
