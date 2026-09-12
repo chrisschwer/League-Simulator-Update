@@ -746,3 +746,128 @@ test_that("rl_abstiegsprognose bricht bei unbekannter Staffel ab, statt still zu
   f <- fn(env, "rl_abstiegsprognose")
   expect_error(f("Sued", prognose, zaehlung_nordost89()), "Sued")
 })
+
+# --- Issue #185: P(Platz ist Abstiegsplatz) sichtbar machen ----------------
+#
+# platz_gewichte() rechnet die Zahl bereits aus; rl_abstiegsprognose()
+# verdichtet sie sofort per Skalarprodukt zur Team-Wahrscheinlichkeit und
+# wirft den Platzvektor weg. Genau dieser Zwischenwert ist es aber, den die
+# Seite zeigen soll: Welcher Platz geht sicher runter, welcher nur
+# vielleicht -- eine Aussage ueber den PLATZ, nicht ueber das Team.
+#
+# Der Vektor kommt als ATTRIBUT zurueck, nicht als zusaetzliche Spalte oder
+# als Liste: Die Rueckgabe ist ein data.frame je Team (rownames = Teams).
+# Eine Groesse je PLATZ passt dort in keine Spalte -- sie hat eine andere
+# Laenge und eine andere Bedeutung. Als Attribut bleibt die bestehende
+# Signatur unveraendert, und jeder vorhandene Aufrufer merkt nichts.
+
+test_that("rl_abstiegsprognose reicht P(Platz ist Abstiegsplatz) als Attribut durch", {
+  env <- source_kopplung()
+  f <- fn(env, "rl_abstiegsprognose")
+  gew <- fn(env, "platz_gewichte")
+  verteilung <- fn(env, "absteiger_verteilung")
+
+  prognose <- prognose_zeile(18L, plaetze = c(1, 15, 16, 17, 18),
+                             p = c(0.10, 0.10, 0.20, 0.30, 0.30))
+  counts <- zaehlung_nordost89()
+
+  ergebnis <- f("Nordost", prognose, counts)
+  platz_p <- attr(ergebnis, "platz_abstieg")
+
+  # Genau der Vektor, den platz_gewichte() ohnehin berechnet -- keine
+  # zweite Rechnung, die auseinanderlaufen koennte.
+  expect_equal(platz_p, gew("Nordost", verteilung(counts), 18L),
+               tolerance = 1e-12)
+  expect_length(platz_p, 18L)
+
+  # Nordost: Basis 1 Abstiegsplatz, mit 89 % ein zweiter. Platz 18 ist in
+  # JEDEM Szenario Abstiegsplatz, Platz 17 nur im 89-%-Fall, Platz 16 nie.
+  expect_equal(platz_p[[18]], 1, tolerance = 1e-12)
+  expect_equal(platz_p[[17]], 0.89, tolerance = 1e-12)
+  expect_equal(platz_p[[16]], 0, tolerance = 1e-12)
+})
+
+test_that("das Attribut laesst die bisherige Rueckgabe unveraendert", {
+  # Absicherung der Entwurfsentscheidung: Ein Attribut darf den data.frame
+  # nicht veraendern -- weder Spalten noch Zeilen noch Werte. Sonst haette
+  # jeder bestehende Aufrufer eine stille Aenderung.
+  env <- source_kopplung()
+  f <- fn(env, "rl_abstiegsprognose")
+  prognose <- prognose_zeile(18L, plaetze = c(17, 18), p = c(0.5, 0.5))
+  counts <- zaehlung_nordost89()
+
+  ergebnis <- f("Nordost", prognose, counts)
+
+  expect_identical(names(ergebnis), "Abstieg")
+  expect_identical(rownames(ergebnis), rownames(prognose))
+  # Der Wert entsteht weiterhin aus Prognose x Gewichten.
+  expect_equal(ergebnis["A", "Abstieg"],
+               0.5 * 0.89 + 0.5 * 1, tolerance = 1e-12)
+})
+
+test_that("Bayern reicht Relegations- und Abstiegsplaetze GETRENNT durch", {
+  # Die beiden Groessen duerfen nicht zu einer Zahl addiert werden (das ist
+  # der ausdrueckliche Punkt 3 aus Issue #185): Die zwei Letzten steigen
+  # direkt ab, die zwei davor spielen Relegation gegen die Bayernliga --
+  # ein Ausgang, den wir nicht simulieren. Zwei Attribute, zwei Farben.
+  env <- source_kopplung()
+  f <- fn(env, "rl_abstiegsprognose")
+
+  prognose <- prognose_zeile(19L, plaetze = c(16, 17, 18, 19),
+                             p = c(0.25, 0.25, 0.25, 0.25))
+  ergebnis <- f("Bayern", prognose, zaehlung_nordost89())
+
+  platz_ab <- attr(ergebnis, "platz_abstieg")
+  platz_rel <- attr(ergebnis, "platz_relegation")
+
+  expect_length(platz_ab, 19L)
+  expect_length(platz_rel, 19L)
+
+  # 19 Teams: Direktabstieg auf 18 und 19, Relegation auf 16 und 17.
+  expect_equal(platz_ab[c(18, 19)], c(1, 1), tolerance = 1e-12)
+  expect_equal(platz_ab[c(16, 17)], c(0, 0), tolerance = 1e-12)
+  expect_equal(platz_rel[c(16, 17)], c(1, 1), tolerance = 1e-12)
+  expect_equal(platz_rel[c(18, 19)], c(0, 0), tolerance = 1e-12)
+
+  # Und sie bleiben getrennt: kein Platz traegt beides.
+  expect_true(all(platz_ab * platz_rel == 0))
+})
+
+test_that("nur Bayern traegt ein Relegations-Attribut", {
+  # Die anderen vier Staffeln kennen keine Abstiegsrelegation. Ein Attribut
+  # mit lauter Nullen waere schlimmer als keines: Der Renderer muesste
+  # raten, ob "alles 0" bedeutet "keine Relegation" oder "Relegation, aber
+  # gerade unwahrscheinlich".
+  env <- source_kopplung()
+  f <- fn(env, "rl_abstiegsprognose")
+  prognose <- prognose_zeile(18L, plaetze = 18, p = 1)
+
+  for (staffel in c("Nord", "Nordost", "West", "SuedWest")) {
+    ergebnis <- f(staffel, prognose, zaehlung_nordost89())
+    expect_null(attr(ergebnis, "platz_relegation"), info = staffel)
+    expect_false(is.null(attr(ergebnis, "platz_abstieg")), info = staffel)
+  }
+})
+
+test_that("Nords Meisteraufstieg senkt auch die PLATZ-Wahrscheinlichkeiten", {
+  # Steigt der Nord-Meister auf, hat Nord einen Abstiegsplatz weniger. Das
+  # wirkt schon auf die Team-Zahl (Test weiter oben) -- der Platzvektor muss
+  # dieselbe Mischung tragen, sonst widersprechen sich Linie und Fussnote
+  # auf derselben Seite.
+  env <- source_kopplung()
+  f <- fn(env, "rl_abstiegsprognose")
+  gew <- fn(env, "platz_gewichte")
+  verteilung <- fn(env, "absteiger_verteilung")
+  counts <- zaehlung_nordost89()
+  prognose <- prognose_zeile(18L, plaetze = 18, p = 1)
+
+  ohne <- attr(f("Nord", prognose, counts), "platz_abstieg")
+  mit <- attr(f("Nord", prognose, counts, p_meister_aufstieg = 0.4),
+              "platz_abstieg")
+
+  expect_equal(mit, gew("Nord", verteilung(counts), 18L,
+                        p_meister_aufstieg = 0.4), tolerance = 1e-12)
+  # Weniger Abstiegsplaetze heisst: kein Platz wird gefaehrdeter.
+  expect_true(all(mit <= ohne + 1e-12))
+  expect_true(any(mit < ohne - 1e-12))
+})
