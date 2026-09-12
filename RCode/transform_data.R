@@ -198,6 +198,51 @@ load_team_list <- function(file_path) {
   teams
 }
 
+#' Chronologische Sortierung, ohne die Kopplung an `elo_neutral` zu gefaehrden.
+#'
+#' WARUM DIESER HELFER EXISTIERT (Design 2026-09-12, Teil 1): `elo_neutral`
+#' reist als Attribut zeilengleich mit `df_final` und wird von
+#' rust_integration.R:237 an die Engine gereicht (Issue #157). Sortierte man
+#' `df_final` direkt und den Vektor separat "von Hand" mit derselben Absicht,
+#' waere das Vergessen der zweiten Sortierung ein Tippfehler entfernt -- und
+#' liesse den ELO-Walk lautlos die falschen Spiele ueberspringen (siehe
+#' Testkommentar in test-elo-walk-reihenfolge.R). Dieser Helfer haengt
+#' `elo_neutral` stattdessen selbst als Spalte an, sortiert EIN Objekt, und
+#' trennt danach wieder. Das Vergessen ist damit konstruktiv ausgeschlossen,
+#' nicht bloss durch einen Test abgesichert.
+#'
+#' @param df data.frame mit den Spielen, in beliebiger (aber definierter)
+#'   Reihenfolge.
+#' @param kickoff Vektor der Anstosszeiten, zeilengleich mit `df`. Kann
+#'   fehlen (NULL) oder einzelne NA enthalten.
+#' @param original_order Vektor der Eingabereihenfolge, zeilengleich mit
+#'   `df` -- der Tiebreak bei gleicher Anstosszeit und der Rueckfall, wenn
+#'   `kickoff` ganz fehlt.
+#' @param elo_neutral Logischer Vektor, zeilengleich mit `df`.
+#' @return Liste mit `df` (sortiert, ohne Hilfsspalten) und `elo_neutral`
+#'   (mitsortiert).
+sortiere_chronologisch_mit_elo_neutral <- function(df, kickoff, original_order,
+                                                    elo_neutral) {
+  # Ohne Anstosszeit (die Spalte fehlt ganz, siehe create_test_fixtures_api())
+  # ist die API-Reihenfolge die beste verfuegbare Naeherung an die Chronologie
+  # -- und das Verhalten von heute. Aktiv abfangen statt blind zu sortieren:
+  # ein NULL in order() wuerde nicht falsch sortieren, sondern abstuerzen.
+  if (is.null(kickoff)) {
+    kickoff <- rep(NA_real_, nrow(df))
+  }
+
+  # order(..., na.last = TRUE) schiebt Spiele ohne Termin ans Ende und
+  # sortiert die uebrigen dennoch korrekt chronologisch; OriginalOrder ist
+  # der stabile Tiebreak bei Gleichstand (und der alleinige Schluessel, wenn
+  # kickoff komplett fehlt).
+  reihenfolge <- order(kickoff, original_order, na.last = TRUE)
+
+  list(
+    df = df[reihenfolge, , drop = FALSE],
+    elo_neutral = elo_neutral[reihenfolge]
+  )
+}
+
 transform_data <- function(fixtures, teams) {
   # Nur Hauptrundenspiele gehoeren in die Simulation: API-Football liefert die
   # Relegations-Playoffs als Runde "Final" im Liga-Feed mit, und der
@@ -260,26 +305,51 @@ transform_data <- function(fixtures, teams) {
   ergebnis_steht <- c("FT", "AET", "PEN", STATUS_AWARDED_SIM)
   unfinished <- !df_final$fixture_status_short %in% ergebnis_steht
 
-  # Status vor dem select() sichern -- danach traegt df_final nur noch Tore
-  # und Teamspalten. arrange(OriginalOrder) stellt die Eingabereihenfolge
-  # wieder her, in der auch dieser Vektor steht.
-  df_final_status <- df_final$fixture_status_short[order(df_final$OriginalOrder)]
+  # elo_neutral entsteht HIER, in der aktuellen (noch unsortierten)
+  # Zeilenreihenfolge von df_final -- und muss ab jetzt bei jeder weiteren
+  # Umsortierung zeilengleich mitgenommen werden. sortiere_chronologisch_
+  # mit_elo_neutral() weiter unten ist die einzige Stelle, die das leistet.
+  elo_neutral <- df_final$fixture_status_short %in% STATUS_AWARDED_SIM
   df_final$ToreHeim[unfinished] <- NA
   df_final$ToreGast[unfinished] <- NA
 
+  # fixture_date existiert nur, wenn die Eingabe ein `date`-Feld mitbrachte
+  # (unnest() legt die Spalte sonst gar nicht an, siehe
+  # create_test_fixtures_api() in helper-fixtures.R) -- NULL statt eines
+  # Spaltenzugriffs, der mit "object not found" abstuerzen wuerde.
+  fixture_date <- if ("fixture_date" %in% names(df_final)) df_final$fixture_date else NULL
+  original_order <- df_final$OriginalOrder
 
   df_final <- df_final %>%
     select(
       TeamHeim, TeamGast, ToreHeim, ToreGast,
-      all_of(sort(unique(c(df_final$TeamHeim, df_final$TeamGast)))),
-      OriginalOrder
-    ) %>%
-    arrange(OriginalOrder) %>%
-    select(-OriginalOrder) # remove the OriginalOrder column
+      all_of(sort(unique(c(df_final$TeamHeim, df_final$TeamGast))))
+    )
 
   df_final <- as_tibble(df_final)
   df_final$ToreHeim <- as.numeric(df_final$ToreHeim)
   df_final$ToreGast <- as.numeric(df_final$ToreGast)
+
+  # Chronologische Sortierung, Teil 1 des Designs vom 12.09.2026: Der
+  # Rust-ELO-Walk verarbeitet die Zeilen in genau dieser Reihenfolge. Bisher
+  # war das die API-Reihenfolge -- bei einem Nachholspiel weicht die vom
+  # Kalender ab (siehe Kommentar am Dateianfang). sortiere_chronologisch_
+  # mit_elo_neutral() sortiert df_final und elo_neutral als EIN Objekt, damit
+  # die Kopplung nicht durch zwei getrennte Sortieraufrufe auseinanderlaufen
+  # kann.
+  #
+  # WICHTIG: Das muss VOR der ELO-Reduktion unten passieren. Diese reduziert
+  # je Teamspalte auf den Wert in Zeile 1 -- der Vertrag von
+  # rust_integration.R ist "ELO steht in Zeile 1", nicht "irgendeine Zeile".
+  # Sortierte man erst NACHDEM der ELO-Wert auf eine beliebige (durch
+  # which(!is.na(...))[1] bestimmte) Position eingesammelt wurde, wanderte er
+  # bei der anschliessenden Sortierung mit seiner Zeile mit -- an Position 1
+  # stuende dann oft ein anderes Spiel, ohne ELO. Der Test "Spaltenstruktur:
+  # numberTeams = ncol - 4" prueft genau das.
+  sortiert <- sortiere_chronologisch_mit_elo_neutral(
+    df_final, fixture_date, original_order, elo_neutral
+  )
+  df_final <- sortiert$df
 
   # Each team column carries the team's InitialELO in every row where the
   # team plays. Keep it only in the first line; all other lines become NA.
@@ -295,8 +365,7 @@ transform_data <- function(fixtures, teams) {
   # zeilengleich mit und wird von leagueSimulatorRust() als `elo_neutral` an
   # die Engine gereicht: Ergebnis zaehlt fuer die Endtabelle, ELO-Walk
   # ueberspringt es (Issue #157).
-  attr(df_final, "elo_neutral") <-
-    df_final_status %in% STATUS_AWARDED_SIM
+  attr(df_final, "elo_neutral") <- sortiert$elo_neutral
 
   return(df_final)
 }

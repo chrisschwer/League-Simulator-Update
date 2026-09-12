@@ -77,22 +77,62 @@ vier_runden_response <- function() {
       ' "score_matrix": [[0.5, 0.5], [0.0, 0.0]]}'
     ), index, th, ta, played, gh, ga, delta, ph, px, pa)
   }
-  paste0(
-    '{"matches": [',
-    eintrag(0, 1, 2, "true", "2", "1", "7.5", "0.44", "0.26", "0.30"), ",",
-    eintrag(1, 3, 4, "true", "0", "0", "-1.8", "0.43", "0.26", "0.31"), ",",
-    eintrag(2, 2, 3, "true", "1", "1", "2.1", "0.38", "0.27", "0.35"), ",",
-    eintrag(3, 1, 4, "false", "null", "null", "null", "0.41", "0.27", "0.32"), ",",
-    eintrag(4, 2, 4, "false", "null", "null", "null", "0.40", "0.26", "0.34"), ",",
-    eintrag(5, 3, 1, "false", "null", "null", "null", "0.45", "0.26", "0.29"),
-    '], "current_elos": [1505.7, 1481.6, 1518.4, 1494.3],',
-    ' "team_names": ["ALP", "BET", "GAM", "DEL"]}'
+  # ANGEPASST (#146): Die Antwort folgt jetzt der Reihenfolge des
+  # GESENDETEN Payloads statt einer festen Liste.
+  #
+  # Vorher waren die sechs Eintraege hart in API-Reihenfolge notiert. Das
+  # traf zu, solange extract_fixture_details() unsortiert durchreichte --
+  # seit der chronologischen Sortierung nicht mehr, und der positionale
+  # cbind in build_league_page_data() klebte die Werte an die falschen
+  # Zeilen.
+  #
+  # Der echte Server verhaelt sich so, wie es hier jetzt nachgebildet ist:
+  # `index` ist laut league_details/mod.rs:40 "Position im Request-Schedule".
+  # Am laufenden Server gegengeprueft, mit einem Payload, dessen fixture_ids
+  # absichtlich nicht aufsteigend waren -- die Antwort folgte dem Gesendeten.
+  #
+  # Damit ist der Mock immun gegen kuenftige Sortieraenderungen: Er
+  # antwortet auf das, was tatsaechlich geschickt wurde.
+  werte <- list(
+    # Schluessel: "team_home-team_away" (1-basierte Team-Indizes)
+    "1-2" = list("7.5", "0.44", "0.26", "0.30"),
+    "3-4" = list("-1.8", "0.43", "0.26", "0.31"),
+    "2-3" = list("2.1", "0.38", "0.27", "0.35"),
+    "1-4" = list("null", "0.41", "0.27", "0.32"),
+    "2-4" = list("null", "0.40", "0.26", "0.34"),
+    "3-1" = list("null", "0.45", "0.26", "0.29")
   )
+
+  function(payload) {
+    teile <- vapply(seq_along(payload$schedule), function(i) {
+      zeile <- payload$schedule[[i]]
+      th <- zeile[[1]]
+      ta <- zeile[[2]]
+      gh <- zeile[[3]]
+      ga <- zeile[[4]]
+      gespielt <- !is.null(gh) && !is.na(gh) && !is.null(ga) && !is.na(ga)
+      w <- werte[[paste0(th, "-", ta)]]
+      eintrag(
+        i - 1L, th, ta,
+        if (gespielt) "true" else "false",
+        if (gespielt) as.character(gh) else "null",
+        if (gespielt) as.character(ga) else "null",
+        if (gespielt) w[[1]] else "null",
+        w[[2]], w[[3]], w[[4]]
+      )
+    }, character(1))
+
+    paste0(
+      '{"matches": [', paste(teile, collapse = ","),
+      '], "current_elos": [1505.7, 1481.6, 1518.4, 1494.3],',
+      ' "team_names": ["ALP", "BET", "GAM", "DEL"]}'
+    )
+  }
 }
 
 page_data <- function() {
   build_league_page_data(vier_runden_fixtures(), vier_runden_teams(),
-                         fetch_fn = function(...) vier_runden_response())
+                         fetch_fn = vier_runden_response())
 }
 
 test_that("rueckblick enthält die gefensterten Spiele mit Endpoint-Werten", {
@@ -127,8 +167,19 @@ test_that("spieltag nennt die Runden für Rückblick-Überschrift und Ausblick-Z
 test_that("ein gespieltes Nachholspiel behält seine Kennzeichnung nach dem Join", {
   # Spiel 4002 (Runde 1) ist auf den 29.11. verlegt und nachgeholt; Runde 2
   # ist komplett abgeschlossen (4004 jetzt FT). Anker = Runde 2 -> 4002 fällt
-  # als markiertes Nachholspiel ins Fenster und trägt trotzdem seine
-  # Endpoint-Werte von Index 1 (Join per Position, nicht Fenster-Reihenfolge).
+  # als markiertes Nachholspiel ins Fenster und trägt trotzdem SEINE eigenen
+  # Endpoint-Werte, nicht die eines anderen Spiels.
+  #
+  # ANGEPASST (#146): Vorher stand hier "Endpoint-Werte von Index 1 (Join per
+  # Position)" und zwei sub()-Aufrufe, die den Antwort-String umschrieben.
+  # Beides hing daran, dass extract_fixture_details() in API-Reihenfolge
+  # durchreichte. Seit der chronologischen Sortierung stimmt die feste
+  # Index-Zuordnung nicht mehr; der Mock folgt jetzt dem gesendeten Payload
+  # (s. vier_runden_response), und die Tore holt er sich von dort -- die
+  # sub()-Manipulation ist damit entbehrlich.
+  #
+  # Die Aussage des Tests ist unverändert: 4002 behält seine Kennzeichnung
+  # als Nachholspiel UND seine eigenen Werte.
   fx <- vier_runden_fixtures()
   fx$fixture[[2]] <- data.frame(id = 4002, date = "2026-11-29T17:30:00+00:00",
                                 status = I(list(data.frame(short = "FT"))))
@@ -136,21 +187,17 @@ test_that("ein gespieltes Nachholspiel behält seine Kennzeichnung nach dem Join
                                 status = I(list(data.frame(short = "FT"))))
   fx$goals[[4]] <- data.frame(home = 2, away = 0)
 
-  antwort <- sub('"index": 3, "team_home": 1, "team_away": 4, "played": false, "goals_home": null, "goals_away": null,',
-                 '"index": 3, "team_home": 1, "team_away": 4, "played": true, "goals_home": 2, "goals_away": 0,',
-                 vier_runden_response(), fixed = TRUE)
-  antwort <- sub('"elo_home_pre": 1500.0, "elo_away_pre": 1500.0, "elo_delta_home": null, "lambda_home": 1.4, "lambda_away": 1.2, "p_home_win": 0.41',
-                 '"elo_home_pre": 1500.0, "elo_away_pre": 1500.0, "elo_delta_home": 3.3, "lambda_home": 1.4, "lambda_away": 1.2, "p_home_win": 0.41',
-                 antwort, fixed = TRUE)
-
   pd <- build_league_page_data(fx, vier_runden_teams(),
-                               fetch_fn = function(...) antwort)
+                               fetch_fn = vier_runden_response())
 
   rb <- pd$rueckblick
   expect_equal(rb$fixture_id, c(4003, 4004, 4002)) # chronologisch ab Runde-2-Beginn
   expect_equal(rb$nachholspiel, c(FALSE, FALSE, TRUE))
   nachzuegler <- rb[rb$fixture_id == 4002, ]
-  expect_equal(nachzuegler$elo_delta_home, -1.8) # Wert von Index 1, nicht verrutscht
+  # 4002 ist Gamma-Delta (Team-Indizes 3-4), sein Wert ist -1.8 -- derselbe
+  # wie vor dieser Aenderung. Verrutschte die Zuordnung, staende hier der
+  # Wert eines Nachbarn (7.5 fuer 1-2, 2.1 fuer 2-3).
+  expect_equal(nachzuegler$elo_delta_home, -1.8)
   expect_equal(nachzuegler$round, 1L)
   expect_equal(pd$spieltag$rueckblick, 2L) # Überschrift ohne Nachholspiel-Runde
 })
