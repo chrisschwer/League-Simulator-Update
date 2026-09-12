@@ -157,3 +157,62 @@ test_that("Engine-Antwort und Staffelnamen passen zusammen", {
   expect_equal(counts[[1]][[3]], 200)
   expect_equal(counts[[5]][[1]], 200)
 })
+
+# --- Nicht eindeutige Kuerzel ----------------------------------------------
+#
+# GEFUNDEN AN DER LAUFENDEN SEITE, nicht an den Tests: In Regionalliga
+# Nordost trug Platz 17 keine Abstiegszone, obwohl Hansa Rostock als
+# einziger Nordost-Drittligist ein Abstiegsrisiko von rund 2,5 % hat.
+#
+# Ursache: `ShortText` ist in der TeamList NICHT eindeutig. "FCH" traegt
+# sowohl 1. FC Heidenheim (Liga 79, SuedWest) als auch Hansa Rostock
+# (Liga 80, Nordost). group_of_team() loest per match() auf, und match()
+# nimmt den ERSTEN Treffer -- also Heidenheim. Rostocks Abstiegsrisiko
+# landete dadurch bei SuedWest, und die Nordost-Zeile der Auszaehlung stand
+# auf P(0 Absteiger) = exakt 1.
+#
+# Warum die bisherigen Tests das nicht sahen: Sie reichen stets eine SCHON
+# auf eine Liga gefilterte TeamList herein (`group_of_team(liga3$ShortText,
+# liga3)`). Innerhalb einer Liga sind die Kuerzel eindeutig -- die
+# Kollision entsteht erst ligauebergreifend, und genau so ruft der
+# Produktivpfad auf (update_all_leagues_loop.R uebergibt die ganze
+# TeamList).
+#
+# Der Test faehrt deshalb bewusst den Produktivpfad: ungefilterte TeamList.
+
+test_that("group_of_team loest ein doppeltes Kuerzel nicht auf den falschen Verein auf", {
+  env <- source_zuordnung()
+
+  # Minimal, aber mit der echten Kollision: dasselbe Kuerzel in zwei Ligen
+  # und zwei Staffeln. Die Reihenfolge ist die der TeamList -- der falsche
+  # Treffer steht zuerst, sonst wuerde match() zufaellig richtig liegen.
+  teams <- data.frame(
+    ShortText = c("FCH", "AAA", "FCH"),
+    League    = c(79L, 80L, 80L),
+    Region    = c("SuedWest", "Nord", "Nordost"),
+    stringsAsFactors = FALSE
+  )
+
+  # Gefragt ist die Zuordnung fuer die 3. Liga (League == 80).
+  idx <- env$group_of_team(c("FCH", "AAA"), teams[teams$League == 80L, ])
+
+  expect_equal(idx, c(1L, 0L))  # Nordost, Nord
+})
+
+test_that("group_of_team meldet ein mehrdeutiges Kuerzel, statt still das erste zu nehmen", {
+  # Die scharfe Fassung: Wird die Funktion mit einer Liste aufgerufen, in
+  # der das Kuerzel mehrfach vorkommt, darf sie NICHT stillschweigend den
+  # ersten Treffer nehmen. Ein stiller Fehler in der Zuordnung ist genau
+  # der Fall, den der Dateikopf als "gefaehrlichste Stelle" benennt: Die
+  # Zahlen sind falsch, und nichts schlaegt fehl.
+  env <- source_zuordnung()
+
+  teams <- data.frame(
+    ShortText = c("FCH", "FCH"),
+    League    = c(79L, 80L),
+    Region    = c("SuedWest", "Nordost"),
+    stringsAsFactors = FALSE
+  )
+
+  expect_error(env$group_of_team("FCH", teams), "FCH")
+})

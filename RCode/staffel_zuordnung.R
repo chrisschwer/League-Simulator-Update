@@ -57,9 +57,29 @@ staffel_index <- function(region) {
 #' i-ten Team des Spielplans -- NICHT zur i-ten Zeile der TeamList. Beide
 #' Reihenfolgen unterscheiden sich in der Regel.
 #'
+#' WARUM `teams` AUF EINE LIGA GEFILTERT SEIN MUSS: `ShortText` ist in der
+#' TeamList nicht eindeutig. "FCH" traegt 1. FC Heidenheim (Liga 79) und
+#' Hansa Rostock (Liga 80); "VFB", "RWE", "SGS" und rund vierzig weitere
+#' Kuerzel kommen ebenfalls mehrfach vor, quer ueber Herren-, Frauen- und
+#' Zweitvertretungen. Innerhalb EINER Liga sind sie eindeutig.
+#'
+#' match() nahm hier still den ersten Treffer. Fuer die 3. Liga hiess das:
+#' "FCH" wurde zu Heidenheim aufgeloest und Rostocks Abstiegsrisiko der
+#' Staffel SuedWest zugeschlagen, waehrend die Nordost-Zeile der Auszaehlung
+#' auf P(0 Absteiger) = exakt 1 stand. An der Regionalliga Nordost fehlte
+#' dadurch die Abstiegszone auf Platz 17. Gefunden an der laufenden Seite --
+#' die Tests reichten stets eine schon gefilterte TeamList herein und waren
+#' deshalb gruen (Issue #185).
+#'
+#' Ein mehrdeutiges Kuerzel bricht jetzt ab, statt eine von zwei moeglichen
+#' Antworten zu waehlen: Diese Datei ist laut ihrem eigenen Kopf die
+#' gefaehrlichste Stelle der Kopplung, weil ein Fehler hier die Absteiger
+#' der falschen Staffel zuzaehlt, ohne dass irgendetwas fehlschlaegt.
+#'
 #' @param team_shorttexts Kurznamen in Spielplan-Reihenfolge (die Teamspalten
 #'   des Simulations-Data-Frames).
-#' @param teams TeamList-Ausschnitt mit den Spalten ShortText und Region.
+#' @param teams TeamList-Ausschnitt mit den Spalten ShortText und Region,
+#'   auf GENAU EINE Liga gefiltert (s. oben).
 #' @return Integer-Vektor, so lang wie `team_shorttexts`.
 group_of_team <- function(team_shorttexts, teams) {
   idx <- match(team_shorttexts, teams$ShortText)
@@ -68,6 +88,23 @@ group_of_team <- function(team_shorttexts, teams) {
     stop(sprintf(
       "group_of_team: Team(s) nicht in der TeamList: %s",
       paste(team_shorttexts[is.na(idx)], collapse = ", ")
+    ), call. = FALSE)
+  }
+
+  # Nur die angefragten Kuerzel pruefen: Dass die TeamList als ganze
+  # Dubletten enthaelt, ist normal und kein Fehler.
+  mehrfach <- team_shorttexts[
+    vapply(team_shorttexts, function(k) sum(teams$ShortText == k) > 1L,
+           logical(1))
+  ]
+  if (length(mehrfach) > 0) {
+    stop(sprintf(
+      paste0(
+        "group_of_team: mehrdeutige(s) Kuerzel: %s. `teams` muss auf eine ",
+        "Liga gefiltert sein -- sonst waehlte match() still einen der ",
+        "Treffer und zaehlte die Absteiger der falschen Staffel zu."
+      ),
+      paste(unique(mehrfach), collapse = ", ")
     ), call. = FALSE)
   }
 

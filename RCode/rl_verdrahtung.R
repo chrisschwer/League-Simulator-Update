@@ -30,16 +30,32 @@
 #' zaehlte die Absteiger der falschen Staffel zu, ohne dass etwas
 #' fehlschlaegt.
 #'
+#' AUF DIE LIGA FILTERN, NICHT DIE GANZE TEAMLIST WEITERGEBEN: Kuerzel sind
+#' nur innerhalb einer Liga eindeutig ("FCH" = Heidenheim in Liga 79, Hansa
+#' Rostock in Liga 80). Ungefiltert loeste match() in group_of_team() still
+#' den falschen Verein auf; Rostocks Abstiegsrisiko landete bei SuedWest
+#' statt Nordost, und an der Regionalliga Nordost fehlte die Abstiegszone
+#' auf Platz 17. Begruendung im Detail bei group_of_team().
+#'
 #' @param spielplan Der Simulations-Data-Frame: vier Spielspalten, dann je
 #'   Team eine ELO-Spalte. Ihre Namen sind die Kurznamen in Spielplan-
 #'   Reihenfolge.
 #' @param teams TeamList mit den Spalten ShortText und Region.
+#' @param liga Liga-ID, auf die `teams` gefiltert wird (Default "80" -- die
+#'   3. Liga ist die einzige Liga, deren Absteiger sich auf mehrere Staffeln
+#'   verteilen).
 #' @return Integer-Vektor je Team, oder NULL, wenn die Zuordnung nicht
 #'   herzustellen ist (keine Spalte Region, Team ausserhalb der TeamList,
 #'   unbekannte Region). NULL heisst: nichts senden.
-rl_group_of_team <- function(spielplan, teams) {
+rl_group_of_team <- function(spielplan, teams, liga = "80") {
   if (is.null(teams$Region)) {
     return(NULL)
+  }
+
+  # Die Spalte heisst League und traegt die ID als Zahl oder String; beides
+  # ueber as.character verglichen, damit "80" und 80 gleich behandelt werden.
+  if (!is.null(teams$League)) {
+    teams <- teams[as.character(teams$League) == as.character(liga), ]
   }
 
   kurznamen <- names(spielplan)[5:ncol(spielplan)]
