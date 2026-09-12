@@ -28,6 +28,10 @@
 :root{
   --paper:#FFFFFF; --surface-2:#F5F3EE; --ink:#15130F; --ink-2:#312E29; --ink-3:#6B655C;
   --rule:#D4CEBF; --rule-soft:#E3DED0; --akzent:#B0261E; --tinte:#1F3A4D; --ocker:#B8893A;
+  /* Aufstiegsgruen (Issue #185): in Saettigung und Helligkeit auf --akzent
+     und --ocker abgestimmt, damit die drei Zonenfarben als eine Familie
+     lesbar sind. */
+  --gruen:#3F7D3A;
   --serif:'Source Serif 4',Georgia,serif; --sans:'Inter Tight',-apple-system,'Helvetica Neue',Arial,sans-serif;
   --mono:'JetBrains Mono',Menlo,Consolas,monospace;
 }
@@ -99,6 +103,29 @@ table.liga th[scope=col] button[aria-sort=ascending]::after{content:"\2191";colo
 table.liga tbody th{font-weight:400;text-align:left;padding:7px 12px 7px 0;border-bottom:.5px solid var(--rule-soft)}
 table.liga td{padding:7px 12px;border-bottom:.5px solid var(--rule-soft)}
 table.liga td.num,table.liga td{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;text-align:right}
+
+/* Auf-/Abstiegszonen (Issue #185) -- eine duenne Linie links an der Zeile.
+   --zone-p traegt die WAHRSCHEINLICHKEIT; die Untergrenze steht hier, damit
+   die Zahl im HTML mit der Fussnote vergleichbar bleibt. Ohne sie saehe
+   "kann noch passieren" aus wie "ausgeschlossen".
+   Die Zonen gehoeren zum Tabellenplatz: Sie erscheinen nur, solange die
+   Tabelle nach Platz sortiert ist (data-zonen), weil sonst neben dem
+   ELO-Schlechtesten ein rotes "steigt sicher ab" stuende. */
+table.liga[data-zonen="platz"] tr[data-zone] td:first-child{position:relative}
+table.liga[data-zonen="platz"] tr[data-zone] td:first-child::before{
+  content:"";position:absolute;left:0;top:2px;bottom:2px;width:3px;border-radius:1px;
+  opacity:max(.15, var(--zone-p, 0))}
+table.liga[data-zonen="platz"] tr[data-zone="abstieg"] td:first-child::before{background:var(--akzent)}
+table.liga[data-zonen="platz"] tr[data-zone="relegation"] td:first-child::before{background:var(--ocker)}
+table.liga[data-zonen="platz"] tr[data-zone="aufstieg"] td:first-child::before{background:var(--gruen)}
+
+/* Zonen-Fussnote: das Kleingedruckte unter der Tabelle. */
+.zonen-fussnote{font-family:var(--sans);font-size:12px;color:var(--ink-3);margin:10px 0 0;line-height:1.5}
+.zonen-fussnote .zone-key{display:inline-block;width:8px;height:8px;border-radius:1px;margin-right:4px;
+  vertical-align:baseline}
+.zonen-fussnote .zone-key.abstieg{background:var(--akzent)}
+.zonen-fussnote .zone-key.relegation{background:var(--ocker)}
+.zonen-fussnote .zone-key.aufstieg{background:var(--gruen)}
 
 /* Spiele (Rückblick/Live/Ausblick) */
 .matches{display:flex;flex-direction:column}

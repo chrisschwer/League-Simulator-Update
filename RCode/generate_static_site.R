@@ -999,7 +999,71 @@ generate_static_site <- function(Ergebnis = NULL, Ergebnis2 = NULL,
               paste0("±", formatted)))
 }
 
-render_liga_tabelle <- function(tabelle) {
+# ---------------------------------------------------------------------------
+# Auf- und Abstiegszonen an der Ligatabelle (Issue #185)
+#
+# Eine duenne farbige Linie links an der Zeile sagt, was dieser PLATZ am
+# Saisonende bedeutet: rot Abstieg, gelb Relegation (nur Bayern), gruen
+# Aufstieg. Die Deckkraft folgt der Wahrscheinlichkeit -- bei drei der fuenf
+# Staffeln haengt die Absteigerzahl an der 3. Liga, derselbe Platz kann dort
+# je nach deren Ausgang Abstiegsplatz sein oder nicht.
+#
+# NICHT in der Heatmap: Deren Zellfarbe ist mit der Wahrscheinlichkeit belegt
+# (.heat_style). Ein zweiter Verlauf im selben Kanal waere mehrdeutig.
+#
+# Mindestdeckkraft: Jedes P > 0 bleibt sichtbar. Ohne Untergrenze saehe
+# "kann noch passieren" aus wie "ausgeschlossen" -- und genau diese
+# Unterscheidung ist der Zweck der Abstufung. Angewandt wird sie im
+# Stylesheet (max(.15, var(--zone-p))), damit --zone-p die Wahrscheinlichkeit
+# selbst bleibt und nicht eine daraus gerechnete Groesse.
+.ZONE_MIN_DECKKRAFT <- 0.15
+
+# Die Zone eines Platzes: Rot vor Gelb vor Gruen. Der Vorrang ist in der
+# Praxis nie noetig -- bei 18 bis 19 Vereinen liegen Platz 1 und die
+# Abstiegsplaetze weit auseinander. Er steht hier, damit die Funktion auch
+# fuer eine kuenftig kleinere Liga eine definierte Antwort gibt, statt zwei
+# Linien uebereinanderzulegen.
+.zone_von_platz <- function(zonen, platz) {
+  kandidaten <- list(
+    list(name = "abstieg", p = zonen$abstieg[platz]),
+    list(name = "relegation", p = if (is.null(zonen$relegation)) 0 else zonen$relegation[platz]),
+    list(name = "aufstieg", p = zonen$aufstieg[platz])
+  )
+  for (k in kandidaten) {
+    if (length(k$p) == 1L && !is.na(k$p) && k$p > 0) {
+      return(list(name = k$name, p = k$p))
+    }
+  }
+  NULL
+}
+
+# Die Zonen-Attribute einer Tabellenzeile. Leerer String, wo keine Zone ist:
+# So bleibt das HTML ohne Zonen zeichengleich zu vorher.
+.zone_attrs <- function(zonen, platz) {
+  if (is.null(zonen)) {
+    return("")
+  }
+  zone <- .zone_von_platz(zonen, platz)
+  if (is.null(zone)) {
+    return("")
+  }
+  # --zone-p traegt die WAHRSCHEINLICHKEIT selbst, nicht eine daraus
+  # gerechnete Deckkraft. Zwei Gruende: Die Zahl bleibt im HTML lesbar und
+  # mit der Fussnote vergleichbar, und die Untergrenze ist eine Frage der
+  # Darstellung -- sie gehoert ins Stylesheet, das sie per max() anwendet,
+  # nicht in den Renderer.
+  sprintf(' data-zone="%s" style="--zone-p:%s"',
+          zone$name, format(round(zone$p, 4), trim = TRUE, scientific = FALSE))
+}
+
+#' Ligatabelle, optional mit Auf-/Abstiegszonen.
+#'
+#' @param tabelle Der angereicherte data.frame aus build_league_page_data().
+#' @param zonen NULL oder eine Liste mit den Vektoren `abstieg`, `aufstieg`
+#'   (je Platz) und optional `relegation` (nur Bayern). Ohne zonen rendert
+#'   die Funktion zeichengleich wie vor Issue #185 -- die fuenf Nicht-RL-
+#'   Ligen rufen sie weiterhin ohne auf.
+render_liga_tabelle <- function(tabelle, zonen = NULL) {
   header <- paste0(
     "<thead><tr>\n",
     "<th scope=\"col\"><button data-key=\"platz\" data-dir=\"asc\" ",
@@ -1017,7 +1081,7 @@ render_liga_tabelle <- function(tabelle) {
     row <- tabelle[i, ]
     paste0(
       "<tr data-platz=\"", row$platz, "\" data-pkt=\"", row$punkte,
-      "\" data-elo=\"", row$elo, "\">",
+      "\" data-elo=\"", row$elo, "\"", .zone_attrs(zonen, row$platz), ">",
       "<td class=\"num\">", row$platz, "</td>",
       "<th scope=\"row\">", htmltools::htmlEscape(row$name), "</th>",
       "<td class=\"num opt\">", row$spiele, "</td>",
@@ -1029,9 +1093,65 @@ render_liga_tabelle <- function(tabelle) {
     )
   }, character(1))
 
+  # data-zonen haelt fest, dass die aktuelle Sortierung die Zonen TRAEGT.
+  # Sie gehoeren zum Tabellenplatz, nicht zum Team: Nach ELO sortiert
+  # stuende sonst neben dem ELO-Schlechtesten ein rotes "steigt sicher ab",
+  # obwohl er tabellarisch Achter ist. Das Sortierskript entfernt das
+  # Attribut bei jeder anderen Spalte, das CSS blendet die Linien dann aus.
+  #
+  # Auch bei "Punkte", obwohl die Reihenfolge dort meist stimmt: Bei
+  # Punktgleichheit entscheidet die Tordifferenz, und dann saesse die Linie
+  # unbemerkt auf dem falschen Team. Eine Regel ohne Ausnahme ist hier
+  # sicherer als eine mit einer seltenen.
+  zonen_state <- if (is.null(zonen)) "" else " data-zonen=\"platz\""
+
   paste0(
-    "<table class=\"liga\" id=\"ligatabelle\">\n",
+    "<table class=\"liga\" id=\"ligatabelle\"", zonen_state, ">\n",
     header, "<tbody>", paste0(rows, collapse = ""), "</tbody></table>"
+  )
+}
+
+#' Das Kleingedruckte unter der RL-Ligatabelle (Issue #185).
+#'
+#' Die Linien zeigen, WELCHER Platz betroffen ist; hier steht, WARUM die
+#' Zahl schwankt und wie hoch sie je Platz ist. Bewusst klein und unter der
+#' Tabelle: Wer es genau wissen will, findet es; alle anderen lesen die
+#' Farbe.
+#'
+#' @param zonen Liste wie in render_liga_tabelle().
+#' @param regel Ein Satz zur Abstiegsregel der Staffel.
+#' @return HTML-Absatz.
+render_zonen_fussnote <- function(zonen, regel) {
+  # Nur Plaetze MIT Risiko. Alle 18 aufzuzaehlen hiesse, 16-mal "0 %" zu
+  # schreiben -- das verdeckt die drei Zahlen, auf die es ankommt.
+  eintrag <- function(vektor, klasse, wort) {
+    if (is.null(vektor)) {
+      return(character(0))
+    }
+    plaetze <- which(vektor > 0)
+    if (length(plaetze) == 0) {
+      return(character(0))
+    }
+    teile <- vapply(plaetze, function(p) {
+      sprintf("Platz %d: %s\u00a0%%", p, prozent(vektor[[p]]))
+    }, character(1))
+    paste0(
+      "<span class=\"zone-key ", klasse, "\"></span>", wort, " \u2014 ",
+      paste(teile, collapse = ", "), "."
+    )
+  }
+
+  saetze <- c(
+    eintrag(zonen$aufstieg, "aufstieg", "Aufstieg"),
+    eintrag(zonen$relegation, "relegation", "Relegation"),
+    eintrag(zonen$abstieg, "abstieg", "Abstieg")
+  )
+
+  paste0(
+    "<p class=\"zonen-fussnote\">",
+    htmltools::htmlEscape(regel), " ",
+    paste(saetze, collapse = " "),
+    "</p>"
   )
 }
 
@@ -1043,6 +1163,11 @@ render_liga_tabelle <- function(tabelle) {
   "  table.querySelectorAll('th button[data-key]').forEach(function(btn){\n",
   "    btn.addEventListener('click',function(){\n",
   "      var key=btn.dataset.key, dir=btn.dataset.dir;\n",
+  # Zonen gehoeren zum Tabellenplatz: bei jeder anderen Sortierung weg.
+  "      if(table.hasAttribute('data-zonen')||key==='platz'){\n",
+  "        if(key==='platz'){table.setAttribute('data-zonen','platz');}\n",
+  "        else{table.removeAttribute('data-zonen');}\n",
+  "      }\n",
   "      table.querySelectorAll('th button').forEach(function(b){b.removeAttribute('aria-sort')});\n",
   "      btn.setAttribute('aria-sort',dir==='asc'?'ascending':'descending');\n",
   "      var rows=Array.prototype.slice.call(tbody.rows);\n",
