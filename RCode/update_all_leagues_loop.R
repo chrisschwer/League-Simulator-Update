@@ -147,8 +147,6 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
     }
 
     if (need_full_fetch) {
-      last_full_fetch_loop <- i
-
       # Fixtures je Liga. Der lapply-Aufruf bleibt bewusst INLINE: Die Tests
       # stubben retrieveResults() gegen die Umgebung dieser Funktion; in eine
       # ausgelagerte Helferfunktion greift der Stub nicht mehr.
@@ -162,6 +160,19 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
         message(sprintf("Loop %d: ERROR - One or more API calls failed. Skipping this iteration.", i))
         next
       }
+
+      # Der Safety-Timer haengt am ERFOLG, nicht am Versuch (Issue #128):
+      # Die Zuweisung stand frueher vor dem is.null-Check daruber. Ein
+      # fehlgeschlagener Sicherheits-Abruf stellte den Zaehler damit
+      # zurueck, als waere er gelungen -- das Netz war fuer weitere
+      # full_fetch_every Runden abgeschaltet, genau waehrend die API klemmt.
+      #
+      # Die Folge der Verschiebung: Im Leerlauf bleibt der Abruf nach einem
+      # Fehlschlag faellig und wiederholt sich jede Runde, bis er gelingt.
+      # Das ist gewollt -- bei zehn Ligen kostet ein ganztaegiger Ausfall
+      # rund 4.000 der 7.500 Tages-Requests, und schnelles Wiederaufsetzen
+      # ist in genau diesem Fall das, was man will.
+      last_full_fetch_loop <- i
 
       # Resolve pending finished fixtures: an id leaves the set once the
       # season data shows it final (beendet or verschoben), or when no league

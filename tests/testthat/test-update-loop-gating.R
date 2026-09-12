@@ -188,6 +188,90 @@ test_that("full_fetch_every forces a periodic safety-net fetch even when idle", 
   expect_equal(live_poll_count, 3) # loops 2-4
 })
 
+# --- Der Safety-Timer haengt am ERFOLG des Fetches (Issue #128, Punkt 1) ---
+#
+# Das Sicherheitsnetz (full_fetch_every) existiert fuer den Fall, dass die
+# Flanken-Erkennung etwas verpasst. Wird sein Zaehler schon beim VERSUCH
+# zurueckgesetzt statt beim Erfolg, ist es genau dann abgeschaltet, wenn es
+# gebraucht wird: waehrend die API klemmt. Bei Produktionstakt (2 Minuten,
+# Default 30) verzoegert das den naechsten Versuch um bis zu eine Stunde.
+#
+# Die beiden Tests halten die zwei Haelften derselben Aussage fest -- ohne
+# den zweiten liesse sich der erste erfuellen, indem man den Timer gar nicht
+# mehr setzt.
+#
+# ANNAHME BEIDER HARNESSE: Loop 1 ruft ohne Live-Poll voll ab, der erste
+# Poll gehoert zu Loop 2. Daraus leiten sie die Rundennummer ab
+# (aktueller_loop = polls + 1). Wuerde Punkt 2 des Issues (Loop-1-Seeding)
+# je ueber einen ZUSAETZLICHEN Poll geloest, waere die Zaehlung um eins
+# verschoben. Die im Issue-Kommentar vom 06.09.2026 vorgeschlagene
+# billigere Variante -- prev_live_ids aus den Statusdaten des Loop-1-
+# Vollabrufs seeden, ohne Extra-Request -- beruehrt sie nicht.
+
+# Ein Durchlauf von fuenf durchgehend leeren Runden mit full_fetch_every = 3.
+# Nur der Safety-Fetch kann hier abrufen; `fetch_faellt_aus` bestimmt, ob der
+# faellige Abruf in Loop 4 gelingt. Genau darin unterscheiden sich die beiden
+# Tests -- alles andere ist identisch, und als zwei Kopien nebeneinander
+# waere der eine Unterschied nicht zu sehen.
+#
+# @return Die Loop-Nummern, in denen abgerufen wurde.
+lauf_mit_safety_fetch <- function(fetch_faellt_aus) {
+  fetch_loops <- integer(0)
+  polls <- 0L
+  aktueller_loop <- 1L # Loop 1 ruft ohne Poll voll ab
+
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
+    if (league == "78") {
+      fetch_loops <<- c(fetch_loops, aktueller_loop)
+    }
+    if (fetch_faellt_aus && aktueller_loop == 4L) {
+      return(NULL) # der faellige Abruf scheitert, fuer JEDE Liga
+    }
+    fake_fixtures(c("FT", "NS"))
+  })
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) {
+    # Der Poll laeuft genau einmal je Loop und vor dem Abruf; der erste
+    # gehoert zu Loop 2 (s. Annahme oben).
+    polls <<- polls + 1L
+    aktueller_loop <<- polls + 1L
+    integer(0) # durchgehend idle
+  })
+  stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
+  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) {
+    matrix(1 / 18, nrow = 18, ncol = 18)
+  })
+  stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
+  stub(update_all_leagues_loop, "generate_static_site", function(...) invisible(character(0)))
+
+  with_repo_root({
+    update_all_leagues_loop(
+      duration = 0, loops = 5, initial_wait = 0, n = 10,
+      saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
+      static_site_dir = tempdir(), full_fetch_every = 3
+    )
+  })
+
+  fetch_loops
+}
+
+test_that("ein fehlgeschlagener Safety-Fetch setzt den Timer NICHT zurueck", {
+  # Loop 1: Vollabruf ohne Poll, gelingt -> Timer auf 1. Loops 2, 3: idle,
+  # 1 bzw. 2 < 3 -> kein Abruf. Loop 4: 4 - 1 = 3 >= 3, faellig -> Abruf,
+  # schlaegt fehl. Loop 5: Der Timer darf noch auf 1 stehen, also
+  # 5 - 1 = 4 >= 3 -> erneuter Versuch. Mit dem Fehler stuende er auf 4
+  # (5 - 4 = 1 < 3) und Loop 5 bliebe still.
+  expect_identical(lauf_mit_safety_fetch(fetch_faellt_aus = TRUE), c(1L, 4L, 5L))
+})
+
+test_that("ein erfolgreicher Safety-Fetch setzt den Timer sehr wohl zurueck", {
+  # Gegenprobe: Der Fix darf den Timer nicht abschaffen, sondern nur an den
+  # Erfolg binden. Gelingt Loop 4, steht der Timer auf 4 und Loop 5 bleibt
+  # still (5 - 4 = 1 < 3).
+  expect_identical(lauf_mit_safety_fetch(fetch_faellt_aus = FALSE), c(1L, 4L))
+})
+
+
 # Shared harness for the site-generation gate: runs a short loop with every
 # collaborator stubbed and returns how often generate_static_site() fired.
 run_loop_counting_generation <- function(loops, simulate) {
