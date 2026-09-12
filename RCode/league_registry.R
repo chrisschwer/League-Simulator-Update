@@ -175,10 +175,7 @@ league_registry <- function() {
       # Basis ein Absteiger, bei einem Drittliga-Absteiger zwei
       # (NOFV A&A A. Nr. 5, Schema A/B).
       relegation_slots = 1L,
-      relegation_regel = paste(
-        "Ein Verein steigt ab, zwei bei einem Absteiger aus der 3. Liga.",
-        "Nordost hat damit die schmalste Abstiegszone der fünf Staffeln."
-      ),
+      relegation_regel = "Ein Verein steigt ab, zwei bei einem Absteiger aus der 3. Liga.",
       restrictions = "Zweitvertretungen duerfen nicht aufsteigen"
     ),
     rl_west = list(
