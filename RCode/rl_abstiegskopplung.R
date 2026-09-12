@@ -315,7 +315,14 @@ platz_gewichte <- function(staffel, verteilung, teams, p_meister_aufstieg = 0) {
   # sind die Wettbewerbe disjunkt, das Produkt ist exakt (s. Dateikopf). Wer
   # beide Faelle verwechselt, haelt hier eine Naeherung fuer exakt -- oder
   # rechnet dort umstaendlich, wo nichts zu naehern ist.
-  (1 - p) * w_bleibt + p * w_auf
+  # Auf [0, 1] geklemmt: Die Mischung kann durch Fliesskomma-Rundung knapp
+  # daneben landen -- in Nord ergab sie fuer den letzten Platz 1 + 2.2e-16.
+  # Das ist rechnerisch belanglos, in der Anzeige aber nicht: prozent()
+  # prueft `x == 1` exakt und schreibt sonst ">99 %" statt des Haekchens,
+  # obwohl der Platz garantiert Abstiegsplatz ist. Gefunden bei der QA am
+  # gerenderten HTML (Issue #185) -- an den Zahlen selbst faellt so etwas
+  # nicht auf.
+  pmin(pmax((1 - p) * w_bleibt + p * w_auf, 0), 1)
 }
 
 #' Platzgewichte aus einer Verteilung ueber k und den zugehoerigen

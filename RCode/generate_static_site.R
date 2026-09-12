@@ -1202,6 +1202,21 @@ rl_zonen <- function(view_key, data_env) {
   )
 }
 
+#' Ein Prozentwert fuer die Fussnote, in der Schreibweise der Seite.
+#'
+#' prozent() ersetzt 100 % durch ein Haekchen (render_helpers.R:37) -- so
+#' halten es Heatmap und Panels. Ein "%" dahinter waere dann falsch: Das
+#' Haekchen IST die Aussage, keine Zahl. Gefunden bei der QA am gerenderten
+#' HTML, wo "Platz 18: \u2713 %" stand.
+.zone_prozent <- function(p) {
+  wert <- prozent(p)
+  if (identical(as.character(wert), intToUtf8(0x2713))) {
+    as.character(wert)
+  } else {
+    paste0(wert, "\u00a0%")
+  }
+}
+
 #' Verteilung der Absteigerzahl, aus dem Platzvektor zurueckgewonnen.
 #'
 #' Bei Nord, Nordost und SuedWest steht nicht fest, wie viele Vereine
@@ -1253,7 +1268,7 @@ render_zonen_fussnote <- function(zonen, regel) {
       return(character(0))
     }
     teile <- vapply(plaetze, function(p) {
-      sprintf("Platz %d: %s\u00a0%%", p, prozent(vektor[[p]]))
+      sprintf("Platz %d: %s", p, .zone_prozent(vektor[[p]]))
     }, character(1))
     paste0(
       "<span class=\"zone-key ", klasse, "\"></span>", wort, " \u2014 ",
@@ -1266,7 +1281,7 @@ render_zonen_fussnote <- function(zonen, regel) {
   verteilung <- absteigerzahl_verteilung(zonen$abstieg)
   verteilungssatz <- if (length(verteilung) > 1L) {
     teile <- vapply(names(verteilung), function(z) {
-      sprintf("%s mit %s\u00a0%%", z, prozent(verteilung[[z]]))
+      sprintf("%s mit %s", z, .zone_prozent(verteilung[[z]]))
     }, character(1))
     paste0("Zahl der Absteiger: ", paste(teile, collapse = ", "), ".")
   } else {
