@@ -766,8 +766,8 @@ async fn simulate_rejects_group_of_team_of_wrong_length() {
     let mut payload = relegation_payload(100);
     payload["group_of_team"] = json!([0, 0, 1]); // 4 Teams, 3 Eintraege
 
-    let (status, _) = send(post_simulate_json(payload)).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, body) = send(post_simulate_json(payload)).await;
+    assert_bad_request(status, &body, "group_of_team must have one entry per team");
 }
 
 #[tokio::test]
@@ -777,8 +777,8 @@ async fn simulate_rejects_relegation_places_out_of_range() {
     let mut payload = relegation_payload(100);
     payload["relegation_places"] = json!(5); // nur 4 Teams
 
-    let (status, _) = send(post_simulate_json(payload)).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, body) = send(post_simulate_json(payload)).await;
+    assert_bad_request(status, &body, "relegation_places must be between 1 and");
 }
 
 #[tokio::test]
@@ -788,8 +788,8 @@ async fn simulate_rejects_group_of_team_without_relegation_places() {
     let mut payload = relegation_payload(100);
     payload.as_object_mut().unwrap().remove("relegation_places");
 
-    let (status, _) = send(post_simulate_json(payload)).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, body) = send(post_simulate_json(payload)).await;
+    assert_bad_request(status, &body, "group_of_team requires relegation_places");
 }
 
 // --- /match-preview: ein virtuelles Spiel ohne Spielplan ---------------------

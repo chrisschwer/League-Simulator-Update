@@ -46,26 +46,34 @@ wechselgemeinschaft <- function(league_id) {
 #' Spalten -- und damit stillschweigend vertauschte Teams. R meldet das nicht.
 #' Eine doppelte TeamID vervielfacht ueber den merge() Zeilen, ebenso leise.
 #'
-#' Bis zum Ligen-Ausbau wurde Eindeutigkeit nur JE LIGA hergestellt
-#' (generate_unique_short_name() bekommt die Namen einer Liga). Bei 56 Teams
-#' in drei Ligen trug das; bei 237 Teams in zehn Ligen, darunter rund 30
-#' Zweitvertretungen, sind Kollisionen ueber Ligagrenzen hinweg der Normalfall.
+#' Bei 56 Teams in drei Ligen war jede Dopplung ein Versehen. Mit zehn Ligen
+#' und 175 aktiven Teams (247 Zeilen inklusive historischer) sind Kollisionen
+#' ueber Ligagrenzen hinweg der Normalfall -- und teils gewollt.
 #'
-#' Massgeblich ist die WECHSELGEMEINSCHAFT, nicht die gesamte Liste. Zwei
-#' Gruende:
+#' Massgeblich ist die LIGA, nicht die gesamte Liste und nicht die
+#' Wechselgemeinschaft. transform_data() wird je Liga aufgerufen; nur Teams
+#' derselben Liga werden je zu Spalten desselben Data-Frames. Eine Dopplung
+#' ueber Ligagrenzen hinweg kann dort also keinen Schaden anrichten.
 #'
-#'  - Notwendig: Innerhalb einer Wechselgemeinschaft wechseln Teams die Liga.
-#'    Ein Kurzname muss deshalb ueber alle ihre Ligen hinweg eindeutig sein,
-#'    nicht nur innerhalb einer.
-#'  - Ausreichend: transform_data() wird JE LIGA aufgerufen; nur Teams
-#'    derselben Liga werden je zu Spalten desselben Data-Frames. Herren und
-#'    Frauen tauschen nie Teams (ADR 0004) und teilen nie einen Data-Frame --
-#'    eine Kollision zwischen ihnen kann keinen Schaden anrichten.
+#' Sie ist sogar erwuenscht: So traegt jeder Verein das Kuerzel, unter dem er
+#' bekannt ist, statt eines Ausweichnamens -- die Frauenmannschaft dasselbe
+#' wie die Herrenmannschaft (SCF, RBL, HSV), und VfB Stuttgart (78) wie VfB
+#' Luebeck (84) beide VFB. In der Darstellung ueberschneiden sie sich nicht,
+#' jede Liga hat ihre eigene Seite.
 #'
-#' Und sie ist erwuenscht: So traegt die Frauenmannschaft eines Vereins
-#' dasselbe Kuerzel wie die Herrenmannschaft (SCF, RBL, HSV) statt eines
-#' Ausweichnamens (SCFA, RBLA, HAM). In der Darstellung ueberschneiden sie
-#' sich nicht -- jede Liga hat ihre eigene Seite.
+#' KORRIGIERT mit Issue #129: Hier stand bis hierher, massgeblich sei die
+#' WECHSELGEMEINSCHAFT. Das beschrieb den Stand vor PR #183 (Commit b680302)
+#' und widersprach seither der Implementierung 40 Zeilen tiefer sowie dem
+#' Inline-Kommentar direkt darueber. Die Lockerung war eine Entscheidung
+#' Christophs: Wo ein Kuerzel fuer einen Verein eingefuehrt ist, bekommt er
+#' es -- massgeblich ist nicht die Haeufigkeit des Namensbestandteils,
+#' sondern welcher Verein darunter bekannt ist.
+#'
+#' EINE Ausnahme bleibt hart, s. u.: Nord (84), Nordost (85) und Bayern (83)
+#' muessen UNTEREINANDER eindeutig sein. Zwei von ihnen bestreiten jaehrlich
+#' die Aufstiegsspiele, und aufstiegswahrscheinlichkeit() ordnet die
+#' Zweikampfquoten ueber NAMEN zu -- dort vertauschte ein doppeltes Kuerzel
+#' zwei Teams, ohne dass etwas fehlschlaegt.
 #'
 #' Bewusst NICHT geprueft wird die Laenge der Kurznamen: Die neuen Ligen
 #' brauchen vier Zeichen (WACA, BAYB, FR2B). Entscheidend ist Eindeutigkeit,
