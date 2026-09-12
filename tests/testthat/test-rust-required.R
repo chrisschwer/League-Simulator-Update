@@ -5,12 +5,30 @@ library(testthat)
 
 # --- Helpers: start/stop the Rust API server in the background ---
 
+# Sucht das Rust-Binary an BEIDEN Orten, an denen es real liegt (Issue #146,
+# Teil 2).
+#
+# Bis hierher kannte die Funktion nur den Entwicklerpfad. In der CI laeuft die
+# R-Suite aber IM PRODUKTIONSIMAGE (.github/workflows/ci.yml, Job
+# "image-build-and-test"), und dort installiert das Dockerfile:116 das Binary
+# nach /usr/local/bin/. Das target/release/-Verzeichnis existiert in diesem
+# Image gar nicht -- der Rust-Build passiert in einer verworfenen Build-Stage.
+#
+# Folge: Diese Datei hat in der CI noch nie etwas geprueft. Sie uebersprang
+# sich still, und zwar mit einer Begruendung ("run `cargo build --release`"),
+# die im Image niemand befolgen kann.
 rust_binary <- function() {
-  bin <- file.path("..", "..", "league-simulator-rust", "target", "release", "league-simulator-rust")
-  if (!file.exists(bin)) {
-    skip(sprintf("Rust binary not built at %s; run `cargo build --release` in league-simulator-rust/", bin))
+  kandidaten <- c(
+    file.path("..", "..", "league-simulator-rust", "target", "release", "league-simulator-rust"),
+    "/usr/local/bin/league-simulator-rust"
+  )
+  for (bin in kandidaten) {
+    if (file.exists(bin)) {
+      return(normalizePath(bin))
+    }
   }
-  normalizePath(bin)
+  skip(sprintf("Rust binary not found in any of: %s; run `cargo build --release` in league-simulator-rust/",
+               paste(kandidaten, collapse = ", ")))
 }
 
 start_rust_server <- function(port = 18080L) {
