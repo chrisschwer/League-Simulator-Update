@@ -422,7 +422,10 @@ collect_team_names <- function(leagues, seasons_by_league, refresh = FALSE) {
   d
 }
 
-#' Vergibt global eindeutige Kurznamen.
+#' Vergibt Kurznamen, die gegen einen Reservierungssatz eindeutig sind.
+#'
+#' Global eindeutig, obwohl produktiv nur Eindeutigkeit je Liga verlangt ist
+#' (s. u.) -- dieses Offline-Skript kennt die Ligazuordnung nicht.
 #'
 #' Kritisch, weil ShortText in transform_data() zum SPALTENNAMEN des
 #' Simulations-Data-Frames wird: Zwei Vereine mit demselben Kuerzel erzeugen
@@ -436,9 +439,9 @@ collect_team_names <- function(leagues, seasons_by_league, refresh = FALSE) {
 #' @param names_df data.frame mit TeamID und Name.
 #' @param reserved Bereits vergebene Kurznamen.
 #' @return data.frame mit TeamID, Name, ShortText, Promotion.
-# Vergibt global eindeutige Kuerzel gegen `reserved`. Seit der Angleichung der
-# Frauen-Kuerzel (siehe load_team_list() in transform_data.R) ist Eindeutigkeit
-# produktiv nur noch JE WECHSELGEMEINSCHAFT verlangt: Die Frauenmannschaft
+# Vergibt global eindeutige Kuerzel gegen `reserved`. Produktiv ist
+# Eindeutigkeit nur noch JE LIGA verlangt (load_team_list() in
+# transform_data.R, Regel seit PR #183): Die Frauenmannschaft
 # eines Vereins traegt bewusst dasselbe Kuerzel wie die Herrenmannschaft.
 #
 # Diese Funktion bleibt bei der strengeren globalen Regel. Sie laeuft nur im

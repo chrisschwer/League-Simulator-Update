@@ -10,6 +10,54 @@ Season transition is a critical process that:
 - Calculates starting ELO ratings
 - Prepares the system for the new campaign
 
+### Die TeamList ist gepflegt, nicht generiert
+
+Der Saisonwechsel **erzeugt die TeamList nicht** — er schreibt sie fort und
+schlägt vor. Über Kürzel und Zweitvertretungs-Status entscheidet der
+Betreiber; die Kürzel 2026/27 stammen aus einer Handrecherche nach
+DFL-Konvention (PR #186), nicht aus einem Lauf. Siehe
+[ADR 0007](../adr/0007-teamlist-ist-gepflegtes-stammdatenblatt.md).
+
+Daraus folgt ein zweiphasiger Ablauf: Phase 1 rechnet die Start-ELOs, benennt
+Konflikte und schlägt für Neuzugänge etwas vor — sie schreibt einen
+**Entwurf**. Phase 2 ist die Nacharbeit von Hand, und erst dadurch entsteht die
+produktive `TeamList_<Jahr>.csv`.
+
+### Wann der Lauf frühestens möglich ist
+
+Die neue Ligazuordnung kommt **aus der API**: Der Lauf fragt
+`/v3/teams?league=<id>&season=<Jahr>` je aktiver Liga einzeln ab. Ein Team
+landet in der Liga, unter deren ID es zurückkommt — Auf- und Abstiege muss
+niemand von Hand nachtragen.
+
+Daraus folgt der früheste Termin: **erst, wenn api-football die Spielpläne der
+kommenden Saison hinterlegt hat.** Vorher liefert die Abfrage nichts.
+
+> **Achtung:** Ein zu früher Lauf scheitert nicht sauber. Bei einer leeren
+> Antwort warnt `season_processor.R` nur („No teams for league …") und
+> überspringt die Liga. Die abschliessende Teamzahl-Prüfung fängt das nicht
+> zuverlässig — ihre Untergrenze ist die kleinste *einzelne* Liga (12 Teams)
+> gegen 194 Soll-Teams über alle zehn. Ein Entwurf mit nur einer Liga bestünde
+> sie. Deshalb: vor dem Lauf prüfen, dass alle zehn Ligen Teams liefern.
+
+### Der Kürzel-Vertrag
+
+Ein Kurzname (`ShortText`) muss **je Liga** eindeutig sein — dort wird er zum
+Spaltennamen des Simulations-Data-Frames, und eine Dopplung vertauschte Teams
+stillschweigend. Darüber hinaus gilt:
+
+| Fall | Erlaubt? |
+|---|---|
+| zwei Teams derselben Liga | **nein** — das ist der Konfliktfall |
+| Männer- und Frauenteam desselben Vereins | **ja, erwünscht** (SGE, HSV, SCF …, samt der „2“-Variante) |
+| verschiedene Vereine in verschiedenen Ligen | **ja, geduldet** (VFB, FCH, RWE) |
+| zwischen Nord, Nordost und Bayern | **nein** — sie stehen gemeinsam auf der Aufstiegsseite |
+
+Kürzel dürfen vier Zeichen haben; das Muster `XXX2` bleibt Zweitvertretungen
+vorbehalten. Maßgeblich ist stets `load_team_list()` in
+`RCode/transform_data.R` — der Saisonwechsel meldet vorab, was das Laden sonst
+erst hinterher ablehnt.
+
 ## When to Run Season Transition
 
 ### Timing

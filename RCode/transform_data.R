@@ -135,12 +135,21 @@ load_team_list <- function(file_path) {
 
   # Die harte Ausnahme: Nord (84), Nordost (85) und Bayern (83) muessen
   # UNTEREINANDER eindeutig bleiben. Zwei von ihnen bestreiten jaehrlich die
-  # Aufstiegsspiele (rl_aufstieg.R), und aufstiegswahrscheinlichkeit()
-  # ordnet die Zweikampfquoten ueber NAMEN zu -- ein doppeltes Kuerzel
-  # vertauschte dort zwei Teams, ohne dass etwas fehlschlaegt. Welche zwei
-  # Staffeln es trifft, beschliesst das DFB-Praesidium jaehrlich neu; alle
-  # drei frei zu halten ist die einzige Fassung, die nicht jedes Jahr
-  # nachgezogen werden muss.
+  # Aufstiegsspiele und stehen dann GEMEINSAM auf der Aufstiegsseite -- zwei
+  # gleiche Kuerzel nebeneinander waeren dort fuer den Leser nicht zu
+  # unterscheiden. Welche zwei Staffeln es trifft, beschliesst das
+  # DFB-Praesidium jaehrlich neu; alle drei frei zu halten ist die einzige
+  # Fassung, die nicht jedes Jahr nachgezogen werden muss.
+  #
+  # KORRIGIERT (Issue #197): Hier stand, aufstiegswahrscheinlichkeit() ordne
+  # ueber NAMEN zu und ein doppeltes Kuerzel vertausche zwei Teams. Das traegt
+  # nicht: rl_aufstieg.R indiziert zwar per Name (p_sieg[names(x), names(y)]),
+  # aber die eine Staffel steht auf der Zeilen-, die andere auf der
+  # Spaltenachse -- ein gleiches Kuerzel ueber die Staffelgrenze hinweg
+  # vertauscht nichts. Der stille Tausch (R liefert bei doppeltem Zeilennamen
+  # zweimal die erste Zeile) braeuchte eine Dopplung INNERHALB einer Staffel,
+  # und die verbietet bereits die Regel darueber. Die Ausnahme bleibt als
+  # Lesbarkeitsregel -- mit dem Grund, der wirklich zutrifft.
   if ("League" %in% names(teams)) {
     playoff_ligen <- c("83", "84", "85")
     in_playoff <- as.character(teams$League) %in% playoff_ligen
