@@ -188,6 +188,109 @@ test_that("full_fetch_every forces a periodic safety-net fetch even when idle", 
   expect_equal(live_poll_count, 3) # loops 2-4
 })
 
+# --- Der Safety-Timer haengt am ERFOLG des Fetches (Issue #128, Punkt 1) ---
+#
+# Das Sicherheitsnetz (full_fetch_every) existiert fuer den Fall, dass die
+# Flanken-Erkennung etwas verpasst. Wird sein Zaehler schon beim VERSUCH
+# zurueckgesetzt statt beim Erfolg, ist es genau dann abgeschaltet, wenn es
+# gebraucht wird: waehrend die API klemmt. Bei Produktionstakt (2 Minuten,
+# Default 30) verzoegert das den naechsten Versuch um bis zu eine Stunde.
+#
+# Die beiden Tests halten die zwei Haelften derselben Aussage fest -- ohne
+# den zweiten liesse sich der erste erfuellen, indem man den Timer gar nicht
+# mehr setzt.
+
+test_that("ein fehlgeschlagener Safety-Fetch setzt den Timer NICHT zurueck", {
+  bl_fetches <- 0L
+  fetch_loops <- integer(0)
+  polls <- 0L
+  aktueller_loop <- 1L # Loop 1 fetcht ohne Poll
+
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
+    if (league == "78") {
+      bl_fetches <<- bl_fetches + 1L
+      fetch_loops <<- c(fetch_loops, aktueller_loop)
+    }
+    # Der Safety-Fetch in Loop 4 schlaegt fehl, fuer JEDE Liga.
+    if (aktueller_loop == 4L) {
+      return(NULL)
+    }
+    fake_fixtures(c("FT", "NS"))
+  })
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) {
+    # Der Poll laeuft genau einmal je Loop und vor dem Fetch; der erste
+    # gehoert zu Loop 2, weil Loop 1 ungefragt voll abruft.
+    polls <<- polls + 1L
+    aktueller_loop <<- polls + 1L
+    integer(0) # durchgehend idle: nur das Sicherheitsnetz kann fetchen
+  })
+  stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
+  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) {
+    matrix(1 / 18, nrow = 18, ncol = 18)
+  })
+  stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
+  stub(update_all_leagues_loop, "generate_static_site", function(...) invisible(character(0)))
+
+  with_repo_root({
+    update_all_leagues_loop(
+      duration = 0, loops = 5, initial_wait = 0, n = 10,
+      saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
+      static_site_dir = tempdir(), full_fetch_every = 3
+    )
+  })
+
+  # Loop 1: Vollabruf (kein Poll). Loops 2, 3: idle, 1 bzw. 2 < 3 -> kein
+  # Abruf. Loop 4: 4 - 1 = 3 >= 3, faellig -> Abruf, schlaegt fehl.
+  # Loop 5: Der Timer darf noch auf 1 stehen -> 5 - 1 = 4 >= 3, also
+  # erneuter Versuch. Mit dem Fehler stuende er auf 4 (5 - 4 = 1 < 3) und
+  # Loop 5 bliebe still.
+  expect_identical(fetch_loops, c(1L, 4L, 5L))
+  expect_equal(bl_fetches, 3L)
+})
+
+test_that("ein erfolgreicher Safety-Fetch setzt den Timer sehr wohl zurueck", {
+  # Gegenprobe zum Test darueber: Der Fix darf den Timer nicht abschalten,
+  # sondern nur an den Erfolg binden. Gleiche Anordnung, nur dass Loop 4
+  # gelingt -- dann muss Loop 5 schweigen.
+  bl_fetches <- 0L
+  fetch_loops <- integer(0)
+  polls <- 0L
+  aktueller_loop <- 1L # Loop 1 fetcht ohne Poll
+
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
+    if (league == "78") {
+      bl_fetches <<- bl_fetches + 1L
+      fetch_loops <<- c(fetch_loops, aktueller_loop)
+    }
+    fake_fixtures(c("FT", "NS"))
+  })
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) {
+    polls <<- polls + 1L
+    aktueller_loop <<- polls + 1L
+    integer(0)
+  })
+  stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
+  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) {
+    matrix(1 / 18, nrow = 18, ncol = 18)
+  })
+  stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
+  stub(update_all_leagues_loop, "generate_static_site", function(...) invisible(character(0)))
+
+  with_repo_root({
+    update_all_leagues_loop(
+      duration = 0, loops = 5, initial_wait = 0, n = 10,
+      saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
+      static_site_dir = tempdir(), full_fetch_every = 3
+    )
+  })
+
+  # Loop 4 gelingt -> Timer auf 4 -> Loop 5: 5 - 4 = 1 < 3 -> still.
+  expect_identical(fetch_loops, c(1L, 4L))
+  expect_equal(bl_fetches, 2L)
+})
+
 # Shared harness for the site-generation gate: runs a short loop with every
 # collaborator stubbed and returns how often generate_static_site() fired.
 run_loop_counting_generation <- function(loops, simulate) {
