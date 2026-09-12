@@ -902,17 +902,40 @@ test_that("Bayerns Relegation trifft die zwei Plaetze VOR den Absteigern", {
 # 3. Navigation: zweistufig, drei Gruppen, Methodik separat
 # ===========================================================================
 
-test_that(".nav_groups bildet drei Gruppen in Registry-Reihenfolge", {
+test_that(".nav_groups ordnet die Gruppen nach NAV_GRUPPEN_REIHENFOLGE", {
+  # ANGEPASST (Issue #178): Die Reihenfolge war bis hierher ein Nebenprodukt
+  # der Registry-Reihenfolge -- die Regionalligen standen als dritte Gruppe
+  # UNTER den Frauen-Ligen und lasen sich dadurch, als stuenden sie quer zu
+  # den beiden Geschlechter-Gruppen. Tatsaechlich sind es Herren-Ligen
+  # derselben Wechselgemeinschaft (ADR 0004).
+  #
+  # Die Anzeigereihenfolge ist jetzt eigene Angabe im Renderer und NICHT
+  # mehr die Registry-Reihenfolge: Die Registry bestimmt weiterhin die
+  # Abrufreihenfolge (league_ids()), und die beiden duerfen sich
+  # unabhaengig voneinander bewegen.
   gen <- source_generator()
   gruppen <- gen$.nav_groups()
 
   expect_identical(vapply(gruppen, function(g) g$group, character(1)),
-                   c("Herren", "Frauen", "Regionalliga"))
+                   c("Herren", "Regionalliga", "Frauen"))
   expect_length(gruppen[[1]]$items, 3)
-  expect_length(gruppen[[2]]$items, 2)
   # Fuenf Staffeln plus die Seite "Aufstieg in die 3. Liga", die der
   # Nutzer bewusst unter "Regionalliga" haengt statt in eine eigene Gruppe.
-  expect_length(gruppen[[3]]$items, 6)
+  expect_length(gruppen[[2]]$items, 6)
+  expect_length(gruppen[[3]]$items, 2)
+})
+
+test_that("eine unbekannte nav_group faellt ans Ende, statt zu verschwinden", {
+  # Die Sortierung darf nicht stillschweigend filtern: Traegt eine kuenftige
+  # Liga eine Gruppe, die NAV_GRUPPEN_REIHENFOLGE nicht kennt, muss sie
+  # sichtbar bleiben -- hinten, aber da. Ein Renderer, der sie weglaesst,
+  # verlaere eine ganze Liga aus der Navigation, ohne dass etwas fehlschlaegt.
+  gen <- source_generator()
+
+  expect_identical(
+    gen$.nav_gruppen_sortiert(c("Frauen", "Uebersee", "Herren")),
+    c("Herren", "Frauen", "Uebersee")
+  )
 })
 
 test_that("jede Liga steht in genau der Gruppe ihrer Registry", {
@@ -952,8 +975,11 @@ test_that("das Navigations-HTML ordnet die RL-Links der Regionalliga-Zeile zu", 
   }
   labels <- vapply(zeilen, gruppe_von, character(1), USE.NAMES = FALSE)
 
-  # Drei Ligagruppen plus die label-lose Methodik-Zeile.
-  expect_identical(labels, c("Herren", "Frauen", "Regionalliga", ""))
+  # Drei Ligagruppen plus die label-lose Methodik-Zeile. Die Regionalligen
+  # stehen seit Issue #178 zwischen Herren und Frauen; Methodik bleibt die
+  # LETZTE Zeile -- sie wird in .nav_html() hinter den Gruppenzeilen
+  # angehaengt und von der Gruppensortierung gar nicht erfasst.
+  expect_identical(labels, c("Herren", "Regionalliga", "Frauen", ""))
 
   # Die fuenf Staffeln UND die Aufstiegsseite -- sie haengt bewusst hier
   # und nicht in einer eigenen Gruppe.
@@ -970,6 +996,27 @@ test_that("das Navigations-HTML ordnet die RL-Links der Regionalliga-Zeile zu", 
                       info = slug)
     }
   }
+})
+
+test_that("die Anzeigereihenfolge laesst die Abrufreihenfolge unberuehrt", {
+  # Issue #178 verschiebt NUR die Navigation. league_ids() bestimmt, in
+  # welcher Folge der Loop die API abruft, und league_views() haelt die
+  # Ligen in Registry-Reihenfolge -- beides ist Vertrag (siehe
+  # test-league-views.R) und darf sich durch eine Darstellungsfrage nicht
+  # mitbewegen. Ohne diesen Test faellt eine solche Kopplung erst im
+  # Betrieb auf.
+  reg <- source_registry()
+  views <- source_views()$league_views()
+
+  expect_identical(
+    reg$league_ids(),
+    c("78", "79", "80", "82", "1034", "84", "85", "87", "86", "83")
+  )
+  expect_named(
+    views,
+    c("bundesliga", "zweite_bundesliga", "dritte_liga",
+      "frauen_bundesliga", "zweite_frauen_bundesliga", RL_SCHLUESSEL)
+  )
 })
 
 test_that("Methodik bleibt eine eigene, gruppenlose Zeile", {
