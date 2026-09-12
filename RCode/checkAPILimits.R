@@ -49,21 +49,18 @@ checkAPILimits <- function(ideal_loops,
     }
   }
 
-  # Reuse rate-limit headers captured by a recent retrieveResults() call
-  # instead of spending a request on a dedicated probe.
-  if (exists(".api_rate_limit") &&
-        !is.null(.api_rate_limit$remaining) &&
-        difftime(Sys.time(), .api_rate_limit$as_of, units = "mins") < 10) {
-    remaining <- .api_rate_limit$remaining
-    limit <- .api_rate_limit$limit
-    message(sprintf(
-      "API Rate Limit (cached): %d/%d requests remaining",
-      remaining, limit
-    ))
-    safe_loops <- floor((remaining * safety_margin) / avg_calls_per_loop)
-    return(min(ideal_loops, safe_loops))
-  }
-
+  # Ein eigener Probe-Request, bewusst (Issue #129, Punkt 1): Hier stand ein
+  # Zweig, der die von retrieveResults() aufgezeichneten Header
+  # (.api_rate_limit, 10-Minuten-Frist) wiederverwenden sollte. Er war in
+  # Produktion unerreichbar -- calculate_loops() ist der einzige Aufrufer,
+  # laeuft genau einmal je Prozess (updateScheduler.R:189) und damit VOR dem
+  # ersten retrieveResults() (:192). Der Cache war bei der einzigen Abfrage
+  # immer leer, der Request ging ohnehin jedes Mal hinaus.
+  #
+  # Ein Request pro Tag gegen 7.500 ist der ehrlichere Preis: Toter Code,
+  # der nach Funktion aussieht, kostet mehr -- er laesst kuenftige Leser
+  # glauben, die Abfrage sei manchmal gratis.
+  #
   # Make a lightweight API call (e.g., get current round for one league)
   # This costs 1 API call but gives us the rate limit info
   tryCatch(
