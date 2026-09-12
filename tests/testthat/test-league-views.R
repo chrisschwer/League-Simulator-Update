@@ -9,7 +9,22 @@ source_league_views <- function() {
 
 test_that("league_views defines the live leagues in registry order", {
   # Seit Phase 5a sind die beiden Frauen-Bundesligen dabei. Die Reihenfolge
-  # ist Vertrag: Sie bestimmt die Navigation und die Fetch-Reihenfolge.
+  # ist Vertrag: Sie haelt league_views() und die Registry deckungsgleich
+  # (gleiche Schluessel, gleiche Slugs) und bestimmt die Fetch-Reihenfolge.
+  #
+  # KORRIGIERT mit Issue #178: Hier stand, sie bestimme auch "die
+  # Navigation". Das galt nur faktisch, nie aus einem Grund -- die
+  # Menuereihenfolge fiel als Nebenprodukt heraus. Seit #178 ist sie eigene
+  # Angabe im Renderer (NAV_GRUPPEN_REIHENFOLGE in generate_static_site.R);
+  # Anzeige und Abruf bewegen sich unabhaengig voneinander.
+  #
+  # Und die Simulation haengt nicht an der Reihenfolge: Die Abstiegskopplung
+  # der Regionalligen laeuft NACH der Simulationsschleife und rechnet mit
+  # einer Zaehlung der 3. Liga, die Loops ueberlebt
+  # (update_all_leagues_loop.R:110-116). Eine Regionalliga darf also vor der
+  # 3. Liga simuliert werden -- festgehalten in test-rl-verdrahtung.R,
+  # "(a) eine neu simulierte Regionalliga mischt mit der gueltigen Zaehlung
+  # aus dem frueheren Lauf".
   #
   # ANGEPASST in Phase 5: Dazu kommen die fuenf Regionalligen. Die
   # Reihenfolge folgt weiterhin der Registry -- Herren, Frauen,

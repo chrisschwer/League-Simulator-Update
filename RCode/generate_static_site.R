@@ -46,7 +46,40 @@ STALE_THRESHOLD_HOURS <- 24
   c(league_items, list(list(slug = "methodik", nav_label = "Methodik")))
 }
 
-# Die Ligen nach nav_group gebuendelt, in Registry-Reihenfolge.
+# Die Reihenfolge der Gruppenzeilen im Menue.
+#
+# Eigene Angabe, NICHT die Registry-Reihenfolge (Issue #178): Die
+# Regionalligen standen als dritte Gruppe unter den Frauen-Ligen und lasen
+# sich dadurch, als stuenden sie quer zu den beiden Geschlechter-Gruppen.
+# Es sind Herren-Ligen derselben Wechselgemeinschaft (ADR 0004) -- ein
+# Regionalliga-Meister steigt in die 3. Liga auf. Zwischen Herren und
+# Frauen gestellt, sagt die Nachbarschaft das, ohne dass das Label es
+# buchstabieren muss.
+#
+# Die Registry behaelt ihre Reihenfolge: Sie bestimmt ueber league_ids(),
+# in welcher Folge der Loop die API abruft. Anzeige und Abruf haben nichts
+# miteinander zu tun und duerfen sich unabhaengig bewegen -- die
+# Abstiegskopplung der Regionalligen laeuft nach der Simulationsschleife
+# und mit einer Zaehlung, die Loops ueberlebt (update_all_leagues_loop.R:110).
+NAV_GRUPPEN_REIHENFOLGE <- c("Herren", "Regionalliga", "Frauen")
+
+#' Gruppennamen in Anzeigereihenfolge.
+#'
+#' Unbekannte Gruppen haengen HINTEN an, statt herauszufallen: Traegt eine
+#' kuenftige Liga eine nav_group, die oben nicht steht, waere sie sonst
+#' lautlos aus dem Menue verschwunden -- eine ganze Liga, ohne dass etwas
+#' fehlschlaegt. Hinten und sichtbar ist der bessere Fehlerfall.
+#'
+#' @param gruppen Vorgefundene Gruppennamen.
+#' @return Dieselben Namen, sortiert.
+.nav_gruppen_sortiert <- function(gruppen) {
+  rang <- match(gruppen, NAV_GRUPPEN_REIHENFOLGE)
+  # Unbekannte hinten, untereinander in der Reihenfolge ihres Auftretens.
+  rang[is.na(rang)] <- length(NAV_GRUPPEN_REIHENFOLGE) + seq_len(sum(is.na(rang)))
+  gruppen[order(rang)]
+}
+
+# Die Ligen nach nav_group gebuendelt, in NAV_GRUPPEN_REIHENFOLGE.
 #
 # Zehn Ligen sprengen die flache "·"-Zeile. Die Gruppe steht als Label vor
 # ihrer Zeile ("Herren  Bundesliga · 2. Bundesliga · 3. Liga"), Methodik
@@ -79,7 +112,10 @@ STALE_THRESHOLD_HOURS <- 24
   gruppen <- hinzu(gruppen, aufstieg$nav_group,
                    list(slug = aufstieg$slug, nav_label = aufstieg$nav_label))
 
-  unname(gruppen)
+  # Erst hier sortiert, nicht beim Einsammeln: Die Zugehoerigkeit der
+  # Aufstiegsseite entsteht ueber den Gruppennamen, sie muss also schon
+  # eingemischt sein.
+  unname(gruppen[.nav_gruppen_sortiert(names(gruppen))])
 }
 
 # Die Ansicht der Aufstiegsseite. Ueber league_views() nachgeschlagen, damit
