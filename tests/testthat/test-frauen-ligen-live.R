@@ -214,20 +214,25 @@ test_that("die drei Altligen bleiben unveraendert", {
 # --- 3. Zweistufige Navigation ----------------------------------------------
 
 test_that("die Navigation gruppiert nach nav_group", {
-  # Fuenf Ligen sprengen die flache Zeile. Gruppen in Registry-Reihenfolge:
-  # Herren, Frauen -- Methodik bleibt eigenstaendig.
+  # Fuenf Ligen sprengen die flache Zeile. Gruppen: Herren, Frauen --
+  # Methodik bleibt eigenstaendig.
   #
   # ANGEPASST in Phase 5: Dazu kommt die Gruppe "Regionalliga". Geprueft
-  # wird hier weiterhin nur die Aussage dieser Phase -- Herren und Frauen
-  # sind die ersten beiden Gruppen und haben drei bzw. zwei Ligen. Die
-  # vollstaendige Gruppenliste pinnt test-phase5-regionalligen.R.
+  # wird hier weiterhin nur die Aussage dieser Phase -- es gibt eine Gruppe
+  # "Herren" mit drei und eine Gruppe "Frauen" mit zwei Ligen.
+  #
+  # ANGEPASST mit Issue #178: Hier stand, Herren und Frauen seien die ersten
+  # BEIDEN Gruppen. Das war eine Aussage ueber die Reihenfolge, die dieser
+  # Test gar nicht treffen wollte -- seit #178 steht "Regionalliga"
+  # zwischen ihnen. Geprueft wird jetzt die Zugehoerigkeit, nicht die
+  # Nachbarschaft; die Reihenfolge pinnt test-phase5-regionalligen.R.
   gen <- source_generator()
   gruppen <- gen$.nav_groups()
 
-  expect_equal(head(vapply(gruppen, function(g) g$group, character(1)), 2),
-               c("Herren", "Frauen"))
-  expect_length(gruppen[[1]]$items, 3)
-  expect_length(gruppen[[2]]$items, 2)
+  je_gruppe <- vapply(gruppen, function(g) g$group, character(1))
+  expect_true(all(c("Herren", "Frauen") %in% je_gruppe))
+  expect_length(gruppen[[which(je_gruppe == "Herren")]]$items, 3)
+  expect_length(gruppen[[which(je_gruppe == "Frauen")]]$items, 2)
 })
 
 test_that("das Navigations-HTML traegt Gruppenlabels und alle Ligen", {
