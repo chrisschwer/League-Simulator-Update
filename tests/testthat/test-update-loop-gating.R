@@ -199,31 +199,43 @@ test_that("full_fetch_every forces a periodic safety-net fetch even when idle", 
 # Die beiden Tests halten die zwei Haelften derselben Aussage fest -- ohne
 # den zweiten liesse sich der erste erfuellen, indem man den Timer gar nicht
 # mehr setzt.
+#
+# ANNAHME BEIDER HARNESSE: Loop 1 ruft ohne Live-Poll voll ab, der erste
+# Poll gehoert zu Loop 2. Daraus leiten sie die Rundennummer ab
+# (aktueller_loop = polls + 1). Wuerde Punkt 2 des Issues (Loop-1-Seeding)
+# je ueber einen ZUSAETZLICHEN Poll geloest, waere die Zaehlung um eins
+# verschoben. Die im Issue-Kommentar vom 06.09.2026 vorgeschlagene
+# billigere Variante -- prev_live_ids aus den Statusdaten des Loop-1-
+# Vollabrufs seeden, ohne Extra-Request -- beruehrt sie nicht.
 
-test_that("ein fehlgeschlagener Safety-Fetch setzt den Timer NICHT zurueck", {
-  bl_fetches <- 0L
+# Ein Durchlauf von fuenf durchgehend leeren Runden mit full_fetch_every = 3.
+# Nur der Safety-Fetch kann hier abrufen; `fetch_faellt_aus` bestimmt, ob der
+# faellige Abruf in Loop 4 gelingt. Genau darin unterscheiden sich die beiden
+# Tests -- alles andere ist identisch, und als zwei Kopien nebeneinander
+# waere der eine Unterschied nicht zu sehen.
+#
+# @return Die Loop-Nummern, in denen abgerufen wurde.
+lauf_mit_safety_fetch <- function(fetch_faellt_aus) {
   fetch_loops <- integer(0)
   polls <- 0L
-  aktueller_loop <- 1L # Loop 1 fetcht ohne Poll
+  aktueller_loop <- 1L # Loop 1 ruft ohne Poll voll ab
 
   stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
   stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
     if (league == "78") {
-      bl_fetches <<- bl_fetches + 1L
       fetch_loops <<- c(fetch_loops, aktueller_loop)
     }
-    # Der Safety-Fetch in Loop 4 schlaegt fehl, fuer JEDE Liga.
-    if (aktueller_loop == 4L) {
-      return(NULL)
+    if (fetch_faellt_aus && aktueller_loop == 4L) {
+      return(NULL) # der faellige Abruf scheitert, fuer JEDE Liga
     }
     fake_fixtures(c("FT", "NS"))
   })
   stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) {
-    # Der Poll laeuft genau einmal je Loop und vor dem Fetch; der erste
-    # gehoert zu Loop 2, weil Loop 1 ungefragt voll abruft.
+    # Der Poll laeuft genau einmal je Loop und vor dem Abruf; der erste
+    # gehoert zu Loop 2 (s. Annahme oben).
     polls <<- polls + 1L
     aktueller_loop <<- polls + 1L
-    integer(0) # durchgehend idle: nur das Sicherheitsnetz kann fetchen
+    integer(0) # durchgehend idle
   })
   stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
   stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) {
@@ -240,56 +252,25 @@ test_that("ein fehlgeschlagener Safety-Fetch setzt den Timer NICHT zurueck", {
     )
   })
 
-  # Loop 1: Vollabruf (kein Poll). Loops 2, 3: idle, 1 bzw. 2 < 3 -> kein
-  # Abruf. Loop 4: 4 - 1 = 3 >= 3, faellig -> Abruf, schlaegt fehl.
-  # Loop 5: Der Timer darf noch auf 1 stehen -> 5 - 1 = 4 >= 3, also
-  # erneuter Versuch. Mit dem Fehler stuende er auf 4 (5 - 4 = 1 < 3) und
-  # Loop 5 bliebe still.
-  expect_identical(fetch_loops, c(1L, 4L, 5L))
-  expect_equal(bl_fetches, 3L)
+  fetch_loops
+}
+
+test_that("ein fehlgeschlagener Safety-Fetch setzt den Timer NICHT zurueck", {
+  # Loop 1: Vollabruf ohne Poll, gelingt -> Timer auf 1. Loops 2, 3: idle,
+  # 1 bzw. 2 < 3 -> kein Abruf. Loop 4: 4 - 1 = 3 >= 3, faellig -> Abruf,
+  # schlaegt fehl. Loop 5: Der Timer darf noch auf 1 stehen, also
+  # 5 - 1 = 4 >= 3 -> erneuter Versuch. Mit dem Fehler stuende er auf 4
+  # (5 - 4 = 1 < 3) und Loop 5 bliebe still.
+  expect_identical(lauf_mit_safety_fetch(fetch_faellt_aus = TRUE), c(1L, 4L, 5L))
 })
 
 test_that("ein erfolgreicher Safety-Fetch setzt den Timer sehr wohl zurueck", {
-  # Gegenprobe zum Test darueber: Der Fix darf den Timer nicht abschalten,
-  # sondern nur an den Erfolg binden. Gleiche Anordnung, nur dass Loop 4
-  # gelingt -- dann muss Loop 5 schweigen.
-  bl_fetches <- 0L
-  fetch_loops <- integer(0)
-  polls <- 0L
-  aktueller_loop <- 1L # Loop 1 fetcht ohne Poll
-
-  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
-  stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
-    if (league == "78") {
-      bl_fetches <<- bl_fetches + 1L
-      fetch_loops <<- c(fetch_loops, aktueller_loop)
-    }
-    fake_fixtures(c("FT", "NS"))
-  })
-  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) {
-    polls <<- polls + 1L
-    aktueller_loop <<- polls + 1L
-    integer(0)
-  })
-  stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
-  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) {
-    matrix(1 / 18, nrow = 18, ncol = 18)
-  })
-  stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
-  stub(update_all_leagues_loop, "generate_static_site", function(...) invisible(character(0)))
-
-  with_repo_root({
-    update_all_leagues_loop(
-      duration = 0, loops = 5, initial_wait = 0, n = 10,
-      saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 3
-    )
-  })
-
-  # Loop 4 gelingt -> Timer auf 4 -> Loop 5: 5 - 4 = 1 < 3 -> still.
-  expect_identical(fetch_loops, c(1L, 4L))
-  expect_equal(bl_fetches, 2L)
+  # Gegenprobe: Der Fix darf den Timer nicht abschaffen, sondern nur an den
+  # Erfolg binden. Gelingt Loop 4, steht der Timer auf 4 und Loop 5 bleibt
+  # still (5 - 4 = 1 < 3).
+  expect_identical(lauf_mit_safety_fetch(fetch_faellt_aus = FALSE), c(1L, 4L))
 })
+
 
 # Shared harness for the site-generation gate: runs a short loop with every
 # collaborator stubbed and returns how often generate_static_site() fired.
