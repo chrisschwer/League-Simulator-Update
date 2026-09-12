@@ -150,6 +150,17 @@ league_registry <- function() {
       # Basis OHNE Kopplung: drei Regelabsteiger (NFV-SpO Par. 6 Abs. 3);
       # je Drittliga-Absteiger kommt einer hinzu (Abs. 4, kein Deckel).
       relegation_slots = 3L,
+      # Text fuer die Fussnote unter der Ligatabelle (Issue #185). Kurz und
+      # ohne Paragraphen -- die Belege stehen in
+      # docs/abstieg_aufstieg_RL_2026_2027.md.
+      #
+      # Der zweite Satz ist noetig, weil Nord als einzige Staffel Auf- und
+      # Abstieg verknuepft: Steigt der Meister auf, faellt ein Abstiegsplatz
+      # weg. Ohne den Hinweis wirken gruene und rote Linie widerspruechlich.
+      relegation_regel = paste(
+        "Drei Vereine steigen ab, je Absteiger aus der 3. Liga einer mehr.",
+        "Gewinnt Nord das Aufstiegsspiel, ist es einer weniger."
+      ),
       restrictions = "Zweitvertretungen duerfen nicht aufsteigen"
     ),
     rl_nordost = list(
@@ -164,6 +175,7 @@ league_registry <- function() {
       # Basis ein Absteiger, bei einem Drittliga-Absteiger zwei
       # (NOFV A&A A. Nr. 5, Schema A/B).
       relegation_slots = 1L,
+      relegation_regel = "Ein Verein steigt ab, zwei bei einem Absteiger aus der 3. Liga.",
       restrictions = "Zweitvertretungen duerfen nicht aufsteigen"
     ),
     rl_west = list(
@@ -182,6 +194,13 @@ league_registry <- function() {
       # aller West-Zweitvertretungen spielen in Liga 78/79 und koennen in
       # einer Saison nicht bis in die RL fallen.
       relegation_slots = 4L,
+      # West ist der Sonderfall: Die Zahl steht fest. Ohne diesen Satz sieht
+      # es nach einem Defekt aus, dass hier alle Linien voll deckend sind,
+      # waehrend die anderen Staffeln abgestufte zeigen.
+      relegation_regel = paste(
+        "Vier Vereine steigen ab.",
+        "Anders als bei den übrigen Staffeln ändert die 3. Liga diese Zahl nicht."
+      ),
       restrictions = "Zweitvertretungen duerfen nicht aufsteigen"
     ),
     rl_suedwest = list(
@@ -195,6 +214,10 @@ league_registry <- function() {
       # Drei Absteiger, je Drittliga-Absteiger einer mehr, Deckel 5
       # (RLSW-SpO Par. 47 Nr. 1 und Nr. 2).
       relegation_slots = 3L,
+      relegation_regel = paste(
+        "Drei Vereine steigen ab, je Absteiger aus der 3. Liga einer mehr,",
+        "höchstens fünf."
+      ),
       restrictions = "Zweitvertretungen duerfen nicht aufsteigen"
     ),
     rl_bayern = list(
@@ -209,6 +232,15 @@ league_registry <- function() {
       # Zwei Direktabsteiger, unabhaengig von der 3. Liga -- Bayern koppelt
       # als einzige Staffel gar nicht (BFV A&A II. Nr. 1).
       relegation_slots = 2L,
+      # Bayern weist nach unten ZWEI Groessen aus, die die Fussnote getrennt
+      # nennen muss: den Direktabstieg und die Relegation gegen die
+      # Bayernliga. Deren Ausgang bleibt bewusst offen -- wir simulieren die
+      # Bayernligen nicht, jede Gewinnquote waere erfunden.
+      relegation_regel = paste(
+        "Die zwei Letzten steigen direkt ab, die zwei davor spielen",
+        "Relegation gegen die Bayernliga.",
+        "Deren Ausgang sagt das Modell nicht vorher."
+      ),
       # Eigenes Feld, weil playoff_slots richtungslos ist: In der
       # Bundesliga meint es die Abstiegsrelegation, in der 3. Liga den
       # Aufstieg. Bayern hat BEIDES -- ein Aufstiegsspiel nach oben und
