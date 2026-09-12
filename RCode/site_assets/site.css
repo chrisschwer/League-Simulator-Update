@@ -216,6 +216,10 @@ table.beispiel td:first-child{font-family:var(--serif);font-size:15px}
   table.liga td,table.liga th[scope=col]{padding-left:5px;padding-right:5px}
   table.liga td:last-child,table.liga th[scope=col]:last-child{padding-right:0}
   table.liga tbody th{padding-right:6px}
+  /* Zonenlinie schmal halten und der Platzzahl Luft lassen: Bei 5 px
+     Zellpadding klebte die Ziffer sonst an der Linie. */
+  table.liga[data-zonen="platz"] tr[data-zone] td:first-child{padding-left:8px}
+  table.liga[data-zonen="platz"] tr[data-zone] td:first-child::before{width:2px}
   /* Heatmap ohne horizontales Scrollen: feste Spalten, kompakte Ziffern,
      „<1" nur als Färbung */
   table.heatmap{width:100%;table-layout:fixed;font-size:9px}
