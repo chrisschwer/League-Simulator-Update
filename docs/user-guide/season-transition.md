@@ -23,6 +23,23 @@ Konflikte und schlägt für Neuzugänge etwas vor — sie schreibt einen
 **Entwurf**. Phase 2 ist die Nacharbeit von Hand, und erst dadurch entsteht die
 produktive `TeamList_<Jahr>.csv`.
 
+### Wann der Lauf frühestens möglich ist
+
+Die neue Ligazuordnung kommt **aus der API**: Der Lauf fragt
+`/v3/teams?league=<id>&season=<Jahr>` je aktiver Liga einzeln ab. Ein Team
+landet in der Liga, unter deren ID es zurückkommt — Auf- und Abstiege muss
+niemand von Hand nachtragen.
+
+Daraus folgt der früheste Termin: **erst, wenn api-football die Spielpläne der
+kommenden Saison hinterlegt hat.** Vorher liefert die Abfrage nichts.
+
+> **Achtung:** Ein zu früher Lauf scheitert nicht sauber. Bei einer leeren
+> Antwort warnt `season_processor.R` nur („No teams for league …") und
+> überspringt die Liga. Die abschliessende Teamzahl-Prüfung fängt das nicht
+> zuverlässig — ihre Untergrenze ist die kleinste *einzelne* Liga (12 Teams)
+> gegen 194 Soll-Teams über alle zehn. Ein Entwurf mit nur einer Liga bestünde
+> sie. Deshalb: vor dem Lauf prüfen, dass alle zehn Ligen Teams liefern.
+
 ### Der Kürzel-Vertrag
 
 Ein Kurzname (`ShortText`) muss **je Liga** eindeutig sein — dort wird er zum

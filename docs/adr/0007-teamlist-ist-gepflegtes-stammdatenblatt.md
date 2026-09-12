@@ -50,7 +50,27 @@ maschinell zu leisten ist:
 3. Vorschläge für Neuzugänge — Kürzel, ELO, Zweitvertretungs-Status
 
 Sie schreibt einen **Entwurf** (`TeamList_<Jahr>_entwurf.csv`), nicht die
-produktive Datei. **Phase 2 ist die Nacharbeit von Hand**; erst dadurch entsteht
+produktive Datei.
+
+Die **Ligazuordnung kommt dabei aus der API**, nicht aus der Vorsaison: Der
+Lauf fragt `/v3/teams?league=<id>&season=<Jahr>` je aktiver Liga einzeln ab
+(`RCode/api_service.R`), und ein Team landet in der Liga, unter deren ID es
+zurückkommt. Auf- und Abstiege muss also niemand von Hand nachtragen — sie
+stehen in der Antwort.
+
+Das bestimmt zugleich den **frühesten Termin**: Der Lauf ist erst möglich,
+wenn api-football die Spielpläne der kommenden Saison hinterlegt hat. Vorher
+liefert die Abfrage nichts.
+
+Und es ist der Grund, warum der Lauf vorher nicht bloss „schlechter" wäre,
+sondern gefährlich: `season_processor.R` warnt bei einer leeren Antwort nur
+(„No teams for league …") und **überspringt die Liga**. Die abschliessende
+Teamzahl-Prüfung fängt das nicht zuverlässig — ihre Untergrenze ist die
+kleinste *einzelne* Liga (12 Teams) gegen 194 Soll-Teams über alle zehn. Eine
+TeamList mit einer statt zehn Ligen bestünde sie. Der Entwurf wäre dann
+unvollständig, ohne dass es auffällt.
+
+**Phase 2 ist die Nacharbeit von Hand**; erst dadurch entsteht
 `TeamList_<Jahr>.csv`.
 
 Die Trennung ist der Punkt: Ein Entwurf kann nicht versehentlich simuliert
