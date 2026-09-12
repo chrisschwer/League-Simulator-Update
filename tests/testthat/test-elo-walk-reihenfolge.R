@@ -376,37 +376,6 @@ test_that("transform_data haelt elo_neutral auch bei gleicher Anstosszeit zeilen
 
 # --- Der Vertrag nach aussen --------------------------------------------------
 
-test_that("ohne Anstosszeit bleibt die Eingabereihenfolge erhalten", {
-  # Der Rueckwaertskompatibilitaets-Fall, und er ist der gefaehrlichste:
-  # Die geteilte Fixture create_test_fixtures_api() (helper-fixtures.R:64)
-  # traegt KEIN date-Feld, und alle 56 bestehenden transform_data-Tests
-  # benutzen sie. Eine Sortierung, die eine fehlende Spalte nicht
-  # verkraftet, brichte sie samt und sonders -- oder schlimmer: order(NULL)
-  # liefert integer(0) und der Spielplan waere leer.
-  #
-  # Fachlich ist die Regel klar: Ohne Anstosszeit gibt es keine
-  # chronologische Information. Dann bleibt die API-Reihenfolge, was sie
-  # heute schon ist -- die beste verfuegbare Naeherung.
-  fixtures <- create_test_fixtures_api()
-  teams <- create_test_teams_api()
-
-  ergebnis <- transform_data(fixtures, teams)
-
-  # Dieselbe Reihenfolge wie der Bestandstest "transform_data preserves
-  # fixture order" (test-transform_data.R:239) sie festhaelt.
-  expect_equal(nrow(ergebnis), 3L)
-  expect_equal(ergebnis$TeamHeim[1], "TEA")
-  expect_equal(ergebnis$TeamGast[1], "TEB")
-  expect_equal(ergebnis$TeamHeim[2], "TEC")
-  expect_equal(ergebnis$TeamHeim[3], "TEA")
-  expect_equal(ergebnis$TeamGast[3], "TEC")
-
-  # Und das Attribut ueberlebt auch diesen Pfad.
-  neutral <- attr(ergebnis, "elo_neutral")
-  expect_false(is.null(neutral))
-  expect_length(neutral, 3L)
-})
-
 test_that("transform_data behaelt die Spaltenstruktur: numberTeams = ncol - 4", {
   # Die Sortierung ist eine INTERNE Angelegenheit. Der Helfer, der
   # elo_neutral als Spalte anfuegt, muss sie hinterher restlos wieder
