@@ -210,39 +210,15 @@ test_that("get_existing_team_data returns correct team info", {
   expect_null(result)
 })
 
-test_that("validate_short_name_uniqueness detects duplicates", {
-  # Test with duplicates
-  short_names <- c("B04", "HOF", "B04", "BVB")
-  result <- validate_short_name_uniqueness(short_names)
-  
-  expect_false(result$valid)
-  expect_true("B04" %in% result$duplicates)
-  expect_equal(length(result$duplicates), 1)
-  
-  # Test without duplicates
-  short_names <- c("B04", "HOF", "BVB", "FCB")
-  result <- validate_short_name_uniqueness(short_names)
-  
-  expect_true(result$valid)
-})
-
-test_that("ensure_unique_short_names fixes duplicates", {
-  # Setup teams with duplicate short names
-  teams <- list(
-    list(id = 168, short_name = "B04"),
-    list(id = 167, short_name = "B04"),  # Duplicate
-    list(id = 165, short_name = "BVB")
-  )
-  
-  # Test
-  result <- ensure_unique_short_names(teams)
-  
-  # Extract short names
-  short_names <- sapply(result, function(t) t$short_name)
-  
-  # Assertions
-  expect_equal(short_names[1], "B04")  # First keeps original
-  expect_match(short_names[2], "B0[0-9]")  # Second gets modified
-  expect_equal(short_names[3], "BVB")  # Unaffected
-  expect_equal(length(unique(short_names)), 3)  # All unique
-})
+# ENTFERNT (Issue #195): Hier standen zwei Tests fuer
+# validate_short_name_uniqueness() und ensure_unique_short_names().
+#
+# Beide Funktionen sind mit diesem PR geloescht. ensure_unique_short_names()
+# hatte keinen einzigen Produktivaufrufer -- nur diesen Test -- und er
+# nagelte mit expect_match(short_names[2], "B0[0-9]") ausgerechnet die
+# STILLE UMBENENNUNG als Sollverhalten fest. Genau die widerspricht dem
+# Kuerzel-Vertrag (ADR 0007): Eine Kollision wird gemeldet, nicht durch ein
+# Kunstkuerzel verdeckt. validate_short_name_uniqueness() prueft zudem
+# global -- nach einer Regel, die seit PR #183 nicht mehr gilt.
+#
+# Was an ihre Stelle tritt: test-kuerzel-vertrag.R.

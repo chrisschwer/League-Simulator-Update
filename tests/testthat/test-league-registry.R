@@ -253,10 +253,18 @@ test_that("validate_team_count traegt zehn Ligen", {
 
   # Die echte TeamList_2026 muss durchgehen.
   expect_true(env$validate_team_count(schreibe(237))$valid)
-  # Die drei Altligen ebenfalls -- der Saisonwechsel laeuft je Liga.
-  expect_true(env$validate_team_count(schreibe(56))$valid)
   # Offensichtlicher Unfug bleibt abgelehnt.
   expect_false(env$validate_team_count(schreibe(3))$valid)
+
+  # ANGEPASST (Issue #195): Hier stand, 56 Teams muessten durchgehen, weil
+  # "der Saisonwechsel je Liga laeuft". Das trifft nicht zu --
+  # validate_team_count() hat genau einen Aufrufer (season_processor.R:203)
+  # und bekommt dort immer die ZUSAMMENGEFUEHRTE Liste. Die niedrige
+  # Untergrenze machte den Schutz wertlos: Fehlen neun von zehn Ligen, weil
+  # die API die Spielplaene der neuen Saison noch nicht hat, bestuende das
+  # Ergebnis die Pruefung. Die Grenzen pinnt jetzt
+  # test-saisonwechsel-schutzgrenzen.R.
+  expect_false(env$validate_team_count(schreibe(56))$valid)
 })
 
 test_that("get_league_name liefert die Namen aller zehn Ligen", {
