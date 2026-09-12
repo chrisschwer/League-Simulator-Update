@@ -97,6 +97,21 @@ Basis-ELO für Aufsteiger. Beide Aufrufer müssen auf den Rust-Walk
 umgestellt werden; der zweite ist leicht zu übersehen, weil er in derselben
 Datei steht wie die zu löschende Funktion.
 
+### Die beiden Walks rechnen dieselbe Formel
+
+Nachgeprüft, weil es den Umfang von Teil 2 bestimmt:
+`calculate_elo_update()` (R) und `calculate_elo_change()` (Rust,
+`src/elo/mod.rs`) sind **mathematisch identisch** — dieselbe Clamp auf
+±400, dieselbe Wurzel der Tordifferenz (Minimum 1), derselbe K-Faktor 20,
+dieselbe Erwartungsformel.
+
+Sie unterscheiden sich in **genau einem** Wert: `home_advantage`, 100 gegen
+40.
+
+Teil 2 ist damit keine Umstellung auf eine andere Physik, sondern die
+Beseitigung eines Duplikats. Der einzige inhaltliche Effekt ist der
+korrigierte Heimvorteil — und genau das ist der Zweck.
+
 **Ersatz:** Der Saisonwechsel holt die End-ELOs über `/league-details`. Die
 Machbarkeit ist geprüft:
 
