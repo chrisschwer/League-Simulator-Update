@@ -31,6 +31,21 @@ if (!exists("confirm_overwrite")) {
   }
 }
 
+# Der Kuerzel-Vertrag lebt in transform_data.R -- EINE Pruefung fuer Loader
+# und Saisonwechsel (Issue #195).
+if (!exists("pruefe_kuerzel_vertrag")) {
+  for (path in c("RCode/transform_data.R", "transform_data.R",
+                 "../RCode/transform_data.R", "../../RCode/transform_data.R")) {
+    if (file.exists(path)) {
+      source(path)
+      break
+    }
+  }
+  if (!exists("pruefe_kuerzel_vertrag")) {
+    stop("Could not find transform_data.R - required for csv_generation.R")
+  }
+}
+
 generate_team_list_csv <- function(team_data, season, output_dir = "RCode") {
   # Generate properly formatted TeamList CSV
   # Handles all required columns and formatting
@@ -120,8 +135,17 @@ format_team_data <- function(team_data) {
   # Sort by TeamID for consistency (numeric order but keep as character)
   formatted_data <- formatted_data[order(as.numeric(formatted_data$TeamID)), ]
 
-  # Select only required columns in correct order
-  formatted_data <- formatted_data[, required_columns]
+  # Spaltenreihenfolge: die vier Pflichtspalten zuerst, dann die optionalen
+  # in fester Folge. League, Region und Name gehoeren seit dem Ligen-Ausbau
+  # zur TeamList; wer sie hier wegschnitte, naehme der Abstiegskopplung die
+  # Stammregion (ADR 0006) -- und zwar stillschweigend (Issue #195).
+  #
+  # Eine TeamList bis Saison 2025 kennt sie nicht. Dann bleiben es vier
+  # Spalten: Der Saisonwechsel erfindet keine Werte, er reicht durch, was da
+  # ist.
+  optionale <- c("League", "Region", "Name")
+  vorhanden <- optionale[optionale %in% colnames(formatted_data)]
+  formatted_data <- formatted_data[, c(required_columns, vorhanden)]
 
   return(formatted_data)
 }
@@ -161,65 +185,63 @@ list_to_dataframe <- function(team_list) {
   return(df)
 }
 
+#' Vergibt den Zweitvertretungs-Malus nach Par. 55b Nr. 3.1 (ADR 0008).
+#'
+#' Die Sperre haengt nicht an der Zweitvertretung, sondern an der ERSTEN
+#' Mannschaft: Das Aufstiegsrecht entfaellt fuer einen Verein, der "bereits
+#' mit einer Mannschaft am Spielbetrieb der 3. Liga des kommenden
+#' Spieljahrs teilnimmt". Daraus drei Faelle:
+#'
+#'   3. Liga (80), 2. Frauen-BL (1034)  pauschal -- wer dort steht, kaeme
+#'                                      sonst eine Ebene hoeher
+#'   Regionalligen (83-87)              nur, wenn die Erstvertretung in der
+#'                                      3. Liga spielt
+#'   alle uebrigen                      nie
+#'
+#' Frueher lief diese Funktion ueber ALLE Zeilen und setzte -50, wann immer
+#' der KURZNAME auf "2" endete -- ligaunabhaengig, und sie ueberschrieb
+#' damit die aus der Vorsaison uebernommene, gepflegte Spalte (ADR 0007).
+#' Die handgepflegte Ausnahmeliste (^M02$, ^S04$, ...) fuer Erstvertretungen
+#' mit Ziffernkuerzel wird dadurch entbehrlich: Aus Liga plus Suffix ergibt
+#' es sich von selbst.
 apply_promotion_penalties <- function(team_data) {
-  # Apply -50 promotion penalty to second teams
-  # Only for Liga3 teams
-
-  for (i in seq_len(nrow(team_data))) {
-    team_name <- team_data$ShortText[i]
-
-    # Check if it's a second team
-    if (detect_second_teams(team_name)) {
-      team_data$Promotion[i] <- -50
-    }
+  if (!"League" %in% colnames(team_data)) {
+    # Ohne Ligaangabe laesst sich die Regel nicht anwenden. Eine TeamList
+    # bis Saison 2025 traegt die Spalte nicht -- dort bleibt die Promotion,
+    # wie sie ist, statt geraten zu werden.
+    return(team_data)
   }
 
-  return(team_data)
-}
+  liga <- as.character(team_data$League)
+  ist_zweitvertretung <- grepl("2$", team_data$ShortText) &
+    nchar(team_data$ShortText) >= 4
 
-detect_second_teams <- function(team_name) {
-  # Detect if a team is a second team based on short name
-  # Returns TRUE for second teams
+  # Wer spielt in der 3. Liga? Das entscheidet ueber die Regionalligen.
+  erstvertretungen_liga3 <- team_data$ShortText[liga == "80"]
+  stamm <- sub("2$", "", team_data$ShortText)
+  erstvertretung_in_liga3 <- stamm %in% erstvertretungen_liga3
 
-  # Be more specific - only detect actual second team patterns
-  second_team_patterns <- c(
-    ".*II$", # Ends with II
-    ".*2$", # Ends with 2
-    "^[A-Z]{2,3}2$", # 3-4 character codes ending with 2 (like H962, VFB2)
-    "^.*[0-9]+$" # Ends with number(s) but be careful
+  gesperrt <- ist_zweitvertretung & (
+    liga %in% c("80", "1034") |
+      (liga %in% c("83", "84", "85", "86", "87") & erstvertretung_in_liga3)
   )
 
-  # Exclude patterns that are NOT second teams
-  # Many teams naturally have numbers in their names
-  false_positive_patterns <- c(
-    "^M02$", # Mainz 05 -> M02
-    "^S02$", # Schalke 04 -> S02
-    "^H92$", # Hannover 96 -> H92
-    "^D92$", # Darmstadt 98 -> D92
-    "^SC2$", # SC Paderborn -> SC2
-    "^FC2$", # FC Ingolstadt -> FC2
-    "^UL2$" # SSV Ulm -> UL2
-  )
-
-  # Check if it matches false positive patterns first
-  for (pattern in false_positive_patterns) {
-    if (grepl(pattern, team_name)) {
-      return(FALSE)
-    }
-  }
-
-  # Only consider teams ending in 2 as second teams if they have more than 3 chars
-  # or if they explicitly end with "II"
-  if (grepl("II$", team_name)) {
-    return(TRUE)
-  }
-
-  if (grepl("2$", team_name) && nchar(team_name) >= 4) {
-    return(TRUE)
-  }
-
-  return(FALSE)
+  team_data$Promotion[gesperrt] <- -50
+  team_data
 }
+
+# ENTFERNT (Issue #180): Hier stand eine ZWEITE Funktion namens
+# detect_second_teams(), die auf dem KURZNAMEN arbeitete -- waehrend die in
+# api_service.R den vollen Namen erwartet. Beide lebten im selben
+# Namensraum; scripts/season_transition.R sourct csv_generation.R spaeter,
+# also gewann diese hier. Drei der vier Aufrufstellen uebergaben ihr aber
+# volle Namen, und ihre Fehlalarm-Ausnahmeliste (^M02$, ^S04$, ^H92$, ...)
+# war auf Kurznamen geschluesselt -- sie griff dort also NIE.
+#
+# Der einzige Aufrufer war apply_promotion_penalties(). Seit die Regel aus
+# Liga und Suffix folgt (ADR 0008), braucht es weder die Heuristik noch die
+# Ausnahmeliste. Es bleibt die Fassung in api_service.R, und die bekommt
+# ueberall den vollen Namen.
 
 validate_csv_data <- function(data) {
   # Validate CSV data structure and content
@@ -285,28 +307,30 @@ validate_csv_data <- function(data) {
     ))
   }
 
-  # Check for duplicate TeamIDs
-  if (any(duplicated(data$TeamID))) {
+  # Kuerzel-Vertrag und TeamID-Eindeutigkeit ueber die gemeinsame Pruefung
+  # (transform_data.R). Frueher stand hier eine eigene, GLOBALE Fassung --
+  # sie haette die Datei abgelehnt, die sie selbst schreiben soll: Seit
+  # PR #186 traegt die TeamList rund vierzig absichtlich gleiche Kuerzel
+  # ueber Ligagrenzen (Issue #195).
+  verstoesse <- pruefe_kuerzel_vertrag(data)
+  if (length(verstoesse) > 0) {
     return(list(
       valid = FALSE,
-      message = "Duplicate TeamIDs found"
+      message = paste("Kuerzel-Vertrag verletzt:", paste(verstoesse, collapse = "; "))
     ))
   }
 
-  # Check for duplicate ShortTexts
-  duplicate_short_texts <- data$ShortText[duplicated(data$ShortText)]
-  if (length(duplicate_short_texts) > 0) {
-    return(list(
-      valid = FALSE,
-      message = paste("Duplicate ShortTexts found:", paste(unique(duplicate_short_texts), collapse = ", "))
-    ))
-  }
-
-  # Check ShortText format - allow 2-3 chars for regular teams, 4 chars for second teams ending in "2"
-  valid_patterns <- c(
-    "^[A-Z0-9]{2,3}$", # 2-3 characters for regular teams
-    "^[A-Z0-9]{3}2$" # 4 characters for second teams (3 chars + "2")
-  )
+  # Format des Kurznamens. ShortText wird in transform_data() zum
+  # SPALTENNAMEN des Simulations-Data-Frames -- er muss also ein gueltiger
+  # R-Name sein: Buchstabe zuerst, dann Buchstaben und Ziffern. Ziffern IM
+  # Kuerzel sind erwuenscht und DFL-ueblich (S04, M05, B04, H96).
+  #
+  # Bis zu vier Zeichen: Die Regionalligen brauchen sie (SCPM, VFBO, WACA),
+  # und Zweitvertretungen tragen das Kuerzel ihrer ersten Mannschaft plus
+  # "2" (HSV2, H962, FCH2). Die alte Regel ^[A-Z0-9]{2,3}$ lehnte all das
+  # ab -- ein LAUTER Fehler, der zufaellig vor der stillen Umbenennung im
+  # Merge schuetzte (Issue #195, Punkt 3).
+  valid_patterns <- c("^[A-Z][A-Z0-9]{1,3}$")
 
   invalid_short_texts <- c()
   for (short_text in data$ShortText) {

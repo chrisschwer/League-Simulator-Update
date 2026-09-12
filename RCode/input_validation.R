@@ -34,23 +34,55 @@ validate_team_count <- function(file_path) {
       team_count <- nrow(team_data)
 
       # Die Spanne folgt der Registry statt fester Zahlen. Frueher standen
-      # hier 56-62 (18+18+20 plus willkuerliche Toleranz) -- mit zehn Ligen
-      # und 237 Teams haette der Saisonwechsel hart abgebrochen
-      # (season_processor.R stoppt bei Ablehnung).
+      # hier 56-62 (18+18+20 plus willkuerliche Toleranz).
       #
-      # Untergrenze ist die kleinste Liga: Der Saisonwechsel validiert auch
-      # Einzelligen-Dateien, nicht nur die zusammengefuehrte Liste. Obergrenze
-      # ist die Summe aller Ligen plus Reserve fuer Teams, die im Laufe der
-      # Historie dazukamen (die TeamList fuehrt alle je aufgetretenen).
+      # KORRIGIERT (Issue #195): Die Untergrenze war die kleinste EINZELNE
+      # Liga, begruendet damit, der Saisonwechsel validiere auch
+      # Einzelligen-Dateien. Das trifft nicht zu -- validate_team_count() hat
+      # genau einen Aufrufer (season_processor.R), und der uebergibt immer
+      # die ZUSAMMENGEFUEHRTE Liste. Mit 12 gegen 194 Soll-Teams fing die
+      # Pruefung praktisch nichts: Ein Ergebnis, dem neun von zehn Ligen
+      # fehlen, bestand sie.
+      #
+      # Genau das passiert, wenn api-football die Spielplaene der neuen
+      # Saison noch nicht hinterlegt hat (ADR 0007): season_processor.R warnt
+      # bei einer leeren Antwort nur und ueberspringt die Liga.
+      #
+      # Untergrenze ist die Summe der Sollstaerken der Ligen, die der
+      # Saisonwechsel TATSAECHLICH ABRUFT -- mit Abschlag, weil eine Liga
+      # unter ihrer Sollstaerke spielen kann (Insolvenz, Rueckzug).
+      #
+      # Nicht alle aktiven Ligen: Der Lauf stuetzt sich auf aufgezeichnete
+      # API-Antworten und deckt heute nur 78/79/80 ab
+      # (SEASON_TRANSITION_LEAGUES, season_validation.R). Gegen alle zehn
+      # gemessen lehnte die Pruefung jeden gueltigen Lauf ab. Sobald die
+      # Kassetten fuer die uebrigen Ligen da sind, waechst die Grenze von
+      # selbst mit.
+      #
+      # Obergrenze bleibt die Summe aller je gefuehrten Ligen plus Reserve --
+      # die TeamList behaelt historische Eintraege.
+      geprueft <- if (exists("SEASON_TRANSITION_LEAGUES")) {
+        SEASON_TRANSITION_LEAGUES
+      } else {
+        league_ids()
+      }
+      soll_aktiv <- sum(vapply(lapply(geprueft, league_teams_range),
+                               function(r) r[[2]], integer(1)))
+      min_teams <- as.integer(floor(soll_aktiv * 0.9))
+
       ranges <- lapply(league_ids(active_only = FALSE), league_teams_range)
-      min_teams <- min(vapply(ranges, function(r) r[[1]], integer(1)))
       max_teams <- sum(vapply(ranges, function(r) r[[2]], integer(1))) * 2L
 
       if (team_count < min_teams) {
         return(list(
           valid = FALSE,
-          message = paste("Too few teams:", team_count,
-                          "- expected at least", min_teams)
+          message = sprintf(
+            paste0("Too few teams: %d - expected at least %d (Sollstaerke ",
+                   "aller aktiven Ligen: %d). Fehlen ganze Ligen, hat die ",
+                   "API die Spielplaene der neuen Saison womoeglich noch ",
+                   "nicht hinterlegt."),
+            team_count, min_teams, soll_aktiv
+          )
         ))
       }
 
