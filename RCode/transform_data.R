@@ -79,6 +79,77 @@ wechselgemeinschaft <- function(league_id) {
 #' brauchen vier Zeichen (WACA, BAYB, FR2B). Entscheidend ist Eindeutigkeit,
 #' nicht Format.
 #'
+#' Prueft den Kuerzel-Vertrag auf einem fertigen data.frame.
+#'
+#' EINE Pruefung fuer zwei Aufrufer: den Loader (load_team_list) und den
+#' Saisonwechsel. Bis September 2026 gab es den Vertrag dreimal in drei
+#' Fassungen -- der Saisonwechsel setzte noch "global eindeutig" durch und
+#' benannte Kollisionen still um, waehrend der Loader laengst "je Liga"
+#' verlangte (Issue #195).
+#'
+#' Bewusst auf einem data.frame statt einem Dateipfad: Der Saisonwechsel
+#' muss vor dem Schreiben pruefen koennen, auf seiner
+#' Zwischenrepraesentation.
+#'
+#' Und bewusst SAMMELND statt abbrechend: Das Ergebnis speist den
+#' Konfliktbericht (ADR 0007). Wer nach dem ersten Fund aufhoert, zwingt zu
+#' so vielen Laeufen, wie es Konflikte gibt -- bei einem Vorgang, der
+#' einmal im Juli stattfindet.
+#'
+#' @param teams data.frame mit mindestens TeamID und ShortText; League
+#'   optional (fehlt sie, gilt die ganze Liste als eine Gruppe).
+#' @return Character-Vektor der Verstoesse, leer wenn alles stimmt.
+pruefe_kuerzel_vertrag <- function(teams) {
+  verstoesse <- character(0)
+
+  # Innerhalb einer Liga ist die Regel scharf: Dort wird ShortText in
+  # transform_data() zum Spaltennamen, eine Dopplung vertauschte Teams
+  # stillschweigend. Ueber Ligagrenzen hinweg ist Gleichheit erlaubt und
+  # teils erwuenscht (ADR 0007) -- die Frauenmannschaft eines Vereins traegt
+  # dasselbe Kuerzel wie die Herrenmannschaft.
+  gruppe <- if ("League" %in% names(teams)) {
+    as.character(teams$League)
+  } else {
+    rep("alle", nrow(teams))
+  }
+
+  for (liga in unique(gruppe)) {
+    kurz <- teams$ShortText[gruppe == liga]
+    dup <- unique(kurz[duplicated(kurz)])
+    for (k in dup) {
+      verstoesse <- c(verstoesse, sprintf(
+        "Kurzname %s ist in Liga %s doppelt vergeben", k, liga
+      ))
+    }
+  }
+
+  # Die Ausnahme: Nord (84), Nordost (85) und Bayern (83) muessen
+  # UNTEREINANDER eindeutig bleiben -- als LESBARKEITSREGEL. Zwei von ihnen
+  # bestreiten jaehrlich die Aufstiegsspiele und stehen dann gemeinsam auf
+  # der Aufstiegsseite; dort waeren gleiche Kuerzel nicht zu unterscheiden.
+  # Welche zwei es trifft, beschliesst das DFB-Praesidium jaehrlich neu.
+  if ("League" %in% names(teams)) {
+    in_playoff <- as.character(teams$League) %in% c("83", "84", "85")
+    kurz <- teams$ShortText[in_playoff]
+    for (k in unique(kurz[duplicated(kurz)])) {
+      verstoesse <- c(verstoesse, sprintf(
+        paste0("Kurzname %s ist zwischen den Aufstiegsspiel-Staffeln ",
+               "(Nord, Nordost, Bayern) doppelt vergeben -- sie stehen ",
+               "gemeinsam auf der Aufstiegsseite"),
+        k
+      ))
+    }
+  }
+
+  # Doppelte TeamIDs vervielfachen beim merge() die Spielzeilen -- ebenso
+  # still wie ein doppeltes Kuerzel Teams vertauscht.
+  for (id in unique(teams$TeamID[duplicated(teams$TeamID)])) {
+    verstoesse <- c(verstoesse, sprintf("TeamID %s ist doppelt vergeben", id))
+  }
+
+  verstoesse
+}
+
 #' @param file_path Pfad zur TeamList-CSV (Semikolon-getrennt).
 #' @return data.frame der TeamList.
 load_team_list <- function(file_path) {
@@ -113,69 +184,14 @@ load_team_list <- function(file_path) {
   # transform_data() zum Spaltennamen, eine Dopplung vertauschte Teams
   # stillschweigend. Ohne League-Spalte (TeamList bis Saison 2025) gilt die
   # ganze Liste als eine Gruppe.
-  gruppe <- if ("League" %in% names(teams)) {
-    as.character(teams$League)
-  } else {
-    rep("alle", nrow(teams))
-  }
-
-  dup_short <- unique(unlist(lapply(split(teams$ShortText, gruppe), function(x) {
-    x[duplicated(x)]
-  })))
-  if (length(dup_short) > 0) {
+  # Der Kuerzel-Vertrag, geprueft ueber die gemeinsame Funktion oben --
+  # dieselbe, die der Saisonwechsel benutzt. Zwei Implementierungen derselben
+  # Regel liefen frueher oder spaeter auseinander; genau das war Issue #195.
+  verstoesse <- pruefe_kuerzel_vertrag(teams)
+  if (length(verstoesse) > 0) {
     stop(sprintf(
-      paste0(
-        "load_team_list: Kurznamen sind innerhalb einer Liga nicht eindeutig ",
-        "in %s: %s. ShortText wird in transform_data() zum Spaltennamen -- ",
-        "doppelte Kurznamen vertauschen Teams stillschweigend."
-      ),
-      file_path, paste(dup_short, collapse = ", ")
-    ), call. = FALSE)
-  }
-
-  # Die harte Ausnahme: Nord (84), Nordost (85) und Bayern (83) muessen
-  # UNTEREINANDER eindeutig bleiben. Zwei von ihnen bestreiten jaehrlich die
-  # Aufstiegsspiele und stehen dann GEMEINSAM auf der Aufstiegsseite -- zwei
-  # gleiche Kuerzel nebeneinander waeren dort fuer den Leser nicht zu
-  # unterscheiden. Welche zwei Staffeln es trifft, beschliesst das
-  # DFB-Praesidium jaehrlich neu; alle drei frei zu halten ist die einzige
-  # Fassung, die nicht jedes Jahr nachgezogen werden muss.
-  #
-  # KORRIGIERT (Issue #197): Hier stand, aufstiegswahrscheinlichkeit() ordne
-  # ueber NAMEN zu und ein doppeltes Kuerzel vertausche zwei Teams. Das traegt
-  # nicht: rl_aufstieg.R indiziert zwar per Name (p_sieg[names(x), names(y)]),
-  # aber die eine Staffel steht auf der Zeilen-, die andere auf der
-  # Spaltenachse -- ein gleiches Kuerzel ueber die Staffelgrenze hinweg
-  # vertauscht nichts. Der stille Tausch (R liefert bei doppeltem Zeilennamen
-  # zweimal die erste Zeile) braeuchte eine Dopplung INNERHALB einer Staffel,
-  # und die verbietet bereits die Regel darueber. Die Ausnahme bleibt als
-  # Lesbarkeitsregel -- mit dem Grund, der wirklich zutrifft.
-  if ("League" %in% names(teams)) {
-    playoff_ligen <- c("83", "84", "85")
-    in_playoff <- as.character(teams$League) %in% playoff_ligen
-    kurz <- teams$ShortText[in_playoff]
-    dup_playoff <- unique(kurz[duplicated(kurz)])
-    if (length(dup_playoff) > 0) {
-      stop(sprintf(
-        paste0(
-          "load_team_list: Kurznamen sind zwischen den Aufstiegsspiel-Staffeln ",
-          "(Nord, Nordost, Bayern) nicht eindeutig in %s: %s. Zwei dieser drei ",
-          "spielen jaehrlich gegeneinander um den Aufstieg; die Doppelsumme ",
-          "ordnet ueber Namen zu und vertauschte die Teams stillschweigend."
-        ),
-        file_path, paste(dup_playoff, collapse = ", ")
-      ), call. = FALSE)
-    }
-  }
-
-  dup_id <- unique(teams$TeamID[duplicated(teams$TeamID)])
-  if (length(dup_id) > 0) {
-    stop(sprintf(
-      paste0(
-        "load_team_list: TeamID ist nicht eindeutig in %s: %s. ",
-        "Doppelte IDs vervielfachen beim Merge die Spielzeilen."
-      ),
-      file_path, paste(dup_id, collapse = ", ")
+      "load_team_list: %s verletzt den Kuerzel-Vertrag:\n  - %s",
+      file_path, paste(verstoesse, collapse = "\n  - ")
     ), call. = FALSE)
   }
 

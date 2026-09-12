@@ -375,30 +375,25 @@ merge_league_files <- function(league_files, season) {
       }
 
       # Fix duplicate ShortTexts by appending numbers
-      if (any(duplicated(all_teams$ShortText))) {
-        duplicate_short_texts <- all_teams$ShortText[duplicated(all_teams$ShortText)]
-        cat("Warning: Fixing duplicate ShortTexts:", paste(unique(duplicate_short_texts), collapse = ", "), "\n")
-
-        for (dup_name in unique(duplicate_short_texts)) {
-          dup_indices <- which(all_teams$ShortText == dup_name)
-          if (length(dup_indices) > 1) {
-            # Keep first occurrence, modify others
-            for (i in 2:length(dup_indices)) {
-              idx <- dup_indices[i]
-              counter <- 1
-              new_name <- paste0(substr(dup_name, 1, 2), counter)
-
-              # Make sure the new name is unique
-              while (new_name %in% all_teams$ShortText) {
-                counter <- counter + 1
-                new_name <- paste0(substr(dup_name, 1, 2), counter)
-              }
-
-              all_teams$ShortText[idx] <- new_name
-              cat("  Renamed", dup_name, "to", new_name, "for TeamID", all_teams$TeamID[idx], "\n")
-            }
-          }
-        }
+      # Kuerzel-Vertrag pruefen, NICHT reparieren (ADR 0007).
+      #
+      # Hier stand eine stille Umbenennung: Jedes zweite Vorkommen eines
+      # Kuerzels wurde durch ein Kunstkuerzel ersetzt ("FC1", "VF1"), einzige
+      # Spur eine cat-Zeile, und der Lauf meldete Erfolg. Zwei Fehler in
+      # einem: Sie prueft GLOBAL -- seit PR #186 traegt die TeamList rund
+      # vierzig absichtlich gleiche Kuerzel ueber Ligagrenzen -- und sie
+      # verdeckt den einen Fall, der wirklich einer ist.
+      #
+      # Ein echter Konflikt (zwei Teams derselben Liga) gehoert dem
+      # Betreiber vorgelegt: Welcher Verein sein Kuerzel behaelt, ist eine
+      # Frage der Vereinsidentitaet, keine der Reihenfolge in der Datei.
+      verstoesse <- pruefe_kuerzel_vertrag(all_teams)
+      if (length(verstoesse) > 0) {
+        warning(sprintf(
+          "Kuerzel-Vertrag verletzt, Saisonwechsel abgebrochen:\n  - %s",
+          paste(verstoesse, collapse = "\n  - ")
+        ))
+        return(NULL)
       }
 
       # Sort by TeamID

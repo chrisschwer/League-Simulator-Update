@@ -5,17 +5,19 @@
 #    traefe das rund vierzig absichtlich gleiche Kuerzel.
 #    Kuenftig: melden statt umbenennen (ADR 0007).
 #
-# 2. validate_team_count() misst gegen die kleinste EINZELNE Liga (12) statt
-#    gegen die Summe aller aktiven (194). Ein Entwurf, dem neun von zehn
-#    Ligen fehlen, bestuende sie -- und genau das passiert, wenn
-#    api-football die Spielplaene der neuen Saison noch nicht hinterlegt hat:
-#    season_processor.R:164 warnt dann nur und ueberspringt die Liga.
+# 2. validate_team_count() misst gegen die kleinste EINZELNE Liga (12).
+#    Eine Liste, der ganze Ligen fehlen, bestuende sie -- und genau das
+#    passiert, wenn api-football die Spielplaene der neuen Saison noch nicht
+#    hinterlegt hat: season_processor.R:164 warnt bei einer leeren Antwort
+#    nur und ueberspringt die Liga.
+#    Kuenftig: gegen die Sollstaerke der tatsaechlich abgerufenen Ligen.
 
 library(testthat)
 
 lade_input_validation <- function() {
   env <- new.env()
   source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
+  source(test_path("..", "..", "RCode", "season_validation.R"), local = env)
   source(test_path("..", "..", "RCode", "input_validation.R"), local = env)
   env
 }
@@ -30,8 +32,15 @@ schreibe_teamliste <- function(n) {
   f
 }
 
+# Sollstaerke der Ligen, die der Saisonwechsel TATSAECHLICH abruft.
+#
+# ANGEPASST nach Christophs Entscheidung: Erst hiess es "alle aktiven
+# Ligen" -- dann haette die Pruefung jeden gueltigen Lauf abgelehnt, denn
+# der Saisonwechsel deckt ueber SEASON_TRANSITION_LEAGUES nur 78/79/80 ab
+# (aufgezeichnete API-Antworten gibt es nur dafuer). Sobald die Kassetten
+# fuer die uebrigen Ligen da sind, waechst die Grenze von selbst mit.
 soll_teams <- function(env) {
-  sum(vapply(lapply(env$league_ids(), env$league_teams_range),
+  sum(vapply(lapply(env$SEASON_TRANSITION_LEAGUES, env$league_teams_range),
              function(r) r[[2]], integer(1)))
 }
 
@@ -39,21 +48,23 @@ soll_teams <- function(env) {
 
 test_that("validate_team_count lehnt eine Liste ab, der ganze Ligen fehlen", {
   # Der Kernfall: Die API hat die Spielplaene der neuen Saison noch nicht,
-  # neun von zehn Ligen kommen leer zurueck, season_processor.R warnt nur
-  # und ueberspringt sie. Heute besteht das Ergebnis die Pruefung, weil ihre
-  # Untergrenze die kleinste EINZELNE Liga ist.
+  # Ligen kommen leer zurueck, season_processor.R warnt nur und ueberspringt
+  # sie. Heute besteht das Ergebnis die Pruefung, weil ihre Untergrenze die
+  # kleinste EINZELNE Liga ist.
   env <- lade_input_validation()
 
+  # Eine von drei geprueften Ligen -- zwei fehlen.
   expect_false(env$validate_team_count(schreibe_teamliste(18))$valid)
-  expect_false(env$validate_team_count(schreibe_teamliste(56))$valid)
+  # Zwei von dreien.
+  expect_false(env$validate_team_count(schreibe_teamliste(36))$valid)
 })
 
 test_that("validate_team_count akzeptiert eine vollstaendige Liste", {
-  # Die Sollstaerke aller zehn Ligen, und die echte TeamList_2026 mit ihren
-  # historischen Eintraegen.
   env <- lade_input_validation()
 
+  # Alle drei geprueften Ligen in Sollstaerke.
   expect_true(env$validate_team_count(schreibe_teamliste(soll_teams(env)))$valid)
+  # Und die echte TeamList_2026 mit ihren historischen Eintraegen.
   expect_true(env$validate_team_count(schreibe_teamliste(248))$valid)
 })
 
