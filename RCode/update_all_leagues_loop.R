@@ -96,8 +96,9 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
   beendet <- stats::setNames(vector("list", length(liga_keys)), liga_keys)
 
   # Import Team Data. load_team_list() (transform_data.R) prueft dabei die
-  # Invarianten, auf die transform_data() baut: global eindeutige Kurznamen
-  # und TeamIDs. Beide Verstoesse wuerden sonst still zu vertauschten Teams
+  # Invarianten, auf die transform_data() baut: Kurznamen eindeutig JE LIGA
+  # (plus die Ausnahme zwischen Nord, Nordost und Bayern) und eindeutige
+  # TeamIDs. Beide Verstoesse wuerden sonst still zu vertauschten Teams
   # bzw. vervielfachten Spielzeilen fuehren.
   TeamList <- load_team_list(TeamList_file)
 

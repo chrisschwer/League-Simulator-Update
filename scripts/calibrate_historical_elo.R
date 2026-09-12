@@ -331,7 +331,10 @@ if (!is.null(liga3_final)) {
 records <- merge(records, regions, by = "TeamID", all.x = TRUE)
 records$Region[is.na(records$Region)] <- ""
 
-# Kurznamen: global eindeutig gegen die bereits vergebenen der Altligen.
+# Kurznamen: global eindeutig gegen die bereits vergebenen der Altligen --
+# strenger als die Produktivregel (eindeutig je Liga, s. load_team_list()),
+# weil dieses Offline-Skript die Ligazuordnung nicht kennt. Folge: Gegen eine
+# TeamList mit bereits angeglichenen Frauen-Kuerzeln erzeugt es Ausweichnamen.
 # ShortText wird in transform_data() zum Spaltennamen -- Kollisionen wuerden
 # Teams stillschweigend vertauschen.
 existing_tl <- file.path(rcode_dir, sprintf("TeamList_%d.csv", target_season))

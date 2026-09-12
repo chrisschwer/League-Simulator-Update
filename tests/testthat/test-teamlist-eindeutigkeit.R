@@ -210,12 +210,17 @@ test_that("load_team_list erlaubt gleiche Kurznamen in den beiden Frauen-Ligen",
 #   - INNERHALB einer Liga bleibt das Kuerzel eindeutig. Dort wird es zum
 #     Spaltennamen des Simulations-Data-Frames; eine Dopplung vertauschte
 #     Teams stillschweigend.
-#   - Zwischen Nord, Nordost und Bayern ebenfalls. Zwei von ihnen bestreiten
-#     jaehrlich die Aufstiegsspiele (rl_aufstieg.R), und dort ordnet
-#     aufstiegswahrscheinlichkeit() ueber NAMEN zu. Welche zwei es sind,
-#     beschliesst das DFB-Praesidium jaehrlich -- alle drei untereinander
-#     frei zu halten ist die einzige Fassung, die nicht jedes Jahr
-#     nachgezogen werden muss.
+#   - Zwischen Nord, Nordost und Bayern ebenfalls -- als LESBARKEITSREGEL.
+#     Zwei von ihnen bestreiten jaehrlich die Aufstiegsspiele und stehen dann
+#     gemeinsam auf der Aufstiegsseite; zwei gleiche Kuerzel nebeneinander
+#     waeren dort nicht zu unterscheiden. Welche zwei es sind, beschliesst das
+#     DFB-Praesidium jaehrlich -- alle drei untereinander frei zu halten ist
+#     die einzige Fassung, die nicht jedes Jahr nachgezogen werden muss.
+#
+#     KORRIGIERT (Issue #197): Hier stand, aufstiegswahrscheinlichkeit() ordne
+#     ueber NAMEN zu und ein doppeltes Kuerzel vertausche Teams. Das trifft
+#     nicht zu -- die beiden Staffeln liegen auf getrennten Achsen der
+#     p_sieg-Matrix. Begruendung im Detail in transform_data.R.
 
 test_that("load_team_list erlaubt dasselbe Kuerzel in verschiedenen Ligen", {
   # Die drei echten Faelle aus TeamList_2026: VFB (Stuttgart 78 / Luebeck 84),
