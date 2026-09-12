@@ -463,7 +463,8 @@ render_panel_table <- function(data_obj, panel, computed_obj = NULL) {
 
 render_league_page <- function(view, data_env, output_dir,
                                now = Sys.time(), mtime = now,
-                               league_entry = NULL) {
+                               league_entry = NULL,
+                               view_key = NULL) {
   .copy_assets(output_dir)
 
   result <- get(view$plot_source, envir = data_env)
@@ -486,6 +487,17 @@ render_league_page <- function(view, data_env, output_dir,
   top_html <- panel_html(view$top)
   bottom_html <- panel_html(view$bottom)
 
+  # Auf-/Abstiegszonen (Issue #185): nur die Regionalligen tragen welche.
+  # rl_zonen() liefert fuer alle anderen NULL, und ohne zonen rendert die
+  # Tabelle zeichengleich wie vorher.
+  zonen <- if (!is.null(view_key)) rl_zonen(view_key, data_env) else NULL
+  zonen_fussnote <- if (!is.null(zonen)) {
+    regel <- league_registry()[[view_key]]$relegation_regel
+    if (is.null(regel)) "" else render_zonen_fussnote(zonen, regel)
+  } else {
+    ""
+  }
+
   tabelle_html <- if (!is.null(league_entry)) {
     paste0(
       "<section id=\"tabelle\">\n",
@@ -493,8 +505,8 @@ render_league_page <- function(view, data_env, output_dir,
       "<h2>Ligatabelle und ELO</h2>\n",
       "<p class=\"sectionlead\">Die aktuelle Tabelle, daneben die ELO-Stärkeschätzung ",
       "des Modells und ihre Veränderung seit Saisonbeginn.</p>\n",
-      "<div class=\"scroll\">", render_liga_tabelle(league_entry$tabelle),
-      "</div>\n</section>\n"
+      "<div class=\"scroll\">", render_liga_tabelle(league_entry$tabelle, zonen = zonen),
+      "</div>\n", zonen_fussnote, "\n</section>\n"
     )
   } else {
     ""
@@ -950,7 +962,7 @@ generate_static_site <- function(Ergebnis = NULL, Ergebnis2 = NULL,
     view <- views[[key]]
     message(sprintf("generate_static_site: rendering %s", view$slug))
     render_league_page(view, data_env, output_dir, now = now, mtime = now,
-                       league_entry = league_data[[key]])
+                       league_entry = league_data[[key]], view_key = key)
   }, character(1))
 
   # Die Aufstiegsseite entsteht nur, wenn wenigstens eine Regionalliga
@@ -1121,6 +1133,114 @@ render_liga_tabelle <- function(tabelle, zonen = NULL) {
 #' @param zonen Liste wie in render_liga_tabelle().
 #' @param regel Ein Satz zur Abstiegsregel der Staffel.
 #' @return HTML-Absatz.
+#' Die Auf-/Abstiegszonen einer Liga, aus den Ergebnisobjekten des Zyklus.
+#'
+#' Das fehlende Glied zwischen Rechnung und Anzeige (Issue #185): Die
+#' Bausteine liegen vor -- die Platzvektoren als Attribute an der
+#' Abstiegsprognose, das zonen-Argument am Tabellenrenderer -- aber niemand
+#' hat sie verbunden.
+#'
+#' DREI QUELLEN, und gruen ist der unangenehme Fall: Nordost, West und
+#' SuedWest stellen je einen DIREKTEN Aufsteiger (promotion_slots = 1), dort
+#' ist Platz 1 sicher und die Zahl kommt aus der Registry. Nord und Bayern
+#' haben promotion_slots = 0 und kommen nur ueber das Aufstiegsspiel hoch;
+#' dort traegt Platz 1 die Gewinnquote aus Ergebnis_<key>_aufstieg. Eine
+#' Verwechslung hiesse, einen sicheren Aufstieg zu behaupten, den es nicht
+#' gibt.
+#'
+#' @param view_key Schluessel der Liga, wie in league_registry().
+#' @param data_env Umgebung mit den Ergebnisobjekten des Zyklus.
+#' @return Liste (abstieg, relegation, aufstieg) oder NULL -- NULL heisst:
+#'   Tabelle ohne Zonen, also zeichengleich wie vor Issue #185.
+rl_zonen <- function(view_key, data_env) {
+  eintrag <- league_registry()[[view_key]]
+  if (is.null(eintrag) || !identical(eintrag$nav_group, "Regionalliga")) {
+    return(NULL)
+  }
+
+  hole <- function(name) {
+    if (exists(name, envir = data_env, inherits = FALSE)) {
+      get(name, envir = data_env, inherits = FALSE)
+    } else {
+      NULL
+    }
+  }
+
+  # Das Abstiegsobjekt ist die tragende Quelle: Ohne es gibt es GAR KEINE
+  # Zonen. Der Loop laesst die RL-Spalten aus, wenn Voraussetzungen fehlen
+  # (etwa ohne Zaehlung der 3. Liga) -- eine Liga ohne Linien ist besser als
+  # eine mit Linien, die nur die halbe Wahrheit tragen.
+  abstiegsobjekt <- hole(.ergebnis_objektname(paste0(view_key, "_abstieg")))
+  if (is.null(abstiegsobjekt)) {
+    return(NULL)
+  }
+  platz_abstieg <- attr(abstiegsobjekt, "platz_abstieg")
+  if (is.null(platz_abstieg)) {
+    return(NULL)
+  }
+  teams <- length(platz_abstieg)
+
+  aufstieg <- numeric(teams)
+  if (isTRUE(eintrag$promotion_slots >= 1L)) {
+    # Direkter Aufstiegsplatz: keine Wahrscheinlichkeit im Spiel.
+    aufstieg[seq_len(min(eintrag$promotion_slots, teams))] <- 1
+  } else {
+    # Nur ueber das Aufstiegsspiel. Fehlt die Spalte, bleibt Gruen leer --
+    # die Abstiegslinien sind davon unberuehrt und bleiben vollstaendig.
+    aufstiegsspalte <- hole(.ergebnis_objektname(paste0(view_key, "_aufstieg")))
+    if (!is.null(aufstiegsspalte) && !is.null(aufstiegsspalte$Aufstieg)) {
+      aufstieg[1] <- sum(aufstiegsspalte$Aufstieg)
+    }
+  }
+
+  list(
+    abstieg = platz_abstieg,
+    # NULL statt Nullvektor: "gibt es nicht" und "moeglich, gerade null" sind
+    # verschiedene Aussagen -- nur Bayern hat eine Abstiegsrelegation.
+    relegation = attr(abstiegsobjekt, "platz_relegation"),
+    aufstieg = aufstieg
+  )
+}
+
+#' Verteilung der Absteigerzahl, aus dem Platzvektor zurueckgewonnen.
+#'
+#' Bei Nord, Nordost und SuedWest steht nicht fest, wie viele Vereine
+#' absteigen -- die Zahl haengt an der 3. Liga. Die Fussnote soll das nennen,
+#' bevor sie die Platz-Wahrscheinlichkeiten zeigt.
+#'
+#' Dafuer braucht es weder eine neue Rechnung noch die Zaehlmatrix der
+#' 3. Liga (die lebt nur im Loop und erreicht den Generator gar nicht):
+#' `platz_gewichte()` IST die Ueberlebensfunktion P(Zahl der Absteiger >= j),
+#' von hinten gelesen. Sie faellt monoton von 1 auf 0; ihre Differenzen sind
+#' P(genau j). Linien und Fussnote haben damit eine einzige Quelle und
+#' koennen nicht auseinanderlaufen.
+#'
+#' Nebeneffekt: Liefert eine Regel fuer zwei verschiedene Drittliga-Faelle
+#' dieselbe Absteigerzahl (Nordost bei einem und bei zwei Absteigern), faellt
+#' das hier zusammen -- gerechnet wird ueber die Zahl, nicht ueber den
+#' Zwischenschritt.
+#'
+#' @param platz_abstieg Vektor je Platz, monoton fallend.
+#' @return Benannter Vektor: Namen = Zahl der Absteiger, Werte = P. Nur
+#'   Eintraege mit P > 0.
+absteigerzahl_verteilung <- function(platz_abstieg) {
+  n <- length(platz_abstieg)
+  # P(>= j) ist der Wert am j-letzten Platz; P(genau j) die Differenz zum
+  # naechsten. Der letzte Schritt hat keinen Nachfolger -> 0.
+  zahlen <- integer(0)
+  p <- numeric(0)
+  for (j in seq_len(n)) {
+    oben <- platz_abstieg[[n - j + 1]]
+    unten <- if (n - j >= 1) platz_abstieg[[n - j]] else 0
+    diff <- oben - unten
+    if (diff > 1e-9) {
+      zahlen <- c(zahlen, j)
+      p <- c(p, diff)
+    }
+  }
+  stats::setNames(p, as.character(zahlen))
+}
+
 render_zonen_fussnote <- function(zonen, regel) {
   # Nur Plaetze MIT Risiko. Alle 18 aufzuzaehlen hiesse, 16-mal "0 %" zu
   # schreiben -- das verdeckt die drei Zahlen, auf die es ankommt.
@@ -1141,6 +1261,18 @@ render_zonen_fussnote <- function(zonen, regel) {
     )
   }
 
+  # Wie viele steigen ueberhaupt ab? Steht die Zahl fest, entfaellt der Satz:
+  # "4 Absteiger mit 100 %" saehe aus, als gaebe es eine Unsicherheit.
+  verteilung <- absteigerzahl_verteilung(zonen$abstieg)
+  verteilungssatz <- if (length(verteilung) > 1L) {
+    teile <- vapply(names(verteilung), function(z) {
+      sprintf("%s mit %s\u00a0%%", z, prozent(verteilung[[z]]))
+    }, character(1))
+    paste0("Zahl der Absteiger: ", paste(teile, collapse = ", "), ".")
+  } else {
+    character(0)
+  }
+
   saetze <- c(
     eintrag(zonen$aufstieg, "aufstieg", "Aufstieg"),
     eintrag(zonen$relegation, "relegation", "Relegation"),
@@ -1150,6 +1282,9 @@ render_zonen_fussnote <- function(zonen, regel) {
   paste0(
     "<p class=\"zonen-fussnote\">",
     htmltools::htmlEscape(regel), " ",
+    # Die Verteilung steht VOR der Platzliste: erst warum die Zahl
+    # schwankt, dann was daraus je Platz folgt.
+    if (length(verteilungssatz) > 0) paste0(verteilungssatz, " ") else "",
     paste(saetze, collapse = " "),
     "</p>"
   )
