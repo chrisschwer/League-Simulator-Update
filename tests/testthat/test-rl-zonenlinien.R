@@ -130,11 +130,23 @@ test_that("jedes P groesser null bleibt sichtbar (Mindestdeckkraft)", {
   html <- gen$render_liga_tabelle(mk_rl_tabelle(),
                                   zonen = mk_zonen(abstieg = abstieg))
 
+  # --zone-p traegt die Wahrscheinlichkeit selbst; die Zeile existiert also
+  # und traegt ihren echten Wert.
   p17 <- deckkraft_von(zeile_von(html, 17))
   expect_false(is.na(p17))
-  expect_gte(p17, 0.15)
-  # Aber die Abstufung bleibt: sicher ist deutlich kraeftiger als moeglich.
+  expect_equal(p17, 0.01, tolerance = 1e-9)
+  # Und die Abstufung bleibt: sicher ist kraeftiger als moeglich.
   expect_lt(p17, deckkraft_von(zeile_von(html, 18)))
+
+  # Die Untergrenze selbst ist eine Frage der DARSTELLUNG und steht deshalb
+  # im Stylesheet, nicht im Renderer: --zone-p bleibt die Wahrscheinlichkeit
+  # und bleibt mit der Fussnote vergleichbar. Geprueft wird, dass das
+  # Stylesheet sie anwendet -- sonst waere die Zusicherung nirgends.
+  css <- paste(readLines(
+    test_path("..", "..", "RCode", "site_assets", "site.css"), warn = FALSE
+  ), collapse = "\n")
+  expect_match(css, "--zone-p", fixed = TRUE)
+  expect_match(css, "max(", fixed = TRUE)
 })
 
 test_that("Bayern faerbt Relegation gelb und Abstieg rot, ohne sie zu verrechnen", {

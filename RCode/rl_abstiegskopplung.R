@@ -412,7 +412,17 @@ rl_abstiegsprognose <- function(staffel, prognose, relegation_group_counts,
   abstieg <- abstiegswahrscheinlichkeit(prognose, gewichte)
 
   if (!identical(staffel, "Bayern")) {
-    return(data.frame(Abstieg = abstieg, row.names = rownames(prognose)))
+    ergebnis <- data.frame(Abstieg = abstieg, row.names = rownames(prognose))
+    # Der Platzvektor als ATTRIBUT, nicht als Spalte (Issue #185): Die
+    # Rueckgabe ist eine Groesse je TEAM, der Vektor eine je PLATZ -- andere
+    # Laenge, andere Bedeutung. Als Attribut bleibt die Signatur unveraendert
+    # und jeder bestehende Aufrufer merkt nichts.
+    #
+    # Er wird hier nur DURCHGEREICHT, nicht neu gerechnet: Eine zweite
+    # Herleitung im Renderer koennte von dieser abweichen, und dann
+    # widerspraechen sich Linie und Team-Prozentzahl auf derselben Seite.
+    attr(ergebnis, "platz_abstieg") <- gewichte
+    return(ergebnis)
   }
 
   # Bayern weist nach unten ZWEI Groessen aus, die nicht verrechnet werden:
@@ -432,9 +442,18 @@ rl_abstiegsprognose <- function(staffel, prognose, relegation_group_counts,
   relegations_gewichte[relegations_plaetze] <- 1
   relegation <- abstiegswahrscheinlichkeit(prognose, relegations_gewichte)
 
-  data.frame(
+  ergebnis <- data.frame(
     Relegation = relegation,
     Abstieg = abstieg,
     row.names = rownames(prognose)
   )
+
+  # Zwei Attribute, weil die beiden Groessen nicht verrechnet werden duerfen
+  # (s. Kommentar oben). Die anderen vier Staffeln bekommen bewusst GAR KEIN
+  # Relegations-Attribut statt eines Nullvektors: "gibt es nicht" und
+  # "moeglich, aber gerade null" sind verschiedene Aussagen, und der
+  # Renderer koennte sie sonst nicht unterscheiden.
+  attr(ergebnis, "platz_abstieg") <- gewichte
+  attr(ergebnis, "platz_relegation") <- relegations_gewichte
+  ergebnis
 }
