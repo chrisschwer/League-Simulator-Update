@@ -625,11 +625,28 @@ test_that("circular dependency resolution works end-to-end", {
     !grepl("TeamList_2024\\.csv$", path)
   })
   
-  # Mock get_league_matches (no actual matches for this test)
-  stub(calculate_final_elos, "get_league_matches", function(...) NULL)
+  # ANGEPASST fuer Issue #146, Teil 2 (Freigabe Christoph).
+  #
+  # Bis hierher stand hier ein Stub auf get_league_matches() -- den Seam des
+  # geloeschten R-Walks. Die neue Implementierung ruft ihn nicht mehr auf; der
+  # Stub liefe ins Leere und der Test bliebe gruen, ohne noch etwas zu pruefen.
+  #
+  # Der GEGENSTAND des Tests ist unveraendert und hat mit ELO nichts zu tun:
+  # Kann calculate_final_elos() seine Teamliste aus den *_temp.csv-Dateien
+  # lesen, wenn TeamList_2024.csv noch nicht existiert? Genau das ist die
+  # zirkulaere Abhaengigkeit, die der Test seit jeher absichert.
+  #
+  # Deshalb wird jetzt der Fixture-Seam gestubbt: keine Spiele fuer keine Liga.
+  # Damit wird der Endpoint gar nicht erst befragt (siehe den Test
+  # "gibt bei durchweg spiellosen Ligen die Startwerte zurueck" in
+  # test-ein-elo-walk.R), und der Test braucht weiterhin keinen Rust-Server.
+  stub(calculate_final_elos, "retrieveResults", function(...) NULL)
   
   # Test - should NOT crash with circular dependency
-  expect_error(calculate_final_elos("2024"), NA)  # No error expected
+  expect_error(
+    calculate_final_elos("2024", fixtures_fn = function(league, season) NULL),
+    NA
+  )  # No error expected
   
   # Test Liga3 baseline calculation with temp files
   stub(calculate_liga3_relegation_baseline, "calculate_final_elos", function(season) {
