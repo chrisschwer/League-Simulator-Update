@@ -74,22 +74,48 @@ ausblick_response <- function() {
       ' "score_matrix": [[%s, 0.5], [0.0, 0.0]]}'
     ), index, th, ta, played, gh, ga, delta, ph, px, pa, m11)
   }
-  paste0(
-    '{"matches": [',
-    eintrag(0, 1, 2, "true", "2", "1", "7.5", "0.44", "0.26", "0.30", "0.5"), ",",
-    eintrag(1, 3, 4, "false", "null", "null", "null", "0.43", "0.26", "0.31", "0.5"), ",",
-    eintrag(2, 2, 3, "true", "1", "1", "2.1", "0.38", "0.27", "0.35", "0.5"), ",",
-    eintrag(3, 1, 4, "true", "2", "0", "3.3", "0.41", "0.27", "0.32", "0.5"), ",",
-    eintrag(4, 2, 4, "false", "null", "null", "null", "0.40", "0.26", "0.34", "0.123"), ",",
-    eintrag(5, 3, 1, "false", "null", "null", "null", "0.45", "0.26", "0.29", "0.456"),
-    '], "current_elos": [1505.7, 1481.6, 1518.4, 1494.3],',
-    ' "team_names": ["ALP", "BET", "GAM", "DEL"]}'
+  # ANGEPASST (#146): folgt dem GESENDETEN Payload statt einer festen Liste.
+  # Begruendung wie in test-league-page-data-rueckblick.R -- seit der
+  # chronologischen Sortierung stimmt die feste Index-Zuordnung nicht mehr.
+  werte <- list(
+    "1-2" = list("7.5",  "0.44", "0.26", "0.30", "0.5"),
+    "3-4" = list("null", "0.43", "0.26", "0.31", "0.5"),
+    "2-3" = list("2.1",  "0.38", "0.27", "0.35", "0.5"),
+    "1-4" = list("3.3",  "0.41", "0.27", "0.32", "0.5"),
+    "2-4" = list("null", "0.40", "0.26", "0.34", "0.123"),
+    "3-1" = list("null", "0.45", "0.26", "0.29", "0.456")
   )
+
+  function(payload) {
+    teile <- vapply(seq_along(payload$schedule), function(i) {
+      zeile <- payload$schedule[[i]]
+      th <- zeile[[1]]
+      ta <- zeile[[2]]
+      gh <- zeile[[3]]
+      ga <- zeile[[4]]
+      gespielt <- !is.null(gh) && !is.na(gh) && !is.null(ga) && !is.na(ga)
+      w <- werte[[paste0(th, "-", ta)]]
+      eintrag(
+        i - 1L, th, ta,
+        if (gespielt) "true" else "false",
+        if (gespielt) as.character(gh) else "null",
+        if (gespielt) as.character(ga) else "null",
+        if (gespielt) w[[1]] else "null",
+        w[[2]], w[[3]], w[[4]], w[[5]]
+      )
+    }, character(1))
+
+    paste0(
+      '{"matches": [', paste(teile, collapse = ","),
+      '], "current_elos": [1505.7, 1481.6, 1518.4, 1494.3],',
+      ' "team_names": ["ALP", "BET", "GAM", "DEL"]}'
+    )
+  }
 }
 
 test_that("ausblick enthält den nächsten Spieltag mit Endpoint-Werten", {
   pd <- build_league_page_data(ausblick_fixtures(), ausblick_teams(),
-                               fetch_fn = function(...) ausblick_response())
+                               fetch_fn = ausblick_response())
 
   ab <- pd$ausblick
   expect_equal(ab$fixture_id, c(5005, 5006)) # chronologisch
@@ -109,7 +135,7 @@ test_that("ein früher angesetztes Nachholspiel steht markiert im Ausblick", {
     ausblick_fixtures(spiel2_datum = "2026-12-01T17:30:00+00:00",
                       spiel2_status = "NS"),
     ausblick_teams(),
-    fetch_fn = function(...) ausblick_response()
+    fetch_fn = ausblick_response()
   )
 
   ab <- pd$ausblick

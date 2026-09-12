@@ -123,7 +123,23 @@ extract_fixture_details <- function(fixtures) {
   kickoff <- as.POSIXct(date_clean, format = "%Y-%m-%dT%H:%M:%S%z", tz = "UTC")
   attr(kickoff, "tzone") <- "UTC"
 
-  data.frame(
+  # WARUM HIER SORTIERT WIRD (Design 2026-09-12, Teil 1): Der Rust-ELO-Walk
+  # verarbeitet den `schedule` aus build_league_details_payload() in genau
+  # der Reihenfolge, in der er hier ankommt. Bisher war das die
+  # API-Reihenfolge -- bei einem Nachholspiel weicht die vom Kalender ab, und
+  # der Walk verrechnet es mit ELO-Staenden, die zum Anstosszeitpunkt nicht
+  # mehr galten. rueckblick_matches()/ausblick_matches()/live_matches()
+  # sortieren zwar schon nach kickoff, aber nur fuer die ANZEIGE --
+  # build_league_details_payload() bekam bislang das unsortierte `details`.
+  #
+  # Sortierschluessel: Anstosszeit aufsteigend, bei Gleichstand die
+  # Eingabereihenfolge (API-Reihenfolge). `order()` ist stabil, das allein
+  # reicht fuer den Tiebreak -- solange nur einmal sortiert wird. `NA`-Zeiten
+  # (Spiel ohne Termin) schiebt `order(..., na.last = TRUE)` ans Ende, statt
+  # mit "object not found" abzustuerzen oder die Sortierung ganz zu verweigern.
+  reihenfolge <- order(kickoff, na.last = TRUE)
+
+  ergebnis <- data.frame(
     fixture_id = fixture_id,
     round = round,
     kickoff = kickoff,
@@ -135,7 +151,9 @@ extract_fixture_details <- function(fixtures) {
     goals_home = goals_home,
     goals_away = goals_away,
     stringsAsFactors = FALSE
-  )
+  )[reihenfolge, ]
+  rownames(ergebnis) <- NULL
+  ergebnis
 }
 
 classify_matchday_status <- function(details) {
