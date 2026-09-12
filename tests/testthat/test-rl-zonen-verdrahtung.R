@@ -195,8 +195,12 @@ test_that("Nord und West nennen ihre Besonderheit im Regeltext", {
   source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
   reg <- env$league_registry()
 
-  expect_match(reg$rl_nord$relegation_regel, "Meister")
-  expect_match(reg$rl_west$relegation_regel, "unabh|nicht")
+  # Nord nennt den Mechanismus, nicht das Wort "Meister": Christoph hat die
+  # laengere Fassung "Gewinnt Nord das Aufstiegsspiel" bewusst behalten,
+  # weil sie erklaert, WIE der Abstiegsplatz wegfaellt.
+  expect_match(reg$rl_nord$relegation_regel, "Aufstiegsspiel")
+  expect_match(reg$rl_west$relegation_regel, "ändert die 3. Liga diese Zahl nicht",
+               fixed = TRUE)
 })
 
 test_that("die Nicht-RL-Ligen tragen keinen Regeltext", {
@@ -210,6 +214,99 @@ test_that("die Nicht-RL-Ligen tragen keinen Regeltext", {
                 "frauen_bundesliga", "zweite_frauen_bundesliga")) {
     expect_null(reg[[key]]$relegation_regel, info = key)
   }
+})
+
+# --- Die Zahl der Absteiger ------------------------------------------------
+#
+# Die Linien sagen, welcher PLATZ betroffen ist. Die Fussnote soll davor
+# sagen, WIE VIELE Vereine ueberhaupt absteigen -- bei Nord, Nordost und
+# SuedWest steht das nicht fest, sondern haengt an der 3. Liga.
+#
+# Diese Verteilung muss NICHT neu gerechnet und auch nicht durch den Loop
+# gereicht werden: Sie steckt bereits im Platzvektor aus platz_gewichte().
+# Der ist die Ueberlebensfunktion P(Platz p ist Abstiegsplatz) und faellt
+# monoton von 1 auf 0; seine Differenzen sind genau P(genau j Absteiger).
+#
+# Das ist mehr als eine Abkuerzung: Linien und Fussnote haben damit EINE
+# Quelle und koennen nicht auseinanderlaufen. Eine zweite Herleitung aus
+# der Zaehlmatrix waere eine zweite Wahrheit auf derselben Seite.
+#
+# Nebeneffekt, der einen Sonderfall von selbst erledigt: Bei Nordost
+# liefert das NOFV-Schema fuer einen und fuer zwei Drittliga-Absteiger
+# DIESELBE Zahl (zwei). Ueber k gerechnet stuende "2 Absteiger" zweimal in
+# der Liste; ueber die Absteigerzahl gerechnet summiert es sich richtig.
+
+test_that("absteigerzahl_verteilung gewinnt die Verteilung aus dem Platzvektor", {
+  gen <- source_generator()
+
+  # Nord-Fall: 3 Absteiger sicher, der 4. mit 80 %, der 5. mit 30 %.
+  g <- numeric(18)
+  g[18] <- 1; g[17] <- 1; g[16] <- 1   # drei sichere
+  g[15] <- 0.8
+  g[14] <- 0.3
+
+  v <- gen$absteigerzahl_verteilung(g)
+
+  expect_equal(v[["3"]], 0.2, tolerance = 1e-9)  # 1 - 0.8
+  expect_equal(v[["4"]], 0.5, tolerance = 1e-9)  # 0.8 - 0.3
+  expect_equal(v[["5"]], 0.3, tolerance = 1e-9)
+  expect_equal(sum(v), 1, tolerance = 1e-9)
+})
+
+test_that("eine feste Absteigerzahl ergibt genau einen Eintrag mit 100 Prozent", {
+  # West koppelt nicht: vier Absteiger, Punkt. Die Fussnote soll das als
+  # eine Zeile zeigen, nicht als Verteilung ueber einen einzigen Wert.
+  gen <- source_generator()
+  g <- numeric(18); g[15:18] <- 1
+
+  v <- gen$absteigerzahl_verteilung(g)
+
+  expect_named(v, "4")
+  expect_equal(unname(v[[1]]), 1, tolerance = 1e-9)
+})
+
+test_that("Plaetze mit Wahrscheinlichkeit null tauchen nicht auf", {
+  # Sonst stuenden in der Liste 14 Eintraege mit "0 %", die die drei
+  # interessanten Zahlen zudecken.
+  gen <- source_generator()
+  g <- numeric(18); g[18] <- 1; g[17] <- 0.5
+
+  v <- gen$absteigerzahl_verteilung(g)
+
+  expect_setequal(names(v), c("1", "2"))
+})
+
+test_that("die Fussnote nennt die Zahl der Absteiger VOR den Platz-Zahlen", {
+  # Reihenfolge ist Aussage: Erst warum die Zahl schwankt, dann was daraus
+  # je Platz folgt. Andersherum stuenden die Platzzahlen unerklaert da.
+  gen <- source_generator()
+  ab <- numeric(18)
+  ab[18] <- 1; ab[17] <- 1; ab[16] <- 0.4
+
+  html <- gen$render_zonen_fussnote(
+    zonen = list(abstieg = ab, relegation = NULL, aufstieg = numeric(18)),
+    regel = "Zwei Vereine steigen ab, je Absteiger aus der 3. Liga einer mehr."
+  )
+
+  expect_match(html, "Absteiger", fixed = TRUE)
+  # Die Verteilung steht vor der Platzliste.
+  expect_lt(regexpr("Zahl der Absteiger", html, fixed = TRUE),
+            regexpr("Platz 16", html, fixed = TRUE))
+})
+
+test_that("bei fester Absteigerzahl entfaellt der Verteilungssatz", {
+  # West und Bayern haben nichts zu erklaeren -- ein Satz "4 Absteiger mit
+  # 100 %" waere Fuellmaterial und saehe aus, als gaebe es eine Unsicherheit.
+  gen <- source_generator()
+  ab <- numeric(18); ab[15:18] <- 1
+
+  html <- gen$render_zonen_fussnote(
+    zonen = list(abstieg = ab, relegation = NULL, aufstieg = numeric(18)),
+    regel = "Vier Vereine steigen ab."
+  )
+
+  expect_false(grepl("Zahl der Absteiger", html, fixed = TRUE))
+  expect_match(html, "Vier Vereine steigen ab.", fixed = TRUE)
 })
 
 # --- Die fertige Seite -----------------------------------------------------
