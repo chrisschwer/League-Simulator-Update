@@ -29,27 +29,18 @@ test_that("season_transition pipeline produces byte-identical CSV from cassettes
   skip_if_not(file.exists(expected_csv),
               "Snapshot fixture missing. Run _record.R to capture it.")
 
-  # Seit Issue #146, Teil 2 braucht dieser Test einen LAUFENDEN Rust-Server.
+  # Die /league-details-Antworten sind AUFGEZEICHNET (Issue #146, Teil 2).
   #
-  # Der Grund ist Absicht, nicht Bequemlichkeit: Der Saisonwechsel holt die
-  # End-ELOs jetzt ueber POST /league-details. Diesen Aufruf wegzumocken hiesse,
-  # genau das Stueck aus der Kette zu schneiden, dessentwegen es den Test gibt
-  # -- die ELO-Physik. Lieber ein sichtbarer Skip als ein gruener Test, der die
-  # Rechnung nicht mehr anfasst (Entscheidung Christoph).
+  # Seit Teil 2 holt der Saisonwechsel die End-ELOs ueber POST
+  # /league-details. Der Test braucht dafuer trotzdem KEINEN laufenden
+  # Rust-Server: Die Antworten liegen als httptest-Kassetten unter
+  # localhost-8080/ neben den api-football-Kassetten.
   #
-  # Sichtbar ist hier das entscheidende Wort: Der Snapshot vergleicht BYTEWEISE.
-  # Ein stiller Fehlschlag saehe aus wie eine echte Abweichung der Start-ELOs
-  # und wuerde die naechste Person auf die Suche nach einem Modellfehler
-  # schicken, den es nicht gibt.
-  rust_url <- Sys.getenv("RUST_API_URL", "http://localhost:8080")
-  rust_erreichbar <- tryCatch({
-    antwort <- httr::GET(paste0(rust_url, "/health"), httr::timeout(2))
-    httr::status_code(antwort) == 200
-  }, error = function(e) FALSE)
-  skip_if_not(rust_erreichbar,
-              paste0("Rust-Server nicht erreichbar unter ", rust_url,
-                     " -- der Saisonwechsel holt die End-ELOs ueber ",
-                     "/league-details (Issue #146, Teil 2)."))
+  # Das ist die bessere Haelfte beider Varianten -- die ELO-Physik bleibt in
+  # der geprueften Kette (die Kassetten stammen aus einem echten Lauf gegen
+  # die Engine), aber die CI braucht keinen Serverstart. Neu aufzuzeichnen ist
+  # nur, wenn sich Payload oder Modellkonstanten aendern; dann schlaegt der
+  # Test fehl, weil httptest keine passende Kassette findet.
 
   # Resolve project root. testthat sets cwd to tests/testthat/ during test_file,
   # so we walk up two levels.

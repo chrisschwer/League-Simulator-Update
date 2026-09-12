@@ -130,7 +130,24 @@ calculate_final_elos <- function(season,
       for (league in leagues) {
         cat("Processing ELO updates for league", league, "season", season, "\n")
 
-        fixtures <- fixtures_fn(league, season)
+        # Ein Fehlschlag EINER Liga darf den Saisonwechsel nicht mitreissen.
+        #
+        # Das alte get_league_matches() hatte diesen tryCatch (es gab bei
+        # Fehler NULL zurueck), und die Eigenschaft ist tragend: Der Lauf
+        # findet einmal im Juli statt und fragt zehn Ligen ab. Bricht er bei
+        # der achten ab, weil api-football fuer eine Liga die neue Saison noch
+        # nicht fuehrt, ist die Arbeit der ersten sieben verloren.
+        #
+        # Die betroffene Liga behaelt ihre Start-ELOs -- dasselbe Verhalten
+        # wie bei einer leeren Antwort, nur eben mit Warnung.
+        fixtures <- tryCatch(
+          fixtures_fn(league, season),
+          error = function(e) {
+            warning(paste("Error fetching fixtures for league", league,
+                          "season", season, ":", conditionMessage(e)))
+            NULL
+          }
+        )
 
         if (is.null(fixtures) || nrow(fixtures) == 0) {
           cat("No matches found for league", league, "season", season,

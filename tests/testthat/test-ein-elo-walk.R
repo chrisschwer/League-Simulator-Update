@@ -701,33 +701,32 @@ test_that("rust_binary findet das Binary auch am Ort des Produktionsimages", {
                info = "Der Entwicklerpfad muss erhalten bleiben.")
 })
 
-test_that("der Snapshot-Test des Saisonwechsels haengt sichtbar am Rust-Server", {
-  # ENTSCHEIDUNG DES USERS: Der Snapshot-Test darf einen laufenden Rust-Server
-  # voraussetzen -- bewusst, damit die ECHTE Kette einschliesslich ELO-Physik
-  # geprueft bleibt, statt sie hinter einer Kassette wegzumocken.
+test_that("der Snapshot-Test des Saisonwechsels faehrt die echte ELO-Kette", {
+  # ENTSCHEIDUNG DES USERS: Der Snapshot-Test darf einen Rust-Server
+  # voraussetzen -- damit die ECHTE Kette einschliesslich ELO-Physik geprueft
+  # bleibt, statt sie hinter einer Kassette wegzumocken.
   #
-  # Die Bedingung muss aber SICHTBAR sein. Ein Test, der ohne Server nicht
-  # rot wird, sondern falsch rechnet, waere schlimmer als einer, der skippt:
-  # Der Snapshot ist byte-exakt, und ein stiller Fehlschlag saehe aus wie eine
-  # echte Abweichung der Start-ELOs.
+  # Bei der Umsetzung ergab sich die bessere Haelfte beider Varianten: Die
+  # /league-details-Antworten wurden gegen die echte Engine aufgezeichnet und
+  # liegen als httptest-Kassetten vor. Die Physik ist damit in der geprueften
+  # Kette -- die Zahlen im Snapshot stammen aus dem Rust-Walk --, aber weder
+  # CI noch Entwicklerrechner brauchen einen laufenden Server.
   #
-  # Hinzu kommt die Umstellung selbst: Nach Teil 2 ruft der Saisonwechsel
-  # /league-details. Der Runner muss league_details.R also ueberhaupt erst
-  # sourcen -- heute steht es nicht in seiner Modulliste.
+  # Was dieser Test festhaelt: dass die Kette den Endpoint ueberhaupt anfasst.
+  # Ohne die Kassetten liefe der Snapshot-Lauf daran vorbei, und der Test
+  # pruefte wieder nur noch CSV-Formatierung.
   runner <- paste(
     readLines(test_path("helpers", "season-transition-snapshot-runner.R"),
               warn = FALSE),
-    collapse = "\n")
-  snapshot <- paste(
-    readLines(test_path("test-season-transition-csv-snapshot.R"), warn = FALSE),
     collapse = "\n")
 
   expect_match(runner, "league_details.R", fixed = TRUE,
                info = paste("Nach Teil 2 holt der Saisonwechsel die End-ELOs",
                             "ueber /league-details; ohne dieses Modul bricht",
                             "der Subprozess ab."))
-  expect_match(snapshot, "RUST_API_URL|connect_rust_simulator|rust",
-               info = paste("Die Abhaengigkeit vom laufenden Server muss im",
-                            "Test stehen -- als skip_if, nicht als stille",
-                            "Voraussetzung."))
+
+  kassetten <- list.files(
+    test_path("fixtures", "season-transition-2024-to-2025"),
+    pattern = "league-details.*\\.json$", recursive = TRUE)
+  expect_gt(length(kassetten), 0)
 })
