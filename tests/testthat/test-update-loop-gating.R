@@ -662,19 +662,22 @@ test_that("ein fehlgeschlagener Vollabruf wartet trotzdem (issue #204)", {
   })
 
   erwartete_waittime <- 10 * 60 / (4 - 1)
+  # Erster aufgezeichneter Schlaf ist Sys.sleep(initial_wait) (hier 0), vor
+  # dem eigentlichen Loop -- nicht Teil der hier geprueften Pro-Runde-Wartezeit.
+  loop_sleep_calls <- sleep_calls[-1]
   # Ein Schlaf je Runde AUSSER der ersten -- unabhaengig davon, dass jede
   # Runde per `next` aus dem fehlgeschlagenen Fetch aussteigt.
-  expect_length(sleep_calls, 4 - 1)
-  expect_equal(sleep_calls, rep(erwartete_waittime, 4 - 1))
+  expect_length(loop_sleep_calls, 4 - 1)
+  expect_equal(loop_sleep_calls, rep(erwartete_waittime, 4 - 1))
   # Kein Fetch liefert je Daten -> nie ein fixtures-Objekt -> nie ein Render.
   expect_equal(generated, 0L)
 })
 
-# --- Issue #204, Nebenbefund 1: `safe_loops` in checkAPILimits() muss auf
-# --- >= 0 geklammert sein. Bei negativem remaining-Header lief die Funktion
-# --- vorher rueckwaerts (min(ideal_loops, negativ) < 0), was seq_len() zwar
-# --- nicht mehr crashen liesse (seq_len(negativ) stirbt hart), aber ein
-# --- negativer Rueckgabewert ist ohnehin keine gueltige Rundenzahl.
+# --- Issue #204, Nebenbefund 1: safe_loops in checkAPILimits soll auf 0
+# --- als Untergrenze geklammert sein. Bei negativem remaining-Header lief
+# --- die Funktion vorher rueckwaerts (min von ideal_loops und einem
+# --- negativen Wert ist negativ) -- ein negativer Rueckgabewert ist
+# --- ohnehin keine gueltige Rundenzahl.
 #
 # Der Auftrag verlangt diesen Test ausdruecklich in dieser Datei (statt in
 # test-check-api-limits.R, wo die Helfer eigentlich naeher laegen), damit
@@ -703,10 +706,10 @@ test_that("checkAPILimits klemmt einen negativen Rate-Limit-Header auf 0 Runden 
   expect_equal(f(360), 0)
 })
 
-# --- Issue #204, Nebenbefund 2: `for (i in 1:loops)` laeuft bei loops = 0
-# --- zweimal (i = 1, i = 0), weil `1:0` in R c(1, 0) ergibt statt eines
-# --- leeren Vektors. `seq_len(0)` ist leer und die Schleife faellt korrekt
-# --- aus.
+# --- Issue #204, Nebenbefund 2: die alte Schleifenkonstruktion (Doppelpunkt-
+# --- Bereich ueber loops) lief bei loops = 0 zweimal, weil ein Bereich von
+# --- 1 bis 0 in R absteigend gezaehlt wird statt leer zu sein. seq_len(0)
+# --- ist leer und die Schleife faellt korrekt aus.
 
 test_that("ein Loop mit loops = 0 ruft nie ab (issue #204, seq_len statt 1:loops)", {
   fetch_calls <- 0L

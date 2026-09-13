@@ -117,7 +117,20 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
   drittliga_zaehlung <- NULL
 
   # Start main loop
-  for (i in 1:loops) {
+  for (i in seq_len(loops)) {
+    # Wartezeit am Kopf der Runde statt am Ende (Issue #204): Sie stand
+    # vorher NACH dem is.null(fixtures)-Check unten, dessen `next` bei einem
+    # fehlgeschlagenen Vollabruf genau daran vorbeisprang -- die naechste
+    # Runde feuerte dann ohne Pause. "Vor Runde i warten, wenn i > 1" und
+    # "nach Runde i warten, wenn i < loops" beschreiben denselben Zeitpunkt
+    # in der Sequenz; hier oben kann ihn kein `next` mehr uebergehen, weil
+    # er laengst gelaufen ist, wenn der Fetch dieser Runde ueberhaupt erst
+    # beginnt.
+    if (i > 1) {
+      message(sprintf("Loop %d: Waited %.1f minutes since previous update...", i, waittime / 60))
+      Sys.sleep(waittime)
+    }
+
     message(sprintf("\n=== Starting loop %d of %d at %s ===", i, loops, format(Sys.time(), "%Y-%m-%d %H:%M:%S")))
 
     # reset simulation_executed
@@ -169,10 +182,14 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
       # full_fetch_every Runden abgeschaltet, genau waehrend die API klemmt.
       #
       # Die Folge der Verschiebung: Im Leerlauf bleibt der Abruf nach einem
-      # Fehlschlag faellig und wiederholt sich jede Runde, bis er gelingt.
-      # Das ist gewollt -- bei zehn Ligen kostet ein ganztaegiger Ausfall
-      # rund 4.000 der 7.500 Tages-Requests, und schnelles Wiederaufsetzen
-      # ist in genau diesem Fall das, was man will.
+      # Fehlschlag faellig und wiederholt sich jede Runde im normalen Takt,
+      # bis er gelingt -- der Fehlerpfad wartet dabei genauso `waittime` wie
+      # jede andere Runde (Issue #204: `next` sprang zuvor an der einzigen
+      # Wartezeit vorbei, die Schleife feuerte im Fehlerfall ohne Pause).
+      # Das ist gewollt -- bei zehn Ligen kostet ein ganztaegiger Ausfall bei
+      # laufender Wartezeit rund 4.000 der 7.500 Tages-Requests, und
+      # schnelles Wiederaufsetzen ist in genau diesem Fall das, was man
+      # will.
       last_full_fetch_loop <- i
 
       # Resolve pending finished fixtures: an id leaves the set once the
@@ -432,12 +449,6 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
         "Loop %d: idle (no live fixtures, nothing pending) - skipping full fetch",
         i
       ))
-    }
-
-    # Wait if not last iteration
-    if (i < loops) {
-      message(sprintf("Loop %d: Waiting %.1f minutes until next update...", i, waittime / 60))
-      Sys.sleep(waittime)
     }
   }
 

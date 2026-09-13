@@ -94,7 +94,11 @@ checkAPILimits <- function(ideal_loops,
 
       # Calculate safe number of loops
       # Apply safety margin to avoid hitting exact limit
-      safe_loops <- floor((remaining * safety_margin) / avg_calls_per_loop)
+      # Auf >= 0 geklammert (Issue #204): ein negativer remaining-Header
+      # (Kontingent bereits ueberschritten) ergaebe sonst eine negative
+      # Rundenzahl -- keine gueltige Antwort auf "wie viele Runden sind
+      # sicher".
+      safe_loops <- max(0, floor((remaining * safety_margin) / avg_calls_per_loop))
 
       # Return minimum of ideal and safe loops
       actual_loops <- min(ideal_loops, safe_loops)
