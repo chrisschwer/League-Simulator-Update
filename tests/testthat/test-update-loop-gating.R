@@ -895,3 +895,221 @@ test_that("ein gefallenes Limit wird als Plan-Herabstufung gewarnt (issue #190, 
   expect_true(any(grepl("7\\.500", meldungen)))
   expect_true(any(grepl("Limit", meldungen)))
 })
+
+
+# --- Das Zeitfenster schlaegt die Rundenzahl ---------------------------
+#
+# Bis hierher endete der Loop AUSSCHLIESSLICH daran, dass `seq_len(loops)`
+# erschoepft war -- eine Uhr kam in ihm nicht vor. Solange die Wartezeit
+# fest bei `duration * 60 / (loops - 1)` stand, war das auch richtig: Die
+# Rundenzahl war so gewaehlt, dass sie das Fenster genau ausfuellte.
+#
+# Mit dem nachgefuehrten Takt stimmt diese Rechnung nicht mehr. Der
+# Scheduler plant 361 Runden a 2 Minuten; streckt der Regler auf 90
+# Minuten (der freie Plan, s. test-rate-limit-takt.R), liefen dieselben 361
+# Runden ueber drei Wochen statt bis 23:00. Ohne diese Abbruchbedingung
+# waere die Drosselung also nicht Budgetschonung, sondern eine Verschiebung
+# des Verbrauchs in die Folgetage.
+
+# Ein Lauf mit gefaelschter Uhr: `Sys.sleep` schlaeft nicht, sondern stellt
+# die Uhr vor. So laesst sich ein Zwoelf-Stunden-Fenster in Millisekunden
+# durchlaufen, und der Abbruch wird an der Zeit beobachtbar statt am
+# Wanduhr-Warten.
+lauf_mit_falscher_uhr <- function(loops, duration, waittime_sekunden) {
+  uhr <- new.env(parent = emptyenv())
+  uhr$jetzt <- as.POSIXct("2026-09-13 11:00:00", tz = "UTC")
+  runden <- 0L
+
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
+    if (league == "78") runden <<- runden + 1L
+    fake_fixtures(c("FT", "2H"), ids = c(100L, 101L))
+  })
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) c(101L))
+  stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
+  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) {
+    matrix(1 / 18, nrow = 18, ncol = 18)
+  })
+  stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
+  stub(update_all_leagues_loop, "generate_static_site", function(...) invisible(character(0)))
+  stub(update_all_leagues_loop, "Sys.time", function() uhr$jetzt)
+  stub(update_all_leagues_loop, "Sys.sleep", function(sekunden) {
+    uhr$jetzt <- uhr$jetzt + sekunden
+    invisible(NULL)
+  })
+  # Ein Kontingent, das den Regler auf `waittime_sekunden` streckt: Das
+  # Budget traegt genau die Runden, die in das Fenster passen sollen.
+  stub(update_all_leagues_loop, "api_rate_limit_stand", function() {
+    list(remaining = 100, limit = 100,
+         reset_seconds = 24 * 3600, as_of = uhr$jetzt)
+  })
+
+  meldungen <- capture_messages(with_repo_root({
+    update_all_leagues_loop(
+      duration = duration, loops = loops, initial_wait = 0, n = 10,
+      saison = "2024",
+      TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
+      static_site_dir = tempdir(), full_fetch_every = 30
+    )
+  }))
+
+  list(runden = runden, meldungen = meldungen, ende = uhr$jetzt)
+}
+
+test_that("der Loop endet am Fenster-Ende, nicht erst nach `loops` Runden", {
+  # 361 geplante Runden, aber nur ein Fenster von 12 Stunden, und ein
+  # Kontingent (100 Requests, 11 je Runde), das den Takt auf 90 Minuten
+  # streckt. In 12 Stunden passen so hoechstens acht Wartezeiten.
+  #
+  # Ohne die Abbruchbedingung liefe dieser Test 361 Runden lang und die
+  # gefaelschte Uhr stuende am Ende rund drei Wochen spaeter.
+  lauf <- lauf_mit_falscher_uhr(loops = 361, duration = 12 * 60,
+                                waittime_sekunden = 5400)
+
+  expect_lt(lauf$runden, 361L)
+  expect_lte(as.numeric(difftime(lauf$ende,
+                                 as.POSIXct("2026-09-13 11:00:00", tz = "UTC"),
+                                 units = "mins")), 12 * 60)
+  expect_true(any(grepl("Zeitfenster", lauf$meldungen)))
+})
+
+test_that("ein Lauf, der ins Fenster passt, laeuft alle Runden durch", {
+  # Gegenprobe: Die Abbruchbedingung darf keinen Lauf verkuerzen, der das
+  # Fenster gar nicht ueberschreitet. Ohne sie liesse sich der Test oben
+  # erfuellen, indem man nach der ersten Runde immer abbricht.
+  #
+  # Drei Runden, Fenster 12 Stunden: Selbst bei 90 Minuten Wartezeit sind
+  # das hoechstens drei Stunden.
+  lauf <- lauf_mit_falscher_uhr(loops = 3, duration = 12 * 60,
+                                waittime_sekunden = 5400)
+
+  expect_equal(lauf$runden, 3L)
+  expect_false(any(grepl("Zeitfenster", lauf$meldungen)))
+})
+
+
+# --- Erschoepftes Kontingent: die Runde ruft gar nichts ab --------------
+#
+# Die Drosselung streckt den Takt, verbraucht aber weiter. Ist das
+# Kontingent fast leer, gehen die letzten Requests fuer einzelne Runden
+# drauf, statt fuer das, was nach dem Reset kommt. Unterhalb der
+# Stopp-Grenze setzt der Loop die Runde deshalb ganz aus -- weder Live-Poll
+# noch Vollabruf -- und wartet den Reset ab.
+#
+# Beobachtbar ist das an genau zwei Dingen: der Zahl der API-Aufrufe in
+# dieser Runde (null) und der Laenge des Schlafs (die Reset-Frist, gekappt
+# am Fenster-Ende).
+
+# Ein Lauf mit gefaelschter Uhr, gezaehlten API-Aufrufen je Runde und
+# einem Kontingent-Stand, den der Test je Runde vorgibt.
+lauf_mit_kontingent <- function(loops, duration, stand_folge,
+                                start = "2026-09-13 11:00:00") {
+  uhr <- new.env(parent = emptyenv())
+  uhr$jetzt <- as.POSIXct(start, tz = "UTC")
+  runde <- new.env(parent = emptyenv())
+  runde$i <- 0L
+  polls <- integer(0)
+  fetches <- integer(0)
+  schlaf <- numeric(0)
+
+  # Welche Runde gerade laeuft, leitet sich aus der Zahl der
+  # Stand-Abfragen ab: api_rate_limit_stand() laeuft genau einmal je Runde
+  # und als Erstes.
+  aktuelle_runde <- function() runde$i
+
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
+    if (league == "78") fetches <<- c(fetches, aktuelle_runde())
+    fake_fixtures(c("FT", "2H"), ids = c(100L, 101L))
+  })
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) {
+    polls <<- c(polls, aktuelle_runde())
+    c(101L)
+  })
+  stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
+  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) {
+    matrix(1 / 18, nrow = 18, ncol = 18)
+  })
+  stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
+  stub(update_all_leagues_loop, "generate_static_site", function(...) invisible(character(0)))
+  stub(update_all_leagues_loop, "Sys.time", function() uhr$jetzt)
+  stub(update_all_leagues_loop, "Sys.sleep", function(sekunden) {
+    if (sekunden > 0) schlaf <<- c(schlaf, sekunden)
+    uhr$jetzt <- uhr$jetzt + sekunden
+    invisible(NULL)
+  })
+  stub(update_all_leagues_loop, "api_rate_limit_stand", function() {
+    runde$i <- runde$i + 1L
+    s <- stand_folge[[min(runde$i, length(stand_folge))]]
+    list(remaining = s$remaining, limit = s$limit,
+         reset_seconds = s$reset, as_of = uhr$jetzt)
+  })
+
+  meldungen <- capture_messages(with_repo_root({
+    update_all_leagues_loop(
+      duration = duration, loops = loops, initial_wait = 0, n = 10,
+      saison = "2024",
+      TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
+      static_site_dir = tempdir(), full_fetch_every = 30
+    )
+  }))
+
+  list(polls = polls, fetches = fetches, schlaf = schlaf,
+       meldungen = meldungen, ende = uhr$jetzt)
+}
+
+test_that("bei erschoepftem Kontingent ruft die Runde nichts ab und wartet den Reset ab", {
+  # Runde 1 ruft ab (voller Stand). Runde 2 sieht 5 Restrequests -- unter
+  # der Grenze von 10 -- und darf deshalb NICHTS abrufen, sondern wartet
+  # die 30 Minuten bis zum Reset. Runde 3 sieht wieder 100 und ruft ab.
+  #
+  # Ohne den Stopp kostete Runde 2 einen Live-Poll plus zehn Vollabrufe --
+  # 11 Requests, die das Kontingent nicht mehr hergibt.
+  lauf <- lauf_mit_kontingent(
+    loops = 3, duration = 12 * 60,
+    stand_folge = list(
+      list(remaining = 7000, limit = 7500, reset = 8 * 3600),
+      list(remaining = 5, limit = 7500, reset = 30 * 60),
+      list(remaining = 100, limit = 7500, reset = 8 * 3600)
+    )
+  )
+
+  # Runde 2 taucht weder bei den Polls noch bei den Abrufen auf.
+  expect_false(2L %in% lauf$polls)
+  expect_false(2L %in% lauf$fetches)
+  # Runde 1 und 3 rufen sehr wohl ab (Runde 1 ohne Poll -- der erste Poll
+  # gehoert zu Runde 2, die hier aber aussetzt).
+  expect_true(1L %in% lauf$fetches)
+  expect_true(3L %in% lauf$fetches)
+  # Genau ein Schlaf von 30 Minuten.
+  expect_true(any(abs(lauf$schlaf - 30 * 60) < 1))
+  # Und beides steht im Log: der Stopp und die Wiederaufnahme.
+  expect_true(any(grepl("Kontingent erschoepft", lauf$meldungen)))
+  expect_true(any(grepl("5/7\\.500", lauf$meldungen)))
+  expect_true(any(grepl("fortgesetzt", lauf$meldungen)))
+})
+
+test_that("die Reset-Wartezeit wird am Fenster-Ende gekappt", {
+  # Liegt der Reset (5 h) jenseits des Rests im Fenster (40 min), waere
+  # Warten bis zum Reset ein Warten in den naechsten Tag hinein. Der Lauf
+  # endet dann hier -- der Scheduler startet ohnehin zum naechsten Fenster.
+  #
+  # Gepruefte Zusicherung: Es wird HOECHSTENS bis zum Fenster-Ende
+  # geschlafen, nie darueber hinaus.
+  lauf <- lauf_mit_kontingent(
+    loops = 10, duration = 40,
+    stand_folge = list(
+      list(remaining = 7000, limit = 7500, reset = 8 * 3600),
+      list(remaining = 5, limit = 7500, reset = 5 * 3600)
+    )
+  )
+
+  verstrichen <- as.numeric(difftime(lauf$ende,
+                                     as.POSIXct("2026-09-13 11:00:00", tz = "UTC"),
+                                     units = "mins"))
+  expect_lte(verstrichen, 40)
+  expect_true(all(lauf$schlaf <= 40 * 60))
+  expect_true(any(grepl("Reset liegt hinter dem Zeitfenster", lauf$meldungen)))
+  # Nach dem Abbruch darf keine weitere Runde abgerufen haben.
+  expect_false(2L %in% lauf$fetches)
+})

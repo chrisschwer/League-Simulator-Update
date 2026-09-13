@@ -20,9 +20,21 @@
 #
 # TAKT_IDEAL_SEKUNDEN (120) ist der Zwei-Minuten-Takt, mit dem der Scheduler
 # ohnehin plant (updateScheduler.R: ideal_loops = minutes / 2 + 1).
-# TAKT_MAX_SEKUNDEN (600) ist die aeusserste Drosselung: Zehn Minuten sind
-# fuer eine Live-Ansicht schon zaeh, aber immer noch eine Ansicht. Wer
-# darueber hinaus streckt, kann die Seite auch abschalten.
+# TAKT_MAX_SEKUNDEN (5400 = 90 Minuten) ist die aeusserste Drosselung. Der
+# Wert ist nicht an der Lesbarkeit der Live-Ansicht bemessen -- 90 Minuten
+# sind dafuer laengst zu lang --, sondern am kleinsten Kontingent, das noch
+# bedient werden muss: Der FREIE api-football-Plan gibt 100 Requests/Tag.
+# Bei zehn Ligen kostet ein Vollabruf 11, das Tagesbudget traegt also rund
+# neun Abrufe. Auf ein Zeitfenster von zwoelf Stunden verteilt sind das
+# etwa 80 Minuten je Runde; 5400 s laesst dafuer Luft. Waere hier weiter
+# 600 s gedeckelt, koennte der Regler auf dem freien Plan gar nicht weit
+# genug strecken -- er liefe in die Deckelung und verbrauchte das
+# Kontingent trotzdem vorzeitig.
+#
+# Dass eine Seite, die sich nur alle 90 Minuten bewegt, kaum noch "live"
+# ist, ist dabei kein Einwand, sondern die ehrliche Anzeige der Lage: Mit
+# 100 Requests am Tag GIBT es keine Live-Ansicht. Besser ein ehrlich
+# langsamer Takt als ein schneller, der mittags das Kontingent aufbraucht.
 # TAKT_MIN_SEKUNDEN (60) ist der harte Mindesttakt nach unten -- kein Wert,
 # den der Regler anstrebt, sondern eine Grenze gegen eine fehlerhaft kleine
 # `ideal_waittime`, die aus dem Loop einen Request-Sturm machen wuerde.
@@ -38,31 +50,54 @@
 #' @param current_waittime Die Wartezeit, mit der der Loop gerade laeuft.
 #' @param ideal_waittime Der gewuenschte Takt; zugleich die schnellste
 #'   Frequenz, die der Regler je zurueckgibt.
+#' @param stopp_unter Restbudget, unter dem gar nicht mehr abgerufen wird.
+#'   Die Drosselung streckt den Takt, verbraucht aber weiter; unterhalb
+#'   dieser Grenze ist auch das zu viel. Dann sagt der Regler `stopp = TRUE`,
+#'   und der Loop setzt die Runde ganz aus, statt sie zu verlangsamen.
 #' @return Liste mit `waittime` (Sekunden), `gedrosselt` (TRUE, wenn
-#'   gestreckt wurde) und `alarm` (TRUE unter der Alarmschwelle).
+#'   gestreckt wurde), `alarm` (TRUE unter der Alarmschwelle) und `stopp`
+#'   (TRUE, wenn ueberhaupt kein Request mehr hinausgehen darf).
 naechste_waittime <- function(remaining, limit, seconds_until_reset,
                               loops_remaining, expected_cost_per_loop,
                               current_waittime, ideal_waittime = 120,
                               min_waittime = 60,
-                              max_waittime = 600,
+                              max_waittime = 5400,
                               safety_margin = 0.9,
                               hysterese = 0.15,
-                              alarm_anteil = 0.10) {
+                              alarm_anteil = 0.10,
+                              stopp_unter = 10) {
   klemmen <- function(x) max(min_waittime, min(max_waittime, x))
 
   # Ohne Messwert wird nicht geraten: weder gedrosselt (das verlangsamte die
   # Live-Ansicht ohne Anlass) noch beschleunigt. Der bisherige Takt bleibt.
+  # Und schon gar nicht gestoppt: Ein fehlender Header ist keine Messung
+  # eines leeren Kontingents, sondern gar keine Messung.
   if (length(remaining) != 1L || is.na(remaining)) {
     return(list(waittime = klemmen(current_waittime),
-                gedrosselt = FALSE, alarm = FALSE))
+                gedrosselt = FALSE, alarm = FALSE, stopp = FALSE))
   }
 
-  # Kein Kontingent mehr: Ab hier wird jeder Request einzeln abgerechnet.
-  # Die aeusserste Drosselung, nicht etwa eine Division durch Null oder --
-  # schlimmer -- eine Wartezeit <= 0, die aus dem Loop ein Schnellfeuer
-  # machte (genau der Ausfall aus #204, mit umgekehrtem Vorzeichen).
-  if (remaining <= 0) {
-    return(list(waittime = max_waittime, gedrosselt = TRUE, alarm = TRUE))
+  # Kontingent praktisch erschoepft: Ab hier wird NICHT MEHR ABGERUFEN --
+  # weder Live-Poll noch Vollabruf. Die Drosselung allein reicht hier nicht:
+  # Sie streckt den Takt, verbraucht aber weiter, und die letzten Requests
+  # gingen fuer einzelne Runden drauf, statt fuer das, was nach dem Reset
+  # kommt. Unterhalb der Grenze ist Abwarten die einzige Handlung, die das
+  # Kontingent nicht weiter belastet.
+  #
+  # Die Grenze liegt bewusst ueber 0 (Default 10): Bei zehn Ligen kostet
+  # eine Runde 11 Requests. Wer erst bei 0 stoppt, hat die letzte Runde
+  # schon halb bezahlt und mitten im Vollabruf ein 429 kassiert -- also
+  # Requests ausgegeben und trotzdem keine vollstaendigen Daten bekommen.
+  #
+  # `waittime` bleibt hier die aeusserste Drosselung und nicht etwa die
+  # Reset-Frist: Wie lange genau gewartet wird, entscheidet der Loop -- er
+  # kennt das Ende des Zeitfensters, gegen das die Frist gekappt werden
+  # muss, und das ist eine Frage der Uhr, die in dieser reinen Funktion
+  # nichts zu suchen hat. Der Regler sagt nur: nicht abrufen, und wenn
+  # doch jemand die Wartezeit nimmt, dann die groesstmoegliche.
+  if (remaining < stopp_unter) {
+    return(list(waittime = max_waittime,
+                gedrosselt = TRUE, alarm = TRUE, stopp = TRUE))
   }
 
   alarm <- length(limit) == 1L && !is.na(limit) && limit > 0 &&
@@ -141,7 +176,7 @@ naechste_waittime <- function(remaining, limit, seconds_until_reset,
     gedrosselt <- ziel > ideal_waittime
   }
 
-  list(waittime = ziel, gedrosselt = gedrosselt, alarm = alarm)
+  list(waittime = ziel, gedrosselt = gedrosselt, alarm = alarm, stopp = FALSE)
 }
 
 # Zahlen im deutschen Format: Punkt als Tausender-, Komma als Dezimaltrenner.

@@ -43,6 +43,27 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
   }
   waittime <- ideal_waittime
 
+  # Das Ende des Zeitfensters, als Zeitpunkt. `loops` allein ist KEINE
+  # Abbruchbedingung mehr, sobald die Wartezeit nachgefuehrt wird: Der
+  # Scheduler plant die Rundenzahl aus dem Idealtakt (361 Runden a 2
+  # Minuten), und wenn der Regler auf 90 Minuten streckt, liefen dieselben
+  # 361 Runden ueber drei Wochen statt bis 23:00. Die Schleife endete bis
+  # hierher ausschliesslich daran, dass `seq_len(loops)` erschoepft war --
+  # eine Uhr kam in ihr nicht vor.
+  #
+  # `duration` ist die geplante Fensterlaenge in Minuten und kommt aus
+  # calculate_loops() als die bis SCHEDULE_END_MINUTES verbleibende Zeit.
+  # Sie war bisher nur Zwischenwert fuer den Idealtakt; jetzt traegt sie
+  # auch das Ende.
+  #
+  # `duration <= 0` heisst "kein Fenster vorgegeben" (die Gating-Tests
+  # laufen so) -- dann bleibt `loops` die einzige Grenze, wie gehabt.
+  fenster_ende <- if (duration > 0) {
+    Sys.time() + duration * 60
+  } else {
+    NULL
+  }
+
   # Wait initial_wait before starting
   Sys.sleep(initial_wait)
 
@@ -200,13 +221,81 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
           regler$waittime / 60, ideal_waittime / 60
         ))
       }
+      # --- Kontingent erschoepft: gar nicht mehr abrufen ----------------
+      #
+      # Unterhalb von `stopp_unter` (Default 10) reicht Drosseln nicht: Ein
+      # gestreckter Takt verbraucht weiter, nur langsamer, und die letzten
+      # Requests gingen fuer einzelne Runden drauf statt fuer das, was nach
+      # dem Reset kommt. Diese Runde ruft deshalb NICHTS ab -- weder den
+      # Live-Poll noch den Vollabruf -- und wartet stattdessen auf den
+      # Reset des Kontingents.
+      #
+      # Der Stopp sitzt VOR dem Live-Poll (der erste Request der Runde,
+      # weiter unten): Er muss die Runde ueberspringen, nicht nur
+      # verlangsamen. Danach laeuft der Loop normal weiter -- der Reset
+      # fuellt das Kontingent, und die naechste Runde ruft wieder ab.
+      if (isTRUE(regler$stopp)) {
+        # Bis zum Reset, aber nie ueber das Fenster-Ende hinaus. Der
+        # Getter schreibt die Frist um die seit der Messung vergangene
+        # Zeit fort, sie ist also schon "von jetzt an" gerechnet.
+        bis_reset <- stand$reset_seconds
+        if (length(bis_reset) != 1L || is.na(bis_reset) || bis_reset < 0) {
+          bis_reset <- regler$waittime
+        }
+        rest_im_fenster <- if (is.null(fenster_ende)) {
+          Inf
+        } else {
+          as.numeric(difftime(fenster_ende, Sys.time(), units = "secs"))
+        }
+
+        message(sprintf(
+          "WARNUNG: API-Kontingent erschoepft (%s/%s), warte %.0f min bis zum Reset",
+          .takt_zahl(stand$remaining), .takt_zahl(stand$limit),
+          min(bis_reset, rest_im_fenster) / 60
+        ))
+
+        # Liegt der Reset jenseits des Fensters, ist der Tag hier zu Ende:
+        # Warten bis 23:00, um dann noch eine Runde zu beginnen, waere
+        # sinnlos -- der Scheduler startet ohnehin zum naechsten Fenster.
+        if (bis_reset >= rest_im_fenster) {
+          message(sprintf(
+            "Loop %d: Reset liegt hinter dem Zeitfenster -- Lauf beendet.", i
+          ))
+          break
+        }
+
+        Sys.sleep(bis_reset)
+        message(sprintf(
+          "Loop %d: Kontingent zurueckgesetzt -- Abrufe werden fortgesetzt.", i
+        ))
+        next
+      }
+
       waittime <- regler$waittime
+
+      # Das Fenster-Ende schlaegt die Rundenzahl. Wuerde diese Wartezeit
+      # ueber 23:00 hinausfuehren, endet der Lauf hier, statt die Runde
+      # jenseits des Fensters noch abzuarbeiten -- der Scheduler startet
+      # ohnehin zum naechsten Fenster neu. Geprueft wird VOR dem Schlafen:
+      # Danach waere die Zeit bereits verbraucht.
+      if (!is.null(fenster_ende) && Sys.time() + waittime > fenster_ende) {
+        message(sprintf(
+          "Loop %d: Zeitfenster endet vor der naechsten Runde (Wartezeit %.1f min) -- Lauf beendet.",
+          i, waittime / 60
+        ))
+        break
+      }
 
       if (waittime > 0) {
         message(sprintf("Loop %d: Waiting %.1f minutes before this update...",
                         i, waittime / 60))
         Sys.sleep(waittime)
       }
+    } else if (!is.null(fenster_ende) && Sys.time() >= fenster_ende) {
+      # Auch ohne Regler (ideal_waittime == 0) darf das Fenster nicht
+      # ueberschritten werden.
+      message(sprintf("Loop %d: Zeitfenster abgelaufen -- Lauf beendet.", i))
+      break
     }
 
     message(sprintf("\n=== Starting loop %d of %d at %s ===", i, loops, format(Sys.time(), "%Y-%m-%d %H:%M:%S")))

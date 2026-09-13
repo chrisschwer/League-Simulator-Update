@@ -227,6 +227,117 @@ test_that("ein erschoepftes Kontingent liefert die maximale Wartezeit", {
   }
 })
 
+test_that("unter der Stopp-Grenze wird gar nicht mehr abgerufen", {
+  # Drosseln reicht nicht, wenn das Kontingent fast leer ist: Ein
+  # gestreckter Takt verbraucht weiter, nur langsamer. Unterhalb von
+  # `stopp_unter` sagt der Regler deshalb "gar nicht", nicht "langsamer".
+  #
+  # Die Grenze liegt bewusst ueber 0: Bei zehn Ligen kostet eine Runde 11
+  # Requests. Wer erst bei 0 stoppt, hat die letzte Runde schon halb
+  # bezahlt und mitten im Vollabruf ein 429 kassiert -- Requests ausgegeben
+  # und trotzdem keine vollstaendigen Daten bekommen.
+  env <- lade_takt()
+  grenze <- takt_default(env, "stopp_unter")
+
+  for (rest in 0:(grenze - 1)) {
+    ergebnis <- env$naechste_waittime(
+      remaining = rest, limit = 7500,
+      seconds_until_reset = 4 * 3600,
+      loops_remaining = 100,
+      expected_cost_per_loop = 11,
+      current_waittime = 120,
+      ideal_waittime = 120
+    )
+    expect_true(ergebnis$stopp, info = sprintf("remaining = %d", rest))
+  }
+})
+
+test_that("auf der Stopp-Grenze wird noch abgerufen", {
+  # Gegenprobe: Ohne sie liesse sich der Test oben erfuellen, indem man
+  # immer stoppt. Genau AUF der Grenze (10) laeuft der Abruf noch.
+  env <- lade_takt()
+  grenze <- takt_default(env, "stopp_unter")
+
+  ergebnis <- env$naechste_waittime(
+    remaining = grenze, limit = 7500,
+    seconds_until_reset = 4 * 3600,
+    loops_remaining = 100,
+    expected_cost_per_loop = 11,
+    current_waittime = 120,
+    ideal_waittime = 120
+  )
+
+  expect_false(ergebnis$stopp)
+})
+
+test_that("ohne Messwert wird nicht gestoppt", {
+  # Ein fehlender Header ist keine Messung eines leeren Kontingents,
+  # sondern gar keine Messung. Wer daraus einen Stopp ableitet, legt den
+  # Scheduler lahm, sobald die API einmal ohne Header antwortet.
+  env <- lade_takt()
+
+  ergebnis <- env$naechste_waittime(
+    remaining = NA_real_, limit = NA_real_,
+    seconds_until_reset = NA_real_,
+    loops_remaining = 100,
+    expected_cost_per_loop = 11,
+    current_waittime = 120,
+    ideal_waittime = 120
+  )
+
+  expect_false(ergebnis$stopp)
+})
+
+test_that("bei komfortablem Budget wird nicht gestoppt", {
+  env <- lade_takt()
+
+  ergebnis <- env$naechste_waittime(
+    remaining = 7000, limit = 7500,
+    seconds_until_reset = 8 * 3600,
+    loops_remaining = 100,
+    expected_cost_per_loop = 6,
+    current_waittime = 120,
+    ideal_waittime = 120
+  )
+
+  expect_false(ergebnis$stopp)
+})
+
+test_that("der freie Plan (100 Requests/Tag) laesst sich noch bedienen", {
+  # Der Grund, aus dem max_waittime 5400 s und nicht 600 s ist: Der FREIE
+  # api-football-Plan gibt 100 Requests am Tag. Bei zehn Ligen kostet ein
+  # Vollabruf 11, das Budget traegt also rund neun Abrufe -- auf ein
+  # 24-Stunden-Fenster verteilt gut zwei Stunden je Runde.
+  #
+  # Bei einer Deckelung auf 600 s koennte der Regler gar nicht weit genug
+  # strecken: Er liefe in den Deckel und verbrauchte das Kontingent
+  # trotzdem lange vor Tagesende. Der Test haelt fest, dass er wirklich
+  # streckt -- und dass er dabei die Obergrenze nicht durchbricht.
+  env <- lade_takt()
+  max_takt <- takt_default(env, "max_waittime")
+
+  ergebnis <- env$naechste_waittime(
+    remaining = 100, limit = 100,
+    seconds_until_reset = 24 * 3600,
+    loops_remaining = 360,
+    expected_cost_per_loop = 11,
+    current_waittime = 120,
+    ideal_waittime = 120
+  )
+
+  # floor(100 * 0.9 / 11) = 8 bezahlbare Runden. Das Fenster ist hier nicht
+  # der Reset (24 h), sondern das geplante Laufende (360 x 120 s = 12 h),
+  # weil die engere der beiden Grenzen gilt: 43200 / 8 = 5400 s.
+  expect_gte(ergebnis$waittime, 5400)
+  expect_lte(ergebnis$waittime, max_takt)
+  expect_true(ergebnis$gedrosselt)
+  # KEIN Alarm: Das Kontingent ist mit 100 von 100 unangetastet. Die
+  # Alarmschwelle misst den ANTEIL, nicht die absolute Zahl -- ein kleiner
+  # Plan ist kein Notfall, ein aufgebrauchter schon. Genau deshalb sind
+  # Drosselung und Alarm zwei getrennte Aussagen des Reglers.
+  expect_false(ergebnis$alarm)
+})
+
 test_that("die Wartezeit ist nie negativ, nie null und nie unendlich", {
   # Eine Sammelpruefung ueber Grenzfaelle, die in Produktion vorkommen
   # koennen: fehlende Header (NA), ein Reset-Fenster von 0 s (kurz vor dem
