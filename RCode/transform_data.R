@@ -150,6 +150,52 @@ pruefe_kuerzel_vertrag <- function(teams) {
   verstoesse
 }
 
+#' Der Zweitvertretungs-Malus in SPIELPLAN-Reihenfolge, aus der TeamList.
+#'
+#' Die Spalte `Promotion` TRAEGT den Abzug, sie flaggt ihn nicht: In der
+#' TeamList steht dort 0 oder -50, und der Wert geht unveraendert als
+#' `adj_points` an die Engine. Wer hier ein Flag laese und selbst -50
+#' einsetzte, haette eine zweite Stelle, an der die Zahl steht -- und die
+#' Spalte pflegt Christoph von Hand (ADR 0007).
+#'
+#' Bis September 2026 leitete der Loop den Abzug stattdessen aus dem
+#' ENDZEICHEN "2" des Kurznamens ab. Das ist in beide Richtungen falsch
+#' (Issue #196): `HO2A` und `HA2B` tragen den gepflegten Malus, enden aber
+#' auf einen Buchstaben -- und der Mechanismus waechst mit, weil
+#' `assign_short_names()` bei Kollisionen bewusst auf Buchstaben ausweicht
+#' statt auf die "2". Umgekehrt bekaeme jedes Kuerzel auf "2" den Abzug,
+#' auch wenn die Spalte 0 sagt.
+#'
+#' AUF DIE LIGA FILTERN, NICHT DIE GANZE TEAMLIST DURCHSUCHEN: Kurznamen
+#' sind nur innerhalb einer Liga eindeutig ("FCH" = Heidenheim in Liga 79,
+#' Hansa Rostock in Liga 80). Ungefiltert loeste match() still den falschen
+#' Verein auf und gaebe einem Team den Malus eines anderen -- dieselbe
+#' Falle wie bei rl_group_of_team().
+#'
+#' @param spielplan Der Simulations-Data-Frame: vier Spielspalten, dann je
+#'   Team eine ELO-Spalte. Ihre Namen sind die Kurznamen in Spielplan-
+#'   Reihenfolge, und genau dieser Reihenfolge folgt die Engine.
+#' @param teams TeamList mit den Spalten ShortText und Promotion.
+#' @param liga Liga-ID, auf die `teams` gefiltert wird.
+#' @return Numerischer Vektor, so lang wie die Zahl der Teamspalten. Teams
+#'   ohne Zeile in der TeamList bekommen 0 -- kein NA, das die Engine still
+#'   anders rechnen liesse, und kein erfundener Abzug.
+malus_aus_teamlist <- function(spielplan, teams, liga) {
+  kurznamen <- names(spielplan)[5:ncol(spielplan)]
+
+  if (is.null(teams$Promotion)) {
+    return(rep(0, length(kurznamen)))
+  }
+
+  if (!is.null(teams$League)) {
+    teams <- teams[as.character(teams$League) == as.character(liga), ]
+  }
+
+  malus <- as.numeric(teams$Promotion)[match(kurznamen, teams$ShortText)]
+  malus[is.na(malus)] <- 0
+  malus
+}
+
 #' @param file_path Pfad zur TeamList-CSV (Semikolon-getrennt).
 #' @return data.frame der TeamList.
 load_team_list <- function(file_path) {

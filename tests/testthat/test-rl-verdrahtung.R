@@ -159,10 +159,22 @@ LIGA_PRAEFIX <- c(
   rl_bayern = "BY"
 )
 
-# Kurznamen wie DL02, DL12: Sie enden auf "2" und sind damit fuer den Loop
-# Zweitvertretungen -- jede Liga bekommt so ihren Malus-Lauf mit echten -50.
 teams_von <- function(key) {
   sprintf("%s%02d", LIGA_PRAEFIX[[key]], seq_len(LIGA_GROESSE[[key]]))
+}
+
+# Wer traegt den Zweitvertretungs-Malus? Kurznamen wie DL02, DL12 enden auf
+# "2"; bis Issue #196 machte SIE das allein zu Zweitvertretungen, weil der
+# Loop den Abzug am Endzeichen erkannte. Seither liest er die Spalte
+# Promotion der TeamList (ADR 0007), also traegt der Fake sie hier ein --
+# dieselben Teams, dieselben -50, nur ueber den richtigen Kanal.
+#
+# Das ist fuer diese Datei mehr als Kosmetik: Der Fake-Server unterscheidet
+# den Malus-Lauf am `adj_points < 0` und gibt ihm ANDERE Zahlen. Ohne echte
+# -50 waeren beide Laeufe nicht mehr auseinanderzuhalten.
+malus_von <- function(key) {
+  kurz <- teams_von(key)
+  ifelse(substr(kurz, nchar(kurz), nchar(kurz)) == "2", -50, 0)
 }
 
 # Je Team eine eigene ELO; Nord und Bayern liegen ~200 Punkte auseinander,
@@ -202,7 +214,7 @@ teamlist_df <- function(region_leer = character(0)) {
     data.frame(
       TeamID = 1000L * idx + seq_along(teams),
       ShortText = teams,
-      Promotion = 0L,
+      Promotion = malus_von(key),
       InitialELO = unname(elo_von(key)),
       League = reg[[key]]$api_id,
       Region = region,
