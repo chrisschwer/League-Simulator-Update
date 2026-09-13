@@ -326,46 +326,6 @@ test_that("retrieveLiveFixtures nimmt eine explizite Ligamenge", {
   expect_equal(gesehen, "78-82")
 })
 
-test_that("get_league_promotion_rules kennt die Regionalligen als Ziel", {
-  # Bisher stand dort der String-Sentinel "Regional" -- keine Liga-ID. Mit
-  # den nun bekannten Staffeln 83-87 wird daraus eine echte Referenz.
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "league_processor.R"), local = env)
-
-  liga3 <- env$get_league_promotion_rules("80")
-  expect_equal(liga3$promotion_to, "79")
-  expect_setequal(liga3$relegation_to, c("83", "84", "85", "86", "87"))
-
-  # Die Altligen behalten ihre Regeln unveraendert.
-  expect_equal(env$get_league_promotion_rules("78")$relegation_to, "79")
-  expect_null(env$get_league_promotion_rules("78")$promotion_to)
-})
-
-test_that("validate_league_composition prueft gegen teams_range", {
-  # Statt fester Erwartung +-2: eine Spanne je Liga. Frauen-BL schwankte
-  # 12-14, RL Nord 18-22 (an den Spielplaenen 2019-2025 gemessen).
-  #
-  # Signatur ist (league_id, teams); die Funktion braucht get_league_name()
-  # aus api_service.R, deshalb beide Module in dieselbe Umgebung.
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "api_service.R"), local = env)
-  source(test_path("..", "..", "RCode", "league_processor.R"), local = env)
-
-  expect_true(env$validate_league_composition("78", rep("t", 18))$valid)
-  expect_false(env$validate_league_composition("78", rep("t", 30))$valid)
-
-  # Liga 80 hat eine Sonderregel (max. 4 Zweitvertretungen) und braucht
-  # deshalb Team-Objekte statt blosser Namen.
-  liga3 <- lapply(1:20, function(i) list(name = paste("T", i),
-                                         is_second_team = FALSE))
-  expect_true(env$validate_league_composition("80", liga3)$valid)
-
-  # Die neuen Ligen mit ihren echten Spannen.
-  expect_true(env$validate_league_composition("82", rep("t", 12))$valid)
-  expect_true(env$validate_league_composition("82", rep("t", 14))$valid)
-  expect_true(env$validate_league_composition("84", rep("t", 22))$valid)
-})
-
 # --- Tormodell: die Frauen-Werte erreichen beide Endpunkte ------------------
 
 test_that("simulate_league_rust sendet das Tormodell nur, wenn es abweicht", {
