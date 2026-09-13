@@ -169,8 +169,34 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
         liga_keys
       )
 
-      # Check if API calls failed
-      if (any(vapply(fixtures, is.null, logical(1)))) {
+      # Isolation je Liga (Issue #208): Ein NULL (Abruf fehlgeschlagen, siehe
+      # message() mit Statuscode in retrieveResults.R) blockiert nur noch
+      # DIESE Liga -- vorher sprang die ganze Runde per `next` daran vorbei,
+      # egal wie viele der zehn Ligen tatsaechlich betroffen waren. Fehlende
+      # Ligen bleiben unten einfach aus, ihre vorherige ergebnisse[[key]]/
+      # league_data[[key]] ueberlebt unveraendert -- keine erfundene, aber
+      # auch keine geloeschte Seite.
+      fetch_failed <- vapply(fixtures, is.null, logical(1))
+      if (any(fetch_failed)) {
+        for (key in liga_keys[fetch_failed]) {
+          message(sprintf(
+            "Loop %d: ERROR - Abruf fuer Liga %s fehlgeschlagen, Liga wird diese Runde uebersprungen",
+            i, key
+          ))
+        }
+      }
+      ok_keys <- liga_keys[!fetch_failed]
+
+      # Scheitert der Abruf fuer ALLE Ligen zugleich, bleibt es beim alten
+      # Verhalten (test-update-loop-gating.R pinnt das ausdruecklich, z.B.
+      # "a pending finished fixture survives a failed full fetch" und "ein
+      # fehlgeschlagener Safety-Fetch setzt den Timer NICHT zurueck"): die
+      # ganze Runde faellt aus, pending_finished_ids/beendet/Render bleiben
+      # unangetastet, und der naechste Loop versucht es -- mit Wartezeit
+      # (Issue #204) -- erneut. Isolation greift erst, wenn WENIGSTENS EINE
+      # Liga erfolgreich war; ein Totalausfall ist ja gerade der Fall, in dem
+      # es nichts zu isolieren gibt.
+      if (length(ok_keys) == 0) {
         message(sprintf("Loop %d: ERROR - One or more API calls failed. Skipping this iteration.", i))
         next
       }
@@ -197,10 +223,15 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
       # knows it (guards against an id staying pending forever). One still
       # reported live means the season endpoint lags the live feed (issue
       # #154): keep it pending so the next loop fetches again.
+      #
+      # NUR ueber fixtures[ok_keys] (Issue #208): Eine diese Runde
+      # fehlgeschlagene Liga darf ein pending id nicht faelschlich aufloesen
+      # -- sie "kennt" das Fixture in Wahrheit gar nicht weniger als vorher,
+      # sie hat schlicht nicht geantwortet.
       if (length(pending_finished_ids) > 0) {
-        all_ids <- unlist(lapply(fixtures, function(f) f$fixture$id),
+        all_ids <- unlist(lapply(fixtures[ok_keys], function(f) f$fixture$id),
                           use.names = FALSE)
-        all_status <- unlist(lapply(fixtures, function(f) f$fixture$status$short),
+        all_status <- unlist(lapply(fixtures[ok_keys], function(f) f$fixture$status$short),
                              use.names = FALSE)
         # Awarded results (AWD/WO) are final too, though outside the
         # beendet set that drives simulations.
@@ -218,90 +249,133 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
         }
       }
 
-      # New per-league sets of finished fixtures
+      # New per-league sets of finished fixtures (NULL fuer eine Liga ohne
+      # Fetch -- s. .fixtures_beendet_ids(NULL); ihr alter beendet[[key]]-
+      # Stand bleibt unten unangetastet, weil sie gar nicht erst in ok_keys
+      # steht).
       beendet_new <- lapply(fixtures, .fixtures_beendet_ids)
 
-      # transform data
-      spielplaene <- lapply(fixtures, function(f) transform_data(f, TeamList))
+      # transform data. Je Liga per tryCatch isoliert (Issue #208): eine
+      # unbekannte Team-ID (transform_data.R) darf nur DIESE Liga aus der
+      # Runde nehmen, nicht die Neustart-Schleife fuer alle zehn ausloesen.
+      # Der lapply-Aufruf bleibt INLINE (Tests stubben transform_data()
+      # gegen diese Funktionsumgebung).
+      spielplaene <- list()
+      transform_failed <- character(0)
+      for (key in ok_keys) {
+        spielplan <- tryCatch(
+          transform_data(fixtures[[key]], TeamList),
+          error = function(e) {
+            message(sprintf(
+              "Loop %d: ERROR - transform_data() fuer Liga %s fehlgeschlagen: %s. Liga wird diese Runde uebersprungen.",
+              i, key, conditionMessage(e)
+            ))
+            NULL
+          }
+        )
+        if (is.null(spielplan)) {
+          transform_failed <- c(transform_failed, key)
+          next
+        }
+        spielplaene[[key]] <- spielplan
+      }
+      sim_keys <- setdiff(ok_keys, transform_failed)
 
       # Simulation je Liga. Loop 1 simuliert immer, damit die Objekte
       # existieren; danach nur bei geaenderter Menge beendeter Spiele.
+      # Ebenfalls per tryCatch isoliert (Issue #208): ein Rust-Fehler (z.B.
+      # /simulate antwortet nicht) darf nur DIESE Liga treffen. Bei einem
+      # Fehlschlag bleibt ergebnisse[[key]] auf dem Stand des letzten
+      # erfolgreichen Laufs -- kein NULL, keine erfundene Prognose.
       #
       # Die Schleife bleibt INLINE: Die Tests stubben leagueSimulatorRust()
       # gegen die Umgebung dieser Funktion.
-      for (key in liga_keys) {
+      for (key in sim_keys) {
         if (!(i == 1 || !setequal(beendet[[key]], beendet_new[[key]]))) {
           next
         }
 
         spielplan <- spielplaene[[key]]
-        message(sprintf(
-          "Loop %d: Simulating %s with %d simulations (Rust engine)",
-          i, league_name(liga_ids[[key]]), n
-        ))
-        # Nur die 3. Liga sendet die Staffel-Zuordnung: Sie ist die einzige
-        # Liga, deren Absteiger sich auf mehrere Staffeln verteilen. Beide
-        # Felder gehoeren zusammen; simulate_league_rust() laesst sie weg,
-        # wenn ein Team keine Stammregion hat -- dann bleibt die Auszaehlung
-        # aus, statt eine Staffel zu erfinden.
-        zuordnung <- NULL
-        plaetze <- NULL
-        if (identical(key, "dritte_liga")) {
-          zuordnung <- rl_group_of_team(spielplan, TeamList)
-          plaetze <- rl_relegation_places(liga_ids[[key]])
-        }
 
-        ergebnisse[[key]] <- leagueSimulatorRust(
-          spielplan, n = n,
-          groupOfTeam = zuordnung, relegationPlaces = plaetze
-        )
-        beendet[[key]] <- beendet_new[[key]]
-
-        # Die Zaehlung ueberlebt den Loop (s. oben) -- aber nur, wenn die
-        # 3. Liga sie diesmal wirklich geliefert hat. Ein NULL hier wuerde
-        # sonst eine gueltige Zaehlung aus einem frueheren Lauf loeschen.
-        if (identical(key, "dritte_liga")) {
-          neue_zaehlung <- attr(ergebnisse[[key]], "relegation_group_counts")
-          if (!is.null(neue_zaehlung)) {
-            drittliga_zaehlung <- neue_zaehlung
+        sim_ok <- tryCatch({
+          message(sprintf(
+            "Loop %d: Simulating %s with %d simulations (Rust engine)",
+            i, league_name(liga_ids[[key]]), n
+          ))
+          # Nur die 3. Liga sendet die Staffel-Zuordnung: Sie ist die einzige
+          # Liga, deren Absteiger sich auf mehrere Staffeln verteilen. Beide
+          # Felder gehoeren zusammen; simulate_league_rust() laesst sie weg,
+          # wenn ein Team keine Stammregion hat -- dann bleibt die
+          # Auszaehlung aus, statt eine Staffel zu erfinden.
+          zuordnung <- NULL
+          plaetze <- NULL
+          if (identical(key, "dritte_liga")) {
+            zuordnung <- rl_group_of_team(spielplan, TeamList)
+            plaetze <- rl_relegation_places(liga_ids[[key]])
           }
-        }
 
-        # Ligen, aus denen Zweitvertretungen nicht aufsteigen duerfen,
-        # brauchen eine eigene Aufstiegstabelle: ein zweiter Lauf, in dem
-        # sie -50 Punkte tragen und damit aus dem Rennen sind. Bisher war
-        # das an die Liga-ID "80" gebunden; jetzt an die Liga-Eigenschaft --
-        # die Regionalligen brauchen dasselbe, sobald sie live gehen.
-        #
-        # NAMENSKOLLISION seit Phase 5: Der Schluessel folgt der VIEW. Wo
-        # sie das obere Panel aus "<key>_aufstieg" liest (3. Liga,
-        # 2. Frauen-Bundesliga), landet der Lauf dort. Bei den
-        # Regionalligen ist dieser Name aber schon vergeben -- er traegt die
-        # BERECHNETE Aufstiegsspalte (rl_aufstiegsprognose(), ein data.frame
-        # je Team). Eine ganze Platzmatrix unter demselben Namen
-        # uebernaehme die Spalte lautlos, und die Seite zeigte statt der
-        # Aufstiegswahrscheinlichkeit eine Platzverteilung -- ohne dass
-        # etwas fehlschlaegt. Der Lauf heisst dort deshalb
-        # "<key>_aufstiegstabelle".
-        aufstiegs_key <- paste0(key, "_aufstieg")
-        if (!identical(league_views()[[key]]$top$source,
-                       .ergebnis_objektname(aufstiegs_key))) {
-          aufstiegs_key <- paste0(key, "_aufstiegstabelle")
-        }
+          ergebnisse[[key]] <- leagueSimulatorRust(
+            spielplan, n = n,
+            groupOfTeam = zuordnung, relegationPlaces = plaetze
+          )
+          beendet[[key]] <- beendet_new[[key]]
 
-        if (has_promotion_restriction(liga_ids[[key]])) {
-          adj_points <- rep(0, dim(spielplan)[2] - 4)
-          for (j in 5:dim(spielplan)[2]) {
-            team_short <- names(spielplan)[j]
-            if (substr(team_short, nchar(team_short), nchar(team_short)) == "2") {
-              adj_points[j - 4] <- -50
+          # Die Zaehlung ueberlebt den Loop (s. oben) -- aber nur, wenn die
+          # 3. Liga sie diesmal wirklich geliefert hat. Ein NULL hier wuerde
+          # sonst eine gueltige Zaehlung aus einem frueheren Lauf loeschen.
+          if (identical(key, "dritte_liga")) {
+            neue_zaehlung <- attr(ergebnisse[[key]], "relegation_group_counts")
+            if (!is.null(neue_zaehlung)) {
+              drittliga_zaehlung <- neue_zaehlung
             }
           }
-          ergebnisse[[aufstiegs_key]] <-
-            leagueSimulatorRust(spielplan, n = n, adjPoints = adj_points)
-        }
 
-        simulation_executed <- TRUE
+          # Ligen, aus denen Zweitvertretungen nicht aufsteigen duerfen,
+          # brauchen eine eigene Aufstiegstabelle: ein zweiter Lauf, in dem
+          # sie -50 Punkte tragen und damit aus dem Rennen sind. Bisher war
+          # das an die Liga-ID "80" gebunden; jetzt an die Liga-Eigenschaft
+          # -- die Regionalligen brauchen dasselbe, sobald sie live gehen.
+          #
+          # NAMENSKOLLISION seit Phase 5: Der Schluessel folgt der VIEW. Wo
+          # sie das obere Panel aus "<key>_aufstieg" liest (3. Liga,
+          # 2. Frauen-Bundesliga), landet der Lauf dort. Bei den
+          # Regionalligen ist dieser Name aber schon vergeben -- er traegt
+          # die BERECHNETE Aufstiegsspalte (rl_aufstiegsprognose(), ein
+          # data.frame je Team). Eine ganze Platzmatrix unter demselben
+          # Namen uebernaehme die Spalte lautlos, und die Seite zeigte statt
+          # der Aufstiegswahrscheinlichkeit eine Platzverteilung -- ohne
+          # dass etwas fehlschlaegt. Der Lauf heisst dort deshalb
+          # "<key>_aufstiegstabelle".
+          aufstiegs_key <- paste0(key, "_aufstieg")
+          if (!identical(league_views()[[key]]$top$source,
+                         .ergebnis_objektname(aufstiegs_key))) {
+            aufstiegs_key <- paste0(key, "_aufstiegstabelle")
+          }
+
+          if (has_promotion_restriction(liga_ids[[key]])) {
+            adj_points <- rep(0, dim(spielplan)[2] - 4)
+            for (j in 5:dim(spielplan)[2]) {
+              team_short <- names(spielplan)[j]
+              if (substr(team_short, nchar(team_short), nchar(team_short)) == "2") {
+                adj_points[j - 4] <- -50
+              }
+            }
+            ergebnisse[[aufstiegs_key]] <-
+              leagueSimulatorRust(spielplan, n = n, adjPoints = adj_points)
+          }
+
+          TRUE
+        }, error = function(e) {
+          message(sprintf(
+            "Loop %d: ERROR - Simulation fuer Liga %s fehlgeschlagen: %s. Vorherige Prognose bleibt bestehen.",
+            i, key, conditionMessage(e)
+          ))
+          FALSE
+        })
+
+        if (isTRUE(sim_ok)) {
+          simulation_executed <- TRUE
+        }
       }
 
       # --- Regionalligen: Abstiegs- und Aufstiegsspalten ------------------
@@ -346,6 +420,13 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
             next
           }
           aufstiegstabellen[[rl_staffel[[k]]]] <- tabelle
+          # spielplaene[[k]] fehlt, wenn k diese Runde nicht erfolgreich
+          # abgerufen/transformiert wurde (Issue #208-Isolation) -- die alte
+          # Aufstiegstabelle bleibt dann stehen (s. tabelle oben), nur die
+          # aktuelle ELO fuer die Siegquote fehlt fuer diese Runde.
+          if (is.null(spielplaene[[k]])) {
+            next
+          }
           # Ein Aufruf von /league-details je Playoff-Staffel, und nur fuer
           # sie: Die Direktaufsteiger brauchen keine Zweikampfquote, also
           # auch keine aktuelle ELO.
@@ -411,10 +492,20 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
       # Regenerate the static site if simulations have been executed OR any
       # render-relevant fixture field changed (issue #154): Rückblick, Live
       # and Ausblick follow the fixture data, not only simulation results.
-      render_signature <- paste(
-        vapply(fixtures, .fixtures_render_signature, character(1)),
-        collapse = "~"
-      )
+      #
+      # Fuer eine diese Runde fehlgeschlagene Liga (Issue #208) steht statt
+      # ihrer echten (fehlenden) Fixtures ein stabiler Platzhalter im
+      # Signatur-String: .fixtures_render_signature(NULL) waere "" und liesse
+      # eine Liga, die vorher Fixtures hatte, wie eine echte Aenderung
+      # aussehen -- ein Re-Render, obwohl sich nichts an den TATSAECHLICHEN
+      # Daten geaendert hat, nur der Abruf diesmal ausblieb. Der Platzhalter
+      # haelt den Beitrag dieser Liga zur Signatur konstant, solange sie
+      # ausfaellt, und macht ihn erst wieder von echten Daten abhaengig,
+      # sobald der naechste Abruf gelingt.
+      fixture_sig <- vapply(liga_keys, function(key) {
+        if (key %in% ok_keys) .fixtures_render_signature(fixtures[[key]]) else "<fetch-failed>"
+      }, character(1))
+      render_signature <- paste(fixture_sig, collapse = "~")
       fixtures_changed <- !identical(render_signature, last_render_signature)
 
       if ((simulation_executed || fixtures_changed) && length(ergebnisse) > 0) {

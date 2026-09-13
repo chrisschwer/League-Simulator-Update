@@ -566,7 +566,7 @@ render_league_page <- function(view, data_env, output_dir,
   )
 
   out_path <- file.path(output_dir, paste0(view$slug, ".html"))
-  writeLines(html, out_path, useBytes = TRUE)
+  .write_atomically(html, out_path)
   invisible(out_path)
 }
 
@@ -696,7 +696,7 @@ render_league_page <- function(view, data_env, output_dir,
   )
 
   out_path <- file.path(output_dir, paste0(view$slug, ".html"))
-  writeLines(html, out_path, useBytes = TRUE)
+  .write_atomically(html, out_path)
   invisible(out_path)
 }
 
@@ -725,7 +725,7 @@ render_league_page <- function(view, data_env, output_dir,
   )
 
   out_path <- file.path(output_dir, "methodik.html")
-  writeLines(html, out_path, useBytes = TRUE)
+  .write_atomically(html, out_path)
   invisible(out_path)
 }
 
@@ -750,8 +750,30 @@ render_league_page <- function(view, data_env, output_dir,
   )
   .copy_assets(output_dir)
   out_path <- file.path(output_dir, "index.html")
-  writeLines(html, out_path, useBytes = TRUE)
+  .write_atomically(html, out_path)
   invisible(out_path)
+}
+
+# Schreibt `text` atomar nach `path` (Issue #208, Punkt 4): erst in eine
+# Temp-Datei IM SELBEN Verzeichnis -- damit file.rename() ein guenstiger
+# Rename innerhalb eines Dateisystems bleibt statt eines Kopiervorgangs --
+# dann per file.rename() an den Zielnamen. writeLines() direkt auf out_path
+# hinterlaesst bei einem Absturz mittendrin eine halb geschriebene Datei,
+# die Caddy waehrenddessen ausliefern kann; ein Rename ist auf demselben
+# Dateisystem atomar, Leser sehen entweder die alte oder die vollstaendige
+# neue Datei, nie etwas dazwischen.
+#
+# Schlaegt das Rename fehl (Platte voll, Rechteproblem, ...), bleibt die
+# ALTE Datei unangetastet -- die Temp-Datei wird aufgeraeumt und ein Fehler
+# geworfen, statt die Zieldatei in einem undefinierten Zustand zu lassen.
+.write_atomically <- function(text, path) {
+  tmp_path <- paste0(path, ".tmp")
+  writeLines(text, tmp_path, useBytes = TRUE)
+  if (!file.rename(tmp_path, path)) {
+    unlink(tmp_path)
+    stop(sprintf(".write_atomically: file.rename nach %s fehlgeschlagen", path))
+  }
+  invisible(path)
 }
 
 # Copies site.css, fonts/*.woff2 and favicon.svg from RCode/site_assets into
