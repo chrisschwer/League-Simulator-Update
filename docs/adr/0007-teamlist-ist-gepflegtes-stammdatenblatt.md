@@ -50,7 +50,8 @@ maschinell zu leisten ist:
 3. Vorschläge für Neuzugänge — Kürzel, ELO, Zweitvertretungs-Status
 
 Sie schreibt einen **Entwurf** (`TeamList_<Jahr>_entwurf.csv`), nicht die
-produktive Datei.
+produktive Datei. Entschieden, Umsetzung in #206 — heute schreibt
+`csv_generation.R` noch das alte Vierspaltenformat direkt.
 
 Die **Ligazuordnung kommt dabei aus der API**, nicht aus der Vorsaison: Der
 Lauf fragt `/v3/teams?league=<id>&season=<Jahr>` je aktiver Liga einzeln ab

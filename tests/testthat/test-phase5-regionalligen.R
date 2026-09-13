@@ -1658,10 +1658,8 @@ test_that("die Aufstiegsseite verdrahtet keine Staffelnamen im Renderer", {
 # gegen die TeamList laufen laesst, bekommt entweder eine falsche Spanne
 # (bis 33) oder einen Fehlalarm.
 #
-# validate_league_composition() (RCode/league_processor.R) prueft die Teams
-# eines KONKRETEN Laufs gegen league_teams_range(). Diese Tests sichern
-# beides ab: dass die Spanne die echten Spielplaene traegt, und dass die
-# TeamList sie NICHT traegt.
+# Dieser Test sichert ab, dass die Spanne die echten Spielplaene traegt;
+# der Test weiter unten sichert ab, dass die TeamList sie NICHT traegt.
 
 rl_fixture_teams <- function(liga, saison = 2025) {
   pfad <- test_path("..", "..", "data", "fixture_cache",
@@ -1687,22 +1685,6 @@ test_that("die echten RL-Spielplaene 2025 liegen in der teams_range", {
     expect_identical(length(teams), 18L, info = id)
     expect_gte(length(teams), spanne[[1]])
     expect_lte(length(teams), spanne[[2]])
-  }
-})
-
-test_that("validate_league_composition nimmt einen echten RL-Spielplan an", {
-  # Die Postcondition, die spaeter kippen koennte: Sobald jemand die
-  # teams_range enger zieht (etwa auf die TeamList-Zahl oder auf feste 18),
-  # scheitert der naechste Livegang an einer Saison mit 19 oder 22 Teams.
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
-  source(test_path("..", "..", "RCode", "league_processor.R"), local = env)
-
-  for (id in RL_IDS) {
-    teams <- lapply(rl_fixture_teams(id), function(nm) list(name = nm))
-    ergebnis <- env$validate_league_composition(id, teams)
-    expect_true(ergebnis$valid, info = paste(id, ergebnis$message))
-    expect_identical(ergebnis$actual_count, 18L, info = id)
   }
 })
 

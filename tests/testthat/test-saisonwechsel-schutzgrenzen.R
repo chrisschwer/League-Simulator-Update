@@ -15,10 +15,15 @@
 library(testthat)
 
 lade_input_validation <- function() {
+  # validate_team_count() lebt seit #209 in season_processor.R (vormals
+  # input_validation.R) -- season_processor.R sourct seinerseits
+  # RCode/team_data_carryover.R mit.
   env <- new.env()
   source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
   source(test_path("..", "..", "RCode", "season_validation.R"), local = env)
-  source(test_path("..", "..", "RCode", "input_validation.R"), local = env)
+  source(test_path("..", "..", "RCode", "transform_data.R"), local = env)
+  source(test_path("..", "..", "RCode", "csv_generation.R"), local = env)
+  source(test_path("..", "..", "RCode", "season_processor.R"), local = env)
   env
 }
 

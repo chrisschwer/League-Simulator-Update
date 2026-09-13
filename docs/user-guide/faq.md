@@ -10,10 +10,11 @@ League Simulator is a football league prediction system that uses Monte Carlo si
 
 ### Which leagues are supported?
 
-Currently, the system supports three German football leagues:
-- **Bundesliga** (League ID: 78) - Top tier
-- **2. Bundesliga** (League ID: 79) - Second tier
-- **3. Liga** (League ID: 80) - Third tier
+Ten German football leagues since the September 2026 league expansion:
+men's Bundesliga, 2. Bundesliga and 3. Liga; the Frauen-Bundesliga and
+2. Frauen-Bundesliga; and the five Regionalliga divisions (Nord, Nordost,
+West, SüdWest, Bayern). See `RCode/league_registry.R` for the current
+league IDs and their grouping.
 
 ### How accurate are the predictions?
 
@@ -29,10 +30,11 @@ Historical accuracy rates:
 
 ### How often are predictions updated?
 
-The system updates automatically at these times (Berlin time):
-- **Match days**: 15:00, 15:30, 16:00, 17:30, 18:00, 21:00, 23:00
-- **Active period**: Daily from August to May
-- **Summer break**: Weekly updates only
+The scheduler polls every two minutes between 11:00 and 23:00 Berlin time,
+every day the window is active — there are no fixed update times or a
+reduced summer schedule. A cheap live poll gates the expensive full fetch,
+so most loops cost a single request; only loops that detect new results
+trigger a full update and re-simulation.
 
 ## Technical Questions
 

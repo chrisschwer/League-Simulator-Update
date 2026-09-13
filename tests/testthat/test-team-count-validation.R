@@ -1,7 +1,13 @@
 # Test file for team count validation
 
-# Source the function to test
-source("../../RCode/input_validation.R")
+# validate_team_count() lebt seit #209 in season_processor.R (vormals
+# input_validation.R); season_processor.R braucht seinerseits die Registry
+# sowie transform_data.R/csv_generation.R (fuer merge_league_files() &co.)
+# und sourct team_data_carryover.R selbst mit.
+source("../../RCode/league_registry.R")
+source("../../RCode/transform_data.R")
+source("../../RCode/csv_generation.R")
+source("../../RCode/season_processor.R")
 
 test_that("validate_team_count validates correct range", {
   # Create a temporary test file with valid team count

@@ -20,6 +20,497 @@ source_with_fallback <- function(path) {
 # Source team data carryover module
 source_with_fallback("RCode/team_data_carryover.R")
 
+# ---------------------------------------------------------------------------
+# Logging, Validierung und Datei-I/O -- seit der Geruest-Bereinigung (#209)
+# hier statt in eigenen logging.R/error_handling.R/file_operations.R/
+# input_validation.R-Dateien, weil scripts/season_transition.R diese
+# Funktionen ausschliesslich von hier aus aufruft (bzw. safe_file_read()
+# und validate_team_count() zusaetzlich aus dieser Datei selbst).
+# ---------------------------------------------------------------------------
+
+# Minimaler Logging-Kern (vormals logging.R), nur fuer create_processing_log()
+# und log_error() gebraucht.
+.LOG_CONFIG <- list(
+  level = "INFO",
+  file = "season_transition.log",
+  console = TRUE,
+  max_size = 10 * 1024 * 1024, # 10MB
+  max_files = 5
+)
+
+LOG_LEVELS <- list(
+  DEBUG = 1,
+  INFO = 2,
+  WARN = 3,
+  ERROR = 4,
+  FATAL = 5
+)
+
+get_session_id <- function() {
+  # Get or create session ID for tracking
+  # Returns session identifier
+
+  if (!exists(".SESSION_ID", envir = .GlobalEnv)) {
+    session_id <- paste0("session_", format(Sys.time(), "%Y%m%d_%H%M%S"))
+    assign(".SESSION_ID", session_id, envir = .GlobalEnv)
+  }
+
+  return(get(".SESSION_ID", envir = .GlobalEnv))
+}
+
+format_log_message <- function(log_entry) {
+  # Format log message for output
+  # Returns formatted string
+
+  formatted <- paste0(
+    "[", log_entry$timestamp, "] ",
+    "[", log_entry$level, "] ",
+    log_entry$message
+  )
+
+  if (!is.null(log_entry$context)) {
+    formatted <- paste0(formatted, " (", log_entry$context, ")")
+  }
+
+  return(formatted)
+}
+
+rotate_log_files <- function() {
+  # Rotate log files when size limit is reached
+  # Keeps specified number of historical files
+
+  tryCatch(
+    {
+      log_file <- .LOG_CONFIG$file
+      max_files <- .LOG_CONFIG$max_files
+
+      if (!file.exists(log_file)) {
+        return()
+      }
+
+      # Rotate existing files
+      for (i in (max_files - 1):1) {
+        old_file <- paste0(log_file, ".", i)
+        new_file <- paste0(log_file, ".", i + 1)
+
+        if (file.exists(old_file)) {
+          file.rename(old_file, new_file)
+        }
+      }
+
+      # Move current log to .1
+      file.rename(log_file, paste0(log_file, ".1"))
+
+      cat("Log files rotated\n")
+    },
+    error = function(e) {
+      warning("Log rotation failed:", conditionMessage(e))
+    }
+  )
+}
+
+write_log_to_file <- function(log_entry, formatted_message) {
+  # Write log entry to file
+  # Handles file rotation and size limits
+
+  tryCatch(
+    {
+      log_file <- .LOG_CONFIG$file
+
+      # Check if log rotation is needed
+      if (file.exists(log_file)) {
+        file_size <- file.info(log_file)$size
+
+        if (file_size > .LOG_CONFIG$max_size) {
+          rotate_log_files()
+        }
+      }
+
+      # Write to log file
+      write(formatted_message, log_file, append = TRUE)
+    },
+    error = function(e) {
+      # Fallback - write to console if file writing fails
+      cat("LOG FILE ERROR:", conditionMessage(e), "\n")
+      cat(formatted_message, "\n")
+    }
+  )
+}
+
+log_message <- function(level, message, context = NULL) {
+  # Structured logging for debugging
+  # Different log levels (DEBUG, INFO, WARN, ERROR, FATAL)
+
+  tryCatch(
+    {
+      # Check if level is valid
+      if (!level %in% names(LOG_LEVELS)) {
+        level <- "INFO"
+      }
+
+      # Check if message should be logged based on level
+      if (LOG_LEVELS[[level]] < LOG_LEVELS[[.LOG_CONFIG$level]]) {
+        return()
+      }
+
+      # Create log entry
+      timestamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
+
+      log_entry <- list(
+        timestamp = timestamp,
+        level = level,
+        message = message,
+        context = context,
+        pid = Sys.getpid(),
+        session_id = get_session_id()
+      )
+
+      # Format log message
+      formatted_message <- format_log_message(log_entry)
+
+      # Write to console if enabled
+      if (.LOG_CONFIG$console) {
+        cat(formatted_message, "\n")
+      }
+
+      # Write to file
+      write_log_to_file(log_entry, formatted_message)
+    },
+    error = function(e) {
+      # Fallback - write to console if logging fails
+      cat("LOGGING ERROR:", conditionMessage(e), "\n")
+      cat("Original message:", message, "\n")
+    }
+  )
+}
+
+log_error <- function(message, context = NULL) {
+  log_message("ERROR", message, context)
+}
+
+create_non_interactive_log <- function(from_season, to_season) {
+  # Create detailed log file for non-interactive runs
+  # Returns log file path
+
+  timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+  log_filename <- paste0(
+    "season_transition_", from_season, "_",
+    to_season, "_", timestamp, ".log"
+  )
+  log_filepath <- file.path("logs", log_filename)
+
+  # Create logs directory if it doesn't exist
+  if (!dir.exists("logs")) {
+    dir.create("logs")
+  }
+
+  # Initialize log file
+  cat("=== Season Transition Log ===\n", file = log_filepath)
+  cat("Mode: Non-Interactive\n", file = log_filepath, append = TRUE)
+  cat("From Season:", from_season, "\n", file = log_filepath, append = TRUE)
+  cat("To Season:", to_season, "\n", file = log_filepath, append = TRUE)
+  cat("Started:", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n",
+    file = log_filepath, append = TRUE
+  )
+
+  return(log_filepath)
+}
+
+create_processing_log <- function(source_season, target_season) {
+  # Create processing log file
+  # Tracks all operations and decisions
+
+  tryCatch(
+    {
+      log_file <- paste0("processing_", source_season, "_to_", target_season, ".log")
+
+      # Set processing-specific log file
+      old_log_file <- .LOG_CONFIG$file
+      .LOG_CONFIG$file <<- log_file
+
+      # Log processing start
+      log_message("INFO", "Processing started", paste("Source:", source_season, "Target:", target_season))
+
+      # Log system information
+      log_message("DEBUG", "System information", paste("R version:", R.version.string))
+      log_message("DEBUG", "Working directory", getwd())
+      log_message("DEBUG", "Session ID", get_session_id())
+
+      return(log_file)
+    },
+    error = function(e) {
+      warning("Failed to create processing log:", conditionMessage(e))
+      return(NULL)
+    }
+  )
+}
+
+# Minimale Datei-I/O-Helfer (vormals file_operations.R).
+check_file_permissions <- function(file_path, operation = "read") {
+  # Check file permissions for specified operation
+  # Returns TRUE if operation is allowed
+
+  tryCatch(
+    {
+      if (!file.exists(file_path)) {
+        # Check parent directory permissions for write operations
+        if (operation == "write" || operation == "create") {
+          parent_dir <- dirname(file_path)
+          if (!dir.exists(parent_dir)) {
+            return(FALSE)
+          }
+          return(file.access(parent_dir, mode = 2) == 0) # Write permission
+        }
+        return(FALSE)
+      }
+
+      # Check existing file permissions
+      if (operation == "read") {
+        return(file.access(file_path, mode = 4) == 0) # Read permission
+      } else if (operation == "write") {
+        return(file.access(file_path, mode = 2) == 0) # Write permission
+      } else if (operation == "execute") {
+        return(file.access(file_path, mode = 1) == 0) # Execute permission
+      }
+
+      return(FALSE)
+    },
+    error = function(e) {
+      warning("Error checking file permissions:", e$message)
+      return(FALSE)
+    }
+  )
+}
+
+safe_file_read <- function(file_path, sep = ";", header = TRUE) {
+  # Safe file reading with error handling
+  # Returns data or NULL on error
+
+  tryCatch(
+    {
+      # Check if file exists
+      if (!file.exists(file_path)) {
+        warning("File does not exist:", file_path)
+        return(NULL)
+      }
+
+      # Check read permissions
+      if (!check_file_permissions(file_path, "read")) {
+        warning("No read permission for file:", file_path)
+        return(NULL)
+      }
+
+      # Check file size
+      file_size <- file.info(file_path)$size
+      if (file_size == 0) {
+        warning("File is empty:", file_path)
+        return(NULL)
+      }
+
+      # Read file
+      data <- read.csv(file_path, sep = sep, header = header, stringsAsFactors = FALSE)
+
+      cat("File read successfully:", file_path, "(", nrow(data), "rows )\n")
+
+      return(data)
+    },
+    error = function(e) {
+      warning("Error reading file:", file_path, "-", e$message)
+      return(NULL)
+    }
+  )
+}
+
+# Minimaler Requirements-Check (vormals error_handling.R).
+get_available_disk_space <- function(path = ".") {
+  # Get available disk space for given path
+  # Returns space in bytes
+
+  tryCatch(
+    {
+      if (.Platform$OS.type == "windows") {
+        # Windows-specific implementation
+        system_info <- system(paste("dir", path), intern = TRUE)
+        # Parse output for available space
+        # This is a simplified implementation
+        return(1e9) # Return 1GB as fallback
+      } else {
+        # Unix-like systems
+        df_output <- system(paste("df", path), intern = TRUE)
+        if (length(df_output) >= 2) {
+          # Parse df output
+          fields <- strsplit(df_output[2], "\\s+")[[1]]
+          if (length(fields) >= 4) {
+            available_kb <- as.numeric(fields[4])
+            return(available_kb * 1024) # Convert to bytes
+          }
+        }
+      }
+
+      return(1e9) # Return 1GB as fallback
+    },
+    error = function(e) {
+      warning("Error getting disk space:", e$message)
+      return(1e9) # Return 1GB as fallback
+    }
+  )
+}
+
+validate_system_requirements <- function() {
+  # Validate system requirements and dependencies
+  # Returns validation results
+
+  tryCatch(
+    {
+      requirements <- list(
+        r_version = list(
+          required = "4.0.0",
+          actual = R.version.string,
+          valid = as.numeric(R.version$major) >= 4
+        ),
+        packages = list(),
+        environment = list(),
+        system = list()
+      )
+
+      # Check required packages
+      required_packages <- c("httr", "jsonlite", "tidyr")
+
+      for (pkg in required_packages) {
+        requirements$packages[[pkg]] <- list(
+          required = TRUE,
+          installed = requireNamespace(pkg, quietly = TRUE)
+        )
+      }
+
+      # Check environment variables
+      requirements$environment$RAPIDAPI_KEY <- list(
+        required = TRUE,
+        set = Sys.getenv("RAPIDAPI_KEY") != ""
+      )
+
+      # Check system resources
+      requirements$system$disk_space <- list(
+        required = "1GB",
+        available = get_available_disk_space() > 1e9
+      )
+
+      # Overall validation
+      all_valid <- all(
+        requirements$r_version$valid,
+        all(sapply(requirements$packages, function(p) p$installed)),
+        all(sapply(requirements$environment, function(e) e$set)),
+        all(sapply(requirements$system, function(s) s$available))
+      )
+
+      requirements$overall_valid <- all_valid
+
+      return(requirements)
+    },
+    error = function(e) {
+      return(list(
+        overall_valid = FALSE,
+        error = conditionMessage(e)
+      ))
+    }
+  )
+}
+
+# Minimale Team-Count-Validierung (vormals input_validation.R); einziger
+# Aufrufer ist process_season_transition() weiter unten in dieser Datei.
+validate_team_count <- function(file_path) {
+  # Validate that the team count is within expected range
+  # Returns validation result
+
+  tryCatch(
+    {
+      if (!file.exists(file_path)) {
+        return(list(
+          valid = FALSE,
+          message = "File does not exist"
+        ))
+      }
+
+      # Read the CSV file
+      team_data <- read.csv(file_path, sep = ";", stringsAsFactors = FALSE)
+      team_count <- nrow(team_data)
+
+      # Die Spanne folgt der Registry statt fester Zahlen. Frueher standen
+      # hier 56-62 (18+18+20 plus willkuerliche Toleranz).
+      #
+      # KORRIGIERT (Issue #195): Die Untergrenze war die kleinste EINZELNE
+      # Liga, begruendet damit, der Saisonwechsel validiere auch
+      # Einzelligen-Dateien. Das trifft nicht zu -- validate_team_count() hat
+      # genau einen Aufrufer (season_processor.R), und der uebergibt immer
+      # die ZUSAMMENGEFUEHRTE Liste. Mit 12 gegen 194 Soll-Teams fing die
+      # Pruefung praktisch nichts: Ein Ergebnis, dem neun von zehn Ligen
+      # fehlen, bestand sie.
+      #
+      # Genau das passiert, wenn api-football die Spielplaene der neuen
+      # Saison noch nicht hinterlegt hat (ADR 0007): season_processor.R warnt
+      # bei einer leeren Antwort nur und ueberspringt die Liga.
+      #
+      # Untergrenze ist die Summe der Sollstaerken der Ligen, die der
+      # Saisonwechsel TATSAECHLICH ABRUFT -- mit Abschlag, weil eine Liga
+      # unter ihrer Sollstaerke spielen kann (Insolvenz, Rueckzug).
+      #
+      # Nicht alle aktiven Ligen: Der Lauf stuetzt sich auf aufgezeichnete
+      # API-Antworten und deckt heute nur 78/79/80 ab
+      # (SEASON_TRANSITION_LEAGUES, season_validation.R). Gegen alle zehn
+      # gemessen lehnte die Pruefung jeden gueltigen Lauf ab. Sobald die
+      # Kassetten fuer die uebrigen Ligen da sind, waechst die Grenze von
+      # selbst mit.
+      #
+      # Obergrenze bleibt die Summe aller je gefuehrten Ligen plus Reserve --
+      # die TeamList behaelt historische Eintraege.
+      geprueft <- if (exists("SEASON_TRANSITION_LEAGUES")) {
+        SEASON_TRANSITION_LEAGUES
+      } else {
+        league_ids()
+      }
+      soll_aktiv <- sum(vapply(lapply(geprueft, league_teams_range),
+                               function(r) r[[2]], integer(1)))
+      min_teams <- as.integer(floor(soll_aktiv * 0.9))
+
+      ranges <- lapply(league_ids(active_only = FALSE), league_teams_range)
+      max_teams <- sum(vapply(ranges, function(r) r[[2]], integer(1))) * 2L
+
+      if (team_count < min_teams) {
+        return(list(
+          valid = FALSE,
+          message = sprintf(
+            paste0("Too few teams: %d - expected at least %d (Sollstaerke ",
+                   "aller aktiven Ligen: %d). Fehlen ganze Ligen, hat die ",
+                   "API die Spielplaene der neuen Saison womoeglich noch ",
+                   "nicht hinterlegt."),
+            team_count, min_teams, soll_aktiv
+          )
+        ))
+      }
+
+      if (team_count > max_teams) {
+        return(list(
+          valid = FALSE,
+          message = paste("Too many teams:", team_count,
+                          "- expected at most", max_teams)
+        ))
+      }
+
+      return(list(
+        valid = TRUE,
+        message = paste("Team count valid:", team_count, "teams"),
+        team_count = team_count
+      ))
+    },
+    error = function(e) {
+      return(list(
+        valid = FALSE,
+        message = paste("Error reading file:", e$message)
+      ))
+    }
+  )
+}
+
 process_season_transition <- function(source_season, target_season) {
   # Main processing pipeline
   # Coordinates all phases of transition

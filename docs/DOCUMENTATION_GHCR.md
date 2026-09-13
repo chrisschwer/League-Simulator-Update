@@ -1,5 +1,7 @@
 # GitHub Container Registry (ghcr.io) Documentation
 
+> **Historical context (2026-05-02):** This document was written for the multi-service/Kubernetes deployment attempt (see git tag `pre-deployment-cleanup-2026-05-02`) and reverted in favor of a single integrated container. The project's production images are published to Docker Hub, not GHCR — see [`docs/deployment/README.md`](deployment/README.md) for the actual stack. This page is generic GHCR reference material, not current project documentation.
+
 ## Overview
 GitHub Container Registry (GHCR) is a container registry service that allows you to host and manage Docker container images directly within GitHub. It integrates seamlessly with GitHub repositories and Actions.
 

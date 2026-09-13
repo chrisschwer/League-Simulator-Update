@@ -1,5 +1,7 @@
 # Microservices Architecture
 
+> **Historical context (2026-05-02):** A microservices split was attempted (see git tag `pre-deployment-cleanup-2026-05-02` for the full multi-Dockerfile + `k8s/` tree) and reverted in favor of a single integrated container that runs the Rust simulation engine and the R scheduler in one process group. This document describes the rejected design in full; it is **not** the current or planned architecture. See [`docs/deployment/README.md`](../deployment/README.md) for what's actually deployed.
+
 Detailed design for the League Simulator microservices architecture.
 
 ## Current Monolithic Architecture

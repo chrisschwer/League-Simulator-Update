@@ -9,7 +9,6 @@ library(testthat)
 library(mockery)
 
 source("../../RCode/season_processor.R")
-source("../../RCode/input_validation.R")
 
 test_that("process_single_season fails when validate_team_count rejects merged file", {
   # Stub all the network-and-CSV-touching helpers process_single_season calls

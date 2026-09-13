@@ -17,9 +17,6 @@ source_with_fallback <- function(path) {
   }
 }
 
-# Source required modules
-source_with_fallback("RCode/file_operations.R")
-
 #' Load team list from previous season
 #'
 #' Loads TeamList for specified season, checking for most recent merged file first

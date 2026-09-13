@@ -18,6 +18,33 @@ fn elo_neutral_flag(flags: &Option<Vec<bool>>, i: usize) -> bool {
         .unwrap_or(false)
 }
 
+/// Baut die `Match`-Liste aus einer `[team_home, team_away, goals_home,
+/// goals_away]`-Zeilenmatrix, wie sie `/simulate` und `/league-details`
+/// beide entgegennehmen.
+///
+/// Voraussetzung: `schedule` ist bereits validiert (Indizes sind `Some` und
+/// liegen in `1..=number_teams`) -- diese Funktion ist bewusst infallibel und
+/// entpackt daher mit `unwrap()`. `elo_neutral` ist ein optionaler, zu
+/// `schedule` paralleler Vektor (siehe `elo_neutral_flag`).
+fn schedule_to_matches(
+    schedule: &[[Option<i32>; 4]],
+    elo_neutral: &Option<Vec<bool>>,
+) -> Vec<Match> {
+    schedule
+        .iter()
+        .enumerate()
+        .map(|(i, row)| Match {
+            // Validiert vor dem Aufruf: Indizes sind Some und liegen in
+            // 1..=number_teams. R zaehlt 1-basiert, Rust 0-basiert.
+            team_home: row[0].unwrap() as usize - 1,
+            team_away: row[1].unwrap() as usize - 1,
+            goals_home: row[2],
+            goals_away: row[3],
+            elo_neutral: elo_neutral_flag(elo_neutral, i),
+        })
+        .collect()
+}
+
 /// Prueft, dass `elo_neutral` genau so lang ist wie `schedule`.
 ///
 /// Ein zu kurzer oder zu langer Vektor waere eine stille Fehlzuordnung: Ab
@@ -187,6 +214,44 @@ pub struct SimulateRequest {
     adj_goal_diff: Option<Vec<i32>>,
 }
 
+/// Uebernimmt `SimulationParams::default()` und ueberschreibt nur die
+/// `Option`-Felder, die die Anfrage tatsaechlich mitschickt.
+///
+/// Die Modellkonstanten (mod_factor, home_advantage, tore_slope,
+/// tore_intercept) sind damit ausschliesslich in `SimulationParams::default`
+/// deklariert (CLAUDE.md, "Modellkonstanten") -- hier steht kein Literal
+/// mehr, das mit jenem in Einklang gehalten werden muesste.
+impl From<&SimulateRequest> for SimulationParams {
+    fn from(payload: &SimulateRequest) -> Self {
+        let defaults = SimulationParams::default();
+
+        // Zeilenzahl der Ergebnismatrix: hoechster vorkommender Index + 1.
+        // Staffeln, die in DIESER Liga kein Team stellen, behalten ihre Zeile,
+        // solange eine hoeher nummerierte besetzt ist -- eine leere Zeile
+        // zwischendrin summiert sich schlicht auf null Absteiger.
+        // Zur Grenze dieses Verfahrens siehe SimulationParams::group_count.
+        let group_count = payload
+            .group_of_team
+            .as_ref()
+            .map(|g| g.iter().max().map_or(0, |m| m + 1));
+
+        SimulationParams {
+            group_of_team: payload.group_of_team.clone(),
+            relegation_places: payload.relegation_places,
+            group_count,
+            iterations: payload.iterations.unwrap_or(defaults.iterations),
+            mod_factor: payload.mod_factor.unwrap_or(defaults.mod_factor),
+            home_advantage: payload.home_advantage.unwrap_or(defaults.home_advantage),
+            tore_slope: payload.tore_slope.unwrap_or(defaults.tore_slope),
+            tore_intercept: payload.tore_intercept.unwrap_or(defaults.tore_intercept),
+            adj_points: payload.adj_points.clone(),
+            adj_goals: payload.adj_goals.clone(),
+            adj_goals_against: payload.adj_goals_against.clone(),
+            adj_goal_diff: payload.adj_goal_diff.clone(),
+        }
+    }
+}
+
 #[derive(Serialize)]
 pub struct SimulateResponse {
     /// Probability matrix: rows are teams (in final rank order), columns are positions
@@ -219,20 +284,7 @@ pub async fn simulate_league(
     let number_teams = payload.elo_values.len();
 
     // Convert schedule to Match structs
-    let matches: Vec<Match> = payload
-        .schedule
-        .iter()
-        .enumerate()
-        .map(|(i, row)| Match {
-            // Validated above: indices are Some and within 1..=number_teams.
-            // R uses 1-indexed, Rust uses 0-indexed.
-            team_home: row[0].unwrap() as usize - 1,
-            team_away: row[1].unwrap() as usize - 1,
-            goals_home: row[2],
-            goals_away: row[3],
-            elo_neutral: elo_neutral_flag(&payload.elo_neutral, i),
-        })
-        .collect();
+    let matches = schedule_to_matches(&payload.schedule, &payload.elo_neutral);
 
     // Create Season struct
     let season = Season {
@@ -242,30 +294,7 @@ pub async fn simulate_league(
     };
 
     // Set simulation parameters
-    // Zeilenzahl der Ergebnismatrix: hoechster vorkommender Index + 1.
-    // Staffeln, die in DIESER Liga kein Team stellen, behalten ihre Zeile,
-    // solange eine hoeher nummerierte besetzt ist -- eine leere Zeile
-    // zwischendrin summiert sich schlicht auf null Absteiger.
-    // Zur Grenze dieses Verfahrens siehe SimulationParams::group_count.
-    let group_count = payload
-        .group_of_team
-        .as_ref()
-        .map(|g| g.iter().max().map_or(0, |m| m + 1));
-
-    let params = SimulationParams {
-        group_of_team: payload.group_of_team.clone(),
-        relegation_places: payload.relegation_places,
-        group_count,
-        iterations: payload.iterations.unwrap_or(10000),
-        mod_factor: payload.mod_factor.unwrap_or(20.0),
-        home_advantage: payload.home_advantage.unwrap_or(40.0),
-        tore_slope: payload.tore_slope.unwrap_or(0.0017854953143549),
-        tore_intercept: payload.tore_intercept.unwrap_or(1.3218390804597700),
-        adj_points: payload.adj_points.clone(),
-        adj_goals: payload.adj_goals.clone(),
-        adj_goals_against: payload.adj_goals_against.clone(),
-        adj_goal_diff: payload.adj_goal_diff.clone(),
-    };
+    let params = SimulationParams::from(&payload);
 
     // Generate team names if not provided
     let team_names = payload.team_names.unwrap_or_else(|| {
@@ -466,19 +495,7 @@ pub async fn league_details(
 
     let number_teams = payload.elo_values.len();
 
-    let matches: Vec<Match> = payload
-        .schedule
-        .iter()
-        .enumerate()
-        .map(|(i, row)| Match {
-            // Validated above; request is 1-indexed, internals 0-indexed.
-            team_home: row[0].unwrap() as usize - 1,
-            team_away: row[1].unwrap() as usize - 1,
-            goals_home: row[2],
-            goals_away: row[3],
-            elo_neutral: elo_neutral_flag(&payload.elo_neutral, i),
-        })
-        .collect();
+    let matches = schedule_to_matches(&payload.schedule, &payload.elo_neutral);
 
     let season = Season {
         matches,
@@ -486,12 +503,13 @@ pub async fn league_details(
         number_teams,
     };
 
+    let defaults = SimulationParams::default();
     let details = crate::league_details::compute_league_details(
         &season,
-        payload.mod_factor.unwrap_or(20.0),
-        payload.home_advantage.unwrap_or(40.0),
-        payload.tore_slope.unwrap_or(0.0017854953143549),
-        payload.tore_intercept.unwrap_or(1.3218390804597700),
+        payload.mod_factor.unwrap_or(defaults.mod_factor),
+        payload.home_advantage.unwrap_or(defaults.home_advantage),
+        payload.tore_slope.unwrap_or(defaults.tore_slope),
+        payload.tore_intercept.unwrap_or(defaults.tore_intercept),
         payload.max_goals.unwrap_or(6),
     );
 
@@ -596,12 +614,13 @@ pub async fn match_preview(
     // aufruft (ADR 0002). Weichen die Defaults hier ab, antworten beide
     // Endpunkte fuer dasselbe Spiel verschieden -- deshalb stehen sie
     // wortgleich wie in `league_details`.
+    let defaults = SimulationParams::default();
     let probabilities = crate::league_details::match_probabilities(
         payload.elo_home,
         payload.elo_away,
-        payload.home_advantage.unwrap_or(40.0),
-        payload.tore_slope.unwrap_or(0.0017854953143549),
-        payload.tore_intercept.unwrap_or(1.3218390804597700),
+        payload.home_advantage.unwrap_or(defaults.home_advantage),
+        payload.tore_slope.unwrap_or(defaults.tore_slope),
+        payload.tore_intercept.unwrap_or(defaults.tore_intercept),
         payload.max_goals.unwrap_or(6),
     );
 
@@ -613,4 +632,68 @@ pub async fn match_preview(
         p_away_win: probabilities.p_away_win,
         score_matrix: probabilities.score_matrix,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    //! Unit-Tests fuer `impl From<&SimulateRequest> for SimulationParams`.
+    //!
+    //! Leben hier statt in `api::tests`, weil `SimulateRequest`-Felder
+    //! modul-privat sind und dieser Konstruktor keinen eigenen HTTP-Umweg
+    //! (und damit keine Monte-Carlo-Zufallszahlen) braucht.
+    use super::*;
+
+    /// Minimaler Request: nur die Pflichtfelder, alle vier Modellkonstanten
+    /// sowie `iterations` bleiben unbelegt.
+    fn request_without_model_overrides() -> SimulateRequest {
+        SimulateRequest {
+            schedule: vec![[Some(1), Some(2), None, None]],
+            group_of_team: None,
+            relegation_places: None,
+            elo_neutral: None,
+            elo_values: vec![1500.0, 1500.0],
+            team_names: None,
+            iterations: None,
+            mod_factor: None,
+            home_advantage: None,
+            tore_slope: None,
+            tore_intercept: None,
+            adj_points: None,
+            adj_goals: None,
+            adj_goals_against: None,
+            adj_goal_diff: None,
+        }
+    }
+
+    #[test]
+    fn params_from_request_without_overrides_equals_simulation_params_default() {
+        let request = request_without_model_overrides();
+
+        let params = SimulationParams::from(&request);
+        let defaults = SimulationParams::default();
+
+        assert_eq!(params.mod_factor, defaults.mod_factor);
+        assert_eq!(params.home_advantage, defaults.home_advantage);
+        assert_eq!(params.tore_slope, defaults.tore_slope);
+        assert_eq!(params.tore_intercept, defaults.tore_intercept);
+        assert_eq!(params.iterations, defaults.iterations);
+    }
+
+    #[test]
+    fn params_from_request_setting_only_tore_slope_keeps_other_three_defaults() {
+        let mut request = request_without_model_overrides();
+        request.tore_slope = Some(0.0024058833); // Frauen-Wert, siehe CLAUDE.md
+
+        let params = SimulationParams::from(&request);
+        let defaults = SimulationParams::default();
+
+        assert_eq!(params.tore_slope, 0.0024058833);
+        assert_ne!(
+            params.tore_slope, defaults.tore_slope,
+            "der Testfall muss tatsaechlich vom Default abweichen"
+        );
+        assert_eq!(params.mod_factor, defaults.mod_factor);
+        assert_eq!(params.home_advantage, defaults.home_advantage);
+        assert_eq!(params.tore_intercept, defaults.tore_intercept);
+    }
 }

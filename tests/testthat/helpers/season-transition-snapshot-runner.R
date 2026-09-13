@@ -30,11 +30,11 @@ options(season_transition.non_interactive = TRUE)
 
 # Source the same module set scripts/season_transition.R uses, from the project root.
 modules <- c(
-  "season_validation.R", "elo_aggregation.R", "api_service.R", "api_helpers.R",
-  "interactive_prompts.R", "input_validation.R", "csv_generation.R", "file_operations.R",
+  "season_validation.R", "elo_aggregation.R", "api_service.R",
+  "interactive_prompts.R", "csv_generation.R",
   "team_history_resolver.R", "team_record_builder.R",
-  "season_processor.R", "league_processor.R", "error_handling.R", "logging.R",
-  "input_handler.R", "team_config_loader.R", "team_data_carryover.R",
+  "season_processor.R",
+  "input_handler.R", "team_data_carryover.R",
   "retrieveResults.R", "transform_data.R",
   # Issue #146, Teil 2: Die End-ELOs kommen jetzt aus /league-details.
   "league_details.R", "Tabelle.R"

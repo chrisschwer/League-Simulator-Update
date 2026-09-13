@@ -67,17 +67,10 @@ required_modules <- c(
   "season_validation.R",
   "elo_aggregation.R",
   "api_service.R",
-  "api_helpers.R",
   "interactive_prompts.R",
-  "input_validation.R",
   "csv_generation.R",
-  "file_operations.R",
   "season_processor.R",
-  "league_processor.R",
-  "error_handling.R",
-  "logging.R",
   "input_handler.R",
-  "team_config_loader.R",
   "team_data_carryover.R"
 )
 
