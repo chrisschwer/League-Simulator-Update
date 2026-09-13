@@ -1,5 +1,7 @@
 # Kubernetes Documentation
 
+> **Historical context (2026-05-02):** The League Simulator does not run on Kubernetes. A microservices/k8s split was attempted (see git tag `pre-deployment-cleanup-2026-05-02` for the full multi-Dockerfile + `k8s/` tree) and reverted in favor of a single integrated container. This document is generic Kubernetes reference material left over from that attempt — it is **not** describing this project's current or planned deployment. See [`docs/deployment/README.md`](deployment/README.md) for what's actually deployed.
+
 ## Overview
 Kubernetes (K8s) is a container orchestration platform that automates deployment, scaling, and management of containerized applications. This document covers essential manifest patterns and kubectl commands.
 
