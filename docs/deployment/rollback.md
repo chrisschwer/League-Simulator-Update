@@ -10,74 +10,60 @@ Roll back to a previous version of the League Simulator.
 |---|---|
 | Container won't start, health check fails | The Docker image (Section A) |
 | Container is up but produces wrong simulation results | The Docker image (Section A) |
-| Container is up but the schedule or env config is wrong | `.env` and/or `docker-compose.yml` (Section B) |
-| You want to compare against the pre-#78 deployment surface (multi-Dockerfile, k8s) | The git tag (Section C) |
+| Container is up but the schedule or env config is wrong | `docker-compose.yml` / `.env` by hand (Section B) |
+| You want to read the pre-#78 deployment surface (multi-Dockerfile, k8s) for reference | The git tag (Section C, read-only) |
 
-## A. Roll back the Docker image
+## A. Roll back the Docker image (primary path)
 
-If you tag your images at deploy time (recommended), you have a previous tag to roll back to.
+Images are built by CI on every push to `main` and published as
+`chrisschwer/league-simulator:latest` and `:<sha>`. The deploy host pins
+`image:` to a specific `<sha>` in its compose file (see
+[Static Site](static-site.md#deployment-host-layout)) — rolling back means
+pointing that pin at a previous, known-good sha and restarting.
 
 ```bash
 # 1. Stop the running container.
 docker-compose down
 
-# 2. Pin docker-compose.yml to the previous image tag.
+# 2. Pin docker-compose.yml to the previous image sha.
 #    (Edit the `image:` line under `scheduler`.)
 $EDITOR docker-compose.yml
 
-# 3. Bring the previous version up.
+# 3. Pull that exact tag and bring it up.
+docker-compose pull
 docker-compose up -d
 
 # 4. Verify.
 docker-compose ps
-docker-compose ps
 docker-compose logs -f scheduler
 ```
 
-If you don't tag images and just rebuild from `main`, you're rolling back code, not images — see Section C below.
-
 ## B. Roll back configuration only
 
+`.env` is gitignored and never committed, so there is no git history to
+restore it from. If the schedule or env config is wrong, hand-edit
+`.env` and/or `docker-compose.yml` on the host to the known-good values
+(see [Deployment Overview](README.md#required-environment-variables) for
+the reference table), then restart — no rebuild needed:
+
 ```bash
-# Inspect the previous .env from git history.
-git log -p .env
-
-# Restore an earlier version (or hand-edit .env to match).
-git checkout HEAD~1 -- .env  # or a specific commit
-
-# Restart with the new config — no rebuild needed.
 docker-compose down
 docker-compose up -d
 ```
 
-## C. Roll back to a previous git tag and rebuild
+## C. Reference: the pre-cleanup deployment surface (read-only)
 
-This is the path when you don't have versioned Docker images and need to run the code as it was at a previous commit.
-
-```bash
-# Inspect tags.
-git tag -l
-
-# Check out the tag.
-git checkout <tag-name>
-
-# Rebuild and run.
-docker-compose up -d --build
-
-# When you're done debugging, return to main.
-git checkout main
-docker-compose up -d --build
-```
-
-### Reference tag
-
-The repo has one annotated tag preserving the pre-cleanup deployment surface:
+The repo has one annotated tag preserving the deployment surface before the
+single-container collapse in #78:
 
 ```bash
 git checkout pre-deployment-cleanup-2026-05-02
 ```
 
-This tag captures the multi-Dockerfile + `k8s/` tree as of 2026-05-02, before the deployment-collapse work in #78. You will *not* be able to `docker-compose up` directly from that tag (the file layout is different); use it for reference reading only.
+This tag captures the multi-Dockerfile + `k8s/` tree as of 2026-05-02. You
+will *not* be able to `docker-compose up` from that tag — the file layout is
+different, and production images now come from CI, not a local build. Use it
+for reading old manifests, not for running anything.
 
 ## After rolling back
 
