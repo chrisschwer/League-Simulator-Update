@@ -1,14 +1,14 @@
 # League Simulator
 
-A Monte Carlo simulator that predicts final standings for the three German football leagues — Bundesliga, 2. Bundesliga, 3. Liga. The system combines an ELO rating model with a Rust simulation engine and a fixed daily schedule, surfacing results as a statically generated site.
+A Monte Carlo simulator that predicts final standings for ten German football leagues — men's and women's Bundesliga through 3. Liga, and the five Regionalliga divisions. The system combines an ELO rating model with a Rust simulation engine and a live-poll-gated update loop, surfacing results as a statically generated site.
 
 Live site: <https://fussball.csdatascience.de>
 
 ## What it does
 
-- Pulls match results from [api-football](https://rapidapi.com/api-sports/api/api-football) every two minutes between 11:00 and 23:00 Berlin time.
+- Polls [api-football](https://rapidapi.com/api-sports/api/api-football) every two minutes between 11:00 and 23:00 Berlin time; a cheap live poll gates the expensive full fetch, so idle loops cost one request.
 - Runs 10,000 Monte Carlo simulations through the rest of the season for each league after each match-day update.
-- Produces a probability matrix per league (each team × each final position) and renders it to four static HTML pages (see `docs/deployment/static-site.md`).
+- Produces a probability matrix per league (each team × each final position) and renders it to twelve static HTML pages — ten league pages, the Regionalliga promotion page, and Methodik (see `docs/deployment/static-site.md`).
 - Re-runs ELO updates after every match.
 
 ## How it works
@@ -17,7 +17,7 @@ Three pieces:
 
 1. **Rust simulation engine** (`league-simulator-rust/`) — high-performance Monte Carlo runner over a season's remaining fixtures.
 2. **R scheduler** (`RCode/`) — wakes during the active window, polls api-football, calls the in-process Rust server when new fixtures arrive, and renders the static site.
-3. **Static site generator** (`RCode/generate_static_site.R`) — turns the probability matrices into four self-contained HTML pages with inline HTML heatmaps (Bundesliga, 2. Bundesliga, 3. Liga, Methodik) plus assets, written to a Docker volume that a web server (Caddy) serves. A page older than 24 hours shows a warning banner, computed in the browser.
+3. **Static site generator** (`RCode/generate_static_site.R`) — turns the probability matrices into twelve self-contained HTML pages with inline HTML heatmaps (one per active league, plus the Regionalliga promotion page and Methodik) plus assets, written to a Docker volume that a web server (Caddy) serves. A page older than 24 hours shows a warning banner, computed in the browser.
 
 Engine and scheduler run in a single Docker container; the scheduler talks to the Rust server over `localhost`. There is no application server behind the public site — only static files. Local preview of the same data runs via [`scripts/preview_site.R`](scripts/preview_site.R).
 

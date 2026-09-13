@@ -38,7 +38,7 @@ Four main components:
 1. **Simulation Engine** - Rust-based Monte Carlo simulations with ELO ratings (REST seam at `localhost:8080`)
 2. **Scheduler** - Automated updates at match times (Berlin timezone)
 3. **Season Transition** - Handles promotions/relegations between seasons
-4. **Static Site** - four self-contained HTML pages (three league views + Methodik, with inline HTML heatmaps) rendered by the scheduler into `STATIC_SITE_DIR`, served by Caddy at fussball.csdatascience.de (`scripts/preview_site.R` renders a local preview from a saved fixture)
+4. **Static Site** - twelve self-contained HTML pages (ten league views + Regionalliga promotion page + Methodik, with inline HTML heatmaps) rendered by the scheduler into `STATIC_SITE_DIR`, served by Caddy at fussball.csdatascience.de (`scripts/preview_site.R` renders a local preview from a saved fixture)
 
 For detailed architecture, see @docs/architecture/overview.md
 
@@ -99,6 +99,6 @@ When adding helper functions in `RCode/` that operators run outside the producti
 - **Season**: 2026-2027 (`SEASON=2026`)
 - **API**: api-football via RapidAPI — Pro plan ($19/month): 7,500 requests/day
   (then $0.0025/request), rate limit 300 requests/minute, 10 GB bandwidth/month.
-  Typical production usage is ~150–450 requests/day, so per-loop full fetches
-  during live windows are well within budget.
+  Typical usage is ~500 requests on an idle day, up to ~3,900 on a full match
+  day (#190) — both well within the daily 7,500 quota.
 

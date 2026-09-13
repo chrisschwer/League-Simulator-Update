@@ -234,6 +234,8 @@ get_api_key <- function() {
 
 ### Network Security
 
+> **Historischer Kontext (2026-05-02):** Dieses Diagramm zeigt den verworfenen Microservices-Entwurf mit Load Balancer und mehreren Shiny-App-Instanzen (siehe git-Tag `pre-deployment-cleanup-2026-05-02`). Es ist **nicht** die aktuelle oder geplante Architektur — siehe `docs/deployment/README.md` für den tatsächlichen Stand (ein einziger Container).
+
 ```mermaid
 graph TB
     Internet -->|HTTPS| LB[Load Balancer]
@@ -299,6 +301,8 @@ Local Machine
 
 ### Production
 
+> **Historischer Kontext (2026-05-02):** Dieses Diagramm zeigt den verworfenen Microservices-Entwurf mit Kubernetes-Cluster, Shiny-Pods, Redis und PostgreSQL (siehe git-Tag `pre-deployment-cleanup-2026-05-02`). Es ist **nicht** die aktuelle oder geplante Architektur — siehe `docs/deployment/README.md` für den tatsächlichen Stand (ein einziger Container, kein Kubernetes, keine Datenbank).
+
 ```
 Cloud Provider
 ├── Kubernetes Cluster
@@ -340,7 +344,7 @@ Application Logs → File System → Log Shipper → Central Log Store
 health_check <- function() {
   checks <- list(
     api = test_api_connection(),
-    data = file.exists("RCode/TeamList_2025.csv"),
+    data = file.exists("RCode/TeamList_2026.csv"),
     write = can_write_results()
   )
   

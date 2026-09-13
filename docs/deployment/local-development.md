@@ -89,9 +89,7 @@ For the canonical operator guide, see [`docs/user-guide/season-transition.md`](.
 
 ## Building Docker images
 
-> **You don't build production Docker images on macOS. You build them on a Linux machine** — historically by hand on a server you control. The Mac-side workflow is R + Rust + static-site iteration only.
-
-A future goal is to **move image-build to CI**: a GitHub Actions workflow that builds and (optionally) pushes to a registry on pushes to `main`. That work is tracked in issue [#76](https://github.com/chrisschwer/League-Simulator-Update/issues/76) (CI rebuild). Until #76 lands, treat `docker build` / `docker-compose build` as a Linux-only operation.
+**You don't build production Docker images locally.** CI (`.github/workflows/ci.yml`, `image-build-and-test` and `push-image` jobs) builds and pushes images on every push to `main` — that work was tracked in issue [#76](https://github.com/chrisschwer/League-Simulator-Update/issues/76), now closed. The Mac-side workflow is R + Rust + static-site iteration only; if you need to test a `docker build` locally, do it on a Linux machine, since the multi-stage build has not been verified on macOS.
 
 ## Environment variables
 

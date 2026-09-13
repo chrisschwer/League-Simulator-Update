@@ -2,11 +2,13 @@
 
 Complete API documentation for the League Simulator system.
 
+> **Historical context (2026-05-02):** The "Internal API" section below describes the microservices split that was attempted (see git tag `pre-deployment-cleanup-2026-05-02`) and reverted in favor of a single integrated container. There is no internal API — the Rust simulation engine is called over HTTP from R within the same container. See [`docs/deployment/README.md`](../deployment/README.md) for what's actually deployed.
+
 ## Overview
 
 The League Simulator uses two main APIs:
 1. **External API**: API-Football via RapidAPI for match data
-2. **Internal API**: Future microservices API for system components
+2. **Internal API**: microservices-era plan, never built (see banner above)
 
 ## External API - API-Football
 
