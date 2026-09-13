@@ -30,11 +30,18 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
                                     static_site_dir = Sys.getenv("STATIC_SITE_DIR",
                                                                  "ShinyApp/public"),
                                     full_fetch_every = 30) {
+  # Der Wunschtakt dieses Laufs: die geplante Dauer auf die geplanten Runden
+  # verteilt. Er war bis Issue #190 zugleich der ENDGUELTIGE Takt -- einmal
+  # beim Start berechnet und fuer den Rest des Tages eingefroren. Jetzt ist
+  # er nur noch die Obergrenze der Frequenz; die tatsaechliche Wartezeit
+  # fuehrt der Takt-Regler je Runde aus den frischen Rate-Limit-Headern
+  # nach (rate_limit_takt.R).
   if (loops > 1) {
-    waittime <- duration * 60 / (loops - 1) # time between loops
+    ideal_waittime <- duration * 60 / (loops - 1)
   } else {
-    waittime <- 0
+    ideal_waittime <- 0
   }
+  waittime <- ideal_waittime
 
   # Wait initial_wait before starting
   Sys.sleep(initial_wait)
@@ -70,6 +77,7 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
 
   # Common R functions needed regardless of engine
   source("RCode/retrieveResults.R")
+  source("RCode/rate_limit_takt.R")
   source("RCode/Tabelle.R")
   source("RCode/transform_data.R")
   source("RCode/league_details.R")
@@ -116,8 +124,91 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
   # ueberspringen waere hier falsch, die Zahlen sind nicht erfunden.
   drittliga_zaehlung <- NULL
 
-  # Start main loop
-  for (i in 1:loops) {
+  # Kosten einer Runde im ungünstigsten Fall: ein Live-Poll plus ein
+  # Vollabruf je Liga. Der Regler rechnet bewusst mit dem Worst Case und
+  # nicht mit dem Erfahrungswert aus checkAPILimits() (halbe Ligazahl) --
+  # eine Drosselung, die den Fehlerfall unterschaetzt, greift genau dann
+  # nicht, wenn sie gebraucht wird: Im Fehlerpfad kostet JEDE Runde den
+  # vollen Preis (#204).
+  expected_cost_per_loop <- 1 + length(liga_keys)
+
+  # Das `limit` beim Prozessstart -- der Vergleichswert fuer eine
+  # Plan-Herabstufung (Issue #190, Stufe 3). NA, bis der erste Request
+  # Header geliefert hat.
+  limit_bei_start <- NA_real_
+
+  # Start main loop. seq_len statt 1:loops: Bei loops = 0 zaehlt ein
+  # Doppelpunkt-Bereich RUECKWAERTS (1, 0) statt leer zu sein (#204).
+  for (i in seq_len(loops)) {
+    # --- Wartezeit und Kontingent-Buchfuehrung, am KOPF der Runde --------
+    #
+    # Die Wartezeit stand bis Issue #204 am ENDE des Rundenkoerpers, hinter
+    # dem `next` des Fehlerpfads. Schlug ein Vollabruf fehl, sprang die
+    # Schleife daran vorbei und feuerte sofort die naechste Runde -- 11
+    # Requests ohne Pause, das Tageskontingent in rund zwei Stunden
+    # verbrannt. "Vor Runde i warten" und "nach Runde i-1 warten"
+    # bezeichnen denselben Zeitpunkt in der Sequenz, aber vom Kopf aus kann
+    # kein `next` die Pause mehr uebergehen.
+    #
+    # Zugleich der Ort, an dem der Takt nachgefuehrt wird (Issue #190): Der
+    # Stand stammt aus den Headern des letzten Produktiv-Requests, also aus
+    # der Runde davor -- frischer geht es ohne Extra-Request nicht.
+    stand <- api_rate_limit_stand()
+
+    if (is.na(limit_bei_start) && !is.na(stand$limit)) {
+      limit_bei_start <- stand$limit
+    } else if (!is.na(limit_bei_start) && !is.na(stand$limit) &&
+                 stand$limit < limit_bei_start) {
+      # Der Fall aus der Ueberschrift von #190: Nicht das Restbudget faellt,
+      # das Kontingent selbst wurde herabgestuft. Ohne diese Zeile bliebe
+      # das vollstaendig unbemerkt.
+      message(sprintf(
+        "WARNUNG: API-Limit gefallen -- %s statt %s beim Start. Plan herabgestuft?",
+        .takt_zahl(stand$limit), .takt_zahl(limit_bei_start)
+      ))
+      limit_bei_start <- stand$limit
+    }
+
+    message(budget_zeile(i, loops, stand$remaining, stand$limit,
+                         stand$reset_seconds))
+
+    # `ideal_waittime == 0` heisst: gar keine Pause gewuenscht (duration = 0
+    # oder loops = 1). Der Regler bleibt dann aussen vor -- sein
+    # Mindesttakt ist eine Untergrenze fuer EINEN gewuenschten Takt, keine
+    # Pause, die er einem Lauf ohne Pause aufzwingen darf.
+    if (i > 1 && ideal_waittime > 0) {
+      regler <- naechste_waittime(
+        remaining = stand$remaining,
+        limit = stand$limit,
+        seconds_until_reset = stand$reset_seconds,
+        loops_remaining = loops - i + 1,
+        expected_cost_per_loop = expected_cost_per_loop,
+        current_waittime = waittime,
+        ideal_waittime = ideal_waittime
+      )
+
+      if (regler$alarm) {
+        message(sprintf(
+          "WARNUNG: nur noch %s von %s Requests -- unter %d %% des Kontingents.",
+          .takt_zahl(stand$remaining), .takt_zahl(stand$limit), 10L
+        ))
+      }
+      if (!isTRUE(all.equal(regler$waittime, waittime))) {
+        message(sprintf(
+          "Loop %d: Takt %s auf %.1f Minuten (Ideal %.1f)",
+          i, if (regler$waittime > waittime) "gestreckt" else "verkuerzt",
+          regler$waittime / 60, ideal_waittime / 60
+        ))
+      }
+      waittime <- regler$waittime
+
+      if (waittime > 0) {
+        message(sprintf("Loop %d: Waiting %.1f minutes before this update...",
+                        i, waittime / 60))
+        Sys.sleep(waittime)
+      }
+    }
+
     message(sprintf("\n=== Starting loop %d of %d at %s ===", i, loops, format(Sys.time(), "%Y-%m-%d %H:%M:%S")))
 
     # reset simulation_executed
@@ -170,9 +261,13 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
       #
       # Die Folge der Verschiebung: Im Leerlauf bleibt der Abruf nach einem
       # Fehlschlag faellig und wiederholt sich jede Runde, bis er gelingt.
-      # Das ist gewollt -- bei zehn Ligen kostet ein ganztaegiger Ausfall
-      # rund 4.000 der 7.500 Tages-Requests, und schnelles Wiederaufsetzen
-      # ist in genau diesem Fall das, was man will.
+      # Das ist gewollt -- schnelles Wiederaufsetzen ist in genau diesem
+      # Fall das, was man will. Die Rechnung dazu stand hier frueher bei
+      # "rund 4.000 der 7.500 Tages-Requests"; sie unterstellte eine
+      # Wartezeit, die der Fehlerpfad vor #204 gar nicht erreichte, und ist
+      # seit #190 ohnehin keine feste Zahl mehr: Der Takt-Regler streckt
+      # den Takt, sobald das Restkontingent knapp wird -- auch und gerade
+      # waehrend eines Ausfalls.
       last_full_fetch_loop <- i
 
       # Resolve pending finished fixtures: an id leaves the set once the
@@ -434,11 +529,9 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
       ))
     }
 
-    # Wait if not last iteration
-    if (i < loops) {
-      message(sprintf("Loop %d: Waiting %.1f minutes until next update...", i, waittime / 60))
-      Sys.sleep(waittime)
-    }
+    # Kein Sys.sleep() mehr am Rundenende: Die Wartezeit steht am KOPF der
+    # naechsten Runde (s. dort). Derselbe Zeitpunkt in der Sequenz, aber
+    # unerreichbar fuer ein `next` aus dem Fehlerpfad (#204).
   }
 
   message(sprintf("\n=== Completed all %d loops at %s ===", loops, format(Sys.time(), "%Y-%m-%d %H:%M:%S")))

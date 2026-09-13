@@ -85,7 +85,20 @@ checkAPILimits <- function(ideal_loops,
       remaining <- as.numeric(headers$`x-ratelimit-requests-remaining`)
       limit <- as.numeric(headers$`x-ratelimit-requests-limit`)
 
-      if (is.na(remaining)) {
+      # `length(remaining) == 0` ZUERST: Fehlt der Header, ist
+      # as.numeric(NULL) ein Vektor der Laenge 0, und `if (is.na(...))`
+      # scheitert daran mit "Argument hat Laenge 0", statt den Zweig zu
+      # nehmen. Die Warnung darunter war dadurch unerreichbar -- der Fehler
+      # fiel ins aeussere tryCatch und zog still die konservative
+      # Schaetzung: 9 statt 361 Runden, Ende nach rund 18 Minuten, und im
+      # Log stand "Error checking API limits" statt des fehlenden Headers.
+      #
+      # Der Fallback ist bewusst `ideal_loops` und keine gekuerzte Zahl:
+      # Kein Header heisst keine Aussage, und keine Aussage darf nicht als
+      # Engpass gelesen werden. Seit Issue #190 fuehrt der Loop den Takt
+      # ohnehin je Runde aus den frischen Headern nach -- diese Sonde ist
+      # nur noch die Startschaetzung, nicht mehr die einzige Bremse.
+      if (length(remaining) == 0 || is.na(remaining)) {
         warning("Could not read rate limit headers, returning ideal_loops")
         return(ideal_loops)
       }
@@ -94,7 +107,11 @@ checkAPILimits <- function(ideal_loops,
 
       # Calculate safe number of loops
       # Apply safety margin to avoid hitting exact limit
-      safe_loops <- floor((remaining * safety_margin) / avg_calls_per_loop)
+      #
+      # max(0, ...): Ein negativer `remaining`-Header machte safe_loops
+      # negativ, und `for (i in 1:loops)` zaehlt dann RUECKWAERTS statt gar
+      # nicht zu laufen (#204). Eine negative Rundenzahl ist keine Planung.
+      safe_loops <- max(0, floor((remaining * safety_margin) / avg_calls_per_loop))
 
       # Return minimum of ideal and safe loops
       actual_loops <- min(ideal_loops, safe_loops)
