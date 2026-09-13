@@ -420,14 +420,24 @@ fetch_league_details <- function(payload,
 # Verdrahtung je Liga: rohe Fixtures + TeamList -> render-fertige Strukturen
 # (details, teams, matches, current_elos, tabelle); NULL mit Warnung bei
 # Endpoint-Fehlern (Degradation auf Phase-3-Seite).
+#
+# @param tormodell Abweichendes Tormodell (ADR 0004, Issue #205), Liste aus
+#   goal_model_args() -- leer (Default), wo die Rust-Defaults gelten. Der
+#   Aufrufer (update_all_leagues_loop.R) kennt die Liga-ID und uebergibt die
+#   fertige Liste; diese Funktion bleibt damit frei von einer Abhaengigkeit
+#   auf league_registry.R, analog zu rl_aktuelle_elo(spielplan, tormodell)
+#   in rl_verdrahtung.R.
 build_league_page_data <- function(fixtures, teams,
-                                   fetch_fn = fetch_league_details) {
+                                   fetch_fn = fetch_league_details,
+                                   tormodell = list()) {
   tryCatch({
     details <- extract_fixture_details(fixtures)
 
     liga_teams <- teams[teams$TeamID %in% c(details$home_id, details$away_id), ]
 
-    payload <- build_league_details_payload(details, liga_teams)
+    payload <- build_league_details_payload(details, liga_teams,
+                                            tore_slope = tormodell$tore_slope,
+                                            tore_intercept = tormodell$tore_intercept)
     response_json <- fetch_fn(payload)
     parsed <- parse_league_details_response(response_json)
 
