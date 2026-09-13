@@ -32,8 +32,12 @@ der Unterschied ist nicht akademisch.
 | 2. Frauen-Bundesliga (1034) | pauschal | dieselbe Lage eine Ebene höher |
 | Regionalligen (83–87) | **nur**, wenn die Erstvertretung in der 3. Liga spielt | genau der Fall des § 55b Nr. 3.1 |
 
-Entschieden, Umsetzung in #206 — die Drei-Fälle-Regel steht heute noch nicht
-im Code (siehe „Was heute falsch ist" unten).
+Umgesetzt (#206): Der Update-Loop liest den Malus seit September 2026 aus der
+Spalte `Promotion` der TeamList (`malus_aus_teamlist()`), nicht mehr aus dem
+Endzeichen des Kurznamens. Welche Ligen überhaupt einen Malus-Lauf bekommen,
+sagt die Registry; **welche Teams** ihn tragen, entscheidet die gepflegte
+Spalte. Der Saisonwechsel schlägt sie nach der Drei-Fälle-Regel oben vor
+(`apply_promotion_penalties()`).
 
 Heute betroffen: acht Teams behalten den Malus, **24 verlieren ihn**. Derzeit
 hat keine aktive Regionalliga-Zweitvertretung ihre Erstvertretung in der
@@ -65,6 +69,14 @@ unhaltbar.
 Künftig gilt die Regel an **einer** Stelle: Der Carryover gewinnt für
 Bestandsteams, die Heuristik entscheidet nur noch über Neuzugänge — und was sie
 dabei geraten hat, steht im Konfliktbericht.
+
+> **Stand September 2026:** Beide Hälften sind erledigt. `csv_generation.R`
+> überschreibt die gepflegte Spalte nicht mehr, sondern wendet die
+> Drei-Fälle-Regel an (PR #199); der **Update-Loop** liest sie seit #206 aus
+> `Promotion`, statt sie am Kurznamen-Suffix neu zu erfinden. Was die
+> Heuristik für Neuzugänge vorschlägt, nennt die Konfliktliste am Ende des
+> Laufs — noch als Terminalausgabe, die Berichtsdatei aus
+> [ADR 0007](0007-teamlist-ist-gepflegtes-stammdatenblatt.md) bleibt offen.
 
 ## Warum ein eigener ADR
 

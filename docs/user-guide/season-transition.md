@@ -236,9 +236,10 @@ docker-compose exec -it scheduler \
 ### 5. Verify Results
 
 ```bash
-# Check new team file
+# Check the draft the run produced (not the productive file — it does not
+# exist yet; it is the result of Phase 2)
 docker-compose exec scheduler Rscript -e "
-  teams_new <- read.csv('RCode/TeamList_2025.csv', sep = ';')
+  teams_new <- read.csv('RCode/TeamList_2025_entwurf.csv', sep = ';')
   teams_old <- read.csv('RCode/TeamList_2024.csv', sep = ';')
 
   cat('Old season teams:', nrow(teams_old), '\n')
@@ -442,21 +443,27 @@ echo "Running transition..."
 docker-compose exec -T scheduler \
   Rscript scripts/season_transition.R $OLD_SEASON $NEW_SEASON --non-interactive
 
-# 3. Verify
+# 3. Verify — der Lauf erzeugt den ENTWURF, nicht die produktive Datei
 echo "Verifying..."
-if docker-compose exec -T scheduler test -f "RCode/TeamList_${NEW_SEASON}.csv"; then
-  echo "✓ New team file created"
+if docker-compose exec -T scheduler test -f "RCode/TeamList_${NEW_SEASON}_entwurf.csv"; then
+  echo "✓ Draft created"
 else
-  echo "✗ ERROR: Team file not created"
+  echo "✗ ERROR: Draft not created"
   exit 1
 fi
 
-# 4. Update configuration
-echo "Updating configuration..."
-sed -i.bak "s/SEASON=$OLD_SEASON/SEASON=$NEW_SEASON/g" .env
-
-echo "=== Season transition complete ==="
+echo "=== Phase 1 complete ==="
+echo "Phase 2 is manual: review the draft, resolve the conflicts it lists,"
+echo "then place it as RCode/TeamList_${NEW_SEASON}.csv and only THEN set"
+echo "SEASON=${NEW_SEASON} in .env."
 ```
+
+> **Das Skript endet hier bewusst.** Es setzte früher `SEASON` im selben Lauf
+> auf die neue Saison. Das ginge jetzt schief: Der Lauf schreibt einen
+> **Entwurf**, und der Produktivpfad liest ihn nicht — der Scheduler suchte
+> eine `TeamList_<neu>.csv`, die es erst nach der Nacharbeit gibt. Die
+> Umstellung von `SEASON` gehört ans Ende von Phase 2, nicht an das von
+> Phase 1.
 
 ## Troubleshooting Guide
 

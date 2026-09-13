@@ -56,8 +56,14 @@ maschinell zu leisten ist:
 3. Vorschläge für Neuzugänge — Kürzel, ELO, Zweitvertretungs-Status
 
 Sie schreibt einen **Entwurf** (`TeamList_<Jahr>_entwurf.csv`), nicht die
-produktive Datei. Entschieden, Umsetzung in #206 — heute schreibt
-`csv_generation.R` noch das alte Vierspaltenformat direkt.
+produktive Datei.
+
+> **Umgesetzt (#206):** `csv_generation.R` schreibt den Entwurf im
+> Siebenspaltenformat und fasst eine vorhandene `TeamList_<Jahr>.csv` nicht
+> mehr an — auch im `--non-interactive`-Modus nicht. Die **Konfliktliste**
+> gibt es bislang nur als Terminalausgabe am Ende des Laufs; der Bericht als
+> **Datei** neben der TeamList, wie ihn dieser ADR unten fordert, bleibt
+> offen.
 
 Die **Ligazuordnung kommt dabei aus der API**, nicht aus der Vorsaison: Der
 Lauf fragt `/v3/teams?league=<id>&season=<Jahr>` je aktiver Liga einzeln ab
