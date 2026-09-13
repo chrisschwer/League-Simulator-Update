@@ -59,6 +59,14 @@ retrieveResults <- function(league = "78", season = "2022") {
 
   # Check response status
   if (status_code(response) != 200) {
+    # warning() allein reicht nicht: Ohne options(warn = 1) sammelt Rscript
+    # Warnungen bis zur Rueckkehr aus main() und verwirft sie beim
+    # regulaeren quit() der Produktions-Schleife (Issue #208) -- zwoelf
+    # Stunden Betrieb ohne sichtbaren Fehler. message() steht sofort im
+    # Docker-Log, mit Liga UND Statuscode, damit ein Fehlschlag nicht erst
+    # am fehlenden Ergebnis auffaellt.
+    message(sprintf("retrieveResults: Liga %s antwortete mit Status %d",
+                    league, status_code(response)))
     warning(paste("API request failed with status:", status_code(response)))
     return(NULL)
   }
@@ -73,6 +81,8 @@ retrieveResults <- function(league = "78", season = "2022") {
 
   # Check if we have response data
   if (is.null(parsed_content$response) || length(parsed_content$response) == 0) {
+    message(sprintf("retrieveResults: Liga %s lieferte eine leere Antwort (Status 200)",
+                    league))
     warning("No fixtures found in API response")
     return(NULL)
   }

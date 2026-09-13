@@ -735,3 +735,207 @@ test_that("ein Loop mit loops = 0 ruft nie ab (issue #204, seq_len statt 1:loops
 
   expect_equal(fetch_calls, 0L)
 })
+
+# --- Issue #208: eine Liga darf nicht mehr alle blockieren -----------------
+#
+# Vorher riss ein NULL aus retrieveResults() (bl_fetches == 3 in "a pending
+# finished fixture survives a failed full fetch" oben) IMMER die ganze
+# Runde mit -- aber in JEDEM bestehenden Test scheitert der Fetch fuer JEDE
+# Liga zugleich (s. Kommentare "fuer JEDE Liga" an beiden Stellen oben). Kein
+# bestehender Test bindet fest, was passiert, wenn NUR EINE von zehn Ligen
+# fehlschlaegt -- also verlangt der Auftrag hier volle Pro-Liga-Isolation:
+# ein Fehlschlag (Fetch-NULL, transform_data()- oder Simulations-Fehler)
+# einer Liga darf die uebrigen neun weder am Simulieren noch am Rendern
+# hindern.
+#
+# fake_transformed() liefert testweise IMMER dieselbe 1-Spiel-Tabelle,
+# unabhaengig von der Liga -- die drei Tests unten muessen deshalb ihre
+# jeweilige Fehlerquelle an EINEM Ligaschluessel/einer API-ID festmachen,
+# nicht am Rueckgabewert.
+
+test_that("ein NULL aus retrieveResults() fuer eine Liga blockiert die anderen neun nicht", {
+  generated <- 0L
+  seen_ergebnisse <- NULL
+  # rl_bayern hat die api_id "83" (RCode/league_registry.R) -- fest verdrahtet
+  # statt aus der Registry abgeleitet, damit der Test unabhaengig von ihr lesbar
+  # bleibt.
+  FEHLER_LIGA_ID <- "83"
+
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
+    if (identical(league, FEHLER_LIGA_ID)) {
+      return(NULL) # nur DIESE Liga scheitert
+    }
+    fake_fixtures(c("FT", "NS"))
+  })
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) integer(0))
+  stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
+  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) matrix(1 / 18, nrow = 18, ncol = 18))
+  stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
+  stub(update_all_leagues_loop, "generate_static_site", function(..., ergebnisse) {
+    generated <<- generated + 1L
+    seen_ergebnisse <<- ergebnisse
+    invisible(character(0))
+  })
+
+  msgs <- capture_messages(with_repo_root({
+    update_all_leagues_loop(
+      duration = 0, loops = 1, initial_wait = 0, n = 10,
+      saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
+      static_site_dir = tempdir(), full_fetch_every = 30
+    )
+  }))
+
+  # Die neun anderen Ligen werden trotzdem gerendert.
+  expect_equal(generated, 1L)
+  expect_true("bundesliga" %in% names(seen_ergebnisse))
+  # rl_bayern hat noch nie erfolgreich simuliert (Loop 1) -- ihr Schluessel
+  # fehlt, statt mit erfundenen Daten aufzutauchen.
+  expect_false("rl_bayern" %in% names(seen_ergebnisse))
+  # Der Grund steht im Log, mit Ligabezug.
+  expect_true(any(grepl("rl_bayern", msgs, fixed = TRUE)))
+})
+
+test_that("ein transform_data()-Fehler in einer Liga bricht den Loop nicht ab", {
+  generated <- 0L
+  seen_ergebnisse <- NULL
+
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(league, season) fake_fixtures(c("FT", "NS")))
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) integer(0))
+  # transform_data() wird je Liga einmal aufgerufen, in Registry-Reihenfolge
+  # (bundesliga zuerst). Der dritte Aufruf gehoert zu dritte_liga -- dort
+  # wirft der Stub, alle anderen liefern normal.
+  call_count <- 0L
+  stub(update_all_leagues_loop, "transform_data", function(fixtures, TeamList) {
+    call_count <<- call_count + 1L
+    if (call_count == 3L) {
+      stop("simulierter transform_data()-Fehler")
+    }
+    fake_transformed()
+  })
+  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) matrix(1 / 18, nrow = 18, ncol = 18))
+  stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
+  stub(update_all_leagues_loop, "generate_static_site", function(..., ergebnisse) {
+    generated <<- generated + 1L
+    seen_ergebnisse <<- ergebnisse
+    invisible(character(0))
+  })
+
+  msgs <- capture_messages(with_repo_root({
+    update_all_leagues_loop(
+      duration = 0, loops = 1, initial_wait = 0, n = 10,
+      saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
+      static_site_dir = tempdir(), full_fetch_every = 30
+    )
+  }))
+
+  expect_equal(generated, 1L)
+  # dritte_liga ist die dritte Liga in Registry-Reihenfolge (s. n_ligen()-
+  # Kommentar oben zur Fetch-Reihenfolge als Vertrag).
+  expect_false("dritte_liga" %in% names(seen_ergebnisse))
+  expect_true("bundesliga" %in% names(seen_ergebnisse))
+  expect_true("zweite_bundesliga" %in% names(seen_ergebnisse))
+  expect_true(any(grepl("dritte_liga", msgs, fixed = TRUE)))
+})
+
+test_that("ein leagueSimulatorRust()-Fehler in einer Liga bricht den Loop nicht ab", {
+  generated <- 0L
+  seen_ergebnisse <- NULL
+
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(league, season) fake_fixtures(c("FT", "NS")))
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) integer(0))
+  stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
+  # Simulationsaufrufe (leagueSimulatorRust) folgen ebenfalls der
+  # Registry-Reihenfolge der liga_keys-Schleife; der zweite Aufruf gehoert
+  # zu zweite_bundesliga.
+  sim_call_count <- 0L
+  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) {
+    sim_call_count <<- sim_call_count + 1L
+    if (sim_call_count == 2L) {
+      stop("simulierter Rust-Fehler")
+    }
+    matrix(1 / 18, nrow = 18, ncol = 18)
+  })
+  stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
+  stub(update_all_leagues_loop, "generate_static_site", function(..., ergebnisse) {
+    generated <<- generated + 1L
+    seen_ergebnisse <<- ergebnisse
+    invisible(character(0))
+  })
+
+  msgs <- capture_messages(with_repo_root({
+    update_all_leagues_loop(
+      duration = 0, loops = 1, initial_wait = 0, n = 10,
+      saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
+      static_site_dir = tempdir(), full_fetch_every = 30
+    )
+  }))
+
+  expect_equal(generated, 1L)
+  expect_false("zweite_bundesliga" %in% names(seen_ergebnisse))
+  expect_true("bundesliga" %in% names(seen_ergebnisse))
+  expect_true("dritte_liga" %in% names(seen_ergebnisse))
+  expect_true(any(grepl("zweite_bundesliga", msgs, fixed = TRUE)))
+})
+
+test_that("ein per-Liga-Fehler behaelt die vorherige Prognose der betroffenen Liga", {
+  # Loop 1 simuliert alle zehn Ligen erfolgreich. Loop 2 laesst
+  # leagueSimulatorRust() fuer dritte_liga scheitern (neue beendete Spiele
+  # loesen dort einen neuen Simulationsversuch aus) -- die ALTE Prognose aus
+  # Loop 1 muss danach noch da sein, statt zu verschwinden.
+  loop_num <- 0L
+  seen_ergebnisse <- list()
+
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
+    if (loop_num == 0L) {
+      fake_fixtures(c("FT", "NS"), ids = c(100L, 101L))
+    } else {
+      # dritte_liga bekommt ein neu beendetes Spiel -> neuer Sim-Versuch.
+      fake_fixtures(c("FT", "FT"), ids = c(100L, 101L))
+    }
+  })
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) {
+    loop_num <<- loop_num + 1L
+    integer(0)
+  })
+  stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
+  sim_call_count <- 0L
+  # Vor with_repo_root() ausgewertet: n_ligen() sourced RCode/league_registry.R
+  # relativ zu tests/testthat und darf das cwd des Loop-Aufrufs nicht sehen.
+  ligen_pro_loop <- n_ligen()
+  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) {
+    sim_call_count <<- sim_call_count + 1L
+    # Loop 2 (sim_call_count > ligen_pro_loop): dritte_liga ist dort der
+    # dritte Aufruf.
+    if (sim_call_count == ligen_pro_loop + 3L) {
+      stop("simulierter Rust-Fehler in Loop 2")
+    }
+    matrix(1 / 18, nrow = 18, ncol = 18)
+  })
+  stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
+  stub(update_all_leagues_loop, "generate_static_site", function(..., ergebnisse) {
+    seen_ergebnisse[[length(seen_ergebnisse) + 1L]] <<- ergebnisse
+    invisible(character(0))
+  })
+
+  # full_fetch_every = 1: Loop 2 ist damit IMMER ein faelliger Safety-Fetch,
+  # unabhaengig vom (hier durchgehend leeren) Live-Poll -- sonst wuerde die
+  # idle-Erkennung den Vollabruf in Loop 2 gar nicht erst ausloesen.
+  with_repo_root({
+    update_all_leagues_loop(
+      duration = 0, loops = 2, initial_wait = 0, n = 10,
+      saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
+      static_site_dir = tempdir(), full_fetch_every = 1
+    )
+  })
+
+  expect_equal(length(seen_ergebnisse), 2L)
+  # Nach Loop 2 ist dritte_liga trotz Fehlschlag noch die ALTE Matrix aus
+  # Loop 1 -- kein NULL, kein Verschwinden.
+  expect_true("dritte_liga" %in% names(seen_ergebnisse[[2]]))
+  expect_identical(seen_ergebnisse[[2]][["dritte_liga"]],
+                   seen_ergebnisse[[1]][["dritte_liga"]])
+})

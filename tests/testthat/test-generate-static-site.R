@@ -7,6 +7,10 @@
 # - Erhalten aus der Vor-Relaunch-Seite: Panels (inkl. 3.-Liga-Asymmetrie),
 #   Stale-Banner-Mechanik, ISO-Zeitstempel, Fallback-Seite, Determinismus.
 # Uses the real committed fixture shape (18x18, 18x18, 20x20, 20x20).
+#
+# library(mockery) nur fuer die #208-Tests zu .write_atomically() unten
+# (stub() auf file.rename); der Rest der Datei kommt ohne Mocking aus.
+library(mockery)
 
 source_generator <- function() {
   source(test_path("..", "..", "RCode", "generate_static_site.R"), local = TRUE)
@@ -398,4 +402,58 @@ test_that("generate_static_site output is deterministic for fixed inputs", {
       info = f
     )
   }
+})
+
+# ---------------------------------------------------------------------------
+# Issue #208, Punkt 4: atomare Seiten-Schreibvorgaenge
+#
+# writeLines() direkt auf den Zielpfad hinterlaesst bei einem Absturz
+# mittendrin eine halb geschriebene Datei -- Caddy kann sie waehrenddessen
+# ausliefern. .write_atomically() schreibt in eine Temp-Datei im selben
+# Verzeichnis (damit file.rename() ein guenstiger Rename bleibt, kein
+# Kopiervorgang ueber ein Dateisystem hinweg) und benennt sie danach um.
+# ---------------------------------------------------------------------------
+
+test_that(".write_atomically hinterlaesst keine .tmp-Datei und den Inhalt korrekt", {
+  gen <- source_generator()
+  out <- withr::local_tempdir()
+  ziel <- file.path(out, "seite.html")
+
+  gen$.write_atomically("<html>Inhalt</html>", ziel)
+
+  expect_true(file.exists(ziel))
+  expect_equal(readLines(ziel, warn = FALSE), "<html>Inhalt</html>")
+  expect_length(list.files(out, pattern = "\\.tmp$"), 0)
+})
+
+test_that("generate_static_site hinterlaesst nach dem Rendern keine .tmp-Dateien", {
+  gen <- source_generator()
+  out <- withr::local_tempdir()
+  env <- make_data_env()
+
+  gen$generate_static_site(
+    env$Ergebnis, env$Ergebnis2, env$Ergebnis3, env$Ergebnis3_Aufstieg,
+    output_dir = out,
+    now = as.POSIXct("2026-07-26 14:30:00", tz = "Europe/Berlin")
+  )
+
+  expect_length(list.files(out, pattern = "\\.tmp$", recursive = TRUE), 0)
+})
+
+test_that("ein fehlschlagendes file.rename laesst die alte Seite unangetastet", {
+  # Simuliert einen Absturz zwischen Schreiben der Temp-Datei und dem
+  # Umbenennen: file.rename() liefert FALSE (Disk voll, Rechteproblem, ...).
+  # Der alte Seiteninhalt muss danach noch vollstaendig lesbar sein --
+  # .write_atomically() darf die alte Datei nicht vor dem erfolgreichen
+  # Rename antasten.
+  gen <- source_generator()
+  out <- withr::local_tempdir()
+  ziel <- file.path(out, "seite.html")
+  writeLines("<html>ALT</html>", ziel)
+
+  stub(gen$.write_atomically, "file.rename", function(...) FALSE)
+  expect_error(gen$.write_atomically("<html>NEU</html>", ziel))
+
+  expect_equal(readLines(ziel, warn = FALSE), "<html>ALT</html>")
+  expect_length(list.files(out, pattern = "\\.tmp$"), 0)
 })

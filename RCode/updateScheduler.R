@@ -1,6 +1,15 @@
 # Update Scheduler with Rust Engine Integration
 # Uses high-performance Rust simulation engine for 50-100x speedup
 
+# Warnungen sofort ausgeben, statt sie zu sammeln (Issue #208, Punkt 2):
+# Rscripts Default (warn = 0) sammelt Warnungen bis zur Rueckkehr aus
+# main() und verwirft sie beim regulaeren quit() der Produktions-Schleife --
+# ein Statuscode oder eine Degradation aus einem warning() waere damit erst
+# nach zwoelf Stunden sichtbar, und dann nur noch als Sammelliste ohne
+# Zeitbezug. warn = 1 schreibt jede Warnung sofort ins Docker-Log, an der
+# Stelle, an der sie entsteht.
+options(warn = 1)
+
 # Das taegliche Zeitfenster, in dem der Scheduler laeuft (Minuten seit
 # Mitternacht, Berliner Zeit).
 #
