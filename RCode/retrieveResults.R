@@ -53,7 +53,8 @@ retrieveResults <- function(league = "78", season = "2022") {
       "X-RapidAPI-Key" = RAPIDAPI_KEY,
       "X-RapidAPI-Host" = "api-football-v1.p.rapidapi.com"
     ),
-    content_type("application/octet-stream")
+    content_type("application/octet-stream"),
+    timeout(30)
   )
 
   # Check response status
@@ -117,7 +118,8 @@ retrieveLiveFixtures <- function(league_ids = NULL) {
       "X-RapidAPI-Key" = RAPIDAPI_KEY,
       "X-RapidAPI-Host" = "api-football-v1.p.rapidapi.com"
     ),
-    content_type("application/octet-stream")
+    content_type("application/octet-stream"),
+    timeout(30)
   )
 
   if (status_code(response) != 200) {
