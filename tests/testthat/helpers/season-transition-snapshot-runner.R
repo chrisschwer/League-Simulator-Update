@@ -34,7 +34,7 @@ modules <- c(
   "interactive_prompts.R", "input_validation.R", "csv_generation.R", "file_operations.R",
   "team_history_resolver.R", "team_record_builder.R",
   "season_processor.R", "error_handling.R", "logging.R",
-  "input_handler.R", "team_config_loader.R", "team_data_carryover.R",
+  "input_handler.R", "team_data_carryover.R",
   "retrieveResults.R", "transform_data.R",
   # Issue #146, Teil 2: Die End-ELOs kommen jetzt aus /league-details.
   "league_details.R", "Tabelle.R"
