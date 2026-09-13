@@ -102,7 +102,7 @@ Best for: Administrators who can respond to prompts
 
 ```bash
 # Run interactively
-docker-compose exec -it league-simulator-integrated \
+docker-compose exec -it scheduler \
   Rscript scripts/season_transition.R 2024 2025
 
 # You will be prompted for:
@@ -119,7 +119,7 @@ Best for: Automated deployments or CI/CD pipelines
 
 ```bash
 # Run without prompts (uses defaults)
-docker-compose exec league-simulator-integrated \
+docker-compose exec scheduler \
   Rscript scripts/season_transition.R 2024 2025 --non-interactive
 
 # Note: New teams will get default values
@@ -151,7 +151,7 @@ cat > team_config.json << EOF
 EOF
 
 # Run with config
-docker-compose exec league-simulator-integrated \
+docker-compose exec scheduler \
   Rscript scripts/season_transition.R 2024 2025 --config team_config.json
 ```
 
@@ -160,11 +160,12 @@ docker-compose exec league-simulator-integrated \
 ### 1. Prepare for Transition
 
 ```bash
-# Check current season data
-docker-compose exec league-simulator-integrated Rscript -e "
-  teams <- read.csv('RCode/TeamList_2024.csv')
+# Check current season data (semicolon-separated, seven columns --
+# see docs/user-guide/team-management.md for the schema)
+docker-compose exec scheduler Rscript -e "
+  teams <- read.csv2('RCode/TeamList_2024.csv')
   cat('Current teams:', nrow(teams), '\n')
-  table(teams\$liga)
+  table(teams\$League)
 "
 
 # Backup current data
@@ -173,30 +174,18 @@ tar -czf "backup_season_2024_$(date +%Y%m%d).tar.gz" RCode/TeamList_2024.csv
 
 ### 2. Identify Team Changes
 
-Research promoted and relegated teams:
-
-**Bundesliga (League 78)**:
-- Bottom 2 teams relegated to 2. Bundesliga
-- 16th place enters relegation playoff
-- Top 2 from 2. Bundesliga promoted
-- 3rd place from 2. Bundesliga in playoff
-
-**2. Bundesliga (League 79)**:
-- Bottom 2 teams relegated to 3. Liga
-- 16th place enters relegation playoff
-- Top 2 from 3. Liga promoted
-- 3rd place from 3. Liga in playoff
-
-**3. Liga (League 80)**:
-- Bottom 4 teams relegated to Regionalliga
-- Champion from each Regionalliga eligible for promotion
+League membership for the new season comes from the API during the
+transition run itself (`/v3/teams?league=<id>&season=<Jahr>`, per active
+league) — promotions and relegations do not need to be researched or
+entered by hand. See "Die TeamList ist gepflegt, nicht generiert" above
+and [ADR 0007](../adr/0007-teamlist-ist-gepflegtes-stammdatenblatt.md).
 
 ### 3. Gather New Team Information
 
-For each promoted team, collect:
+For each newcomer the conflict report flags, verify:
 - Official team ID from API-Football
-- Correct team name spelling
-- Previous season performance (for ELO calculation)
+- Correct short name (Kurzname) per DFL convention — see the Kürzel-Vertrag above
+- Reserve-team promotion status
 
 Team IDs can be looked up in the API-Football dashboard
 (<https://dashboard.api-football.com>) or via the `/teams?search=<name>`
@@ -206,7 +195,7 @@ endpoint documented at <https://www.api-football.com/documentation-v3>.
 
 ```bash
 # Execute transition
-docker-compose exec -it league-simulator-integrated \
+docker-compose exec -it scheduler \
   Rscript scripts/season_transition.R 2024 2025
 
 # Monitor output for:
@@ -220,22 +209,22 @@ docker-compose exec -it league-simulator-integrated \
 
 ```bash
 # Check new team file
-docker-compose exec league-simulator-integrated Rscript -e "
-  teams_new <- read.csv('RCode/TeamList_2025.csv')
-  teams_old <- read.csv('RCode/TeamList_2024.csv')
-  
+docker-compose exec scheduler Rscript -e "
+  teams_new <- read.csv2('RCode/TeamList_2025.csv')
+  teams_old <- read.csv2('RCode/TeamList_2024.csv')
+
   cat('Old season teams:', nrow(teams_old), '\n')
   cat('New season teams:', nrow(teams_new), '\n')
-  
+
   # Check league distribution
   cat('\nNew season league distribution:\n')
-  table(teams_new\$liga)
-  
-  # Show promoted teams
+  table(teams_new\$League)
+
+  # Show newcomers to the Bundesliga (League 78)
   cat('\nNew teams in Bundesliga:\n')
-  new_bundesliga <- teams_new[teams_new\$liga == 1 & 
-                              !(teams_new\$id %in% teams_old[teams_old\$liga == 1, 'id']), ]
-  print(new_bundesliga[, c('id', 'name', 'elo')])
+  new_bundesliga <- teams_new[teams_new\$League == 78 &
+                              !(teams_new\$TeamID %in% teams_old[teams_old\$League == 78, 'TeamID']), ]
+  print(new_bundesliga[, c('TeamID', 'Name', 'InitialELO')])
 "
 ```
 
@@ -385,10 +374,10 @@ adjust_elo_by_position <- function(team_id, final_position, league_size) {
 
 ```bash
 # Watch the scheduler pick up new TeamList file at next active window
-docker-compose logs -f league-simulator-integrated
+docker-compose logs -f scheduler
 
 # Check for errors
-docker-compose logs --tail=100 league-simulator-integrated | grep -i error
+docker-compose logs --tail=100 scheduler | grep -i error
 ```
 
 ### Update Configuration
@@ -422,12 +411,12 @@ tar -czf "backup_season_${OLD_SEASON}.tar.gz" RCode/TeamList_${OLD_SEASON}.csv
 
 # 2. Run transition
 echo "Running transition..."
-docker-compose exec -T league-simulator-integrated \
+docker-compose exec -T scheduler \
   Rscript scripts/season_transition.R $OLD_SEASON $NEW_SEASON --non-interactive
 
 # 3. Verify
 echo "Verifying..."
-if docker-compose exec -T league-simulator-integrated test -f "RCode/TeamList_${NEW_SEASON}.csv"; then
+if docker-compose exec -T scheduler test -f "RCode/TeamList_${NEW_SEASON}.csv"; then
   echo "✓ New team file created"
 else
   echo "✗ ERROR: Team file not created"
