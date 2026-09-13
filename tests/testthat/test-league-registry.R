@@ -200,46 +200,22 @@ test_that("league_views wird aus der Registry abgeleitet", {
 
 # --- Verbraucher: die Literale verschwinden, das Verhalten bleibt -----------
 #
-# Die meisten dieser Stellen sind heute UNGETESTET (verifiziert: kein Test
-# ruft validate_league_id(), get_league_promotion_rules(), get_league_name()
-# oder checkAPILimits() auf). Der Umbau ist dort risikoarm, aber ungeschuetzt
-# -- diese Tests spannen das Netz vor der Aenderung.
-
-test_that("validate_league_id akzeptiert die Altligen weiterhin", {
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "input_validation.R"), local = env)
-
-  for (id in c("78", "79", "80")) {
-    expect_true(env$validate_league_id(id)$valid, info = id)
-  }
-})
-
-test_that("validate_league_id akzeptiert die neuen Ligen", {
-  # Bisher lehnte die Whitelist c("78","79","80") jede neue Liga ab. Die
-  # Registry kennt sie -- auch die noch inaktiven, denn der Saisonwechsel
-  # muss sie verarbeiten koennen, bevor sie live gehen.
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "input_validation.R"), local = env)
-
-  for (id in c("82", "1034", "83", "87")) {
-    expect_true(env$validate_league_id(id)$valid, info = id)
-  }
-})
-
-test_that("validate_league_id lehnt Unbekanntes weiterhin ab", {
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "input_validation.R"), local = env)
-
-  expect_false(env$validate_league_id("999")$valid)
-  expect_false(env$validate_league_id("")$valid)
-})
+# get_league_promotion_rules() und validate_league_id() hatten ausserhalb
+# ihrer eigenen Tests keinen Aufrufer (weder RCode noch scripts) und sind
+# mit league_processor.R bzw. input_validation.R in #209 entfallen; ihre
+# Tests sind mitgegangen. validate_team_count() lebt seit #209 in
+# season_processor.R und wird dort weiter geprueft.
 
 test_that("validate_team_count traegt zehn Ligen", {
   # Die alte Spanne 56-62 war 18+18+20 plus willkuerliche Toleranz. Mit zehn
   # Ligen sind es 237 Teams -- der Saisonwechsel bricht sonst hart ab
   # (season_processor.R ruft die Pruefung und stoppt bei Ablehnung).
   env <- new.env()
-  source(test_path("..", "..", "RCode", "input_validation.R"), local = env)
+  source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
+  source(test_path("..", "..", "RCode", "season_validation.R"), local = env)
+  source(test_path("..", "..", "RCode", "transform_data.R"), local = env)
+  source(test_path("..", "..", "RCode", "csv_generation.R"), local = env)
+  source(test_path("..", "..", "RCode", "season_processor.R"), local = env)
 
   schreibe <- function(n) {
     f <- withr::local_tempfile(fileext = ".csv", .local_envir = parent.frame(2))
@@ -324,46 +300,6 @@ test_that("retrieveLiveFixtures nimmt eine explizite Ligamenge", {
   try(env$retrieveLiveFixtures(c("78", "82")), silent = TRUE)
 
   expect_equal(gesehen, "78-82")
-})
-
-test_that("get_league_promotion_rules kennt die Regionalligen als Ziel", {
-  # Bisher stand dort der String-Sentinel "Regional" -- keine Liga-ID. Mit
-  # den nun bekannten Staffeln 83-87 wird daraus eine echte Referenz.
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "league_processor.R"), local = env)
-
-  liga3 <- env$get_league_promotion_rules("80")
-  expect_equal(liga3$promotion_to, "79")
-  expect_setequal(liga3$relegation_to, c("83", "84", "85", "86", "87"))
-
-  # Die Altligen behalten ihre Regeln unveraendert.
-  expect_equal(env$get_league_promotion_rules("78")$relegation_to, "79")
-  expect_null(env$get_league_promotion_rules("78")$promotion_to)
-})
-
-test_that("validate_league_composition prueft gegen teams_range", {
-  # Statt fester Erwartung +-2: eine Spanne je Liga. Frauen-BL schwankte
-  # 12-14, RL Nord 18-22 (an den Spielplaenen 2019-2025 gemessen).
-  #
-  # Signatur ist (league_id, teams); die Funktion braucht get_league_name()
-  # aus api_service.R, deshalb beide Module in dieselbe Umgebung.
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "api_service.R"), local = env)
-  source(test_path("..", "..", "RCode", "league_processor.R"), local = env)
-
-  expect_true(env$validate_league_composition("78", rep("t", 18))$valid)
-  expect_false(env$validate_league_composition("78", rep("t", 30))$valid)
-
-  # Liga 80 hat eine Sonderregel (max. 4 Zweitvertretungen) und braucht
-  # deshalb Team-Objekte statt blosser Namen.
-  liga3 <- lapply(1:20, function(i) list(name = paste("T", i),
-                                         is_second_team = FALSE))
-  expect_true(env$validate_league_composition("80", liga3)$valid)
-
-  # Die neuen Ligen mit ihren echten Spannen.
-  expect_true(env$validate_league_composition("82", rep("t", 12))$valid)
-  expect_true(env$validate_league_composition("82", rep("t", 14))$valid)
-  expect_true(env$validate_league_composition("84", rep("t", 22))$valid)
 })
 
 # --- Tormodell: die Frauen-Werte erreichen beide Endpunkte ------------------

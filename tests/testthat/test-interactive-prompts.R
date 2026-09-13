@@ -5,7 +5,8 @@ library(mockery)
 
 # Source the modules (adjust paths as needed)
 source("../../RCode/input_handler.R")
-source("../../RCode/input_validation.R")
+# validate_team_short_name()/validate_elo_input() leben seit #209 in
+# interactive_prompts.R (vormals input_validation.R).
 source("../../RCode/interactive_prompts.R")
 
 # Mock helper functions that might not be available

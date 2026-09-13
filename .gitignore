@@ -36,6 +36,11 @@ UNIT_TEST_SUMMARY.md
 build.log
 build2.log
 
+# Alle Log- und Excel-Dateien -- Root-Altlasten wie test_output.log und
+# TeamList_2024.xlsx kamen wiederholt versehentlich ins Repo (#209).
+*.log
+*.xlsx
+
 # Recovery folder for working-tree-only deletions (issue #81)
 removed/
 

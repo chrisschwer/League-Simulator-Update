@@ -40,12 +40,133 @@ if (!exists("get_initial_elo_for_new_team")) {
   source_dependency("elo_aggregation.R", c("get_initial_elo_for_new_team"))
 }
 
-if (!exists("validate_team_short_name")) {
-  source_dependency("input_validation.R", c("validate_team_short_name", "validate_elo_input"))
+# validate_team_short_name(), validate_elo_input() (vormals
+# input_validation.R) und log_non_interactive_action() (vormals logging.R)
+# leben seit der Geruest-Bereinigung (#209) direkt hier -- sie hatten dort
+# keinen anderen Aufrufer.
+
+validate_team_short_name <- function(short_name) {
+  # Validate team short name format
+  # 3-character uppercase requirement
+
+  if (is.null(short_name) || is.na(short_name)) {
+    return(list(
+      valid = FALSE,
+      message = "Short name cannot be NULL or NA"
+    ))
+  }
+
+  # Convert to string and trim
+  short_name <- trimws(as.character(short_name))
+
+  if (nchar(short_name) == 0) {
+    return(list(
+      valid = FALSE,
+      message = "Short name cannot be empty"
+    ))
+  }
+
+  # Allow 2-3 characters for regular teams, 4 characters for second teams ending in "2"
+  name_length <- nchar(short_name)
+
+  if (name_length < 2 || name_length > 4) {
+    return(list(
+      valid = FALSE,
+      message = "Short name must be 2-4 characters"
+    ))
+  }
+
+  # Check for valid characters (letters and numbers only)
+  if (!grepl("^[A-Za-z0-9]+$", short_name)) {
+    return(list(
+      valid = FALSE,
+      message = "Short name must contain only letters and numbers"
+    ))
+  }
+
+  # Check that all letters are uppercase
+  if (grepl("[a-z]", short_name)) {
+    return(list(
+      valid = FALSE,
+      message = "Short name must be uppercase"
+    ))
+  }
+
+  # If 4 characters, must end in "2" (second team)
+  if (name_length == 4 && !grepl("2$", short_name)) {
+    return(list(
+      valid = FALSE,
+      message = "4-character short names must end with '2' (for second teams)"
+    ))
+  }
+
+  return(list(
+    valid = TRUE,
+    message = "Short name is valid",
+    sanitized = toupper(short_name)
+  ))
 }
 
-if (!exists("log_non_interactive_action")) {
-  source_dependency("logging.R", c("log_non_interactive_action"))
+validate_elo_input <- function(elo_value) {
+  # Validate ELO input is numeric and reasonable
+  # Range checking and format validation
+
+  if (is.null(elo_value) || is.na(elo_value)) {
+    return(list(
+      valid = FALSE,
+      message = "ELO value cannot be NULL or NA"
+    ))
+  }
+
+  # Try to convert to numeric
+  if (is.character(elo_value)) {
+    elo_numeric <- suppressWarnings(as.numeric(elo_value))
+    if (is.na(elo_numeric)) {
+      return(list(
+        valid = FALSE,
+        message = "ELO value must be numeric"
+      ))
+    }
+    elo_value <- elo_numeric
+  }
+
+  if (!is.numeric(elo_value)) {
+    return(list(
+      valid = FALSE,
+      message = "ELO value must be numeric"
+    ))
+  }
+
+  # Check reasonable range
+  if (elo_value < 500 || elo_value > 2500) {
+    return(list(
+      valid = FALSE,
+      message = "ELO value must be between 500 and 2500"
+    ))
+  }
+
+  return(list(
+    valid = TRUE,
+    message = "ELO value is valid",
+    sanitized = as.numeric(elo_value)
+  ))
+}
+
+log_non_interactive_action <- function(log_file, action, details = NULL) {
+  # Log actions taken in non-interactive mode
+
+  if (!file.exists(log_file)) {
+    return()
+  }
+
+  timestamp <- format(Sys.time(), "%H:%M:%S")
+  log_entry <- paste0("[", timestamp, "] ", action)
+
+  if (!is.null(details)) {
+    log_entry <- paste0(log_entry, "\n  Details: ", details)
+  }
+
+  cat(log_entry, "\n", file = log_file, append = TRUE)
 }
 
 # Try to source input handler from multiple possible locations

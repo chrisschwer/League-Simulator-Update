@@ -50,19 +50,12 @@ required_modules <- c(
   "season_validation.R",
   "elo_aggregation.R",
   "api_service.R",
-  "api_helpers.R",
   "interactive_prompts.R",
-  "input_validation.R",
   "csv_generation.R",
-  "file_operations.R",
   "team_history_resolver.R",
   "team_record_builder.R",
   "season_processor.R",
-  "league_processor.R",
-  "error_handling.R",
-  "logging.R",
   "input_handler.R",
-  "team_config_loader.R",
   "team_data_carryover.R"
 )
 
@@ -98,8 +91,7 @@ parse_arguments <- function(args) {
     from_season = NULL,
     to_season = NULL,
     non_interactive = FALSE,
-    interactive_mode = TRUE,
-    config_file = NULL
+    interactive_mode = TRUE
   )
   
   # Extract seasons and flags
@@ -111,14 +103,6 @@ parse_arguments <- function(args) {
     if (arg %in% c("--non-interactive", "-n")) {
       parsed$non_interactive <- TRUE
       parsed$interactive_mode <- FALSE
-    } else if (arg == "--config") {
-      # Get the config file path
-      if (i < length(args)) {
-        parsed$config_file <- args[i + 1]
-        i <- i + 1  # Skip next argument
-      } else {
-        return(list(valid = FALSE, error = "--config requires a file path"))
-      }
     } else if (!grepl("^--", arg)) {
       # Not a flag, treat as season argument
       season_args <- c(season_args, arg)
@@ -156,10 +140,8 @@ main <- function(args) {
     cat("Usage: Rscript season_transition.R <source_season> <target_season> [options]\n")
     cat("Example: Rscript season_transition.R 2023 2024\n")
     cat("Example: Rscript season_transition.R 2023 2024 --non-interactive\n")
-    cat("Example: Rscript season_transition.R 2023 2024 --config team_config.json\n")
     cat("\nOptions:\n")
     cat("  --non-interactive, -n   Run without user prompts (uses defaults)\n")
-    cat("  --config <file>         Load team data from JSON configuration file\n")
     quit(status = 1)
   }
   
@@ -168,13 +150,7 @@ main <- function(args) {
   
   # Set global options
   options(season_transition.non_interactive = parsed_args$non_interactive)
-  
-  # Set config file if provided
-  if (!is.null(parsed_args$config_file)) {
-    Sys.setenv(TEAM_CONFIG_FILE = parsed_args$config_file)
-    cat("Using team configuration file:", parsed_args$config_file, "\n")
-  }
-  
+
   # Check if we're in a non-interactive environment without the flag
   if (!parsed_args$non_interactive && !interactive()) {
     # Check if stdin is available (terminal attached)
