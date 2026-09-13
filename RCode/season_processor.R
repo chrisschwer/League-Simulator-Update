@@ -477,8 +477,11 @@ validate_season_processing <- function(season, team_count_expected = 60) {
 
   tryCatch(
     {
-      # Check if team list file exists
-      team_list_file <- paste0("RCode/TeamList_", season, ".csv")
+      # Geprueft wird der ENTWURF -- die produktive Datei schreibt der Lauf
+      # seit ADR 0007 nicht mehr. Sie hier zu suchen hiesse, das Ergebnis
+      # des eigenen Laufs zu verfehlen und einen erfolgreichen Lauf als
+      # gescheitert zu melden.
+      team_list_file <- paste0("RCode/TeamList_", season, "_entwurf.csv")
 
       if (!file.exists(team_list_file)) {
         return(list(

@@ -236,7 +236,13 @@ main <- function(args) {
       # Auto-cleanup of intermediate league CSVs. The final TeamList is kept;
       # everything else in result$files_created is removed. List-based deletion:
       # we only touch files the pipeline reports as having created — no globs.
-      final_file <- file.path("RCode", paste0("TeamList_", target_season, ".csv"))
+      # Das Ergebnis des Laufs ist der ENTWURF (ADR 0007). Stuende hier
+      # weiter die produktive Datei, raeumte die Schleife unten die
+      # Entwurfsdatei als "Zwischendatei" weg -- der Lauf meldete Erfolg und
+      # hinterliesse nichts.
+      final_file <- file.path(
+        "RCode", paste0("TeamList_", target_season, "_entwurf.csv")
+      )
       intermediates <- setdiff(result$files_created, final_file)
       removed <- 0
       for (f in intermediates) {
@@ -255,7 +261,10 @@ main <- function(args) {
       if (removed > 0) {
         cat("Intermediate files removed:", removed, "\n")
       }
-      cat("All team lists have been generated successfully.\n")
+      cat("Entwurf:", final_file, "\n")
+      cat("Phase 2 ist Handarbeit: Entwurf pruefen, Konflikte aufloesen,\n")
+      cat("dann als RCode/TeamList_", target_season, ".csv ablegen.\n", sep = "")
+      cat("Siehe docs/user-guide/season-transition.md.\n")
     } else {
       stop(paste("Season transition failed:", result$error))
     }
