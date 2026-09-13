@@ -48,16 +48,25 @@
 #'   West      konstant 4               (WDFV Abstieg Nr. 1) -- ENTKOPPELT.
 #'                                       Nr. 3 haengt an den Oberligen, Nr. 5
 #'                                       an der Lizenzierung; nur Nr. 4
-#'                                       beruehrt die 3. Liga, und der Fall
-#'                                       (Zweitvertretung eines absteigenden
-#'                                       Lizenzvereins) kann 2026/27 nicht
-#'                                       eintreten: Die Erstvertretungen
-#'                                       aller West-Zweitvertretungen spielen
-#'                                       in Liga 78/79 und koennen in einer
-#'                                       Saison nicht bis in die RL fallen.
+#'                                       beruehrt die 3. Liga, und dieser Fall
+#'                                       ist BEWUSST NICHT MODELLIERT (s.u.).
 #'   Bayern    konstant 2               (BFV A&A II. Nr. 1) -- koppelt gar
 #'                                       nicht; die Relegation (II. Nr. 3) ist
 #'                                       eine eigene Groesse, s. unten
+#'
+#' WDFV Nr. 4 IN WEST, und warum er trotzdem nicht gerechnet wird: Hier
+#' stand bis Issue #207, der Fall koenne 2026/27 gar nicht eintreten, weil
+#' die Erstvertretungen aller West-Zweitvertretungen in Liga 78/79 spielten.
+#' Das ist falsch. Fortuna Duesseldorf steht 2026/27 in der 3. Liga (TeamID
+#' 158, Liga 80), Fortuna Duesseldorf II in der RL West (9369, Liga 87) --
+#' steigt die erste Mannschaft ab, rueckt die Zweitvertretung ans
+#' Tabellenende und ein sportlicher Absteiger weniger faellt an.
+#'
+#' Nicht modelliert, und das mit Absicht: Die Wirkung haengt daran, dass
+#' Fortuna absteigt -- als ELO-staerkstes Drittliga-Team unwahrscheinlich --
+#' und die Abbildung braucht eine Abstiegswahrscheinlichkeit je Platz statt
+#' nur der Absteigerzahl. Das gehoert zu Issue #185; die Entscheidung
+#' darueber liegt bei Christoph. Beim Saisonwechsel neu zu pruefen.
 #'
 #' @param staffel Name einer Staffel aus STAFFELN.
 #' @param drittliga_absteiger Integer-Vektor der k-Werte.

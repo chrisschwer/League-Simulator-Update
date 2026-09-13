@@ -190,9 +190,19 @@ league_registry <- function() {
       # anders als bei Nord, Nordost und SuedWest aendert die 3. Liga die
       # Zahl nicht: Nr. 3 haengt an den Oberligen, Nr. 5 an der
       # Lizenzierung, und Nr. 4 (Zweitvertretung eines absteigenden
-      # Lizenzvereins) kann 2026/27 nicht eintreten -- die Erstvertretungen
-      # aller West-Zweitvertretungen spielen in Liga 78/79 und koennen in
-      # einer Saison nicht bis in die RL fallen.
+      # Lizenzvereins) ist BEWUSST NICHT MODELLIERT.
+      #
+      # Hier stand bis Issue #207, der Fall koenne 2026/27 gar nicht
+      # eintreten, weil die Erstvertretungen aller West-Zweitvertretungen in
+      # Liga 78/79 spielten. Das ist falsch: Fortuna Duesseldorf (158) steht
+      # in Liga 80, Fortuna Duesseldorf II (9369) in dieser Staffel. Steigt
+      # die erste Mannschaft ab, rueckt die Zweitvertretung nach WDFV Nr. 4
+      # ans Tabellenende, und die Absteigerzahl verringert sich.
+      #
+      # Nicht modelliert, weil die Wirkung an einem unwahrscheinlichen
+      # Ereignis haengt (Fortuna ist das ELO-staerkste Drittliga-Team) und
+      # die Abbildung eine Abstiegswahrscheinlichkeit je Platz braucht --
+      # das gehoert zu Issue #185, Entscheidung bei Christoph.
       relegation_slots = 4L,
       # West ist der Sonderfall: Die Zahl steht fest. Ohne diesen Satz sieht
       # es nach einem Defekt aus, dass hier alle Linien voll deckend sind,

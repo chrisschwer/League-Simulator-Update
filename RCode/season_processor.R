@@ -299,11 +299,37 @@ generate_league_csv <- function(teams, league_id, season) {
       }
 
       # Convert to data frame format
+      #
+      # SIEBEN SPALTEN, nicht vier (Issue #195, ADR 0007). Bis September
+      # 2026 endete die Ligadatei hier bei InitialELO, und mit ihr die
+      # zusammengefuehrte TeamList: League, Region und Name ueberlebten den
+      # Saisonwechsel nicht. format_team_data() haette sie durchgereicht --
+      # es bekam sie nur nie.
+      #
+      # Das war nicht bloss Formatverlust. Ohne Region liefert
+      # rl_group_of_team() NULL, und die gesamte Abstiegskopplung der
+      # Regionalligen (ADR 0006) verschwaende still; ohne League faellt der
+      # Kuerzel-Vertrag auf "eine Gruppe" zurueck und bricht bei jeder
+      # ligauebergreifenden Dublette ab.
+      #
+      # Woher die drei Werte kommen:
+      #   League  die Liga, die gerade verarbeitet wird. NICHT aus der
+      #           Vorsaison -- genau darin steht der Auf- und Abstieg.
+      #   Name    aus der API-Antwort, die der Team-Record fuehrt.
+      #   Region  aus der Vorsaison, sonst leer. Sie ist die einzige, die
+      #           sich nicht herleiten laesst (ADR 0003); eine aus der
+      #           Liga-ID geratene Stammregion waere schlimmer als eine
+      #           fehlende, weil sie richtig aussaehe.
+      leer_wenn_null <- function(x) if (is.null(x)) "" else as.character(x)
+
       team_data <- data.frame(
         TeamID = sapply(teams, function(t) t$id),
         ShortText = sapply(teams, function(t) t$short_name),
         Promotion = sapply(teams, function(t) t$promotion_value),
         InitialELO = sapply(teams, function(t) t$initial_elo),
+        League = as.character(league_id),
+        Region = vapply(teams, function(t) leer_wenn_null(t$region), character(1)),
+        Name = vapply(teams, function(t) leer_wenn_null(t$name), character(1)),
         stringsAsFactors = FALSE
       )
 
@@ -351,7 +377,25 @@ merge_league_files <- function(league_files, season) {
       for (file in temp_league_files) {
         if (file.exists(file)) {
           cat("Reading:", basename(file), "\n")
-          league_data <- read.csv(file, sep = ";", stringsAsFactors = FALSE)
+          # Die drei Zusatzspalten AUSDRUECKLICH als Text lesen. Ohne das
+          # raet read.csv() den Typ -- und eine durchweg leere Region (der
+          # Fall einer vierspaltigen Vorsaison) wird zur logical-Spalte
+          # voller NA, die als Zeichenkette "NA" in der TeamList landet.
+          # Das saehe aus wie eine Stammregion und waere keine:
+          # staffel_index() brueche daran ab, waehrend die leere Region den
+          # vorgesehenen Weg geht.
+          #
+          # League ebenso: Liga-IDs sind Bezeichner, keine Zahlen -- als
+          # Zahl gelesen verloere ein fuehrendes Zeichen seine Bedeutung
+          # und der Vergleich mit der Registry liefe ueber Typgrenzen.
+          spalten <- names(utils::read.csv(file, sep = ";", nrows = 1,
+                                           stringsAsFactors = FALSE))
+          klassen <- stats::setNames(
+            rep("character", length(spalten)), spalten
+          )[intersect(spalten, c("League", "Region", "Name"))]
+
+          league_data <- read.csv(file, sep = ";", stringsAsFactors = FALSE,
+                                  colClasses = as.list(klassen))
 
           if (!is.null(league_data) && nrow(league_data) > 0) {
             all_teams <- rbind(all_teams, league_data)
@@ -433,8 +477,11 @@ validate_season_processing <- function(season, team_count_expected = 60) {
 
   tryCatch(
     {
-      # Check if team list file exists
-      team_list_file <- paste0("RCode/TeamList_", season, ".csv")
+      # Geprueft wird der ENTWURF -- die produktive Datei schreibt der Lauf
+      # seit ADR 0007 nicht mehr. Sie hier zu suchen hiesse, das Ergebnis
+      # des eigenen Laufs zu verfehlen und einen erfolgreichen Lauf als
+      # gescheitert zu melden.
+      team_list_file <- paste0("RCode/TeamList_", season, "_entwurf.csv")
 
       if (!file.exists(team_list_file)) {
         return(list(

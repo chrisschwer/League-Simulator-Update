@@ -19,13 +19,19 @@ Drei Belege aus derselben Saison:
 - Der letzte tatsächliche Lauf (Juli 2026) erzeugte ein Format, das es seit
   September 2026 nicht mehr gibt: vier Spalten gegen heute sieben.
 
-Der Saisonwechsel **kann** die produktive TeamList also gar nicht mehr
-schreiben. `csv_generation.R` selektiert `TeamID, ShortText, Promotion,
+Der Saisonwechsel **konnte** die produktive TeamList also gar nicht mehr
+schreiben. `csv_generation.R` selektierte `TeamID, ShortText, Promotion,
 InitialELO`; `League`, `Region` und `Name` fielen weg — und mit `Region` die
 gesamte Abstiegskopplung der Regionalligen ([ADR 0006](0006-abstiegskopplung-der-regionalligen.md)),
 weil `rl_group_of_team()` ohne sie `NULL` liefert und der Loop die RL-Spalten
 stillschweigend überspringt. Im `--non-interactive`-Modus geschähe das ohne
 Rückfrage: `confirm_overwrite()` gibt dort immer `TRUE` zurück.
+
+> **Umgesetzt (Issue #206, September 2026):** Der Lauf reicht alle sieben
+> Spalten durch und schreibt `TeamList_<Jahr>_entwurf.csv`; eine vorhandene
+> produktive Datei fasst er nicht mehr an. Damit ist der oben beschriebene
+> Zustand Geschichte — die *Entscheidung* darunter bleibt: Die TeamList ist
+> gepflegtes Stammdatenblatt, nicht Erzeugnis.
 
 ## Die Entscheidung
 
@@ -90,6 +96,14 @@ nennt vier Dinge:
 
 Er landet als Datei neben der TeamList, nicht im Log: Der Lauf findet einmal im
 Juli statt, und bis zur Nacharbeit wäre eine Terminalausgabe weggescrollt.
+
+> **Stand September 2026 (Issue #206):** Entwurfsdatei und Konfliktliste
+> existieren, die Liste aber **als Terminalausgabe am Ende des Laufs**, nicht
+> als Datei — und sie nennt drei der vier Punkte (Kürzel-Konflikte, fehlende
+> Stammregion, neue Teams). Die Kollisionen nach Ligawechsel sind darin über
+> die Kürzel-Prüfung enthalten, aber nicht als eigene Gruppe ausgewiesen. Der
+> Bericht als Datei bleibt offen; dass er weggescrollt sein kann, gilt bis
+> dahin.
 
 ## Was der Lauf nicht mehr tun darf
 

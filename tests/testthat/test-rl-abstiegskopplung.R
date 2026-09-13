@@ -32,10 +32,12 @@ library(testthat)
 #             Die Verminderungsgruende Nr. 3 (weniger Oberliga-Aufsteiger)
 #             und Nr. 5 (Nichtlizenzierung) haengen NICHT an der 3. Liga;
 #             Nr. 4 (Zweitvertretung eines absteigenden Lizenzvereins rueckt
-#             ans Tabellenende) kann 2026/27 nicht eintreten -- die
-#             Erstvertretungen aller West-Zweitvertretungen spielen in Liga
-#             78/79 und koennen in einer Saison nicht bis in die RL
-#             durchfallen.
+#             ans Tabellenende) ist BEWUSST NICHT MODELLIERT. Bis Issue #207
+#             stand hier, der Fall koenne 2026/27 nicht eintreten -- das war
+#             falsch: Fortuna Duesseldorf spielt in Liga 80, Fortuna II in
+#             der RL West. Die feste 4 bleibt trotzdem richtig, weil die
+#             Abbildung eine Abstiegswahrscheinlichkeit je Platz braeuchte
+#             (Issue #185) und die Wirkung an Fortunas Abstieg haengt.
 #   Bayern    Zahl aendert sich NICHT: 2 Direktabsteiger (die zwei Letzten)
 #             und 2 Relegationsteilnehmer (die zwei davor). Die Relegation
 #             wird NICHT aufgeloest -- Bayernligisten werden nicht
@@ -393,7 +395,7 @@ test_that("West: feste 4, unabhaengig von der 3. Liga", {
   # Hier stand zuvor 4 - k. Das folgte der Zusammenschau in Regeldoku 3.2,
   # nicht dem Ordnungstext: Von den drei Verminderungsgruenden haengt Nr. 3
   # an den Oberligen und Nr. 5 an der Lizenzierung; nur Nr. 4 beruehrt die
-  # 3. Liga, und der Fall kann 2026/27 nicht eintreten (s. Kopfkommentar).
+  # 3. Liga, und dieser Fall ist bewusst nicht modelliert (s. Kopfkommentar).
   # Bilanzlogisch war 4 - k sogar verkehrt herum: Ein Drittliga-Absteiger
   # ERHOEHT die Teamzahl auf 19; der WDFV gleicht das ueber die
   # Aufstiegsseite und die Ligagroesse aus, nicht ueber weniger Absteiger.

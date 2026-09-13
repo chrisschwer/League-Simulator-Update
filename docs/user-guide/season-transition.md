@@ -23,6 +23,34 @@ Konflikte und schlägt für Neuzugänge etwas vor — sie schreibt einen
 **Entwurf**. Phase 2 ist die Nacharbeit von Hand, und erst dadurch entsteht die
 produktive `TeamList_<Jahr>.csv`.
 
+Konkret: Der Lauf schreibt `RCode/TeamList_<Jahr>_entwurf.csv` und **fasst eine
+vorhandene `RCode/TeamList_<Jahr>.csv` nicht an** — auch im
+`--non-interactive`-Modus nicht. Das ist der Punkt der Trennung: Ein Entwurf
+kann nicht versehentlich simuliert werden, weil der Produktivpfad ihn gar nicht
+liest.
+
+### Phase 2: Die Nacharbeit
+
+Nach dem Lauf steht der Entwurf, nicht die TeamList. Zu tun bleibt:
+
+1. **Konfliktliste am Ende des Laufs lesen.** Sie nennt drei Gruppen:
+   Kürzel-Konflikte (dieselbe Prüfung, die `load_team_list()` beim Laden
+   anwendet), Teams **ohne Stammregion** und Teams, die gegenüber der Vorsaison
+   **neu** sind.
+2. **Kürzel prüfen.** Für Neuzugänge sind sie Vorschläge. Maßgeblich ist, unter
+   welchem Kürzel ein Verein bekannt ist (DFL-Konvention), nicht was sich aus
+   dem Namen ableiten lässt.
+3. **`Region` nachtragen.** Der Lauf lässt sie leer, wo die Vorsaison sie nicht
+   kennt — sie ist nicht herleitbar ([ADR 0003](../adr/0003-elo-eichung-fuer-ligen-ohne-historie.md)).
+   Ohne sie entfällt für diese Teams die Abstiegskopplung der Regionalligen
+   ([ADR 0006](../adr/0006-abstiegskopplung-der-regionalligen.md)).
+4. **Zweitvertretungs-Status prüfen** (Spalte `Promotion`, 0 oder −50). Sie
+   entscheidet im Update-Loop über den −50-Malus; abgeleitet wird nichts mehr
+   aus dem Kürzel.
+5. **Umbenennen**: `mv RCode/TeamList_<Jahr>_entwurf.csv RCode/TeamList_<Jahr>.csv`
+
+Erst danach ist die Saison umgestellt.
+
 ### Wann der Lauf frühestens möglich ist
 
 Die neue Ligazuordnung kommt **aus der API**: Der Lauf fragt
@@ -111,7 +139,7 @@ docker-compose exec -it league-simulator-integrated \
 # - Validation of changes
 ```
 
-On success, the script validates the produced `TeamList_<target>.csv` and removes intermediate league files automatically.
+On success, the script validates the produced **draft** `TeamList_<target>_entwurf.csv` and removes intermediate league files automatically. It never writes or touches `TeamList_<target>.csv` — see [Phase 2](#phase-2-die-nacharbeit).
 
 ### Method 2: Non-Interactive Mode
 
@@ -457,7 +485,8 @@ Rscript scripts/season_transition/cleanup.R 2025 --confirm
 
 The wrapper only matches files of the form `TeamList_<season>_League(78|79|80)_temp.csv` in `RCode/`. It does **not** touch:
 
-- `RCode/TeamList_<season>.csv` (the final season file)
+- `RCode/TeamList_<season>.csv` (the final season file — the run never writes it either)
+- `RCode/TeamList_<season>_entwurf.csv` (the draft, i.e. the run's actual result)
 - Any `.tmp` or `.lock` files
 - Anything outside `RCode/`
 - Files for other seasons

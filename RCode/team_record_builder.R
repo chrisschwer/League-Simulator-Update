@@ -35,6 +35,15 @@ build_carryover_team_record <- function(team, history, league_id, liga3_baseline
   if (!is.null(history$previous_data)) {
     short_name <- history$previous_data$short_name
     promotion_value <- history$previous_data$promotion_value
+    # Stammregion aus der Vorsaison. Sie ist nicht herleitbar (ADR 0003);
+    # wo die Vorsaison sie nicht kennt, bleibt sie leer statt geraten.
+    # Kein %||% hier: Das lebt in csv_generation.R und waere ueber die
+    # globale Sourcing-Reihenfolge geborgt.
+    region <- if (is.null(history$previous_data$region)) {
+      ""
+    } else {
+      history$previous_data$region
+    }
   } else {
     warning(paste("Team", team$id, "-", team$name, "not found in previous season, generating new data"))
     short_name <- get_team_short_name(team$name)
@@ -42,6 +51,7 @@ build_carryover_team_record <- function(team, history, league_id, liga3_baseline
       short_name <- generate_unique_short_name(short_name, existing_short_names)
     }
     promotion_value <- ifelse(team$is_second_team, -50, 0)
+    region <- ""
   }
 
   final_short_name <- convert_second_team_short_name(
@@ -61,7 +71,8 @@ build_carryover_team_record <- function(team, history, league_id, liga3_baseline
     name = team$name,
     short_name = final_short_name,
     initial_elo = initial_elo,
-    promotion_value = promotion_value
+    promotion_value = promotion_value,
+    region = region
   )
 }
 
@@ -103,6 +114,10 @@ build_new_team_record <- function(team, league_id, liga3_baseline, existing_shor
     name = team$name,
     short_name = final_short_name,
     initial_elo = team_info$initial_elo,
-    promotion_value = team_info$promotion_value
+    promotion_value = team_info$promotion_value,
+    # Ein Neuzugang hat keine Vorsaison, aus der eine Stammregion kaeme --
+    # und die API fuehrt sie nicht. Leer, nicht geraten; der Lauf nennt das
+    # Team in der Konfliktliste (ADR 0007).
+    region = ""
   )
 }
