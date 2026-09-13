@@ -1,6 +1,7 @@
 # Static Site
 
-After each simulation cycle the scheduler renders four pages into
+After each simulation cycle the scheduler renders twelve pages (one per
+active league, plus the Regionalliga promotion page and Methodik) into
 `STATIC_SITE_DIR` (default `ShinyApp/public`, `/app/ShinyApp/public` in the
 container). A plain web server serves that directory — there is no Shiny
 runtime, no `rsconnect`, and no deployment credentials.
@@ -14,14 +15,18 @@ This replaced the shinyapps.io deployment in August 2026. Background:
 ```
 ShinyApp/public/
 ├── index.html          # Bundesliga
-├── 2-bundesliga.html
-├── 3-liga.html
+├── <league>.html       # one per active league (ten since the Sept. 2026 expansion)
+├── rl-aufstieg.html    # Regionalliga promotion page
 ├── methodik.html       # Methodik, content from RCode/site_assets/methodik_content.html
 └── assets/
     ├── site.css
     ├── favicon.svg
     └── fonts/*.woff2
 ```
+
+Page filenames and navigation grouping come from the league registry
+(`RCode/league_registry.R`, `nav_group`), not a fixed list — see
+[`RCode/generate_static_site.R`](../../RCode/generate_static_site.R).
 
 There are no PNGs — the probability heatmap is an HTML table with a
 per-cell background colour, generated inline by
@@ -120,16 +125,15 @@ is load-bearing for the scheduler's wall-clock window.
 
 ## Generating manually
 
+Use [`scripts/preview_site.R`](../../scripts/preview_site.R) — it passes
+through every object in the saved fixture, not just the four objects from
+before the league expansion, so it renders all twelve current pages:
+
 ```bash
-Rscript -e '
-  source("RCode/generate_static_site.R")
-  e <- new.env(); load("ShinyApp/data/Ergebnis.Rds", envir = e)
-  generate_static_site(e$Ergebnis, e$Ergebnis2, e$Ergebnis3, e$Ergebnis3_Aufstieg)
-'
+Rscript scripts/preview_site.R
 ```
 
-Inside the container: `docker compose exec scheduler Rscript -e '…'` with the
-same snippet.
+Inside the container: `docker compose exec scheduler Rscript scripts/preview_site.R`.
 
 ## Rollback
 
