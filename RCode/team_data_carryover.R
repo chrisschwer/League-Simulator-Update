@@ -100,11 +100,11 @@ load_previous_team_list <- function(season) {
 #'
 #' @param team_id The team ID to look up
 #' @param previous_team_list Data frame of previous season teams
-#' @return List with short_name and promotion_value or NULL
+#' @return List with short_name, promotion_value and region, or NULL
 #' @export
 get_existing_team_data <- function(team_id, previous_team_list) {
   # Get team data from previous season by TeamID
-  # Returns list with short_name and promotion_value or NULL
+  # Returns list with short_name, promotion_value and region, or NULL
 
   if (is.null(previous_team_list) || nrow(previous_team_list) == 0) {
     return(NULL)
@@ -117,9 +117,25 @@ get_existing_team_data <- function(team_id, previous_team_list) {
     return(NULL)
   }
 
+  # Die Stammregion ist die EINZIGE der drei Zusatzspalten, die aus der
+  # Vorsaison kommen muss: League entsteht aus der verarbeiteten Liga, Name
+  # steht in der API-Antwort. Region fuehrt keine von beiden -- ihre einzige
+  # Quelle ist das Offline-Kalibrierungsskript (ADR 0003). Kennt die
+  # Vorsaison sie nicht (TeamList bis 2025, vier Spalten), bleibt sie leer;
+  # geraten wird nichts (Issue #195, Entscheidung aus PR #199).
+  region <- if ("Region" %in% names(previous_team_list)) {
+    as.character(team_row$Region[1])
+  } else {
+    ""
+  }
+  if (is.na(region)) {
+    region <- ""
+  }
+
   return(list(
     short_name = as.character(team_row$ShortText[1]),
-    promotion_value = as.numeric(team_row$Promotion[1])
+    promotion_value = as.numeric(team_row$Promotion[1]),
+    region = region
   ))
 }
 
