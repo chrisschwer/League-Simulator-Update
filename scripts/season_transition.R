@@ -50,7 +50,6 @@ required_modules <- c(
   "season_validation.R",
   "elo_aggregation.R",
   "api_service.R",
-  "api_helpers.R",
   "interactive_prompts.R",
   "input_validation.R",
   "csv_generation.R",
