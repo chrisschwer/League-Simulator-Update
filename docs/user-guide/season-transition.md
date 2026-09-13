@@ -62,10 +62,10 @@ erst hinterher ablehnt.
 
 ### Timing
 
-- **Optimal time**: After all playoffs/relegation matches complete
-- **Typical date**: Late May or early June
+- **Earliest possible**: Not until api-football has the new season's fixtures loaded (see "Wann der Lauf frühestens möglich ist" above) — an earlier run fails silently per league rather than erroring out.
+- **Typical date**: July
 - **Before**: First matches of new season
-- **Duration**: Allow 2-3 hours for full process
+- **Duration**: Allow 2-3 hours for full process, including the manual Phase 2 review
 
 ### Prerequisites
 
