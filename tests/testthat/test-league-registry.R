@@ -200,46 +200,22 @@ test_that("league_views wird aus der Registry abgeleitet", {
 
 # --- Verbraucher: die Literale verschwinden, das Verhalten bleibt -----------
 #
-# Die meisten dieser Stellen sind heute UNGETESTET (verifiziert: kein Test
-# ruft validate_league_id(), get_league_promotion_rules(), get_league_name()
-# oder checkAPILimits() auf). Der Umbau ist dort risikoarm, aber ungeschuetzt
-# -- diese Tests spannen das Netz vor der Aenderung.
-
-test_that("validate_league_id akzeptiert die Altligen weiterhin", {
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "input_validation.R"), local = env)
-
-  for (id in c("78", "79", "80")) {
-    expect_true(env$validate_league_id(id)$valid, info = id)
-  }
-})
-
-test_that("validate_league_id akzeptiert die neuen Ligen", {
-  # Bisher lehnte die Whitelist c("78","79","80") jede neue Liga ab. Die
-  # Registry kennt sie -- auch die noch inaktiven, denn der Saisonwechsel
-  # muss sie verarbeiten koennen, bevor sie live gehen.
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "input_validation.R"), local = env)
-
-  for (id in c("82", "1034", "83", "87")) {
-    expect_true(env$validate_league_id(id)$valid, info = id)
-  }
-})
-
-test_that("validate_league_id lehnt Unbekanntes weiterhin ab", {
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "input_validation.R"), local = env)
-
-  expect_false(env$validate_league_id("999")$valid)
-  expect_false(env$validate_league_id("")$valid)
-})
+# get_league_promotion_rules() und validate_league_id() hatten ausserhalb
+# ihrer eigenen Tests keinen Aufrufer (weder RCode noch scripts) und sind
+# mit league_processor.R bzw. input_validation.R in #209 entfallen; ihre
+# Tests sind mitgegangen. validate_team_count() lebt seit #209 in
+# season_processor.R und wird dort weiter geprueft.
 
 test_that("validate_team_count traegt zehn Ligen", {
   # Die alte Spanne 56-62 war 18+18+20 plus willkuerliche Toleranz. Mit zehn
   # Ligen sind es 237 Teams -- der Saisonwechsel bricht sonst hart ab
   # (season_processor.R ruft die Pruefung und stoppt bei Ablehnung).
   env <- new.env()
-  source(test_path("..", "..", "RCode", "input_validation.R"), local = env)
+  source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
+  source(test_path("..", "..", "RCode", "season_validation.R"), local = env)
+  source(test_path("..", "..", "RCode", "transform_data.R"), local = env)
+  source(test_path("..", "..", "RCode", "csv_generation.R"), local = env)
+  source(test_path("..", "..", "RCode", "season_processor.R"), local = env)
 
   schreibe <- function(n) {
     f <- withr::local_tempfile(fileext = ".csv", .local_envir = parent.frame(2))
