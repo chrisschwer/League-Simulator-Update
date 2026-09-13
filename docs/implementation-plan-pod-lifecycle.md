@@ -1,5 +1,7 @@
 # Implementation Plan: Pod Lifecycle Management (Issue #26)
 
+> **Historical context (2026-05-02):** This CronJob/Kubernetes plan was never built. The microservices/k8s split it belongs to (see git tag `pre-deployment-cleanup-2026-05-02`) was reverted in favor of a single integrated container with a bespoke in-process scheduler loop (`RCode/updateScheduler.R`). It is **not** the current or planned architecture — see [`docs/deployment/README.md`](deployment/README.md) for what's actually deployed.
+
 ## Executive Summary
 
 Implement CronJob-based pod lifecycle management to achieve 79% resource reduction while preserving existing scheduling logic. The solution uses 16 CronJobs to precisely start/stop deployments based on Berlin Time schedules.

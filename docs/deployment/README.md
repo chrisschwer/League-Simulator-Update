@@ -4,7 +4,7 @@ The League Simulator runs as a single Docker container that combines the Rust si
 
 ## Stack
 
-- **`Dockerfile`** — multi-stage build: Rust 1.81 (alpine) compiles the simulation binary in stage 1; `rocker/r-ver:4.3.1` runs the R scheduler in stage 2.
+- **`Dockerfile`** — multi-stage build: `rust:1.98-alpine` compiles the simulation binary in stage 1; `rocker/r-ver:4.6.1` runs the R scheduler in stage 2. (CI's advisory `r-lint` job still pins R 4.3.1 for `lintr` — see `.github/workflows/ci.yml` — that pin is independent of the image the container actually ships.)
 - **`docker-compose.yml`** — single service `scheduler` (container `fussball-scheduler`). The Rust API stays container-internal; the generated static site is written to the external named volume `fussball-site`.
 - **`docker-start.sh`** — container entrypoint. Starts the Rust server on `localhost:8080`, waits for it to be healthy, then runs `Rscript RCode/updateScheduler.R` with retry logic.
 - **`RCode/updateScheduler.R`** — the R scheduler. Wakes at 11:00 Berlin time, polls api-football, calls the in-process Rust server when new fixtures arrive, renders the static site (see [`static-site.md`](static-site.md)).
@@ -23,6 +23,7 @@ The League Simulator runs as a single Docker container that combines the Rust si
 | `SEASON` | no | auto-detect | Season year (e.g., `2026`); auto-detects from current month if unset |
 | `DURATION` | no | window length (720) | Cap on scheduler runtime in minutes. Leave unset — a fixed value silently truncates the window when its bounds move. |
 | `RUST_API_URL` | no | `http://localhost:8080` | Rust server endpoint inside the container |
+| `PORT` | no | `8080` | Port the Rust server itself listens on (`league-simulator-rust/src/main.rs`); change together with `RUST_API_URL` |
 | `TZ` | no | `Europe/Berlin` | Container timezone (load-bearing for the 11:00–23:00 window) |
 | `STATIC_SITE_DIR` | no | `ShinyApp/public` | Output directory for the generated static site |
 

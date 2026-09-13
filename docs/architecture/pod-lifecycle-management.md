@@ -1,5 +1,7 @@
 # Pod Lifecycle Management Analysis (Issue #26)
 
+> **Historical context (2026-05-02):** This analysis belongs to the microservices/Kubernetes split that was attempted (see git tag `pre-deployment-cleanup-2026-05-02`) and reverted in favor of a single integrated container. It is **not** the current or planned architecture — see [`docs/deployment/README.md`](../deployment/README.md) for what's actually deployed.
+
 ## Corrected Requirement Understanding
 
 **Goal**: Resource optimization through pod lifecycle management, NOT scheduling logic replacement.

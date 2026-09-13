@@ -35,6 +35,8 @@
 - [Season Transition](user-guide/season-transition.md) - Managing seasons
 - [Team Management](user-guide/team-management.md) - Managing teams
 - [FAQ](user-guide/faq.md) - Frequently asked questions
+- `scripts/analyze_league_empirics.R` - Per-league/season empirics report (goals/match, H/D/A shares, implied home advantage) used to calibrate the goal model
+- `scripts/install_test_packages.R` - Installs production + test R dependencies for local development (production images use `packagelist.txt` only)
 
 ### ⚽ Spielbetrieb (Regelwerk)
 - [Auf- und Abstieg der Regionalligen 2026/2027](abstieg_aufstieg_RL_2026_2027.md) - Die amtlichen Auf-/Abstiegsregeln aller fünf Staffeln; Grundlage der Abstiegskopplung an die 3. Liga
