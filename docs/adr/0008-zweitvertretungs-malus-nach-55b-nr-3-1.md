@@ -32,6 +32,9 @@ der Unterschied ist nicht akademisch.
 | 2. Frauen-Bundesliga (1034) | pauschal | dieselbe Lage eine Ebene höher |
 | Regionalligen (83–87) | **nur**, wenn die Erstvertretung in der 3. Liga spielt | genau der Fall des § 55b Nr. 3.1 |
 
+Entschieden, Umsetzung in #206 — die Drei-Fälle-Regel steht heute noch nicht
+im Code (siehe „Was heute falsch ist" unten).
+
 Heute betroffen: acht Teams behalten den Malus, **24 verlieren ihn**. Derzeit
 hat keine aktive Regionalliga-Zweitvertretung ihre Erstvertretung in der
 3. Liga — Bayern II, Dortmund II, Schalke II und die übrigen spielen höher.
