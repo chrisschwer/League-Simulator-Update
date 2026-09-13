@@ -28,7 +28,9 @@ Der Ausbauplan hatte eine einheitliche Regel „Basis `c` plus Zahl der Drittlig
 | West | konstant 4 | WDFV Abstieg Nr. 1 |
 | Bayern | konstant 2 | BFV A&A II. Nr. 1 |
 
-Entschieden: fünf Fälle, ausgeschrieben, jeder mit Belegstelle im Code. West und Bayern koppeln nicht — bei West hängen die übrigen Fälle an den Oberligen und an der Lizenzierung, nicht an der 3. Liga, und der eine Fall, der sie berührt, kann 2026/27 nicht eintreten; Bayerns Zahl ist schlicht fest. Eine einheitliche Formel wäre für diese beiden nicht ungenau, sondern falsch, und zwar lautlos: Sie hätte plausible Zahlen erzeugt.
+Entschieden: fünf Fälle, ausgeschrieben, jeder mit Belegstelle im Code. West und Bayern koppeln nicht — bei West hängen die übrigen Fälle an den Oberligen und an der Lizenzierung, nicht an der 3. Liga, und der eine Fall, der sie berührt (WDFV Nr. 4), ist bewusst nicht modelliert; Bayerns Zahl ist schlicht fest.
+
+> **Korrektur ([Issue #207](https://github.com/chrisschwer/League-Simulator-Update/issues/207)):** Hier stand, jener eine Fall könne 2026/27 nicht eintreten. Das ist falsch — Fortuna Düsseldorf spielt in der 3. Liga, Fortuna Düsseldorf II in der RL West. Die Entkopplung bleibt, aber als bewusste Nicht-Modellierung; Begründung in [`docs/modellannahmen-rl-kopplung.md`](../modellannahmen-rl-kopplung.md) § 5.3. Eine einheitliche Formel wäre für diese beiden nicht ungenau, sondern falsch, und zwar lautlos: Sie hätte plausible Zahlen erzeugt.
 
 Nord trägt zusätzlich eine **zweite** Kopplung, an den *eigenen* Meisteraufstieg: Steigt der Nord-Meister auf, wird die Staffelstärke unterschritten und der dritte Absteiger bleibt drin (Basis 3 bzw. 2, gemischt über P(Meister steigt auf)). Diese Mischung ist ausdrücklich eine **Näherung** — beide Größen stammen aus derselben Nord-Simulation und sind korreliert. Vertretbar, weil dasselbe Team praktisch nie Meister- und Abstiegskandidat zugleich ist; der Unterschied zum exakten Fall oben ist aber im Code markiert, damit niemand ihn für dieselbe Art von Produkt hält.
 

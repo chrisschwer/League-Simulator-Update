@@ -59,10 +59,16 @@ Zwei Staffeln brechen das Muster, und beide sind leicht zu übersehen:
 **West koppelt gar nicht.** Vier Absteiger bei 18 Vereinen, unabhängig von
 der 3. Liga. Die übrigen Fälle der WDFV-Regelung hängen nicht an ihr: Nr. 3 an
 den Oberligen, Nr. 5 an der Lizenzierung. Nur Nr. 4 berührt sie — die
-Zweitvertretung eines absteigenden Lizenzvereins —, und der Fall kann 2026/27
-nicht eintreten, weil die Erstvertretungen aller West-Zweitvertretungen in
-Liga 78/79 spielen und in einer Saison nicht bis in die Regionalliga fallen
-können.
+Zweitvertretung eines absteigenden Lizenzvereins —, und dieser Fall ist
+**bewusst nicht modelliert** (siehe § 5.3).
+
+> Hier stand bis [Issue #207](https://github.com/chrisschwer/League-Simulator-Update/issues/207),
+> der Fall könne 2026/27 gar nicht eintreten, weil die Erstvertretungen aller
+> West-Zweitvertretungen in Liga 78/79 spielten. Das ist falsch: **Fortuna
+> Düsseldorf** steht in der 3. Liga (TeamID 158, Liga 80), **Fortuna
+> Düsseldorf II** in der RL West (9369, Liga 87). Steigt die erste Mannschaft
+> ab, greift Nr. 4. Die Entkopplung bleibt richtig — aber aus dem Grund in
+> § 5.3, nicht aus diesem.
 
 **Bayern koppelt gar nicht.** Zwei Direktabsteiger, unabhängig von der 3. Liga.
 Die Kopplung wirkt dort über die Ligagröße (2026/27: 19 statt 18 Vereine) und
@@ -193,9 +199,27 @@ weniger".
 bei `k ≥ 4` wäre der Abstieg in West rechnerisch ganz ausgefallen — und sie
 hätte eine Kopplung behauptet, für die es keine Belegstelle gibt.
 
-*Wirkung:* West rechnet wie Bayern mit fester Absteigerzahl. Beim Saisonwechsel
-zu prüfen bleibt Nr. 4: Sobald die Erstvertretung einer West-Zweitvertretung in
-die 3. Liga absteigt, kann der Fall eintreten, der 2026/27 ausgeschlossen ist.
+*Wirkung:* West rechnet wie Bayern mit fester Absteigerzahl.
+
+**Nr. 4 ist 2026/27 nicht mehr ausgeschlossen** (Issue #207). Fortuna
+Düsseldorf spielt in der 3. Liga, Fortuna Düsseldorf II in der RL West — steigt
+die erste Mannschaft ab, rückt die Zweitvertretung ans Tabellenende und ein
+sportlicher Absteiger weniger fällt an. Bis dahin hieß es hier, der Fall könne
+nicht eintreten; das stimmte schon zum Zeitpunkt der Entscheidung nicht.
+
+**Trotzdem nicht modelliert**, und zwar aus zwei Gründen, die beide unabhängig
+von der falschen Prämisse tragen:
+
+1. Die Wirkung hängt daran, dass Fortuna absteigt — als ELO-stärkstes
+   Drittliga-Team unwahrscheinlich.
+2. Die Abbildung bräuchte eine **Abstiegswahrscheinlichkeit je Platz** statt
+   nur der Absteigerzahl; die Zählung in der Engine liefert heute das eine,
+   nicht das andere. Das gehört zu
+   [#185](https://github.com/chrisschwer/League-Simulator-Update/issues/185) —
+   Entscheidung bei Christoph.
+
+Beim Saisonwechsel neu zu prüfen: welche West-Zweitvertretungen eine
+Erstvertretung in der 3. Liga haben.
 
 ### 5.4 Bayerns Relegationsplätze bei 19 Teams — *Annahme*
 

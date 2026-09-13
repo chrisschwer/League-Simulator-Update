@@ -32,9 +32,19 @@ der Unterschied ist nicht akademisch.
 | 2. Frauen-Bundesliga (1034) | pauschal | dieselbe Lage eine Ebene höher |
 | Regionalligen (83–87) | **nur**, wenn die Erstvertretung in der 3. Liga spielt | genau der Fall des § 55b Nr. 3.1 |
 
-Heute betroffen: acht Teams behalten den Malus, **24 verlieren ihn**. Derzeit
-hat keine aktive Regionalliga-Zweitvertretung ihre Erstvertretung in der
-3. Liga — Bayern II, Dortmund II, Schalke II und die übrigen spielen höher.
+Heute betroffen: acht Teams behalten den Malus, **24 verlieren ihn**. Von den
+24 Regionalliga-Zweitvertretungen der TeamList 2026/27 hat **genau eine** ihre
+Erstvertretung in der 3. Liga: **Fortuna Düsseldorf II** (RL West) zu Fortuna
+Düsseldorf (Liga 80). Bayern II, Dortmund II, Schalke II und die übrigen
+spielen höher.
+
+> Hier stand bis [Issue #207](https://github.com/chrisschwer/League-Simulator-Update/issues/207),
+> es habe **keine**. Die Regel selbst bleibt davon unberührt — sie ist ja
+> gerade so gebaut, dass sie diesen Fall trifft, statt ihn auszuschließen.
+> Falsch war nur die Behauptung, er komme nicht vor.
+>
+> (`HA2B`, Hansa Rostock II, trägt denselben Malus, ist aber eine historische
+> Zeile: im Spielplan der RL Nordost steht das Team nicht.)
 
 Das ist eine sichtbare Änderung: Diese 24 erscheinen künftig in der
 Aufstiegstabelle ihrer Staffel und können deren Aufstiegschance besetzen. Das
