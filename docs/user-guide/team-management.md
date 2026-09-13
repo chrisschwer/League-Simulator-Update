@@ -28,7 +28,7 @@ TeamID;ShortText;Promotion;InitialELO;League;Region;Name
 |---|---|
 | `TeamID` | Team identifier from api-football |
 | `ShortText` | Short code (**Kurzname**) — becomes a column name in the simulation data frame; must be unique per league (see CONTEXT.md for cross-league exceptions) |
-| `Promotion` | Reserve-team promotion malus flag — see [ADR 0008](../adr/0008-zweitvertretungs-malus-nach-55b-nr-3-1.md) |
+| `Promotion` | Point adjustment for the promotion run, `0` or `-50` (Zweitvertretungs-Malus) — see [ADR 0008](../adr/0008-zweitvertretungs-malus-nach-55b-nr-3-1.md) |
 | `InitialELO` | Season-start ELO rating |
 | `League` | Most recently known league ID (78, 79, 80, 82, 83–87, 1034 — **not** necessarily "plays there this season", see CONTEXT.md) |
 | `Region` | **Stammregion** — the Regionalliga a club is permanently assigned to; see CONTEXT.md |

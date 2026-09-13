@@ -160,10 +160,10 @@ docker-compose exec scheduler \
 ### 1. Prepare for Transition
 
 ```bash
-# Check current season data (semicolon-separated, seven columns --
+# Check current season data (semicolon-separated, decimal point, seven columns --
 # see docs/user-guide/team-management.md for the schema)
 docker-compose exec scheduler Rscript -e "
-  teams <- read.csv2('RCode/TeamList_2024.csv')
+  teams <- read.csv('RCode/TeamList_2024.csv', sep = ';')
   cat('Current teams:', nrow(teams), '\n')
   table(teams\$League)
 "
@@ -210,8 +210,8 @@ docker-compose exec -it scheduler \
 ```bash
 # Check new team file
 docker-compose exec scheduler Rscript -e "
-  teams_new <- read.csv2('RCode/TeamList_2025.csv')
-  teams_old <- read.csv2('RCode/TeamList_2024.csv')
+  teams_new <- read.csv('RCode/TeamList_2025.csv', sep = ';')
+  teams_old <- read.csv('RCode/TeamList_2024.csv', sep = ';')
 
   cat('Old season teams:', nrow(teams_old), '\n')
   cat('New season teams:', nrow(teams_new), '\n')
