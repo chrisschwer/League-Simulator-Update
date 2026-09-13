@@ -626,3 +626,191 @@ test_that("update_all_leagues_loop has no machine-specific default output direct
   expect_false("shiny_directory" %in% names(fmls))
   expect_false(grepl("Dropbox", paste(deparse(fmls$static_site_dir), collapse = ""), fixed = TRUE))
 })
+
+
+# --- Issues 190 und 204: die Wartezeit gehoert JEDER Runde, und sie folgt
+# --- dem echten Restkontingent statt einem beim Start eingefrorenen Plan.
+#
+# Bis hierher berechnete der Loop `waittime <- duration * 60 / (loops - 1)`
+# einmal und schlief damit am Ende jeder Runde -- ausser im Fehlerpfad, wo
+# ein `next` an der einzigen Sys.sleep()-Stelle vorbeisprang (#204). Die
+# Header des Providers, die nach jedem Request ein taufrisches `remaining`
+# liefern, las niemand (#190).
+#
+# Alle bisherigen Gating-Tests laufen mit `duration = 0` und damit
+# waittime = 0; ob ueberhaupt geschlafen wird, war dort nicht beobachtbar.
+# Die folgenden Tests arbeiten deshalb mit `duration > 0` und einem
+# gestubbten Sys.sleep, das seine Argumente aufzeichnet.
+
+# Ein Lauf mit aufgezeichneten Schlafzeiten. `rest_folge` gibt je Loop das
+# `remaining` vor, das der Regler zu sehen bekommt; `fetch_ok = FALSE`
+# laesst jeden Vollabruf fehlschlagen (der Fehlerpfad aus #204).
+lauf_mit_schlafzeiten <- function(loops, duration, rest_folge = NULL,
+                                  fetch_ok = TRUE, limit = 7500,
+                                  live = "live") {
+  schlaf <- numeric(0)
+  abrufe <- 0L
+  runde <- new.env(parent = emptyenv())
+  runde$i <- 0L
+
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
+    if (league == "78") abrufe <<- abrufe + 1L
+    if (!fetch_ok) {
+      return(NULL)
+    }
+    fake_fixtures(c("FT", "2H"), ids = c(100L, 101L))
+  })
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) {
+    if (identical(live, "live")) c(101L) else integer(0)
+  })
+  stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
+  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) {
+    matrix(1 / 18, nrow = 18, ncol = 18)
+  })
+  stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
+  stub(update_all_leagues_loop, "generate_static_site", function(...) invisible(character(0)))
+  stub(update_all_leagues_loop, "Sys.sleep", function(sekunden) {
+    # initial_wait = 0 laeuft ebenfalls durch Sys.sleep und wird hier
+    # ausgefiltert: Gezaehlt werden die Rundenpausen, nicht der Vorlauf.
+    if (sekunden > 0) schlaf <<- c(schlaf, sekunden)
+    invisible(NULL)
+  })
+  # Der Loop liest den Kontingent-Stand ueber genau diesen Getter; ihn zu
+  # stubben ersetzt HTTP, ohne die Rechnung im Loop zu umgehen.
+  stub(update_all_leagues_loop, "api_rate_limit_stand", function() {
+    runde$i <- runde$i + 1L
+    rest <- if (is.null(rest_folge)) {
+      NA_real_
+    } else {
+      rest_folge[[min(runde$i, length(rest_folge))]]
+    }
+    list(
+      remaining = rest,
+      limit = if (is.na(rest)) NA_real_ else limit,
+      reset_seconds = if (is.na(rest)) NA_real_ else 8 * 3600,
+      as_of = Sys.time()
+    )
+  })
+
+  meldungen <- capture_messages(with_repo_root({
+    update_all_leagues_loop(
+      duration = duration, loops = loops, initial_wait = 0, n = 10,
+      saison = "2024",
+      TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
+      static_site_dir = tempdir(), full_fetch_every = 30
+    )
+  }))
+
+  list(schlaf = schlaf, meldungen = meldungen, abrufe = abrufe)
+}
+
+test_that("ein fehlgeschlagener Vollabruf wartet trotzdem (issue #204)", {
+  # Der Kern von #204: Schlaegt eine Liga fehl, sprang die Schleife per
+  # `next` an der Wartezeit vorbei und feuerte sofort die naechste Runde --
+  # 11 Requests je Runde ohne Pause, das Tageskontingent in rund zwei
+  # Stunden verbrannt. Jede Runde muss warten, auch die gescheiterte.
+  lauf <- lauf_mit_schlafzeiten(loops = 5, duration = 10, fetch_ok = FALSE)
+
+  # Jede Runde ausser der ersten wartet genau einmal (initial_wait = 0
+  # zaehlt hier nicht mit, weil der Loop bei 0 nicht schlaeft).
+  expect_length(lauf$schlaf, 4L)
+  expect_true(all(lauf$schlaf > 0))
+  # Und der Fehlerpfad wurde wirklich genommen.
+  expect_true(any(grepl("API calls failed", lauf$meldungen)))
+})
+
+test_that("auch der Leerlaufpfad wartet jede Runde", {
+  # Gegenprobe zum Test oben: Der Fix darf nicht nur den Fehlerpfad
+  # abdecken. Idle-Runden (kein Vollabruf) warten genauso.
+  lauf <- lauf_mit_schlafzeiten(loops = 5, duration = 10, live = "idle")
+
+  expect_length(lauf$schlaf, 4L)
+  expect_true(all(lauf$schlaf > 0))
+})
+
+test_that("sinkendes Restkontingent streckt die Wartezeiten (issue #190)", {
+  # Stufe 2: Ab Loop 2 liegen frische Header vor. Faellt `remaining` in den
+  # Keller, muss der Takt sich strecken -- ohne dass jemand den Prozess neu
+  # startet. Vorher war die Wartezeit fuer den Rest des Tages eingefroren.
+  # Die Zahlen sind so gewaehlt, dass der Engpass echt ist: Ab Runde 4
+  # traegt das Restbudget (20 Requests, 0,9 Sicherheitsabschlag, 11
+  # Requests je Runde -> eine Runde) die noch geplanten Runden nicht mehr.
+  # Vorher (7.400) ist es komfortabel.
+  lauf <- lauf_mit_schlafzeiten(
+    loops = 6, duration = 10,
+    rest_folge = c(7400, 7400, 7400, 20, 20, 20)
+  )
+
+  expect_length(lauf$schlaf, 5L)
+  # Die Runden mit knappem Budget warten laenger als die mit komfortablem.
+  # Die Runden 2 und 3 sehen noch 7.400 Requests, Runde 4 dann 20.
+  expect_gt(max(lauf$schlaf), min(lauf$schlaf))
+  expect_gt(lauf$schlaf[3], lauf$schlaf[1])
+  # Und es wird als Drosselung benannt, nicht still getan.
+  expect_true(any(grepl("Takt", lauf$meldungen)))
+})
+
+test_that("der Loop schreibt je Runde eine Budget-Zeile (issue #190, Stufe 1)", {
+  # Stufe 1: Heute existiert genau eine Rate-Limit-Zeile je PROZESSSTART
+  # (checkAPILimits). Der Tagesverlauf ist im Log nicht nachvollziehbar.
+  lauf <- lauf_mit_schlafzeiten(
+    loops = 4, duration = 10,
+    rest_folge = c(NA_real_, 7000, 6900, 6800)
+  )
+
+  # Eine Zeile je Runde, ohne Ausnahme -- auch Loop 1, der noch keine
+  # Header gesehen hat. Dort sagt sie genau das, statt "NA/NA verbraucht"
+  # zu melden, als waere das eine Messung.
+  budget_zeilen <- grep("Loop \\d+/4: API", lauf$meldungen, value = TRUE)
+  expect_length(budget_zeilen, 4L)
+  expect_length(grep("verbleibend", budget_zeilen), 3L)
+  expect_length(grep("noch unbekannt", budget_zeilen), 1L)
+  expect_true(any(grepl("Reset in", budget_zeilen)))
+})
+
+test_that("ein gefallenes Limit wird als Plan-Herabstufung gewarnt (issue #190, Stufe 3)", {
+  # Der Fall aus der Ueberschrift von #190: Nicht `remaining` faellt, das
+  # `limit` selbst sinkt. Heute bliebe das voellig unbemerkt.
+  schlaf <- numeric(0)
+  runde <- new.env(parent = emptyenv())
+  runde$i <- 0L
+  limits <- c(7500, 7500, 100, 100)
+
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(...) {
+    fake_fixtures(c("FT", "2H"), ids = c(100L, 101L))
+  })
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) c(101L))
+  stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
+  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) {
+    matrix(1 / 18, nrow = 18, ncol = 18)
+  })
+  stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
+  stub(update_all_leagues_loop, "generate_static_site", function(...) invisible(character(0)))
+  stub(update_all_leagues_loop, "Sys.sleep", function(s) {
+    schlaf <<- c(schlaf, s)
+    invisible(NULL)
+  })
+  stub(update_all_leagues_loop, "api_rate_limit_stand", function() {
+    runde$i <- runde$i + 1L
+    l <- limits[[min(runde$i, length(limits))]]
+    list(
+      remaining = l - 10, limit = l,
+      reset_seconds = 8 * 3600, as_of = Sys.time()
+    )
+  })
+
+  meldungen <- capture_messages(with_repo_root({
+    update_all_leagues_loop(
+      duration = 10, loops = 4, initial_wait = 0, n = 10,
+      saison = "2024",
+      TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
+      static_site_dir = tempdir(), full_fetch_every = 30
+    )
+  }))
+
+  expect_true(any(grepl("WARNUNG", meldungen)))
+  expect_true(any(grepl("7\\.500", meldungen)))
+  expect_true(any(grepl("Limit", meldungen)))
+})

@@ -150,8 +150,6 @@ test_that("unlesbare Header deckeln nicht, sondern lassen den Wunsch stehen", {
   # Ueberwachung, die diesen Fehlerfall ueberhaupt erst sichtbar macht.
   # Der Test bleibt als ausformulierte Reproduktion stehen, statt in einer
   # Issue-Beschreibung zu verwittern.
-  skip("Fix gehoert zu #190 (Rate-Limit-Ueberwachung); Reproduktion bleibt hier")
-
   env <- lade_check_api_limits()
   f <- mit_headern(env, list())
 
@@ -175,4 +173,32 @@ test_that("faellt die Abfrage aus, greift die konservative Schaetzung aus der Re
     expect_warning(ergebnis <- f(360))
     expect_equal(ergebnis, erwartet)
   })
+})
+
+
+# --- Aus #204 mitgenommen (der dort geplante PR #216 wird von #190
+# --- abgeloest): zwei Randfaelle, die aus einem leeren oder kaputten
+# --- Kontingent eine ungueltige Rundenzahl machten.
+
+test_that("ein negativer Rate-Limit-Header wird auf 0 Runden geklemmt", {
+  # Ohne Klammer wird safe_loops negativ, min(ideal, negativ) ebenfalls --
+  # und `for (i in 1:loops)` zaehlt dann RUECKWAERTS statt gar nicht zu
+  # laufen. Eine negative Rundenzahl ist keine Planung, sondern ein Defekt.
+  env <- lade_check_api_limits()
+  f <- mit_headern(env, list(
+    `x-ratelimit-requests-remaining` = "-50",
+    `x-ratelimit-requests-limit` = "7500"
+  ))
+
+  mit_api_key(expect_equal(f(360), 0))
+})
+
+test_that("ein erschoepftes Kontingent ergibt 0 Runden, nicht eine", {
+  env <- lade_check_api_limits()
+  f <- mit_headern(env, list(
+    `x-ratelimit-requests-remaining` = "0",
+    `x-ratelimit-requests-limit` = "7500"
+  ))
+
+  mit_api_key(expect_equal(f(360), 0))
 })
