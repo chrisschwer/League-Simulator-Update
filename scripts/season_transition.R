@@ -57,7 +57,6 @@ required_modules <- c(
   "team_history_resolver.R",
   "team_record_builder.R",
   "season_processor.R",
-  "league_processor.R",
   "error_handling.R",
   "logging.R",
   "input_handler.R",

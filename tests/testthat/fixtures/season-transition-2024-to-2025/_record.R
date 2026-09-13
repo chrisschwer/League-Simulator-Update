@@ -72,7 +72,6 @@ required_modules <- c(
   "csv_generation.R",
   "file_operations.R",
   "season_processor.R",
-  "league_processor.R",
   "error_handling.R",
   "logging.R",
   "input_handler.R",
