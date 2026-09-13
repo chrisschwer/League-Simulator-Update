@@ -130,12 +130,16 @@ simulate_league_rust <- function(schedule, elo_values, team_names,
   # (5e-05 Punkte), schadet aber nicht.
   json_body <- toJSON(payload, auto_unbox = TRUE, null = "null", digits = NA)
 
-  # Make API request
+  # Make API request. timeout(60): ein haengender Socket zum Rust-Server
+  # blockierte die Schleife sonst unbegrenzt -- der Healthcheck prueft nur,
+  # ob der Prozess lebt, nicht ob ein einzelner Request antwortet (Issue
+  # #208, Punkt 3).
   response <- POST(
     paste0(RUST_API_URL, "/simulate"),
     body = json_body,
     content_type_json(),
-    accept_json()
+    accept_json(),
+    timeout(60)
   )
 
   if (status_code(response) != 200) {
