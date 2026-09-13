@@ -626,3 +626,109 @@ test_that("update_all_leagues_loop has no machine-specific default output direct
   expect_false("shiny_directory" %in% names(fmls))
   expect_false(grepl("Dropbox", paste(deparse(fmls$static_site_dir), collapse = ""), fixed = TRUE))
 })
+
+# --- Issue #204: ein fehlgeschlagener Vollabruf ueberspringt die Wartezeit
+# --- nicht mehr. Vorher stand das einzige Sys.sleep(waittime) NACH dem
+# --- `next`-Sprungziel des is.null(fixtures)-Checks; ein Fehlschlag feuerte
+# --- die naechste Runde also ohne Pause. Der Fix zieht die Wartezeit an den
+# --- Kopf der Runde (i > 1 statt i < loops) -- ein `next` in der Runde
+# --- darunter kann sie damit nicht mehr uebergehen, weil sie bereits VOR
+# --- dem Fetch dieser Runde gelaufen ist.
+
+test_that("ein fehlgeschlagener Vollabruf wartet trotzdem (issue #204)", {
+  sleep_calls <- numeric(0)
+  generated <- 0L
+
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  # Jeder Vollabruf schlaegt fehl -- jede Runde soll trotzdem warten.
+  stub(update_all_leagues_loop, "retrieveResults", function(league, season) NULL)
+  # Immer "live", damit JEDE Runde einen Vollabruf versucht (isoliert die
+  # Wartezeit-Pruefung vom Live-Poll-Gating, das anderswo getestet ist).
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) c(101L))
+  stub(update_all_leagues_loop, "Sys.sleep", function(seconds) {
+    sleep_calls <<- c(sleep_calls, seconds)
+  })
+  stub(update_all_leagues_loop, "generate_static_site", function(...) {
+    generated <<- generated + 1L
+    invisible(character(0))
+  })
+
+  with_repo_root({
+    update_all_leagues_loop(
+      duration = 10, loops = 4, initial_wait = 0, n = 10,
+      saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
+      static_site_dir = tempdir(), full_fetch_every = 30
+    )
+  })
+
+  erwartete_waittime <- 10 * 60 / (4 - 1)
+  # Ein Schlaf je Runde AUSSER der ersten -- unabhaengig davon, dass jede
+  # Runde per `next` aus dem fehlgeschlagenen Fetch aussteigt.
+  expect_length(sleep_calls, 4 - 1)
+  expect_equal(sleep_calls, rep(erwartete_waittime, 4 - 1))
+  # Kein Fetch liefert je Daten -> nie ein fixtures-Objekt -> nie ein Render.
+  expect_equal(generated, 0L)
+})
+
+# --- Issue #204, Nebenbefund 1: `safe_loops` in checkAPILimits() muss auf
+# --- >= 0 geklammert sein. Bei negativem remaining-Header lief die Funktion
+# --- vorher rueckwaerts (min(ideal_loops, negativ) < 0), was seq_len() zwar
+# --- nicht mehr crashen liesse (seq_len(negativ) stirbt hart), aber ein
+# --- negativer Rueckgabewert ist ohnehin keine gueltige Rundenzahl.
+#
+# Der Auftrag verlangt diesen Test ausdruecklich in dieser Datei (statt in
+# test-check-api-limits.R, wo die Helfer eigentlich naeher laegen), damit
+# alle neuen #204-Tests an einer Stelle stehen.
+
+test_that("checkAPILimits klemmt einen negativen Rate-Limit-Header auf 0 Runden (issue #204)", {
+  env <- new.env()
+  source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
+  source(test_path("..", "..", "RCode", "checkAPILimits.R"), local = env)
+
+  f <- env$checkAPILimits
+  stub(f, "httr::GET", function(...) structure(list(), class = "response"))
+  stub(f, "httr::headers", function(response) {
+    list(
+      `x-ratelimit-requests-remaining` = "-50",
+      `x-ratelimit-requests-limit` = "7500"
+    )
+  })
+
+  alt <- Sys.getenv("RAPIDAPI_KEY", unset = NA)
+  Sys.setenv(RAPIDAPI_KEY = "test-key")
+  on.exit({
+    if (is.na(alt)) Sys.unsetenv("RAPIDAPI_KEY") else Sys.setenv(RAPIDAPI_KEY = alt)
+  }, add = TRUE)
+
+  expect_equal(f(360), 0)
+})
+
+# --- Issue #204, Nebenbefund 2: `for (i in 1:loops)` laeuft bei loops = 0
+# --- zweimal (i = 1, i = 0), weil `1:0` in R c(1, 0) ergibt statt eines
+# --- leeren Vektors. `seq_len(0)` ist leer und die Schleife faellt korrekt
+# --- aus.
+
+test_that("ein Loop mit loops = 0 ruft nie ab (issue #204, seq_len statt 1:loops)", {
+  fetch_calls <- 0L
+
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
+    fetch_calls <<- fetch_calls + 1L
+    fake_fixtures(c("FT", "NS"))
+  })
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) integer(0))
+  stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
+  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) matrix(1 / 18, nrow = 18, ncol = 18))
+  stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
+  stub(update_all_leagues_loop, "generate_static_site", function(...) invisible(character(0)))
+
+  with_repo_root({
+    update_all_leagues_loop(
+      duration = 0, loops = 0, initial_wait = 0, n = 10,
+      saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
+      static_site_dir = tempdir(), full_fetch_every = 30
+    )
+  })
+
+  expect_equal(fetch_calls, 0L)
+})
