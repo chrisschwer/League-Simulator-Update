@@ -234,9 +234,17 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
           plaetze <- rl_relegation_places(liga_ids[[key]])
         }
 
+        # Tormodell je Wechselgemeinschaft (ADR 0004, Issue #205): leere
+        # Liste fuer die Herren-Ligen, damit der Rust-Server seine Defaults
+        # behaelt (ADR 0002); nur die Frauen-Ligen (82, 1034) weichen ab.
+        # Eine Quelle fuer BEIDE Simulationslaeufe dieser Liga -- Hauptlauf
+        # und, weiter unten, der Malus-Lauf fuer die Aufstiegstabelle.
+        tormodell <- goal_model_args(liga_ids[[key]])
+
         ergebnisse[[key]] <- leagueSimulatorRust(
           spielplan, n = n,
-          groupOfTeam = zuordnung, relegationPlaces = plaetze
+          groupOfTeam = zuordnung, relegationPlaces = plaetze,
+          toreSlope = tormodell$tore_slope, toreIntercept = tormodell$tore_intercept
         )
         beendet[[key]] <- beendet_new[[key]]
 
@@ -281,7 +289,9 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
             }
           }
           ergebnisse[[aufstiegs_key]] <-
-            leagueSimulatorRust(spielplan, n = n, adjPoints = adj_points)
+            leagueSimulatorRust(spielplan, n = n, adjPoints = adj_points,
+                                toreSlope = tormodell$tore_slope,
+                                toreIntercept = tormodell$tore_intercept)
         }
 
         simulation_executed <- TRUE
@@ -415,7 +425,8 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
         # league_views(); der Generator indiziert league_data[[key]] damit.
         league_data <- stats::setNames(
           lapply(liga_keys, function(key) {
-            build_league_page_data(fixtures[[key]], TeamList)
+            build_league_page_data(fixtures[[key]], TeamList,
+                                   tormodell = goal_model_args(liga_ids[[key]]))
           }),
           liga_keys
         )

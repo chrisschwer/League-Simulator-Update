@@ -192,3 +192,45 @@ test_that("fetch_league_details existiert als httr-Client mit RUST_API_URL-Defau
   expect_true(is.function(fetch_league_details))
   expect_true(all(c("payload") %in% names(formals(fetch_league_details))))
 })
+
+# --- Issue #205: das abweichende Tormodell (ADR 0004) muss den Payload
+# --- erreichen, sonst laufen Score-Matrix und 1/X/2 der Frauen-Ligen mit
+# --- den Herren-Werten. build_league_page_data() bekommt dafuer einen
+# --- `tormodell`-Parameter (Liste aus goal_model_args(), Default `list()`)
+# --- und reicht ihn an build_league_details_payload() durch -- analog zu
+# --- rl_aktuelle_elo(spielplan, tormodell) in rl_verdrahtung.R.
+
+test_that("ein uebergebenes tormodell erreicht den league-details-Payload", {
+  captured_payload <- NULL
+  fetch_stub <- function(payload, ...) {
+    captured_payload <<- payload
+    canned_page_response()
+  }
+
+  pd <- build_league_page_data(
+    nested_league_fixtures(), teamlist_all_leagues(),
+    fetch_fn = fetch_stub,
+    tormodell = list(tore_slope = 0.0024058833, tore_intercept = 1.6527603153)
+  )
+
+  expect_false(is.null(pd))
+  expect_equal(captured_payload$tore_slope, 0.0024058833)
+  expect_equal(captured_payload$tore_intercept, 1.6527603153)
+})
+
+test_that("ohne tormodell bleibt der Payload frei von tore_slope/tore_intercept", {
+  # Gegenprobe: der Herren-Fall (leere Liste, wie goal_model_args() sie fuer
+  # Liga 78 liefert). Der Rust-Server soll seine Defaults behalten (ADR 0002).
+  captured_payload <- NULL
+  fetch_stub <- function(payload, ...) {
+    captured_payload <<- payload
+    canned_page_response()
+  }
+
+  pd <- build_league_page_data(nested_league_fixtures(), teamlist_all_leagues(),
+                               fetch_fn = fetch_stub)
+
+  expect_false(is.null(pd))
+  expect_false("tore_slope" %in% names(captured_payload))
+  expect_false("tore_intercept" %in% names(captured_payload))
+})

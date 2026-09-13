@@ -626,3 +626,84 @@ test_that("update_all_leagues_loop has no machine-specific default output direct
   expect_false("shiny_directory" %in% names(fmls))
   expect_false(grepl("Dropbox", paste(deparse(fmls$static_site_dir), collapse = ""), fixed = TRUE))
 })
+
+# --- Issue #205: das Frauen-Tormodell (ADR 0004) muss beide
+# --- leagueSimulatorRust()-Aufrufe erreichen (Hauptlauf und Malus-Lauf),
+# --- sonst laufen die Frauen-Ligen (82, 1034) mit den Herren-Konstanten.
+#
+# Die Registry bleibt UNGESTUBBT: Alle zehn Ligen sind aktiv, retrieveResults()
+# wird fuer jede Liga einzeln aufgerufen (Parameter `league` = api_id), und
+# leagueSimulatorRust() faellt fuer jede Liga in Registry-Reihenfolge an --
+# genau wie in run_loop_capturing() aus test-n-ligen-entflechtung.R. Um einen
+# Aufruf seiner Liga zuzuordnen, wird die Aufrufreihenfolge an
+# active_league_keys() (plus, wo has_promotion_restriction() gilt, ein
+# zweiter Malus-Aufruf direkt danach) ausgerichtet -- leagueSimulatorRust()
+# selbst bekommt keine Liga-ID uebergeben.
+
+test_that("das Frauen-Tormodell erreicht beide leagueSimulatorRust-Aufrufe (Liga 82 vs. 78)", {
+  reg <- new.env()
+  source(file.path("..", "..", "RCode", "league_registry.R"), local = reg)
+  liga_keys <- reg$active_league_keys()
+  liga_ids <- stats::setNames(
+    vapply(reg$active_leagues(), function(l) l$api_id, character(1)),
+    liga_keys
+  )
+  hat_malus <- stats::setNames(
+    vapply(liga_ids, reg$has_promotion_restriction, logical(1)),
+    liga_keys
+  )
+
+  # Erwartete Aufrufreihenfolge: je Liga ein Hauptlauf-Call, direkt gefolgt
+  # von einem Malus-Call, wo has_promotion_restriction() TRUE ist.
+  erwartete_reihenfolge <- unlist(lapply(liga_keys, function(k) {
+    if (hat_malus[[k]]) c(k, k) else k
+  }))
+
+  calls <- list()
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
+    fake_fixtures(c("FT", "NS"))
+  })
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) integer(0))
+  stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
+  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) {
+    calls[[length(calls) + 1]] <<- list(...)
+    matrix(1 / 18, nrow = 18, ncol = 18)
+  })
+  stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
+  stub(update_all_leagues_loop, "generate_static_site", function(...) invisible(character(0)))
+
+  with_repo_root({
+    update_all_leagues_loop(
+      duration = 0, loops = 1, initial_wait = 0, n = 10,
+      saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
+      static_site_dir = tempdir(), full_fetch_every = 30
+    )
+  })
+
+  expect_equal(length(calls), length(erwartete_reihenfolge))
+
+  frauen_bl_idx <- which(erwartete_reihenfolge == "frauen_bundesliga")
+  herren_bl_idx <- which(erwartete_reihenfolge == "bundesliga")
+
+  # Liga 82 (Frauen-Bundesliga): das Frauen-Tormodell muss im Aufruf stehen.
+  frauen_call <- calls[[frauen_bl_idx[[1]]]]
+  expect_equal(frauen_call$toreSlope, 0.0024058833)
+  expect_equal(frauen_call$toreIntercept, 1.6527603153)
+
+  # Gegenprobe Liga 78 (Bundesliga, Herren): kein Tormodell im Aufruf --
+  # der Rust-Server behaelt seine Defaults (ADR 0002).
+  herren_call <- calls[[herren_bl_idx[[1]]]]
+  expect_null(herren_call$toreSlope)
+  expect_null(herren_call$toreIntercept)
+
+  # 2. Frauen-Bundesliga (1034) hat has_promotion_restriction (ADR 0002-Regel
+  # "Zweitvertretungen duerfen nicht aufsteigen") -- ihr Malus-Lauf
+  # (Aufrufstelle 2, :284) muss dasselbe Tormodell tragen wie ihr Hauptlauf.
+  zweite_frauen_idx <- which(erwartete_reihenfolge == "zweite_frauen_bundesliga")
+  expect_length(zweite_frauen_idx, 2) # Hauptlauf und Malus-Lauf
+  for (idx in zweite_frauen_idx) {
+    expect_equal(calls[[idx]]$toreSlope, 0.0024058833, info = paste("Aufruf", idx))
+    expect_equal(calls[[idx]]$toreIntercept, 1.6527603153, info = paste("Aufruf", idx))
+  }
+})
