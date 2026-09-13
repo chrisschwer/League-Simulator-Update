@@ -1,5 +1,13 @@
 # CSV Generation Functions
-# Creates properly formatted TeamList CSV files
+#
+# Schreibt den ENTWURF des Saisonwechsels: TeamList_<Jahr>_entwurf.csv,
+# sieben Spalten, samt kurzer Konfliktliste am Ende des Laufs.
+#
+# Die produktive TeamList_<Jahr>.csv entsteht hier NICHT und wird auch nicht
+# angefasst. Sie ist gepflegtes Stammdatenblatt: Ueber Kurznamen und
+# Zweitvertretungs-Status entscheidet der Betreiber, der Lauf schreibt fort
+# und schlaegt vor (ADR 0007). Phase 2 -- Entwurf pruefen, Konflikte
+# aufloesen, ablegen -- ist Handarbeit.
 
 # Utility operator for handling NULL values
 `%||%` <- function(x, y) {
@@ -67,19 +75,26 @@ generate_team_list_csv <- function(team_data, season, output_dir = "RCode") {
         stop(paste("CSV data validation failed:", validation$message))
       }
 
-      # Generate file path
-      file_path <- file.path(output_dir, paste0("TeamList_", season, ".csv"))
-
-      # Check if file already exists
-      if (file.exists(file_path)) {
-        if (!confirm_overwrite(file_path)) {
-          stop("File overwrite cancelled by user")
-        }
-
-        # Backup existing file
-        backup_path <- backup_existing_file(file_path)
-        cat("Backup created:", backup_path, "\n")
-      }
+      # ENTWURF, nicht die produktive Datei (ADR 0007).
+      #
+      # Hier stand bis September 2026 TeamList_<Jahr>.csv, geschrieben nach
+      # einem confirm_overwrite() -- das im --non-interactive-Modus immer
+      # TRUE liefert. Ein Lauf 2026 -> 2027 nach dem Rezept aus CLAUDE.md
+      # ueberschriebe damit die handgepflegte TeamList_2026.csv ohne
+      # Rueckfrage, und mit ihr Kuerzel, Stammregionen und den
+      # Zweitvertretungs-Status, ueber die Christoph entscheidet.
+      #
+      # Ein Entwurf kann nicht versehentlich simuliert werden, weil der
+      # Produktivpfad ihn gar nicht liest. Die Alternative -- eine fertige
+      # Datei mit Sperrvermerk -- verliesse sich darauf, dass die Sperre
+      # ueberall greift, wo gelesen wird.
+      #
+      # Kein confirm_overwrite() mehr: Der Entwurf ist ein Zwischenstand,
+      # kein gepflegtes Gut. Wer den Lauf zweimal startet, will den zweiten
+      # Stand. Die produktive Datei wird nicht angefasst, also gibt es auch
+      # nichts zu bestaetigen.
+      file_path <- file.path(output_dir,
+                             paste0("TeamList_", season, "_entwurf.csv"))
 
       # Write CSV file
       write_team_list_safely(formatted_data, file_path)
@@ -89,8 +104,10 @@ generate_team_list_csv <- function(team_data, season, output_dir = "RCode") {
         stop("CSV integrity verification failed")
       }
 
-      cat("Team list CSV created successfully:", file_path, "\n")
+      cat("Entwurf geschrieben:", file_path, "\n")
       cat("Teams:", nrow(formatted_data), "\n")
+
+      bericht_konflikte(formatted_data, season, output_dir)
 
       return(file_path)
     },
@@ -374,6 +391,66 @@ validate_csv_data <- function(data) {
     valid = TRUE,
     message = "CSV data validation passed"
   ))
+}
+
+#' Kurze Konfliktliste am Ende des Laufs (ADR 0007).
+#'
+#' Der Entwurf allein sagt nicht, was die Nacharbeit anfassen muss. Diese
+#' Liste sagt es -- knapp, in drei Gruppen, und nur fuer das, was aus den
+#' geschriebenen Daten und der Vorsaison ablesbar ist:
+#'
+#'   Kuerzel-Verstoesse    aus pruefe_kuerzel_vertrag(), derselben Pruefung,
+#'                         die der Loader beim Laden anwendet
+#'   leere Stammregion     die Teams, denen die Abstiegskopplung fehlt
+#'   neue Teams            die, deren TeamID die Vorsaison nicht kennt
+#'
+#' BEWUSST NUR EIN LOG, KEINE DATEI. ADR 0007 sieht einen Bericht neben der
+#' TeamList vor; das ist der groessere Schritt und braucht eine Entscheidung
+#' ueber Format und Ort. Hier steht die kleine Fassung, die der
+#' Entwurfsdatei ihren Sinn gibt -- wer sie ausbaut, findet die Stelle.
+#'
+#' @param data Der geschriebene Entwurf (formatiert, sieben Spalten).
+#' @param season Zielsaison, fuer die Suche nach der Vorsaison-Datei.
+#' @param output_dir Verzeichnis, in dem auch die Vorsaison liegt.
+#' @return NULL, unsichtbar. Die Funktion gibt aus, sie liefert nichts.
+bericht_konflikte <- function(data, season, output_dir = "RCode") {
+  cat("\n=== Entwurf: was die Nacharbeit braucht ===\n")
+
+  verstoesse <- pruefe_kuerzel_vertrag(data)
+  if (length(verstoesse) > 0) {
+    cat("Kuerzel-Konflikte (", length(verstoesse), "):\n", sep = "")
+    for (v in verstoesse) cat("  -", v, "\n")
+  }
+
+  if ("Region" %in% colnames(data)) {
+    leer <- is.na(data$Region) | trimws(as.character(data$Region)) == ""
+    if (any(leer)) {
+      cat("Ohne Stammregion (", sum(leer), "): ",
+          paste(data$ShortText[leer], collapse = ", "), "\n", sep = "")
+      cat("  -> ohne sie entfaellt fuer diese Teams die Abstiegskopplung",
+          "der Regionalligen (ADR 0006).\n")
+    }
+  }
+
+  # Neue Teams: die, deren TeamID die Vorsaison nicht kennt. Fehlt die
+  # Vorsaison-Datei, wird nichts behauptet.
+  vorsaison_jahr <- suppressWarnings(as.numeric(season) - 1)
+  vorsaison_datei <- file.path(
+    output_dir, paste0("TeamList_", vorsaison_jahr, ".csv")
+  )
+  if (!is.na(vorsaison_jahr) && file.exists(vorsaison_datei)) {
+    alt <- utils::read.csv(vorsaison_datei, sep = ";", stringsAsFactors = FALSE)
+    neu <- !as.character(data$TeamID) %in% as.character(alt$TeamID)
+    if (any(neu)) {
+      cat("Neu gegenueber ", vorsaison_jahr, " (", sum(neu), "): ",
+          paste(data$ShortText[neu], collapse = ", "), "\n", sep = "")
+      cat("  -> Kuerzel und Zweitvertretungs-Status sind Vorschlaege.\n")
+    }
+  }
+
+  cat("Die produktive TeamList_", season, ".csv wurde NICHT geschrieben.\n",
+      sep = "")
+  invisible(NULL)
 }
 
 write_team_list_safely <- function(data, file_path) {
