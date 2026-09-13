@@ -626,3 +626,175 @@ test_that("update_all_leagues_loop has no machine-specific default output direct
   expect_false("shiny_directory" %in% names(fmls))
   expect_false(grepl("Dropbox", paste(deparse(fmls$static_site_dir), collapse = ""), fixed = TRUE))
 })
+
+# ===========================================================================
+# Der Zweitvertretungs-Malus kommt aus der Spalte Promotion (Issue #206/#196)
+# ===========================================================================
+#
+# Bis hierher vergab der Loop die -50 am ENDZEICHEN "2" des Kuerzels. Die
+# Spalte Promotion, die genau diese Information traegt und die Christoph von
+# Hand pflegt (ADR 0007), las im Produktivpfad niemand.
+#
+# Beide Richtungen sind falsch:
+#   HO2A, HA2B  tragen Promotion = -50, enden aber auf einen Buchstaben --
+#               und standen ohne Malus in der Aufstiegstabelle. Der
+#               Mechanismus waechst mit: assign_short_names() weicht bei
+#               Kollisionen bewusst auf Buchstaben aus.
+#   ein Kuerzel auf "2" ohne gepflegten Malus bekaeme ihn umgekehrt zu
+#               Unrecht.
+#
+# Der Test faehrt genau diese zwei Faelle in einer Liga, die laut Registry
+# aufstiegsbeschraenkt ist und deshalb einen Malus-Lauf bekommt.
+
+# Liga 80 (3. Liga) -- has_promotion_restriction() ist dort TRUE.
+MALUS_LIGA <- "80"
+# HOZA endet NICHT auf "2", traegt aber den gepflegten Malus (der Fall HO2A
+# / HA2B). TST2 endet auf "2", ist aber laut Spalte keine Zweitvertretung.
+MALUS_TEAMS <- c("HOZA", "TST2", "AAA", "BBB")
+MALUS_PROMOTION <- c(-50, 0, 0, 0)
+
+# TeamList mit den beiden Grenzfaellen in Liga 80. Die uebrigen aktiven
+# Ligen bekommen Fuellzeilen, damit load_team_list() traegt.
+malus_teamlist_datei <- function() {
+  env <- new.env()
+  source(file.path("..", "..", "RCode", "league_registry.R"), local = env)
+  reg <- env$league_registry()
+
+  zeilen <- list()
+  id <- 0L
+  for (key in names(reg)) {
+    eintrag <- reg[[key]]
+    if (!isTRUE(eintrag$active)) next
+    ist_malus_liga <- identical(as.character(eintrag$api_id), MALUS_LIGA)
+    kurz <- if (ist_malus_liga) {
+      MALUS_TEAMS
+    } else {
+      sprintf("L%s%02d", substr(eintrag$api_id, 1, 2), 1:4)
+    }
+    prom <- if (ist_malus_liga) MALUS_PROMOTION else rep(0, 4)
+    zeilen[[length(zeilen) + 1L]] <- data.frame(
+      TeamID = id + seq_along(kurz),
+      ShortText = kurz,
+      Promotion = prom,
+      InitialELO = 1500,
+      League = eintrag$api_id,
+      Region = "",
+      Name = paste("Verein", kurz),
+      stringsAsFactors = FALSE
+    )
+    id <- id + 100L
+  }
+  df <- do.call(rbind, zeilen)
+  pfad <- tempfile("TeamList_malus_", fileext = ".csv")
+  utils::write.table(df, pfad, sep = ";", quote = FALSE, row.names = FALSE)
+  pfad
+}
+
+test_that("der Malus folgt der Spalte Promotion, nicht dem Kuerzel-Suffix", {
+  teamlist <- malus_teamlist_datei()
+  tl <- utils::read.csv(teamlist, sep = ";", stringsAsFactors = FALSE)
+  gesehen <- list()
+
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
+    fake_fixtures(c("FT", "NS"))
+  })
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) integer(0))
+  # Jede Liga bekommt DENSELBEN Spielplan -- den der Malus-Liga. Der Loop
+  # ruft transform_data() je Liga auf, ohne die ID mitzugeben; entscheidend
+  # ist allein, dass die Malus-Liga ihren eigenen Spielplan sieht.
+  #
+  # Die Teamspalten stehen in UMGEKEHRTER TeamList-Reihenfolge: Eine
+  # Zuordnung nach Position statt nach Kurzname ergaebe einen anderen
+  # Vektor und faellt hier auf.
+  stub(update_all_leagues_loop, "transform_data", function(fixtures, teams) {
+    kurz <- rev(teams$ShortText[as.character(teams$League) == MALUS_LIGA])
+    df <- data.frame(
+      TeamHeim = kurz[1], TeamGast = kurz[2], ToreHeim = 1, ToreGast = 0,
+      stringsAsFactors = FALSE
+    )
+    for (k in kurz) df[[k]] <- 1500
+    df
+  })
+  stub(update_all_leagues_loop, "leagueSimulatorRust",
+       function(spielplan, n, adjPoints = NULL, ...) {
+         if (!is.null(adjPoints)) {
+           gesehen[[length(gesehen) + 1L]] <<- stats::setNames(
+             as.numeric(adjPoints), names(spielplan)[5:ncol(spielplan)]
+           )
+         }
+         m <- matrix(1 / length(MALUS_TEAMS),
+                     nrow = length(MALUS_TEAMS), ncol = length(MALUS_TEAMS))
+         rownames(m) <- names(spielplan)[5:ncol(spielplan)]
+         m
+       })
+  stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
+  stub(update_all_leagues_loop, "generate_static_site", function(...) invisible(character(0)))
+
+  with_repo_root({
+    update_all_leagues_loop(
+      duration = 0, loops = 1, initial_wait = 0, n = 10,
+      saison = "2026", TeamList_file = teamlist,
+      static_site_dir = tempdir(), full_fetch_every = 30
+    )
+  })
+
+  expect_gt(length(gesehen), 0)
+  adj <- gesehen[[1]]
+
+  expect_identical(adj[["HOZA"]], -50,
+                   info = "HO2A-Fall: gepflegter Malus ohne '2' am Ende")
+  expect_identical(adj[["TST2"]], 0,
+                   info = "'2'-Suffix ohne gepflegten Malus bleibt ohne Abzug")
+  expect_identical(adj[["AAA"]], 0)
+  expect_identical(adj[["BBB"]], 0)
+})
+
+test_that("ein Team ohne Zeile in der TeamList bekommt keinen erfundenen Malus", {
+  # Die Zuordnung geht ueber den Kurznamen. Findet sie ein Team nicht --
+  # eine unvollstaendige TeamList --, bleibt der Abzug 0, statt dass NA in
+  # die Payload laeuft und die Engine still etwas anderes rechnet.
+  teamlist <- malus_teamlist_datei()
+  gesehen <- list()
+
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
+    fake_fixtures(c("FT", "NS"))
+  })
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) integer(0))
+  stub(update_all_leagues_loop, "transform_data", function(fixtures, teams) {
+    kurz <- c(MALUS_TEAMS, "XXX")
+    df <- data.frame(
+      TeamHeim = kurz[1], TeamGast = kurz[2], ToreHeim = 1, ToreGast = 0,
+      stringsAsFactors = FALSE
+    )
+    for (k in kurz) df[[k]] <- 1500
+    df
+  })
+  stub(update_all_leagues_loop, "leagueSimulatorRust",
+       function(spielplan, n, adjPoints = NULL, ...) {
+         if (!is.null(adjPoints)) {
+           gesehen[[length(gesehen) + 1L]] <<- stats::setNames(
+             as.numeric(adjPoints), names(spielplan)[5:ncol(spielplan)]
+           )
+         }
+         n_t <- ncol(spielplan) - 4L
+         m <- matrix(1 / n_t, nrow = n_t, ncol = n_t)
+         rownames(m) <- names(spielplan)[5:ncol(spielplan)]
+         m
+       })
+  stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
+  stub(update_all_leagues_loop, "generate_static_site", function(...) invisible(character(0)))
+
+  with_repo_root({
+    update_all_leagues_loop(
+      duration = 0, loops = 1, initial_wait = 0, n = 10,
+      saison = "2026", TeamList_file = teamlist,
+      static_site_dir = tempdir(), full_fetch_every = 30
+    )
+  })
+
+  adj <- gesehen[[1]]
+  expect_false(anyNA(adj))
+  expect_identical(adj[["XXX"]], 0)
+})

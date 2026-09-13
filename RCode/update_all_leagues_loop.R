@@ -256,6 +256,13 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
         # das an die Liga-ID "80" gebunden; jetzt an die Liga-Eigenschaft --
         # die Regionalligen brauchen dasselbe, sobald sie live gehen.
         #
+        # WELCHE Teams den Abzug tragen, sagt die Spalte Promotion der
+        # TeamList (malus_aus_teamlist(), transform_data.R) -- nicht mehr
+        # das Endzeichen des Kurznamens (Issue #196). Die Werte pflegt
+        # Christoph von Hand; der Loop leitet nichts aus Namen ab
+        # (ADR 0007). Welche LIGEN ueberhaupt einen zweiten Lauf bekommen,
+        # bleibt die Frage der Registry.
+        #
         # NAMENSKOLLISION seit Phase 5: Der Schluessel folgt der VIEW. Wo
         # sie das obere Panel aus "<key>_aufstieg" liest (3. Liga,
         # 2. Frauen-Bundesliga), landet der Lauf dort. Bei den
@@ -273,13 +280,7 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
         }
 
         if (has_promotion_restriction(liga_ids[[key]])) {
-          adj_points <- rep(0, dim(spielplan)[2] - 4)
-          for (j in 5:dim(spielplan)[2]) {
-            team_short <- names(spielplan)[j]
-            if (substr(team_short, nchar(team_short), nchar(team_short)) == "2") {
-              adj_points[j - 4] <- -50
-            }
-          }
+          adj_points <- malus_aus_teamlist(spielplan, TeamList, liga_ids[[key]])
           ergebnisse[[aufstiegs_key]] <-
             leagueSimulatorRust(spielplan, n = n, adjPoints = adj_points)
         }
