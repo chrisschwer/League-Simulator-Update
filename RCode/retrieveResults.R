@@ -29,9 +29,60 @@ if (!exists("league_ids")) {
   if (length(remaining) == 1L && !is.na(remaining)) {
     .api_rate_limit$remaining <- remaining
     .api_rate_limit$limit <- suppressWarnings(as.numeric(hdrs[["x-ratelimit-requests-limit"]]))
+    # Der Reset-Header ist eine DAUER in Sekunden -- ein rollierendes
+    # Fenster, keine Tagesgrenze (gemessen 2026-09-12: 31302 s ~ 8,7 h).
+    # Wer ihn als Mitternacht liest, rechnet die Tagesbilanz gegen die
+    # falsche Grenze. Er wird zusammen mit `as_of` festgehalten, damit der
+    # Leser die seither vergangene Zeit abziehen kann.
+    .api_rate_limit$reset_seconds <-
+      suppressWarnings(as.numeric(hdrs[["x-ratelimit-requests-reset"]]))
     .api_rate_limit$as_of <- Sys.time()
   }
   invisible(NULL)
+}
+
+#' Der zuletzt gesehene Kontingent-Stand (Issue #190, Stufe 1).
+#'
+#' `.api_rate_limit` wurde nach JEDEM Produktiv-Request beschrieben und von
+#' niemandem gelesen -- die Header wurden geparst und weggeworfen. Dieser
+#' Getter macht sie zugaenglich, ohne dass ein Aufrufer die Umgebung selbst
+#' anfassen oder auf `exists()` pruefen muss.
+#'
+#' @return Liste mit `remaining`, `limit`, `reset_seconds` und `as_of`.
+#'   Alle numerischen Felder sind NA, solange kein Request Header geliefert
+#'   hat (Loop 1 vor dem ersten Abruf, oder eine API, die sie weglaesst).
+#'   `reset_seconds` ist um die seit der Messung vergangene Zeit
+#'   fortgeschrieben: Der Header nennt die Restdauer ZUM ZEITPUNKT DER
+#'   ANTWORT, und zwischen zwei Loops vergehen Minuten. Wer den Rohwert
+#'   weiterreicht, rechnet mit einem zu langen Fenster und drosselt zu
+#'   schwach. Nie kleiner als 0.
+api_rate_limit_stand <- function() {
+  hole <- function(name) {
+    if (!exists(name, envir = .api_rate_limit, inherits = FALSE)) {
+      return(NA_real_)
+    }
+    wert <- get(name, envir = .api_rate_limit, inherits = FALSE)
+    if (length(wert) != 1L) return(NA_real_)
+    as.numeric(wert)
+  }
+
+  as_of <- if (exists("as_of", envir = .api_rate_limit, inherits = FALSE)) {
+    get("as_of", envir = .api_rate_limit, inherits = FALSE)
+  } else {
+    NA
+  }
+
+  reset <- hole("reset_seconds")
+  if (!is.na(reset) && inherits(as_of, "POSIXct")) {
+    reset <- max(0, reset - as.numeric(difftime(Sys.time(), as_of, units = "secs")))
+  }
+
+  list(
+    remaining = hole("remaining"),
+    limit = hole("limit"),
+    reset_seconds = reset,
+    as_of = as_of
+  )
 }
 
 retrieveResults <- function(league = "78", season = "2022") {
@@ -53,7 +104,11 @@ retrieveResults <- function(league = "78", season = "2022") {
       "X-RapidAPI-Key" = RAPIDAPI_KEY,
       "X-RapidAPI-Host" = "api-football-v1.p.rapidapi.com"
     ),
-    content_type("application/octet-stream")
+    content_type("application/octet-stream"),
+    # Ohne Zeitgrenze blockiert ein haengender Socket die Schleife
+    # unbegrenzt -- der Container bleibt dabei "healthy", weil der
+    # Rust-Server unbeteiligt ist, und der Scheduler steht stumm (#204).
+    timeout(30)
   )
 
   # Check response status
@@ -127,7 +182,8 @@ retrieveLiveFixtures <- function(league_ids = NULL) {
       "X-RapidAPI-Key" = RAPIDAPI_KEY,
       "X-RapidAPI-Host" = "api-football-v1.p.rapidapi.com"
     ),
-    content_type("application/octet-stream")
+    content_type("application/octet-stream"),
+    timeout(30) # s. retrieveResults()
   )
 
   if (status_code(response) != 200) {

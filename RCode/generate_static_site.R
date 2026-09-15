@@ -126,11 +126,42 @@ NAV_GRUPPEN_REIHENFOLGE <- c("Herren", "Regionalliga", "Frauen")
   league_views()[[.AUFSTIEGSSEITE_SLUG]]
 }
 
-footer_timestamp <- function(mtime) {
+# Der Takt, den der Seitenfuss nennt, wenn er vom Normalfall abweicht.
+# Modulweite Variable statt eines weiteren Arguments durch vier
+# Render-Funktionen: `.footer_html()` wird an drei Stellen gerufen, die
+# Seitenrenderer an weiteren -- ein durchgereichtes Argument haette den
+# halben Generator angefasst und sich mit PR #220 (atomares Schreiben in
+# denselben Funktionen) gebissen. generate_static_site() setzt sie, der
+# Fussbauer liest sie; beide stehen in dieser Datei.
+.aktueller_takt <- NULL
+
+# Ab wann ein Takt "eingeschraenkt" ist: mehr als das Anderthalbfache des
+# Normaltakts. Darunter ist die Abweichung Rundung, kein Ausfall -- und ein
+# Hinweis, der immer dasteht, ist nach einer Woche unsichtbar.
+.TAKT_NORMAL_SEKUNDEN <- 120
+.TAKT_HINWEIS_FAKTOR <- 1.5
+
+footer_timestamp <- function(mtime, waittime = NULL) {
   lt <- as.POSIXlt(mtime, tz = "Europe/Berlin")
   # isdst: >0 = DST (MESZ), 0 = standard (MEZ), <0 = unknown -> falls through to MEZ
   tzlabel <- if (lt$isdst > 0) "MESZ" else "MEZ"
-  paste0("Letztes Update: ", format(lt, "%d.%m.%Y %H:%M"), " ", tzlabel)
+  zeile <- paste0("Letztes Update: ", format(lt, "%d.%m.%Y %H:%M"), " ", tzlabel)
+
+  # Der Hinweis auf eingeschraenkten Service (Issue #224). Am 14.09.2026
+  # lief der Scheduler im 83-Minuten-Takt, ohne dass die Seite das verriet:
+  # Sie zeigte "Letztes Update 18:51" und sah aus wie eine, die gleich
+  # wieder aktualisiert wird. Ein Spiel um 18:00 fiel in die Luecke bis
+  # 20:15. Der Stale-Banner greift erst nach 24 Stunden und haette hier nie
+  # angeschlagen.
+  if (length(waittime) == 1L && !is.na(waittime) &&
+        waittime > .TAKT_NORMAL_SEKUNDEN * .TAKT_HINWEIS_FAKTOR) {
+    zeile <- paste0(
+      zeile, " — Eingeschränkter Service, Update etwa alle ",
+      round(waittime / 60), " Minuten"
+    )
+  }
+
+  zeile
 }
 
 iso_utc <- function(t) {
@@ -453,7 +484,7 @@ render_panel_table <- function(data_obj, panel, computed_obj = NULL) {
 .footer_html <- function(mtime) {
   paste0(
     "<footer>\n",
-    "<span>", htmltools::htmlEscape(footer_timestamp(mtime)),
+    "<span>", htmltools::htmlEscape(footer_timestamp(mtime, .aktueller_takt)),
     " <time id=\"generated\" datetime=\"", iso_utc(mtime), "\"></time></span>\n",
     "<span>Mehr dazu unter <a href=\"", BLOG_URL,
     "\" target=\"blank_\">30punkte.wordpress.com</a></span>\n",
@@ -911,7 +942,22 @@ generate_static_site <- function(Ergebnis = NULL, Ergebnis2 = NULL,
                                                          "ShinyApp/public"),
                                  now = Sys.time(),
                                  league_data = NULL,
-                                 ergebnisse = NULL) {
+                                 ergebnisse = NULL,
+                                 waittime = NULL) {
+  # Der aktuelle Update-Takt fuer den Seitenfuss (Issue #224). NULL = keine
+  # Angabe = Fuss unveraendert, damit scripts/preview_site.R und alle
+  # Bestandsaufrufe nichts davon merken. Gesetzt wird eine modulweite
+  # Variable, weil der Fussbauer tief in den Render-Funktionen sitzt --
+  # siehe Kommentar bei `.aktueller_takt`.
+  #
+  # on.exit: Der Wert gehoert zu DIESEM Aufruf. Bliebe er stehen, truege
+  # ein spaeterer Aufruf ohne Taktangabe den Hinweis des vorigen weiter --
+  # in den Tests derselben Sitzung sofort sichtbar, in Produktion nach dem
+  # ersten gedrosselten Zyklus dauerhaft.
+  alter_takt <- .aktueller_takt
+  .aktueller_takt <<- waittime
+  on.exit(.aktueller_takt <<- alter_takt, add = TRUE)
+
   # Alte Form in die neue uebersetzen, damit es intern nur einen Pfad gibt.
   if (is.null(ergebnisse)) {
     ergebnisse <- list(

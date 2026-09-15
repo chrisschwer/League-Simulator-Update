@@ -457,3 +457,97 @@ test_that("ein fehlschlagendes file.rename laesst die alte Seite unangetastet", 
   expect_equal(readLines(ziel, warn = FALSE), "<html>ALT</html>")
   expect_length(list.files(out, pattern = "\\.tmp$"), 0)
 })
+
+
+# ---------------------------------------------------------------------------
+# Eingeschraenkter Service im Seitenfuss (Issue #224, Refs #190)
+# ---------------------------------------------------------------------------
+#
+# Am 14.09.2026 lief der Scheduler den ganzen Tag im 83-Minuten-Takt, ohne
+# dass die Seite davon etwas verriet: Sie zeigte "Letztes Update 18:51" und
+# sah damit aus wie eine Seite, die gleich wieder aktualisiert wird. Ein
+# Frauen-Bundesliga-Spiel um 18:00 fiel in die Luecke bis 20:15.
+#
+# Der Stale-Banner greift erst nach 24 Stunden und haette hier nie
+# angeschlagen. Der Fuss muss den ABWEICHENDEN TAKT nennen, nicht nur den
+# Zeitpunkt der letzten Aktualisierung -- sonst kann ein Leser nicht
+# unterscheiden, ob die Zahlen zwei Minuten oder anderthalb Stunden alt
+# sein duerfen.
+
+test_that("footer_timestamp nennt den eingeschraenkten Takt, wenn er abweicht", {
+  gen <- source_generator()
+  ts <- as.POSIXct("2026-09-14 18:51:00", tz = "Europe/Berlin")
+
+  zeile <- gen$footer_timestamp(ts, waittime = 83.1 * 60)
+
+  expect_match(zeile, "Letztes Update")
+  expect_match(zeile, "Eingeschr.nkter Service")
+  expect_match(zeile, "alle 83 Minuten")
+})
+
+test_that("footer_timestamp schweigt beim Normaltakt", {
+  # Der Hinweis ist eine Ausnahmemeldung. Stuende er immer da, waere er
+  # nach einer Woche unsichtbar -- und im Ausnahmefall wertlos.
+  gen <- source_generator()
+  ts <- as.POSIXct("2026-09-14 18:51:00", tz = "Europe/Berlin")
+
+  expect_false(grepl("Eingeschr", gen$footer_timestamp(ts, waittime = 120)))
+  # Auch leicht darueber noch nicht: Ein Takt von 2:30 min ist kein
+  # eingeschraenkter Service, sondern Rundung.
+  expect_false(grepl("Eingeschr", gen$footer_timestamp(ts, waittime = 150)))
+})
+
+test_that("footer_timestamp ohne Taktangabe ist unveraendert", {
+  # Der Produktionsaufruf aus scripts/preview_site.R und alle bestehenden
+  # Tests rufen mit EINEM Argument auf. Der Default darf die Zeile nicht
+  # anfassen.
+  gen <- source_generator()
+  ts <- as.POSIXct("2026-09-14 18:51:00", tz = "Europe/Berlin")
+
+  expect_equal(gen$footer_timestamp(ts), gen$footer_timestamp(ts, waittime = NULL))
+  expect_false(grepl("Eingeschr", gen$footer_timestamp(ts)))
+})
+
+test_that("generate_static_site traegt den Takt bis in den Seitenfuss", {
+  # Der Weg vom Loop bis ins HTML: generate_static_site(waittime = ...)
+  # muss auf JEDER gerenderten Seite ankommen, nicht nur auf der ersten.
+  gen <- source_generator()
+  env <- make_data_env()
+  out <- file.path(tempdir(), "fuss-takt")
+  unlink(out, recursive = TRUE)
+
+  gen$generate_static_site(
+    output_dir = out,
+    ergebnisse = list(bundesliga = env$Ergebnis),
+    now = as.POSIXct("2026-09-14 18:51:00", tz = "Europe/Berlin"),
+    waittime = 83.1 * 60
+  )
+
+  seiten <- list.files(out, pattern = "\\.html$", full.names = TRUE)
+  expect_gt(length(seiten), 0)
+  for (p in seiten) {
+    expect_match(read_html(p), "Eingeschr.nkter Service",
+                 info = basename(p))
+  }
+})
+
+test_that("generate_static_site ohne Taktangabe laesst den Fuss unveraendert", {
+  # Gegenprobe: Ohne das Argument darf nichts im Fuss stehen, was vorher
+  # nicht da war -- sonst braeche der Default alle Bestandsseiten.
+  gen <- source_generator()
+  env <- make_data_env()
+  out <- file.path(tempdir(), "fuss-normal")
+  unlink(out, recursive = TRUE)
+
+  gen$generate_static_site(
+    output_dir = out,
+    ergebnisse = list(bundesliga = env$Ergebnis),
+    now = as.POSIXct("2026-09-14 18:51:00", tz = "Europe/Berlin")
+  )
+
+  seiten <- list.files(out, pattern = "\\.html$", full.names = TRUE)
+  expect_gt(length(seiten), 0)
+  for (p in seiten) {
+    expect_false(grepl("Eingeschr", read_html(p)), info = basename(p))
+  }
+})

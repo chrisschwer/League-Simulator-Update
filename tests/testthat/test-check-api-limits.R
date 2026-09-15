@@ -150,8 +150,6 @@ test_that("unlesbare Header deckeln nicht, sondern lassen den Wunsch stehen", {
   # Ueberwachung, die diesen Fehlerfall ueberhaupt erst sichtbar macht.
   # Der Test bleibt als ausformulierte Reproduktion stehen, statt in einer
   # Issue-Beschreibung zu verwittern.
-  skip("Fix gehoert zu #190 (Rate-Limit-Ueberwachung); Reproduktion bleibt hier")
-
   env <- lade_check_api_limits()
   f <- mit_headern(env, list())
 
@@ -174,5 +172,56 @@ test_that("faellt die Abfrage aus, greift die konservative Schaetzung aus der Re
   mit_api_key({
     expect_warning(ergebnis <- f(360))
     expect_equal(ergebnis, erwartet)
+  })
+})
+
+
+# --- Aus #204 mitgenommen (der dort geplante PR #216 wird von #190
+# --- abgeloest): zwei Randfaelle, die aus einem leeren oder kaputten
+# --- Kontingent eine ungueltige Rundenzahl machten.
+
+test_that("ein negativer Rate-Limit-Header wird auf 0 Runden geklemmt", {
+  # Ohne Klammer wird safe_loops negativ, min(ideal, negativ) ebenfalls --
+  # und `for (i in 1:loops)` zaehlt dann RUECKWAERTS statt gar nicht zu
+  # laufen. Eine negative Rundenzahl ist keine Planung, sondern ein Defekt.
+  env <- lade_check_api_limits()
+  f <- mit_headern(env, list(
+    `x-ratelimit-requests-remaining` = "-50",
+    `x-ratelimit-requests-limit` = "7500"
+  ))
+
+  mit_api_key(expect_equal(f(360), 0))
+})
+
+test_that("ein erschoepftes Kontingent ergibt 0 Runden, nicht eine", {
+  env <- lade_check_api_limits()
+  f <- mit_headern(env, list(
+    `x-ratelimit-requests-remaining` = "0",
+    `x-ratelimit-requests-limit` = "7500"
+  ))
+
+  mit_api_key(expect_equal(f(360), 0))
+})
+
+
+test_that("die fehlgeschlagene Probe meldet sich sofort, nicht erst beim Prozessende", {
+  # Issue #224: R sammelt Warnungen im Produktivlauf und gibt sie erst beim
+  # Prozessende aus. Am 14.09.2026 erschien "Error checking API limits"
+  # deshalb um 23:01 -- elf Stunden nachdem sie den Tag auf 9 Runden
+  # gedeckelt hatte. Wer um 12:00 ins Log sah, fand keinen Grund fuer den
+  # 83-Minuten-Takt.
+  #
+  # Die Warnung bleibt (maschinenlesbar, von anderen Tests geprueft); die
+  # Meldung kommt daneben, weil message() sofort durchgeht.
+  env <- lade_check_api_limits()
+  f <- env$checkAPILimits
+  stub(f, "httr::GET", function(...) stop("Resolving timed out after 10000 ms"))
+
+  mit_api_key({
+    meldungen <- capture_messages(suppressWarnings(f(361)))
+    expect_true(any(grepl("WARNUNG", meldungen)))
+    expect_true(any(grepl("Rate-Limit-Probe fehlgeschlagen", meldungen)))
+    # Der Grund steht mit drin, nicht nur die Tatsache.
+    expect_true(any(grepl("Resolving timed out", meldungen)))
   })
 })

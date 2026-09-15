@@ -363,47 +363,6 @@ convert_second_team_short_name <- function(short_name, is_second_team, promotion
   return(short_name)
 }
 
-check_api_rate_limit <- function() {
-  # Check API rate limit status
-  # Returns rate limit information
-
-  tryCatch(
-    {
-      api_key <- Sys.getenv("RAPIDAPI_KEY")
-      if (api_key == "") {
-        return(list(error = "RAPIDAPI_KEY not set"))
-      }
-
-      # Make a simple API call to check rate limit headers
-      url <- "https://api-football-v1.p.rapidapi.com/v3/status"
-
-      response <- httr::GET(
-        url,
-        httr::add_headers(
-          "X-RapidAPI-Key" = api_key,
-          "X-RapidAPI-Host" = "api-football-v1.p.rapidapi.com"
-        )
-      )
-
-      # Extract rate limit headers
-      headers <- httr::headers(response)
-
-      rate_limit_info <- list(
-        status_code = httr::status_code(response),
-        requests_remaining = headers$`x-ratelimit-requests-remaining`,
-        requests_limit = headers$`x-ratelimit-requests-limit`,
-        quota_used = headers$`x-ratelimit-quota-used`,
-        quota_limit = headers$`x-ratelimit-quota-limit`
-      )
-
-      return(rate_limit_info)
-    },
-    error = function(e) {
-      return(list(error = paste("Failed to check rate limit:", e$message)))
-    }
-  )
-}
-
 log_api_usage <- function(endpoint, league_id, season, success = TRUE) {
   # Log API usage for monitoring
   # Helps track API calls and debug issues
