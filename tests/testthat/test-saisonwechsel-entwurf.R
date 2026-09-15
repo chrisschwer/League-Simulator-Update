@@ -99,3 +99,100 @@ test_that("die Konfliktliste nennt leere Regionen und Zweitvertretungen", {
   expect_match(text, "BBB")          # leere Region
   expect_match(text, "Entwurf")      # der Hinweis, dass nichts produktiv ist
 })
+
+# --- Der Konfliktbericht als DATEI (ADR 0007) ------------------------------
+#
+# Die Terminalausgabe allein traegt nicht: Der Lauf findet einmal im Juli
+# statt, und bis zur Nacharbeit waere sie weggescrollt. ADR 0007 verlangt
+# deshalb "eine Datei neben der TeamList". Sie heisst
+# TeamList_<Jahr>_entwurf_konflikte.md -- gleicher Stamm wie der Entwurf,
+# damit beide zusammen bleiben und beim Aufraeumen gemeinsam auffallen.
+#
+# Die Endung .md und nicht .txt: Der Bericht ist zum Lesen da, und die drei
+# Gruppen sind Listen.
+
+konfliktbericht_pfad <- function(dir, season = "2027") {
+  file.path(dir, paste0("TeamList_", season, "_entwurf_konflikte.md"))
+}
+
+test_that("der Lauf schreibt den Konfliktbericht als Datei neben den Entwurf", {
+  env <- lade_entwurf_module()
+  dir <- withr::local_tempdir()
+
+  env$generate_team_list_csv(entwurfsdaten(), "2027", output_dir = dir)
+
+  expect_true(file.exists(konfliktbericht_pfad(dir)))
+})
+
+test_that("der Bericht nennt Teams ohne Stammregion und die Neuzugaenge", {
+  # Die Vorsaison kennt nur AAA; BBB ist damit neu UND ohne Region.
+  env <- lade_entwurf_module()
+  dir <- withr::local_tempdir()
+
+  utils::write.table(
+    data.frame(TeamID = 1, ShortText = "AAA", Promotion = 0,
+               InitialELO = 1500, League = "87", Region = "West",
+               Name = "Verein A", stringsAsFactors = FALSE),
+    file.path(dir, "TeamList_2026.csv"),
+    sep = ";", quote = FALSE, row.names = FALSE
+  )
+
+  env$generate_team_list_csv(entwurfsdaten(), "2027", output_dir = dir)
+  text <- paste(readLines(konfliktbericht_pfad(dir), warn = FALSE),
+                collapse = "\n")
+
+  expect_match(text, "BBB")                    # ohne Stammregion
+  expect_match(text, "Stammregion")
+  expect_match(text, "[Nn]eu")                 # Neuzugang gegenueber 2026
+  expect_match(text, "2027")                   # um welchen Entwurf es geht
+})
+
+test_that("der Bericht nennt Kuerzel-Konflikte", {
+  # Direkt auf bericht_konflikte(): Ein Kuerzel-Konflikt laesst
+  # generate_team_list_csv() schon an validate_csv_data() scheitern, der
+  # Bericht kaeme dort nie zum Zug. Die Gruppe muss er trotzdem koennen --
+  # sie ist die erste der drei, und sie speist die Nacharbeit.
+  env <- lade_entwurf_module()
+  dir <- withr::local_tempdir()
+
+  daten <- entwurfsdaten()
+  daten$ShortText <- c("AAA", "AAA")           # zweimal dasselbe in Liga 87
+
+  env$bericht_konflikte(daten, "2027", output_dir = dir)
+  text <- paste(readLines(konfliktbericht_pfad(dir), warn = FALSE),
+                collapse = "\n")
+
+  expect_match(text, "AAA")
+  expect_match(text, "Kuerzel|Kürzel")
+})
+
+test_that("ohne Befund entsteht der Bericht trotzdem", {
+  # Sonst bliebe offen, ob der Lauf nichts gefunden oder nicht berichtet
+  # hat. Eine leere Datei traegt diese Auskunft nicht -- eine Zeile schon.
+  env <- lade_entwurf_module()
+  dir <- withr::local_tempdir()
+
+  sauber <- entwurfsdaten()
+  sauber$Region <- c("West", "West")           # keine leere Region mehr
+
+  env$bericht_konflikte(sauber, "2027", output_dir = dir)
+  text <- paste(readLines(konfliktbericht_pfad(dir), warn = FALSE),
+                collapse = "\n")
+
+  expect_match(text, "[Kk]eine Konflikte")
+})
+
+test_that("der Bericht wiederholt, was die Terminalausgabe sagt", {
+  # Zwei Ausgabewege, ein Inhalt. Liefen sie auseinander, waere nicht mehr
+  # klar, welcher gilt.
+  env <- lade_entwurf_module()
+  dir <- withr::local_tempdir()
+
+  ausgabe <- capture.output(
+    env$generate_team_list_csv(entwurfsdaten(), "2027", output_dir = dir)
+  )
+  datei <- readLines(konfliktbericht_pfad(dir), warn = FALSE)
+
+  expect_true(any(grepl("BBB", ausgabe)))
+  expect_true(any(grepl("BBB", datei)))
+})

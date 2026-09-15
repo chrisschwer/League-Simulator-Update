@@ -33,10 +33,12 @@ liest.
 
 Nach dem Lauf steht der Entwurf, nicht die TeamList. Zu tun bleibt:
 
-1. **Konfliktliste am Ende des Laufs lesen.** Sie nennt drei Gruppen:
+1. **Konfliktbericht lesen** — `RCode/TeamList_<Jahr>_entwurf_konflikte.md`,
+   gleicher Inhalt auch im Terminal am Ende des Laufs. Er nennt drei Gruppen:
    Kürzel-Konflikte (dieselbe Prüfung, die `load_team_list()` beim Laden
    anwendet), Teams **ohne Stammregion** und Teams, die gegenüber der Vorsaison
-   **neu** sind.
+   **neu** sind. Ohne Befund steht „Keine Konflikte gefunden" darin — die Datei
+   entsteht in jedem Fall.
 2. **Kürzel prüfen.** Für Neuzugänge sind sie Vorschläge. Maßgeblich ist, unter
    welchem Kürzel ein Verein bekannt ist (DFL-Konvention), nicht was sich aus
    dem Namen ableiten lässt.
@@ -483,6 +485,7 @@ The wrapper only matches files of the form `TeamList_<season>_League(78|79|80)_t
 
 - `RCode/TeamList_<season>.csv` (the final season file — the run never writes it either)
 - `RCode/TeamList_<season>_entwurf.csv` (the draft, i.e. the run's actual result)
+- `RCode/TeamList_<season>_entwurf_konflikte.md` (the conflict report next to it)
 - Any `.tmp` or `.lock` files
 - Anything outside `RCode/`
 - Files for other seasons

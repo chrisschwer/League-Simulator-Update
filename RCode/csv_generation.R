@@ -1,7 +1,8 @@
 # CSV Generation Functions
 #
 # Schreibt den ENTWURF des Saisonwechsels: TeamList_<Jahr>_entwurf.csv,
-# sieben Spalten, samt kurzer Konfliktliste am Ende des Laufs.
+# sieben Spalten, samt Konfliktbericht (Terminal und
+# TeamList_<Jahr>_entwurf_konflikte.md) am Ende des Laufs.
 #
 # Die produktive TeamList_<Jahr>.csv entsteht hier NICHT und wird auch nicht
 # angefasst. Sie ist gepflegtes Stammdatenblatt: Ueber Kurznamen und
@@ -393,7 +394,7 @@ validate_csv_data <- function(data) {
   ))
 }
 
-#' Kurze Konfliktliste am Ende des Laufs (ADR 0007).
+#' Konfliktbericht am Ende des Laufs -- Terminal UND Datei (ADR 0007).
 #'
 #' Der Entwurf allein sagt nicht, was die Nacharbeit anfassen muss. Diese
 #' Liste sagt es -- knapp, in drei Gruppen, und nur fuer das, was aus den
@@ -414,21 +415,47 @@ validate_csv_data <- function(data) {
 #' @param output_dir Verzeichnis, in dem auch die Vorsaison liegt.
 #' @return NULL, unsichtbar. Die Funktion gibt aus, sie liefert nichts.
 bericht_konflikte <- function(data, season, output_dir = "RCode") {
-  cat("\n=== Entwurf: was die Nacharbeit braucht ===\n")
+  # Der Bericht wird EINMAL gebaut und zweimal ausgegeben: ins Terminal,
+  # damit der Lauf sofort sagt, was er gefunden hat, und in eine Datei, weil
+  # der Lauf einmal im Juli stattfindet und die Terminalausgabe bis zur
+  # Nacharbeit weggescrollt waere (ADR 0007). Zwei getrennte Formulierungen
+  # liefen frueher oder spaeter auseinander -- dann waere nicht mehr klar,
+  # welche gilt.
+  zeilen <- character(0)
+  sag <- function(...) zeilen <<- c(zeilen, paste0(...))
+
+  sag("# Konflikte im Entwurf TeamList_", season)
+  sag("")
+  sag("Erzeugt vom Saisonwechsel (Phase 1). Diese Liste sagt, was die ",
+      "Nacharbeit von Hand anfassen muss.")
+  sag("")
+
+  befunde <- 0L
 
   verstoesse <- pruefe_kuerzel_vertrag(data)
   if (length(verstoesse) > 0) {
-    cat("Kuerzel-Konflikte (", length(verstoesse), "):\n", sep = "")
-    for (v in verstoesse) cat("  -", v, "\n")
+    befunde <- befunde + 1L
+    sag("## Kuerzel-Konflikte (", length(verstoesse), ")")
+    sag("")
+    for (v in verstoesse) sag("- ", v)
+    sag("")
+    sag("Welcher Verein sein Kuerzel behaelt, ist eine Frage der ",
+        "Vereinsidentitaet -- keine der Reihenfolge in der Datei.")
+    sag("")
   }
 
   if ("Region" %in% colnames(data)) {
     leer <- is.na(data$Region) | trimws(as.character(data$Region)) == ""
     if (any(leer)) {
-      cat("Ohne Stammregion (", sum(leer), "): ",
-          paste(data$ShortText[leer], collapse = ", "), "\n", sep = "")
-      cat("  -> ohne sie entfaellt fuer diese Teams die Abstiegskopplung",
-          "der Regionalligen (ADR 0006).\n")
+      befunde <- befunde + 1L
+      sag("## Ohne Stammregion (", sum(leer), ")")
+      sag("")
+      sag("- ", paste(data$ShortText[leer], collapse = ", "))
+      sag("")
+      sag("Ohne sie entfaellt fuer diese Teams die Abstiegskopplung der ",
+          "Regionalligen (ADR 0006). Die Region laesst sich nicht ",
+          "herleiten (ADR 0003) -- sie muss von Hand nachgetragen werden.")
+      sag("")
     }
   }
 
@@ -442,15 +469,39 @@ bericht_konflikte <- function(data, season, output_dir = "RCode") {
     alt <- utils::read.csv(vorsaison_datei, sep = ";", stringsAsFactors = FALSE)
     neu <- !as.character(data$TeamID) %in% as.character(alt$TeamID)
     if (any(neu)) {
-      cat("Neu gegenueber ", vorsaison_jahr, " (", sum(neu), "): ",
-          paste(data$ShortText[neu], collapse = ", "), "\n", sep = "")
-      cat("  -> Kuerzel und Zweitvertretungs-Status sind Vorschlaege.\n")
+      befunde <- befunde + 1L
+      sag("## Neu gegenueber ", vorsaison_jahr, " (", sum(neu), ")")
+      sag("")
+      sag("- ", paste(data$ShortText[neu], collapse = ", "))
+      sag("")
+      sag("Kuerzel und Zweitvertretungs-Status sind fuer diese Teams ",
+          "VORSCHLAEGE (ADR 0007).")
+      sag("")
     }
   }
 
-  cat("Die produktive TeamList_", season, ".csv wurde NICHT geschrieben.\n",
-      sep = "")
-  invisible(NULL)
+  if (befunde == 0L) {
+    # Auch ohne Befund entsteht die Datei. Sonst bliebe offen, ob der Lauf
+    # nichts gefunden oder gar nicht berichtet hat.
+    sag("Keine Konflikte gefunden.")
+    sag("")
+  }
+
+  sag("Die produktive TeamList_", season, ".csv wurde NICHT geschrieben.")
+
+  # Terminal
+  cat("\n")
+  cat(zeilen, sep = "\n")
+  cat("\n")
+
+  # Datei, gleicher Stamm wie der Entwurf -- so bleiben beide zusammen.
+  bericht_datei <- file.path(
+    output_dir, paste0("TeamList_", season, "_entwurf_konflikte.md")
+  )
+  writeLines(zeilen, bericht_datei)
+  cat("Konfliktbericht:", bericht_datei, "\n")
+
+  invisible(bericht_datei)
 }
 
 write_team_list_safely <- function(data, file_path) {

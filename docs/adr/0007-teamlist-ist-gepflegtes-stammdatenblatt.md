@@ -60,10 +60,9 @@ produktive Datei.
 
 > **Umgesetzt (#206):** `csv_generation.R` schreibt den Entwurf im
 > Siebenspaltenformat und fasst eine vorhandene `TeamList_<Jahr>.csv` nicht
-> mehr an — auch im `--non-interactive`-Modus nicht. Die **Konfliktliste**
-> gibt es bislang nur als Terminalausgabe am Ende des Laufs; der Bericht als
-> **Datei** neben der TeamList, wie ihn dieser ADR unten fordert, bleibt
-> offen.
+> mehr an — auch im `--non-interactive`-Modus nicht. Der **Konfliktbericht**
+> entsteht als Datei `TeamList_<Jahr>_entwurf_konflikte.md` neben dem
+> Entwurf und zusätzlich als Terminalausgabe.
 
 Die **Ligazuordnung kommt dabei aus der API**, nicht aus der Vorsaison: Der
 Lauf fragt `/v3/teams?league=<id>&season=<Jahr>` je aktiver Liga einzeln ab
@@ -104,13 +103,19 @@ nennt vier Dinge:
 Er landet als Datei neben der TeamList, nicht im Log: Der Lauf findet einmal im
 Juli statt, und bis zur Nacharbeit wäre eine Terminalausgabe weggescrollt.
 
-> **Stand September 2026 (Issue #206):** Entwurfsdatei und Konfliktliste
-> existieren, die Liste aber **als Terminalausgabe am Ende des Laufs**, nicht
-> als Datei — und sie nennt drei der vier Punkte (Kürzel-Konflikte, fehlende
-> Stammregion, neue Teams). Die Kollisionen nach Ligawechsel sind darin über
-> die Kürzel-Prüfung enthalten, aber nicht als eigene Gruppe ausgewiesen. Der
-> Bericht als Datei bleibt offen; dass er weggescrollt sein kann, gilt bis
-> dahin.
+> **Stand September 2026 (Issue #206):** Umgesetzt. Der Bericht entsteht als
+> `TeamList_<Jahr>_entwurf_konflikte.md` neben dem Entwurf — gleicher
+> Dateistamm, damit beide zusammen bleiben — und zusätzlich als
+> Terminalausgabe; beide kommen aus **einer** Quelle, laufen also nicht
+> auseinander. Ohne Befund entsteht die Datei ebenfalls, mit einer Zeile
+> „Keine Konflikte gefunden": Sonst bliebe offen, ob der Lauf nichts
+> gefunden oder nicht berichtet hat.
+>
+> Er nennt drei der vier Punkte (Kürzel-Konflikte, fehlende Stammregion,
+> neue Teams). Die **Kollisionen nach Ligawechsel** stecken in der
+> Kürzel-Prüfung, sind aber nicht als eigene Gruppe ausgewiesen — dafür
+> bräuchte der Bericht die Liga-Zuordnung der Vorsaison, die an dieser
+> Stelle nicht vorliegt.
 
 ## Was der Lauf nicht mehr tun darf
 

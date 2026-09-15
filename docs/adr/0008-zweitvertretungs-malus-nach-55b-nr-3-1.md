@@ -74,9 +74,9 @@ dabei geraten hat, steht im Konfliktbericht.
 > überschreibt die gepflegte Spalte nicht mehr, sondern wendet die
 > Drei-Fälle-Regel an (PR #199); der **Update-Loop** liest sie seit #206 aus
 > `Promotion`, statt sie am Kurznamen-Suffix neu zu erfinden. Was die
-> Heuristik für Neuzugänge vorschlägt, nennt die Konfliktliste am Ende des
-> Laufs — noch als Terminalausgabe, die Berichtsdatei aus
-> [ADR 0007](0007-teamlist-ist-gepflegtes-stammdatenblatt.md) bleibt offen.
+> Heuristik für Neuzugänge vorschlägt, nennt der Konfliktbericht am Ende des
+> Laufs — im Terminal und als Datei neben dem Entwurf
+> ([ADR 0007](0007-teamlist-ist-gepflegtes-stammdatenblatt.md)).
 
 ## Warum ein eigener ADR
 
