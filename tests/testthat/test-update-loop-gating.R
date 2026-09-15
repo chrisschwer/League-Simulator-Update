@@ -911,3 +911,85 @@ test_that("ein per-Liga-Fehler behaelt die vorherige Prognose der betroffenen Li
   expect_identical(seen_ergebnisse[[2]][["dritte_liga"]],
                    seen_ergebnisse[[1]][["dritte_liga"]])
 })
+
+# --- Issue #224: ein GEWORFENER Fehler (DNS, Timeout, Connection refused) --
+#
+# Der Vorfall vom 14.09.: Ein 16-Sekunden-DNS-Ausfall liess retrieveResults()
+# und den Live-Poll "Resolving timed out" werfen. Die Isolation aus #208 fing
+# nur ein NULL-Rueckgabewert ab -- ein GEWORFENER Fehler war auf dem
+# Produktivpfad ungefangen und riss updateScheduler.R mit (quit(status = 1)).
+# Diese Tests pinnen: ein throw() an EINER Liga verhaelt sich wie ein NULL
+# (Liga geloggt mit dem Grund, die anderen neun laufen weiter, kein
+# Prozessabbruch); ein throw() im Live-Poll wird wie ein NULL behandelt --
+# "kein Live-Wissen diese Runde", Rueckfall auf die Safety-Net-Logik.
+
+test_that("ein geworfener Fehler aus retrieveResults() fuer eine Liga blockiert die anderen neun nicht (issue #224)", {
+  generated <- 0L
+  seen_ergebnisse <- NULL
+  FEHLER_LIGA_ID <- "83" # rl_bayern
+
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
+    if (identical(league, FEHLER_LIGA_ID)) {
+      stop("Resolving timed out after 10000 ms") # DNS-Ausfall, kein NULL-Rueckgabewert
+    }
+    fake_fixtures(c("FT", "NS"))
+  })
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) integer(0))
+  stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
+  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) matrix(1 / 18, nrow = 18, ncol = 18))
+  stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
+  stub(update_all_leagues_loop, "generate_static_site", function(..., ergebnisse) {
+    generated <<- generated + 1L
+    seen_ergebnisse <<- ergebnisse
+    invisible(character(0))
+  })
+
+  msgs <- capture_messages(with_repo_root({
+    update_all_leagues_loop(
+      duration = 0, loops = 1, initial_wait = 0, n = 10,
+      saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
+      static_site_dir = tempdir(), full_fetch_every = 30
+    )
+  }))
+
+  # Der Loop ueberlebt (kein Prozessabbruch) und rendert die neun anderen.
+  expect_equal(generated, 1L)
+  expect_true("bundesliga" %in% names(seen_ergebnisse))
+  expect_false("rl_bayern" %in% names(seen_ergebnisse))
+  # Liga UND Grund stehen im Log.
+  expect_true(any(grepl("rl_bayern", msgs, fixed = TRUE)))
+  expect_true(any(grepl("Resolving timed out", msgs, fixed = TRUE)))
+})
+
+test_that("ein geworfener Fehler aus retrieveLiveFixtures() bricht den Loop nicht ab (issue #224)", {
+  generated <- 0L
+
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(league, season) fake_fixtures(c("FT", "NS")))
+  # Loop 1 ruft retrieveLiveFixtures() nicht auf (i > 1 Gate); erst Loop 2.
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) {
+    stop("Resolving timed out after 10000 ms")
+  })
+  stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
+  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) matrix(1 / 18, nrow = 18, ncol = 18))
+  stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
+  stub(update_all_leagues_loop, "generate_static_site", function(...) {
+    generated <<- generated + 1L
+    invisible(character(0))
+  })
+
+  msgs <- capture_messages(with_repo_root({
+    update_all_leagues_loop(
+      duration = 0, loops = 2, initial_wait = 0, n = 10,
+      saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
+      static_site_dir = tempdir(), full_fetch_every = 30
+    )
+  }))
+
+  # Loop 2 ueberlebt den geworfenen Fehler und faellt auf den Vollabruf
+  # zurueck (wie bei einem NULL-Rueckgabewert: "live poll failed").
+  expect_true(any(grepl("live poll failed", msgs, fixed = TRUE)) ||
+                any(grepl("Resolving timed out", msgs, fixed = TRUE)))
+  expect_gte(generated, 1L) # mindestens Loop 1 hat gerendert
+})
