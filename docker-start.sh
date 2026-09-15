@@ -1,7 +1,17 @@
 #!/bin/sh
 # Robust startup script for integrated League Simulator with Rust engine
 
-set -e
+# KEIN "set -e" (Issue #224, Vorfall 14.09.): Ein DNS-Ausfall liess
+# `Rscript RCode/updateScheduler.R` (Zeile ~70) mit Exit 1 enden. Unter
+# "set -e" beendet ein fehlschlagender Befehl das GANZE Skript sofort --
+# noch bevor `EXIT_CODE=$?` (Zeile ~71) ihn auffangen konnte. Die
+# Retry-Schleife in run_scheduler() (5 Versuche x 30 s) war damit toter
+# Code: Der Container startete binnen Sekunden neu, noch mitten im
+# DNS-Ausfall, statt die 30 Sekunden abzuwarten und es erneut zu
+# versuchen. Jeder kritische Fehlerpfad unten prueft seinen Exit-Code
+# bereits explizit (`if`, `$?`, `||`) -- "set -e" war hier keine
+# zusaetzliche Sicherheit, sondern hat genau die Fehlerbehandlung
+# umgangen, die das Skript eigentlich bereitstellt.
 
 # Configuration
 MAX_RETRIES=5

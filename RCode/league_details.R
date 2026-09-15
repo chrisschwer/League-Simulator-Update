@@ -401,11 +401,15 @@ fetch_league_details <- function(payload,
   json_body <- jsonlite::toJSON(payload, auto_unbox = TRUE, null = "null",
                                 digits = NA)
 
+  # timeout(60): siehe gleichlautende Stelle in rust_integration.R (Issue
+  # #208, Punkt 3) -- ohne sie blockiert ein haengender Socket die Schleife
+  # unbegrenzt, unbemerkt vom Healthcheck.
   response <- httr::POST(
     paste0(base_url, "/league-details"),
     body = json_body,
     httr::content_type_json(),
-    httr::accept_json()
+    httr::accept_json(),
+    httr::timeout(60)
   )
 
   if (httr::status_code(response) != 200) {
