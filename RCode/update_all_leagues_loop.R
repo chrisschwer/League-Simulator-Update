@@ -126,7 +126,22 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
     # Decide whether the full 3-league fetch is needed this iteration
     need_full_fetch <- TRUE
     if (i > 1) {
-      live_ids <- retrieveLiveFixtures()
+      # Ein GEWORFENER Fehler (DNS, Timeout, Connection refused -- Issue
+      # #224, Vorfall 14.09.) wird wie ein NULL-Rueckgabewert behandelt:
+      # "kein Live-Wissen diese Runde", Rueckfall auf die Safety-Net-Logik
+      # unten (need_full_fetch bleibt TRUE, weil live_ids NULL ist). Vorher
+      # war retrieveLiveFixtures() auf dem Produktivpfad ungefangen -- ein
+      # throw() riss updateScheduler.R mit (quit(status = 1)).
+      live_ids <- tryCatch(
+        retrieveLiveFixtures(),
+        error = function(e) {
+          message(sprintf(
+            "Loop %d: live poll fehlgeschlagen (%s), falle auf Vollabruf zurueck",
+            i, conditionMessage(e)
+          ))
+          NULL
+        }
+      )
       if (is.null(live_ids)) {
         message(sprintf("Loop %d: live poll failed, falling back to full fetch", i))
       } else {
@@ -151,18 +166,37 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
       # Fixtures je Liga. Der lapply-Aufruf bleibt bewusst INLINE: Die Tests
       # stubben retrieveResults() gegen die Umgebung dieser Funktion; in eine
       # ausgelagerte Helferfunktion greift der Stub nicht mehr.
+      #
+      # tryCatch je Liga (Issue #224, Vorfall 14.09.): Ein GEWORFENER Fehler
+      # (DNS, Timeout, Connection refused) verhaelt sich jetzt wie ein NULL-
+      # Rueckgabewert -- vorher war er auf dem Produktivpfad ungefangen und
+      # riss updateScheduler.R mit (quit(status = 1)), waehrend ein blosses
+      # NULL laengst durch die #208-Isolation unten abgefangen wurde. Der
+      # Grund (conditionMessage(e)) steht im selben Log-Format wie bei einem
+      # HTTP-Fehlschlag.
       fixtures <- stats::setNames(
-        lapply(liga_ids, function(id) retrieveResults(league = id, season = saison)),
+        lapply(liga_ids, function(id) {
+          tryCatch(
+            retrieveResults(league = id, season = saison),
+            error = function(e) {
+              message(sprintf(
+                "retrieveResults: Liga %s warf einen Fehler: %s",
+                id, conditionMessage(e)
+              ))
+              NULL
+            }
+          )
+        }),
         liga_keys
       )
 
       # Isolation je Liga (Issue #208): Ein NULL (Abruf fehlgeschlagen, siehe
-      # message() mit Statuscode in retrieveResults.R) blockiert nur noch
-      # DIESE Liga -- vorher sprang die ganze Runde per `next` daran vorbei,
-      # egal wie viele der zehn Ligen tatsaechlich betroffen waren. Fehlende
-      # Ligen bleiben unten einfach aus, ihre vorherige ergebnisse[[key]]/
-      # league_data[[key]] ueberlebt unveraendert -- keine erfundene, aber
-      # auch keine geloeschte Seite.
+      # message() mit Statuscode in retrieveResults.R, oder ein geworfener
+      # Fehler s. oben) blockiert nur noch DIESE Liga -- vorher sprang die
+      # ganze Runde per `next` daran vorbei, egal wie viele der zehn Ligen
+      # tatsaechlich betroffen waren. Fehlende Ligen bleiben unten einfach
+      # aus, ihre vorherige ergebnisse[[key]]/league_data[[key]] ueberlebt
+      # unveraendert -- keine erfundene, aber auch keine geloeschte Seite.
       fetch_failed <- vapply(fixtures, is.null, logical(1))
       if (any(fetch_failed)) {
         for (key in liga_keys[fetch_failed]) {
