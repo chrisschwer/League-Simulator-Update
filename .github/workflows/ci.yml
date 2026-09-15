@@ -139,8 +139,38 @@ jobs:
             -v "$PWD/ci-out:/out" \
             -w /app \
             -e RAPIDAPI_KEY=test_key_for_ci \
+            --entrypoint /bin/sh \
             ${{ steps.meta.outputs.tag }} \
-            Rscript -e 'dir.create("/tmp/Rlib", recursive = TRUE, showWarnings = FALSE);
+            -c '
+              # Integrationstests brauchen einen LAUFENDEN Server, nicht nur das
+              # Binary (Issue #202). Ohne ihn uebersprangen sich vier Tests still
+              # ueber connect_rust_simulator() -- ein Skip ist gruen, das Ausbleiben
+              # faellt in keiner Zusammenfassung auf. Geprueft wird damit genau die
+              # Nahtstelle, die sonst niemand ansieht: ob R und Rust dieselbe
+              # Sprache sprechen (u. a. Rust-Raten -> p_sieg_matrix ->
+              # rl_aufstiegsprognose, die Aufstiegsseite der Regionalligen).
+              #
+              # Port 8080 ist der Default des Binaries (main.rs:16) UND der Default
+              # von RUST_API_URL (rust_integration.R:10) -- die Tests finden den
+              # Server daher ohne zusaetzliche Env-Variable.
+              /usr/local/bin/league-simulator-rust --api &
+              RUST_PID=$!
+              trap "kill $RUST_PID 2>/dev/null || true" EXIT
+              i=1
+              while [ $i -le 30 ]; do
+                if curl -sf http://localhost:8080/health >/dev/null 2>&1; then
+                  echo "✅ Rust server ready on port 8080"
+                  break
+                fi
+                if [ $i -eq 30 ]; then
+                  echo "❌ Rust server failed to start after 30 attempts"
+                  exit 1
+                fi
+                sleep 1
+                i=$((i + 1))
+              done
+
+              Rscript -e '"'"'dir.create("/tmp/Rlib", recursive = TRUE, showWarnings = FALSE);
                         .libPaths(c("/tmp/Rlib", .libPaths()));
                         pkgs <- readLines("test_packagelist.txt");
                         pkgs <- pkgs[!grepl("^#|^[[:space:]]*$", pkgs)];
@@ -157,7 +187,8 @@ jobs:
                         cat("\n--- summary ---\n");
                         cat(sprintf("FAIL=%d WARN=%d SKIP=%d PASS=%d\n",
                                     sum(df$failed > 0), sum(df$warning), sum(df$skipped), sum(df$nb)));
-                        if (any(df$failed > 0)) quit(status = 1)'
+                        if (any(df$failed > 0)) quit(status = 1)'"'"'
+            '
 
       - name: Upload testthat summary
         if: always()
