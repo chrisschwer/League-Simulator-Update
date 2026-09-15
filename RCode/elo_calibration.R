@@ -468,9 +468,11 @@ assign_short_names <- function(names_df, reserved = character()) {
     cand <- if (is_second) base else substr(base, 1, 3)
     if (cand %in% used || nchar(cand) < 3) {
       # Vierte Stelle nur mit Buchstaben. Eine angehaengte "2" waere
-      # mehrdeutig: Sie ist im Bestand die Markierung fuer
-      # Zweitvertretungen (siehe update_all_leagues_loop.R, das den
-      # -50-Abzug am Suffix erkennt).
+      # mehrdeutig: Sie ist im Bestand die LESBARE Markierung fuer
+      # Zweitvertretungen. Massgeblich fuer den -50-Abzug ist sie seit
+      # Issue #196 nicht mehr -- der Loop liest die Spalte Promotion
+      # (malus_aus_teamlist()), gerade weil diese Ausweichregel hier
+      # Kuerzel wie HO2A und HA2B erzeugt, die auf einen Buchstaben enden.
       #
       # Reicht eine Stelle nicht, wird auf zwei erweitert. Lieber ein
       # fuenfstelliges Kuerzel als ein doppeltes: ShortText wird zum

@@ -96,9 +96,20 @@ test_that("season_transition pipeline produces byte-identical CSV from cassettes
                             "\nStderr:", paste(tail(strsplit(p$stderr, "\n")[[1]], 10), collapse = "\n")))
 
   # Gap #2: byte-identical CSV.
-  actual_csv <- file.path(csv_dir, "RCode", "TeamList_2025.csv")
+  #
+  # Der Lauf schreibt einen ENTWURF, nicht die produktive Datei (ADR 0007,
+  # Issue #206): Die TeamList ist gepflegtes Stammdatenblatt, und ein Lauf
+  # im --non-interactive-Modus ueberschriebe sie sonst ohne Rueckfrage.
+  # Geprueft wird deshalb TeamList_2025_entwurf.csv -- derselbe Inhalt, nur
+  # unter dem Namen, unter dem er jetzt entsteht.
+  actual_csv <- file.path(csv_dir, "RCode", "TeamList_2025_entwurf.csv")
   expect_true(file.exists(actual_csv),
-              info = "subprocess must produce TeamList_2025.csv")
+              info = "subprocess must produce TeamList_2025_entwurf.csv")
+
+  # Und die produktive Datei darf NICHT entstehen. Ohne diese Zeile bliebe
+  # der gefaehrliche Pfad unbeobachtet.
+  expect_false(file.exists(file.path(csv_dir, "RCode", "TeamList_2025.csv")),
+               info = "der Lauf darf die produktive TeamList nicht schreiben")
 
   actual_bytes   <- readBin(actual_csv,   "raw", file.info(actual_csv)$size)
   expected_bytes <- readBin(expected_csv, "raw", file.info(expected_csv)$size)
