@@ -202,3 +202,26 @@ test_that("ein erschoepftes Kontingent ergibt 0 Runden, nicht eine", {
 
   mit_api_key(expect_equal(f(360), 0))
 })
+
+
+test_that("die fehlgeschlagene Probe meldet sich sofort, nicht erst beim Prozessende", {
+  # Issue #224: R sammelt Warnungen im Produktivlauf und gibt sie erst beim
+  # Prozessende aus. Am 14.09.2026 erschien "Error checking API limits"
+  # deshalb um 23:01 -- elf Stunden nachdem sie den Tag auf 9 Runden
+  # gedeckelt hatte. Wer um 12:00 ins Log sah, fand keinen Grund fuer den
+  # 83-Minuten-Takt.
+  #
+  # Die Warnung bleibt (maschinenlesbar, von anderen Tests geprueft); die
+  # Meldung kommt daneben, weil message() sofort durchgeht.
+  env <- lade_check_api_limits()
+  f <- env$checkAPILimits
+  stub(f, "httr::GET", function(...) stop("Resolving timed out after 10000 ms"))
+
+  mit_api_key({
+    meldungen <- capture_messages(suppressWarnings(f(361)))
+    expect_true(any(grepl("WARNUNG", meldungen)))
+    expect_true(any(grepl("Rate-Limit-Probe fehlgeschlagen", meldungen)))
+    # Der Grund steht mit drin, nicht nur die Tatsache.
+    expect_true(any(grepl("Resolving timed out", meldungen)))
+  })
+})

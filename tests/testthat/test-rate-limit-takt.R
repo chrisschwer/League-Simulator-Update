@@ -477,3 +477,159 @@ test_that("ohne Header-Werte sagt die Budget-Zeile genau das", {
   expect_match(zeile, "Loop 1/361")
   expect_no_match(zeile, "NA")
 })
+
+
+# --- Der Planungshorizont bei kleinem Kontingent (Issue #224, Punkt 3) ---
+#
+# Das Restbudget muss bis zum NAECHSTEN RESET reichen, nicht nur bis zum
+# Ende des heutigen Fensters. Bei 7.500 Requests faellt der Unterschied
+# nicht auf -- das Budget traegt den Tag ohnehin. Beim Free-Plan (100 pro
+# rollierenden 24 h) entscheidet er alles:
+#
+# Reset um 12:00 des Folgetages, jetzt ist 12:00 heute, 89 Requests uebrig.
+# Wer nur bis 23:00 plant, verteilt sie auf elf Stunden -- und steht ab
+# 23:00 ohne Kontingent da, waehrend der Reset noch dreizehn Stunden
+# entfernt ist. Am naechsten Morgen ab 11:00 ist nichts mehr da.
+#
+# Gezaehlt werden dabei nur Minuten INNERHALB des Fensters (11:00-23:00):
+# Zwischen 23:00 und 11:00 laeuft der Scheduler nicht, diese Stunden
+# koennen also keine Runden aufnehmen. Der Horizont ist "Fenster-Sekunden
+# bis zum Reset", nicht "Sekunden bis zum Reset".
+
+test_that("bei kleinem Kontingent reicht der Horizont ueber das Fensterende hinaus", {
+  # 89 Requests, 11 je Runde, Sicherheitsabschlag 0,9 -> 7 bezahlbare
+  # Runden. Der Reset liegt 24 h entfernt; davon liegen 11 h im heutigen
+  # Fenster (12:00-23:00) und 13 h im morgigen (11:00-12:00 ist nur 1 h,
+  # aber das Fenster beginnt 11:00, also 1 h) -- zusammen 12 h Fensterzeit.
+  #
+  # Der Kern der Zusicherung: Der Takt muss LAENGER sein als der, der sich
+  # aus dem heutigen Fensterrest allein ergaebe. Wer nur bis 23:00 plant,
+  # taktet zu schnell und ist vor dem Reset leer.
+  # Die Zusicherung wird an der ungedeckelten Rechnung geprueft: Beide
+  # Horizonte laufen bei diesem winzigen Budget in `max_waittime`, der
+  # Deckel verwischt den Unterschied also im Ergebnis. Gepinnt wird
+  # deshalb, dass der laengere Horizont wirklich in die Rechnung eingeht --
+  # ueber einen Fall, in dem der Deckel noch nicht greift.
+  env <- lade_takt()
+  gedeckelt <- takt_default(env, "max_waittime")
+
+  # 300 Requests, 6 je Runde -> 45 bezahlbare Runden. Ueber 11 h ergaebe
+  # das 880 s je Runde, ueber 24 h Fensterzeit 1920 s. Beide unter dem
+  # Deckel, der Unterschied also sichtbar.
+  nur_heute <- env$naechste_waittime(
+    remaining = 300, limit = 7500,
+    seconds_until_reset = 24 * 3600,
+    fenster_sekunden_bis_reset = 11 * 3600,
+    loops_remaining = 360, expected_cost_per_loop = 6,
+    current_waittime = 120, ideal_waittime = 120
+  )
+  bis_reset <- env$naechste_waittime(
+    remaining = 300, limit = 7500,
+    seconds_until_reset = 24 * 3600,
+    fenster_sekunden_bis_reset = 24 * 3600,
+    loops_remaining = 360, expected_cost_per_loop = 6,
+    current_waittime = 120, ideal_waittime = 120
+  )
+
+  expect_gt(bis_reset$waittime, nur_heute$waittime)
+  expect_lt(bis_reset$waittime, gedeckelt)
+
+  # Und der Fall aus dem Auftrag: 89 Requests kurz nach einem Reset. Er
+  # laeuft in den Deckel -- was die richtige Antwort ist, aber eben keine,
+  # an der sich der Horizont ablesen liesse.
+  frei_plan <- env$naechste_waittime(
+    remaining = 89, limit = 100,
+    seconds_until_reset = 24 * 3600,
+    fenster_sekunden_bis_reset = 12 * 3600,
+    loops_remaining = 360,
+    expected_cost_per_loop = 11,
+    current_waittime = 120,
+    ideal_waittime = 120
+  )
+  expect_equal(frei_plan$waittime, gedeckelt)
+  expect_true(frei_plan$gedrosselt)
+})
+
+test_that("ohne eigenen Horizont bleibt es beim Reset-Fenster", {
+  # Der neue Parameter ist optional: Wer ihn nicht setzt (alle bisherigen
+  # Aufrufer, alle bisherigen Tests), bekommt das bisherige Verhalten.
+  env <- lade_takt()
+
+  mit <- env$naechste_waittime(
+    remaining = 300, limit = 7500,
+    seconds_until_reset = 8 * 3600,
+    fenster_sekunden_bis_reset = 8 * 3600,
+    loops_remaining = 200,
+    expected_cost_per_loop = 6,
+    current_waittime = 120, ideal_waittime = 120
+  )
+  ohne <- env$naechste_waittime(
+    remaining = 300, limit = 7500,
+    seconds_until_reset = 8 * 3600,
+    loops_remaining = 200,
+    expected_cost_per_loop = 6,
+    current_waittime = 120, ideal_waittime = 120
+  )
+
+  expect_equal(mit$waittime, ohne$waittime)
+})
+
+test_that("der Fenster-Horizont deckelt nicht laenger an loops_remaining", {
+  # Die Rundenzahl war bis Issue #224 die zweite Grenze des Horizonts
+  # ("nicht laenger strecken als der Lauf dauert"). Sobald der Loop auf
+  # Normaltakt zurueckschalten kann, ist sie keine Aussage ueber das
+  # Tagesende mehr -- der reduzierte Tagesplan (9 Runden) wuerde den
+  # Horizont sonst auf 18 Minuten schrumpfen und die Drosselung
+  # aushebeln, obwohl das Budget fuer den ganzen Tag reichen muss.
+  env <- lade_takt()
+
+  ergebnis <- env$naechste_waittime(
+    remaining = 89, limit = 100,
+    seconds_until_reset = 24 * 3600,
+    fenster_sekunden_bis_reset = 12 * 3600,
+    loops_remaining = 9, # der reduzierte Tagesplan aus dem Vorfall
+    expected_cost_per_loop = 11,
+    current_waittime = 120,
+    ideal_waittime = 120
+  )
+
+  # 7 bezahlbare Runden auf 12 h Fensterzeit -> deutlich mehr als eine
+  # Stunde je Runde, nicht 12 h / 9 Runden aus dem alten Deckel.
+  expect_gt(ergebnis$waittime, 3600)
+})
+
+
+test_that("fenster_sekunden zaehlt nur Zeit innerhalb des Scheduler-Fensters", {
+  # Die Nacht kann keine Runden aufnehmen: Zwischen 23:00 und 11:00 laeuft
+  # der Scheduler nicht. Wer die vollen 24 h als Horizont nimmt, streckt
+  # den Takt um rund Faktor zwei zu weit.
+  env <- lade_takt()
+  mittag <- as.POSIXct("2026-09-14 12:00:00", tz = "Europe/Berlin")
+
+  # Von 12:00 aus 24 h voraus: heute 12:00-23:00 (11 h), morgen
+  # 11:00-12:00 (1 h) -> 12 h.
+  expect_equal(env$fenster_sekunden(mittag, 24 * 3600), 12 * 3600)
+
+  # Innerhalb des Fensters bleibend: volle Dauer.
+  expect_equal(env$fenster_sekunden(mittag, 2 * 3600), 2 * 3600)
+
+  # Ueber das Fensterende hinaus: nur bis 23:00 zaehlt.
+  expect_equal(env$fenster_sekunden(mittag, 13 * 3600), 11 * 3600)
+})
+
+test_that("fenster_sekunden vor Fensterbeginn zaehlt erst ab 11:00", {
+  env <- lade_takt()
+  frueh <- as.POSIXct("2026-09-14 08:00:00", tz = "Europe/Berlin")
+
+  # 08:00 + 4 h = 12:00; davon liegt nur 11:00-12:00 im Fenster.
+  expect_equal(env$fenster_sekunden(frueh, 4 * 3600), 1 * 3600)
+})
+
+test_that("fenster_sekunden liefert 0 fuer nichtige Dauern", {
+  env <- lade_takt()
+  mittag <- as.POSIXct("2026-09-14 12:00:00", tz = "Europe/Berlin")
+
+  expect_equal(env$fenster_sekunden(mittag, 0), 0)
+  expect_equal(env$fenster_sekunden(mittag, -100), 0)
+  expect_equal(env$fenster_sekunden(mittag, NA_real_), 0)
+})

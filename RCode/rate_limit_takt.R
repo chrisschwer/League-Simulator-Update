@@ -50,6 +50,11 @@
 #' @param current_waittime Die Wartezeit, mit der der Loop gerade laeuft.
 #' @param ideal_waittime Der gewuenschte Takt; zugleich die schnellste
 #'   Frequenz, die der Regler je zurueckgibt.
+#' @param fenster_sekunden_bis_reset Sekunden bis zum Reset, aber nur die
+#'   innerhalb des Scheduler-Fensters (11:00-23:00) liegenden. Optional;
+#'   ohne diesen Wert gilt `seconds_until_reset` unveraendert. Der
+#'   Unterschied zaehlt nur bei kleinem Kontingent -- dann aber
+#'   entscheidend (Issue #224, Punkt 3), siehe `fenster_sekunden()`.
 #' @param stopp_unter Restbudget, unter dem gar nicht mehr abgerufen wird.
 #'   Die Drosselung streckt den Takt, verbraucht aber weiter; unterhalb
 #'   dieser Grenze ist auch das zu viel. Dann sagt der Regler `stopp = TRUE`,
@@ -60,6 +65,7 @@
 naechste_waittime <- function(remaining, limit, seconds_until_reset,
                               loops_remaining, expected_cost_per_loop,
                               current_waittime, ideal_waittime = 120,
+                              fenster_sekunden_bis_reset = NULL,
                               min_waittime = 60,
                               max_waittime = 5400,
                               safety_margin = 0.9,
@@ -111,26 +117,40 @@ naechste_waittime <- function(remaining, limit, seconds_until_reset,
     floor((remaining * safety_margin) / expected_cost_per_loop)
   }
 
-  # Das Fenster, ueber das gestreckt werden muss. Zwei Grenzen, und die
-  # engere gilt:
+  # Das Fenster, ueber das gestreckt werden muss: die Zeit bis zum naechsten
+  # Reset des Kontingents -- danach zaehlt der Provider neu.
   #
-  #   1. Bis zum Reset des Kontingents -- danach zaehlt der Provider neu.
-  #   2. Bis zum geplanten Ende des Laufs (loops_remaining im Idealtakt) --
-  #      wer ueber den Feierabend hinaus streckt, spart Requests, die das
-  #      Kontingent ihm ohnehin geschenkt haette.
+  # Genauer, wenn der Aufrufer es weiss (`fenster_sekunden_bis_reset`): nur
+  # die Sekunden INNERHALB des Scheduler-Fensters. Zwischen 23:00 und 11:00
+  # laeuft der Scheduler nicht, diese Stunden koennen also keine Runden
+  # aufnehmen; sie mitzuzaehlen streckte den Takt kuenstlich.
   #
-  # Beide beschreiben Zeit, ueber die die noch bezahlbaren Runden verteilt
-  # werden muessen.
-  fenster <- suppressWarnings(as.numeric(seconds_until_reset))
+  # Warum der Reset und nicht das Tagesende (Issue #224, Punkt 3): Bei 7.500
+  # Requests faellt der Unterschied nicht auf -- das Budget traegt den Tag
+  # ohnehin. Beim Free-Plan (100 pro rollierenden 24 h) entscheidet er
+  # alles: Wer nur bis 23:00 plant, verteilt das Restbudget auf den heutigen
+  # Abend und steht am naechsten Morgen ohne Kontingent da, weil der Reset
+  # erst mittags kommt.
+  fenster <- suppressWarnings(as.numeric(fenster_sekunden_bis_reset))
+  if (length(fenster) != 1L || is.na(fenster) || fenster < 0) {
+    fenster <- suppressWarnings(as.numeric(seconds_until_reset))
+  }
   if (length(fenster) != 1L || is.na(fenster) || fenster < 0) fenster <- 0
+
+  # `loops_remaining` deckelt den Horizont NICHT mehr. Bis Issue #224 stand
+  # hier ein `min(fenster, loops_remaining * ideal_waittime)` mit der
+  # Begruendung, man duerfe nicht ueber das geplante Laufende hinaus
+  # strecken. Das setzte voraus, dass die Rundenzahl das Tagesende
+  # beschreibt -- genau die Annahme, die der Vorfall vom 14.09. widerlegt
+  # hat: Nach dem Probe-Timeout plante der Scheduler 9 Runden, und ein
+  # Horizont von 9 x 120 s = 18 Minuten haette die Drosselung vollstaendig
+  # ausgehebelt, obwohl das Budget bis zum Reset reichen muss. Das Tagesende
+  # bewacht jetzt der Loop selbst (`fenster_ende`), nicht der Regler.
   restrunden <- if (length(loops_remaining) == 1L && !is.na(loops_remaining) &&
                       loops_remaining > 0) {
     loops_remaining
   } else {
     0
-  }
-  if (restrunden > 0 && ideal_waittime > 0) {
-    fenster <- min(fenster, restrunden * ideal_waittime)
   }
 
   ziel <- if (is.infinite(bezahlbar)) {
@@ -140,10 +160,10 @@ naechste_waittime <- function(remaining, limit, seconds_until_reset,
     # Das Budget traegt keine einzige Runde mehr, oder es gibt kein Fenster,
     # ueber das gestreckt werden koennte. Aeusserste Drosselung.
     max_waittime
-  } else if (restrunden > 0 && bezahlbar >= restrunden) {
-    # Das Budget traegt alle noch geplanten Runden. Keine Drosselung noetig
-    # -- und keine aus einer Reset-Frist heraus, die laenger ist als der
-    # Lauf selbst.
+  } else if (fenster <= bezahlbar * ideal_waittime) {
+    # Das Budget traegt den ganzen Horizont im Idealtakt. Keine Drosselung
+    # noetig -- frueher stand hier der Vergleich gegen `loops_remaining`,
+    # aber massgeblich ist die Zeit, nicht die geplante Rundenzahl.
     ideal_waittime
   } else {
     # Die verbleibende Zeit auf die Runden verteilen, die das Budget noch
@@ -177,6 +197,47 @@ naechste_waittime <- function(remaining, limit, seconds_until_reset,
   }
 
   list(waittime = ziel, gedrosselt = gedrosselt, alarm = alarm, stopp = FALSE)
+}
+
+#' Wie viele der naechsten `dauer` Sekunden liegen im Scheduler-Fenster?
+#'
+#' Der Scheduler laeuft nur zwischen `start_minute` und `ende_minute`
+#' (11:00-23:00). Liegt der Kontingent-Reset 24 Stunden voraus, sind davon
+#' also nur rund zwoelf Stunden nutzbar -- die Nacht kann keine Runden
+#' aufnehmen. Wer die vollen 24 h als Horizont nimmt, streckt den Takt um
+#' den Faktor zwei zu weit; wer nur bis 23:00 rechnet, taktet zu schnell
+#' und ist vor dem Reset leer (Issue #224, Punkt 3).
+#'
+#' Reine Funktion: `jetzt` kommt herein, nichts wird von der Uhr gelesen.
+#'
+#' @param jetzt Zeitpunkt, ab dem gezaehlt wird (POSIXct).
+#' @param dauer Sekunden voraus, ueber die gezaehlt wird.
+#' @return Sekunden innerhalb des Fensters, 0 oder groesser.
+fenster_sekunden <- function(jetzt, dauer,
+                             start_minute = 11 * 60,
+                             ende_minute = 23 * 60) {
+  dauer <- suppressWarnings(as.numeric(dauer))
+  if (length(dauer) != 1L || is.na(dauer) || dauer <= 0) {
+    return(0)
+  }
+
+  # Tagesminute von `jetzt`, in der Zeitzone des Zeitstempels (der Loop
+  # arbeitet in Europe/Berlin, die Fenstergrenzen sind Berliner Zeit).
+  lt <- as.POSIXlt(jetzt)
+  minute_jetzt <- lt$hour * 60 + lt$min + lt$sec / 60
+
+  # Jeden Tag im Zeitraum einzeln schneiden: Das Fenster dieses Tages,
+  # ausgedrueckt als Sekunden seit `jetzt`, mit [0, dauer] geschnitten.
+  # Die Schleife laeuft ueber Tage, nicht ueber Minuten -- bei 24 h sind
+  # das zwei Durchgaenge.
+  tages_start <- minute_jetzt * 60
+  gesamt <- 0
+  for (tag in 0:(floor(dauer / 86400) + 1)) {
+    von <- max(tag * 86400 + start_minute * 60 - tages_start, 0)
+    bis <- min(tag * 86400 + ende_minute * 60 - tages_start, dauer)
+    if (bis > von) gesamt <- gesamt + (bis - von)
+  }
+  gesamt
 }
 
 # Zahlen im deutschen Format: Punkt als Tausender-, Komma als Dezimaltrenner.

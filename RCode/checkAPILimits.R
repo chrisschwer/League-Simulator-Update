@@ -26,13 +26,40 @@ if (!exists("league_ids")) {
 # einen je Liga. Weil das Live-Poll-Gating die meisten Loops im Leerlauf
 # laesst (siehe update_all_leagues_loop), ist die halbe Ligazahl die
 # konservative Mitte zwischen 1 (Leerlauf) und 1 + n (Vollabruf).
+# Ob die letzte Planung aus einem FALLBACK stammt -- fehlender Header oder
+# fehlgeschlagene Probe -- oder aus einer echten Messung (Issue #224).
+#
+# Warum eine eigene Abfrage und kein Attribut am Rueckgabewert: Ein Attribut
+# wuerde jedes `expect_equal(checkAPILimits(360), 360)` der Bestandstests
+# brechen (testthat vergleicht Attribute mit). Und warum kein Listen-Return:
+# Der wuerde jeden Aufrufer aendern. Die Zahl bleibt eine Zahl; wer die
+# Herkunft wissen will, fragt danach.
+#
+# Der Unterschied traegt eine Entscheidung: Nur ein FALLBACK-Plan darf sich
+# spaeter erholen, wenn die Header doch noch kommen. Eine gemessene,
+# bewusst kleine Rundenzahl ist eine Ansage und bleibt.
+.api_limits_fallback <- new.env(parent = emptyenv())
+.api_limits_fallback$wert <- FALSE
+
+#' Kam die letzte `checkAPILimits()`-Planung aus einem Fallback?
+#'
+#' @return TRUE, wenn kein Rate-Limit-Header gelesen werden konnte (fehlender
+#'   Header, fehlgeschlagene Probe, kein API-Schluessel); FALSE nach einer
+#'   echten Messung.
+api_limits_plan_reduziert <- function() {
+  isTRUE(.api_limits_fallback$wert)
+}
+
 checkAPILimits <- function(ideal_loops,
                            avg_calls_per_loop = 1 + length(league_ids()) / 2,
                            safety_margin = 0.9) {
+  # Jeder Lauf entscheidet neu; der Vorlauf darf nicht nachwirken.
+  .api_limits_fallback$wert <- FALSE
   # Try to make a simple API call to check headers
   api_key <- Sys.getenv("RAPIDAPI_KEY")
   if (api_key == "") {
     warning("No RAPIDAPI_KEY found, returning ideal_loops")
+    .api_limits_fallback$wert <- TRUE
     return(ideal_loops)
   }
 
@@ -100,6 +127,7 @@ checkAPILimits <- function(ideal_loops,
       # nur noch die Startschaetzung, nicht mehr die einzige Bremse.
       if (length(remaining) == 0 || is.na(remaining)) {
         warning("Could not read rate limit headers, returning ideal_loops")
+        .api_limits_fallback$wert <- TRUE
         return(ideal_loops)
       }
 
@@ -128,8 +156,24 @@ checkAPILimits <- function(ideal_loops,
       return(actual_loops)
     },
     error = function(e) {
+      # message() ZUSAETZLICH zu warning(): R sammelt Warnungen im
+      # Produktivlauf und gibt sie erst beim Prozessende aus. Am 14.09.2026
+      # erschien "Error checking API limits" deshalb erst um 23:01 -- elf
+      # Stunden nachdem sie den Tag auf 9 Runden gedeckelt hatte, und damit
+      # zu spaet, um irgendjemandem zu helfen (Issue #224).
+      #
+      # Die Warnung bleibt daneben stehen: Sie ist die maschinenlesbare
+      # Form, auf die die Tests pruefen.
+      message(sprintf(
+        "WARNUNG: Rate-Limit-Probe fehlgeschlagen (%s) -- Tagesplan faellt auf die konservative Schaetzung zurueck.",
+        conditionMessage(e)
+      ))
       warning(sprintf("Error checking API limits: %s", e$message))
       warning("Falling back to conservative estimate")
+      # Der Fall aus dem Vorfall vom 14.09.: Die Probe lief ins Timeout, der
+      # Tagesplan schrumpfte auf 9 Runden. Genau dieser Plan darf sich
+      # erholen, sobald die Header doch noch kommen (Issue #224).
+      .api_limits_fallback$wert <- TRUE
       # Fallback ohne Header-Information. Der Wert 33 stammte aus
       # "100 Requests/Tag / 3 Ligen" und war damit an die Ligazahl gebunden,
       # ohne das kenntlich zu machen. Jetzt folgt er der Registry: je Loop ein

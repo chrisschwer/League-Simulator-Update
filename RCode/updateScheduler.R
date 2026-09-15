@@ -108,7 +108,8 @@ calculate_loops <- function() {
     message(sprintf("Planning to run %d loops (ideal: %d)", loops, ideal_loops))
     message(sprintf("Time available: %.1f minutes", minutes_available))
 
-    return(list(loops = loops, initial_wait = 0, duration = minutes_available))
+    return(list(loops = loops, initial_wait = 0, duration = minutes_available,
+                plan_reduziert = api_limits_plan_reduziert()))
   }
 
   # After the window: wait until tomorrow
@@ -137,7 +138,8 @@ calculate_loops <- function() {
     message(sprintf("Planning to run %d loops (ideal: %d)", loops, ideal_loops))
     message(sprintf("Time available: %.1f minutes", minutes_available))
 
-    return(list(loops = loops, initial_wait = 0, duration = minutes_available))
+    return(list(loops = loops, initial_wait = 0, duration = minutes_available,
+                plan_reduziert = api_limits_plan_reduziert()))
   }
 
   # Remaining time in today's window
@@ -160,7 +162,8 @@ calculate_loops <- function() {
   message(sprintf("Planning to run %d loops (ideal: %d)", loops, ideal_loops))
   message(sprintf("Time remaining: %.1f minutes", minutes_remaining))
 
-  return(list(loops = loops, initial_wait = 0, duration = minutes_remaining))
+  return(list(loops = loops, initial_wait = 0, duration = minutes_remaining,
+              plan_reduziert = api_limits_plan_reduziert()))
 }
 
 # Main execution
@@ -195,7 +198,13 @@ main <- function() {
     initial_wait = loop_config$initial_wait,
     n = 10000,
     saison = SEASON,
-    TeamList_file = team_list_file
+    TeamList_file = team_list_file,
+    # Kam die Rundenzahl aus einem Fallback (fehlender Header, Probe im
+    # Timeout), darf der Loop auf Normaltakt zurueckschalten, sobald die
+    # Header doch noch eintreffen -- und dann begrenzt die Uhr den Tag,
+    # nicht die Rundenzahl. Ohne dieses Signal ist eine kleine Rundenzahl
+    # eine Ansage und bleibt (Issue #224).
+    plan_reduziert = isTRUE(loop_config$plan_reduziert)
     # static_site_dir defaults to STATIC_SITE_DIR (see update_all_leagues_loop.R)
   )
 

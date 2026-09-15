@@ -29,19 +29,31 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
                                     TeamList_file = "RCode/TeamList_2023.csv",
                                     static_site_dir = Sys.getenv("STATIC_SITE_DIR",
                                                                  "ShinyApp/public"),
-                                    full_fetch_every = 30) {
-  # Der Wunschtakt dieses Laufs: die geplante Dauer auf die geplanten Runden
-  # verteilt. Er war bis Issue #190 zugleich der ENDGUELTIGE Takt -- einmal
-  # beim Start berechnet und fuer den Rest des Tages eingefroren. Jetzt ist
-  # er nur noch die Obergrenze der Frequenz; die tatsaechliche Wartezeit
-  # fuehrt der Takt-Regler je Runde aus den frischen Rate-Limit-Headern
-  # nach (rate_limit_takt.R).
+                                    full_fetch_every = 30,
+                                    normaltakt = 120,
+                                    plan_reduziert = FALSE) {
+  # ZWEI Taktwerte, und der Unterschied ist der Kern von Issue #224.
+  #
+  # `konservativer_takt` ist der aus dem Tagesplan abgeleitete: Dauer auf
+  # Runden verteilt. Er gilt, solange ueber das Kontingent NICHTS bekannt
+  # ist. Plante checkAPILimits() nach einem Probe-Timeout nur 9 Runden,
+  # sind das 83 Minuten -- und genau so soll der Loop dann auch starten
+  # (Entscheidung Christoph zu #224: wer nichts weiss, faehrt langsam).
+  #
+  # `normaltakt` (120 s) ist der Takt, den der Scheduler eigentlich will.
+  # Er ist der Idealwert des Reglers, SOBALD Header vorliegen -- denn dann
+  # ist das Kontingent keine Vermutung mehr, sondern gemessen.
+  #
+  # Am 14.09.2026 fehlte diese Unterscheidung: Der reduzierte Tagesplan war
+  # zugleich der Idealwert, und der Loop blieb den ganzen Tag bei 83
+  # Minuten, obwohl ab Runde 2 wieder 7.179 freie Requests gemeldet wurden.
+  # Ein Frauen-Bundesliga-Spiel um 18:00 fiel in die Luecke.
   if (loops > 1) {
-    ideal_waittime <- duration * 60 / (loops - 1)
+    konservativer_takt <- duration * 60 / (loops - 1)
   } else {
-    ideal_waittime <- 0
+    konservativer_takt <- 0
   }
-  waittime <- ideal_waittime
+  waittime <- konservativer_takt
 
   # Das Ende des Zeitfensters, als Zeitpunkt. `loops` allein ist KEINE
   # Abbruchbedingung mehr, sobald die Wartezeit nachgefuehrt wird: Der
@@ -158,9 +170,47 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
   # Header geliefert hat.
   limit_bei_start <- NA_real_
 
-  # Start main loop. seq_len statt 1:loops: Bei loops = 0 zaehlt ein
-  # Doppelpunkt-Bereich RUECKWAERTS (1, 0) statt leer zu sein (#204).
-  for (i in seq_len(loops)) {
+  # Die Obergrenze der Schleife. Sie ist NICHT mehr die geplante Rundenzahl
+  # (Issue #224): Erholt sich der Takt von 83 Minuten auf 120 Sekunden,
+  # waeren die 9 geplanten Runden nach 18 Minuten aufgebraucht und der Tag
+  # vorbei -- der Fehler hinge nur am anderen Ende.
+  #
+  # Was den Tag begrenzt, ist die ZEIT: `fenster_ende`, geprueft am Kopf
+  # jeder Runde. Die Zaehlgrenze hier ist deshalb nur noch ein Sicherheitsnetz
+  # gegen eine Endlosschleife und wird grosszuegig bemessen: so viele Runden,
+  # wie im Normaltakt ueberhaupt ins Fenster passen, plus Reserve.
+  #
+  # `loops` bleibt massgeblich, wenn kein Fenster vorgegeben ist
+  # (`duration <= 0`, so laufen die Gating-Tests) -- dort ist die
+  # Rundenzahl weiterhin die einzige und richtige Grenze.
+  # Ob `loops` eine Notbremse ist (9 Runden nach einem Probe-Timeout) oder
+  # eine Ansage (ein Aufrufer, der genau drei Runden will), laesst sich der
+  # Zahl NICHT ansehen -- beide sehen aus wie "wenige Runden auf viel Zeit".
+  # Deshalb sagt es der Aufrufer: `plan_reduziert` kommt aus
+  # `api_limits_plan_reduziert()` ueber calculate_loops().
+  #
+  # Ein Heuristik-Versuch ("konservativer Takt langsamer als Normaltakt =
+  # Notbremse") war die naheliegende Abkuerzung und falsch: Er haette jeden
+  # bewusst duennen Plan zur Notbremse erklaert.
+  #
+  # Nur ein reduzierter Plan darf sich erholen. `max_runden` ist dann das
+  # Sicherheitsnetz gegen eine Endlosschleife -- begrenzt wird der Tag von
+  # `fenster_ende`, also von der Zeit.
+  max_runden <- if (!isTRUE(plan_reduziert) || is.null(fenster_ende) ||
+                      normaltakt <= 0) {
+    loops
+  } else {
+    max(loops, ceiling(duration * 60 / normaltakt) + 2)
+  }
+  runden_grenze <- loops
+
+  # seq_len statt 1:loops: Bei 0 zaehlt ein Doppelpunkt-Bereich RUECKWAERTS
+  # (1, 0) statt leer zu sein (#204).
+  for (i in seq_len(max_runden)) {
+    # Die wirksame Rundengrenze. Sie steht auf `loops`, bis der Takt sich
+    # erholt hat (s. `runden_grenze` oben); danach begrenzt die Zeit.
+    if (i > runden_grenze) break
+
     # --- Wartezeit und Kontingent-Buchfuehrung, am KOPF der Runde --------
     #
     # Die Wartezeit stand bis Issue #204 am ENDE des Rundenkoerpers, hinter
@@ -190,8 +240,41 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
       limit_bei_start <- stand$limit
     }
 
-    message(budget_zeile(i, loops, stand$remaining, stand$limit,
+    # `runden_grenze`, nicht `loops`: Hat der Takt sich erholt, laeuft der
+    # Tag ueber die geplante Rundenzahl hinaus -- "Loop 12/9" waere eine
+    # verwirrende Zeile. Solange er das nicht hat, steht hier `loops`.
+    message(budget_zeile(i, runden_grenze, stand$remaining, stand$limit,
                          stand$reset_seconds))
+
+    # Welcher Idealwert gilt, haengt daran, ob das Kontingent BEKANNT ist
+    # (Issue #224). Ohne Header bleibt es beim konservativen Takt aus dem
+    # Tagesplan -- wer nichts weiss, faehrt langsam, und ein fehlender
+    # Header ist keine Meldung eines vollen Kontingents. Sobald aber ein
+    # `remaining` vorliegt, ist der Normaltakt der Massstab, und der Regler
+    # entscheidet von dort aus, ob gedrosselt werden muss.
+    #
+    # Genau das fehlte am 14.09.: Der reduzierte Tagesplan blieb der
+    # Idealwert, und der Loop erholte sich nie, obwohl die Header ab Runde 2
+    # wieder ein volles Kontingent meldeten.
+    # Die Erholung gilt NUR fuer einen reduzierten Plan. Ohne
+    # `plan_reduziert` bleibt alles wie zuvor -- die Rundenzahl des
+    # Aufrufers ist dann eine Ansage, keine Notbremse.
+    kontingent_bekannt <- length(stand$remaining) == 1L && !is.na(stand$remaining)
+    erholung_moeglich <- isTRUE(plan_reduziert) && kontingent_bekannt
+    ideal_waittime <- if (erholung_moeglich) normaltakt else konservativer_takt
+
+    # Ab hier begrenzt die Zeit den Tag, nicht die Rundenzahl -- sonst
+    # waeren die 9 Runden aus dem Vorfall im Normaltakt nach 18 Minuten
+    # aufgebraucht (Issue #224).
+    if (erholung_moeglich) {
+      if (runden_grenze < max_runden) {
+        message(sprintf(
+          "Loop %d: Kontingent gemessen (%s frei) -- zurueck auf Normaltakt, Tagesende bestimmt jetzt die Uhr.",
+          i, .takt_zahl(stand$remaining)
+        ))
+      }
+      runden_grenze <- max_runden
+    }
 
     # `ideal_waittime == 0` heisst: gar keine Pause gewuenscht (duration = 0
     # oder loops = 1). Der Regler bleibt dann aussen vor -- sein
@@ -202,6 +285,10 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
         remaining = stand$remaining,
         limit = stand$limit,
         seconds_until_reset = stand$reset_seconds,
+        # Nur die Sekunden bis zum Reset, die im Scheduler-Fenster liegen:
+        # Die Nacht kann keine Runden aufnehmen (Issue #224, Punkt 3).
+        fenster_sekunden_bis_reset =
+          fenster_sekunden(Sys.time(), stand$reset_seconds),
         loops_remaining = loops - i + 1,
         expected_cost_per_loop = expected_cost_per_loop,
         current_waittime = waittime,
@@ -278,7 +365,14 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
       # jenseits des Fensters noch abzuarbeiten -- der Scheduler startet
       # ohnehin zum naechsten Fenster neu. Geprueft wird VOR dem Schlafen:
       # Danach waere die Zeit bereits verbraucht.
-      if (!is.null(fenster_ende) && Sys.time() + waittime > fenster_ende) {
+      # Eine Sekunde Toleranz: Ein Tagesplan, der das Fenster GENAU
+      # ausfuellt (loops - 1 Wartezeiten = duration), ist der Normalfall --
+      # calculate_loops() rechnet ihn so aus. Ohne Toleranz entschiede
+      # Gleitkomma-Rauschen darueber, ob die letzte Runde noch laeuft, und
+      # der Lauf endete mal nach n, mal nach n-1 Runden.
+      if (!is.null(fenster_ende) &&
+            as.numeric(difftime(Sys.time() + waittime, fenster_ende,
+                                units = "secs")) > 1) {
         message(sprintf(
           "Loop %d: Zeitfenster endet vor der naechsten Runde (Wartezeit %.1f min) -- Lauf beendet.",
           i, waittime / 60
@@ -615,9 +709,15 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
           liga_keys
         )
 
+        # Der aktuelle Takt geht mit in die Seite: Weicht er vom Normaltakt
+        # ab, nennt der Seitenfuss das (Issue #224). Am 14.09. zeigte die
+        # Seite "Letztes Update 18:51" und sah damit aus wie eine, die
+        # gleich wieder aktualisiert wird -- tatsaechlich kam die naechste
+        # erst um 20:15. Der Stale-Banner greift erst nach 24 Stunden.
         generate_static_site(output_dir = static_site_dir,
                              league_data = league_data,
-                             ergebnisse = ergebnisse)
+                             ergebnisse = ergebnisse,
+                             waittime = waittime)
         last_render_signature <- render_signature
       } else {
         message(sprintf("Loop %d: No updates needed, skipping site generation", i))

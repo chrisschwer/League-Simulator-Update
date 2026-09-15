@@ -733,8 +733,18 @@ lauf_mit_schlafzeiten <- function(loops, duration, rest_folge = NULL,
   abrufe <- 0L
   runde <- new.env(parent = emptyenv())
   runde$i <- 0L
+  # Gefaelschte Uhr: Sys.sleep schlaeft hier nicht, also muss die Zeit
+  # anderweitig vorruecken. Ohne das stuende die Uhr still, waehrend der
+  # Loop Wartezeiten aufaddiert -- das Fenster-Ende (Issue #224) saehe
+  # dann 600 Sekunden Wartezeit gegen eine eingefrorene Uhr und beendete
+  # den Lauf sofort. In Produktion rueckt die Uhr mit dem Schlafen vor;
+  # der Stub muss das nachbilden, sonst prueft der Test eine Lage, die es
+  # nicht gibt.
+  uhr <- new.env(parent = emptyenv())
+  uhr$jetzt <- as.POSIXct("2026-09-13 11:00:00", tz = "UTC")
 
   stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "Sys.time", function() uhr$jetzt)
   stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
     if (league == "78") abrufe <<- abrufe + 1L
     if (!fetch_ok) {
@@ -755,6 +765,7 @@ lauf_mit_schlafzeiten <- function(loops, duration, rest_folge = NULL,
     # initial_wait = 0 laeuft ebenfalls durch Sys.sleep und wird hier
     # ausgefiltert: Gezaehlt werden die Rundenpausen, nicht der Vorlauf.
     if (sekunden > 0) schlaf <<- c(schlaf, sekunden)
+    uhr$jetzt <- uhr$jetzt + sekunden
     invisible(NULL)
   })
   # Der Loop liest den Kontingent-Stand ueber genau diesen Getter; ihn zu
@@ -818,12 +829,22 @@ test_that("sinkendes Restkontingent streckt die Wartezeiten (issue #190)", {
   # traegt das Restbudget (20 Requests, 0,9 Sicherheitsabschlag, 11
   # Requests je Runde -> eine Runde) die noch geplanten Runden nicht mehr.
   # Vorher (7.400) ist es komfortabel.
+  #
+  # Rundenzahl und Fenster ergeben zusammen den Normaltakt von zwei Minuten
+  # (361 Runden auf 720 Minuten -- der echte Tagesplan). Das ist seit Issue
+  # #224 noetig, damit der Test misst, was er messen will: Bei einem sehr
+  # duennen Plan laege der Ausgangstakt bereits an der Obergrenze, und die
+  # Drosselung haette keinen Weg mehr nach oben. Und die ZEIT begrenzt den
+  # Lauf jetzt -- mit den urspruenglichen zehn Minuten Fenster haette die
+  # Drosselung ihn nach zwei Runden beendet.
   lauf <- lauf_mit_schlafzeiten(
-    loops = 6, duration = 10,
+    loops = 361, duration = 12 * 60,
     rest_folge = c(7400, 7400, 7400, 20, 20, 20)
   )
 
-  expect_length(lauf$schlaf, 5L)
+  # Mindestens die vier Runden, in denen sich das Restbudget aendert; der
+  # Lauf endet danach am Fensterende, sobald die Drosselung greift.
+  expect_gte(length(lauf$schlaf), 4L)
   # Die Runden mit knappem Budget warten laenger als die mit komfortablem.
   # Die Runden 2 und 3 sehen noch 7.400 Requests, Runde 4 dann 20.
   expect_gt(max(lauf$schlaf), min(lauf$schlaf))
@@ -1003,7 +1024,8 @@ test_that("ein Lauf, der ins Fenster passt, laeuft alle Runden durch", {
 # Ein Lauf mit gefaelschter Uhr, gezaehlten API-Aufrufen je Runde und
 # einem Kontingent-Stand, den der Test je Runde vorgibt.
 lauf_mit_kontingent <- function(loops, duration, stand_folge,
-                                start = "2026-09-13 11:00:00") {
+                                start = "2026-09-13 11:00:00",
+                                plan_reduziert = FALSE) {
   uhr <- new.env(parent = emptyenv())
   uhr$jetzt <- as.POSIXct(start, tz = "UTC")
   runde <- new.env(parent = emptyenv())
@@ -1050,7 +1072,8 @@ lauf_mit_kontingent <- function(loops, duration, stand_folge,
       duration = duration, loops = loops, initial_wait = 0, n = 10,
       saison = "2024",
       TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 30
+      static_site_dir = tempdir(), full_fetch_every = 30,
+      plan_reduziert = plan_reduziert
     )
   }))
 
@@ -1112,4 +1135,140 @@ test_that("die Reset-Wartezeit wird am Fenster-Ende gekappt", {
   expect_true(any(grepl("Reset liegt hinter dem Zeitfenster", lauf$meldungen)))
   # Nach dem Abbruch darf keine weitere Runde abgerufen haben.
   expect_false(2L %in% lauf$fetches)
+})
+
+
+
+# --- Takt-Erholung nach reduziertem Tagesplan (Issue #224) --------------
+#
+# Der Vorfall vom 14.09.2026: Ein DNS-Ausfall liess die Probe in
+# checkAPILimits() ins Timeout laufen, der konservative Fehlerpfad plante
+# 9 Runden statt 361, und daraus wurde ein Takt von 83 Minuten -- fuer den
+# REST DES TAGES, obwohl ab dem ersten erfolgreichen Request wieder 7.179
+# freie Requests gemeldet wurden. Ein Frauen-Bundesliga-Spiel um 18:00
+# fiel in die Luecke zwischen 18:51 und 20:15.
+#
+# Das konservative Verhalten bei UNBEKANNTEM Kontingent bleibt gewollt
+# (Entscheidung Christoph): Wer nichts weiss, faehrt langsam. Aber sobald
+# die Header da sind, muss der Loop auf den Normaltakt zurueck.
+#
+# Ausgeloest wird die Erholung durch ein EXPLIZITES Signal
+# (`plan_reduziert`), nicht durch eine Heuristik ueber Taktverhaeltnisse:
+# Ob 9 Runden eine Notbremse oder eine Ansage sind, sieht man der Zahl
+# nicht an. checkAPILimits() weiss es und sagt es ueber
+# api_limits_plan_reduziert(); calculate_loops() reicht es durch.
+
+test_that("ein reduzierter Plan kehrt zum Normaltakt zurueck (issue #224)", {
+  # Der Vorfall, nachgestellt: 9 geplante Runden auf 665 Minuten (der
+  # 83-Minuten-Takt). Runde 1 sieht noch keine Header. Ab Runde 2 meldet
+  # die API 7.000 freie Requests -- ab da muss der Takt 120 s sein.
+  lauf <- lauf_mit_kontingent(
+    loops = 9, duration = 665,
+    plan_reduziert = TRUE,
+    stand_folge = list(
+      list(remaining = NA_real_, limit = NA_real_, reset = NA_real_),
+      list(remaining = 7000, limit = 7500, reset = 8 * 3600)
+    )
+  )
+
+  # Runde 1 wartet nicht (die Wartezeit steht am Kopf ab Runde 2), und
+  # Runde 2 sieht bereits Header -- die erste beobachtbare Wartezeit ist
+  # deshalb schon die erholte. Genau das ist der Punkt: Die Erholung
+  # greift ab dem ERSTEN Moment, in dem gemessene Zahlen vorliegen, nicht
+  # erst irgendwann danach.
+  expect_true(length(lauf$schlaf) >= 2)
+  expect_true(all(abs(lauf$schlaf - 120) < 1),
+              info = paste(round(lauf$schlaf), collapse = ", "))
+  # Und der Wechsel steht im Log.
+  expect_true(any(grepl("zurueck auf Normaltakt", lauf$meldungen)))
+})
+
+test_that("der erholte Lauf endet an der Uhr, nicht nach 9 Runden", {
+  # Der zweite Teil: Waere die Rundenzahl weiterhin die Grenze, endete der
+  # Tag im Normaltakt nach 9 x 2 = 18 Minuten. Der Lauf muss das Fenster
+  # ausschoepfen -- und genau dort aufhoeren.
+  lauf <- lauf_mit_kontingent(
+    loops = 9, duration = 665,
+    plan_reduziert = TRUE,
+    stand_folge = list(
+      list(remaining = 7000, limit = 7500, reset = 8 * 3600)
+    )
+  )
+
+  expect_gt(length(lauf$fetches), 9)
+  verstrichen <- as.numeric(difftime(lauf$ende,
+                                     as.POSIXct("2026-09-13 11:00:00", tz = "UTC"),
+                                     units = "mins"))
+  expect_lte(verstrichen, 665)
+  expect_gt(verstrichen, 600) # das Fenster wird wirklich genutzt
+})
+
+test_that("bei unbekanntem Kontingent bleibt auch ein reduzierter Plan langsam", {
+  # Die ausdrueckliche Entscheidung aus #224: Ohne Header wird NICHT auf
+  # 120 s beschleunigt. Ein fehlender Header ist keine Meldung eines
+  # vollen Kontingents.
+  #
+  # Ohne diesen Test liesse sich der erste erfuellen, indem man bei
+  # `plan_reduziert` einfach immer 120 s nimmt -- und genau das waere der
+  # 120-s-Fallback, den Christoph nicht will.
+  lauf <- lauf_mit_kontingent(
+    loops = 9, duration = 665,
+    plan_reduziert = TRUE,
+    stand_folge = list(
+      list(remaining = NA_real_, limit = NA_real_, reset = NA_real_)
+    )
+  )
+
+  expect_true(all(lauf$schlaf > 120 * 1.5),
+              info = paste(round(lauf$schlaf), collapse = ", "))
+})
+
+test_that("ohne plan_reduziert bleibt die Rundenzahl die Ansage", {
+  # Die Gegenprobe zum Signal: Derselbe Lauf OHNE das Flag verhaelt sich
+  # wie bisher -- 9 Runden, konservativer Takt, keine Erholung. Ein
+  # Aufrufer, der wenige Runden bestellt, bekommt wenige Runden.
+  lauf <- lauf_mit_kontingent(
+    loops = 9, duration = 665,
+    plan_reduziert = FALSE,
+    stand_folge = list(
+      list(remaining = 7000, limit = 7500, reset = 8 * 3600)
+    )
+  )
+
+  expect_lte(length(lauf$fetches), 9)
+  expect_false(any(grepl("zurueck auf Normaltakt", lauf$meldungen)))
+})
+
+test_that("checkAPILimits meldet, ob die Planung aus einem Fallback kam", {
+  # Die Quelle des Signals. Eine echte Messung ist keine Notbremse; ein
+  # Probe-Fehler und ein fehlender Header sind es.
+  env <- new.env()
+  source(file.path("..", "..", "RCode", "league_registry.R"), local = env)
+  source(file.path("..", "..", "RCode", "checkAPILimits.R"), local = env)
+
+  alt <- Sys.getenv("RAPIDAPI_KEY", unset = NA)
+  Sys.setenv(RAPIDAPI_KEY = "test-key")
+  on.exit({
+    if (is.na(alt)) Sys.unsetenv("RAPIDAPI_KEY") else Sys.setenv(RAPIDAPI_KEY = alt)
+  }, add = TRUE)
+
+  # Echte Messung -> kein Fallback.
+  f_ok <- env$checkAPILimits
+  stub(f_ok, "httr::GET", function(...) structure(list(), class = "response"))
+  stub(f_ok, "httr::headers", function(response) {
+    list(`x-ratelimit-requests-remaining` = "7000",
+         `x-ratelimit-requests-limit` = "7500")
+  })
+  f_ok(360)
+  expect_false(env$api_limits_plan_reduziert())
+
+  # Probe im Timeout -> Fallback. Genau der Fall vom 14.09.
+  f_err <- env$checkAPILimits
+  stub(f_err, "httr::GET", function(...) stop("Resolving timed out after 10000 ms"))
+  suppressWarnings(suppressMessages(f_err(360)))
+  expect_true(env$api_limits_plan_reduziert())
+
+  # Und eine erneute echte Messung setzt das Signal zurueck.
+  f_ok(360)
+  expect_false(env$api_limits_plan_reduziert())
 })
