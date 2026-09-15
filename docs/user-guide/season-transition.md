@@ -23,6 +23,36 @@ Konflikte und schlägt für Neuzugänge etwas vor — sie schreibt einen
 **Entwurf**. Phase 2 ist die Nacharbeit von Hand, und erst dadurch entsteht die
 produktive `TeamList_<Jahr>.csv`.
 
+Konkret: Der Lauf schreibt `RCode/TeamList_<Jahr>_entwurf.csv` und **fasst eine
+vorhandene `RCode/TeamList_<Jahr>.csv` nicht an** — auch im
+`--non-interactive`-Modus nicht. Das ist der Punkt der Trennung: Ein Entwurf
+kann nicht versehentlich simuliert werden, weil der Produktivpfad ihn gar nicht
+liest.
+
+### Phase 2: Die Nacharbeit
+
+Nach dem Lauf steht der Entwurf, nicht die TeamList. Zu tun bleibt:
+
+1. **Konfliktbericht lesen** — `RCode/TeamList_<Jahr>_entwurf_konflikte.md`,
+   gleicher Inhalt auch im Terminal am Ende des Laufs. Er nennt drei Gruppen:
+   Kürzel-Konflikte (dieselbe Prüfung, die `load_team_list()` beim Laden
+   anwendet), Teams **ohne Stammregion** und Teams, die gegenüber der Vorsaison
+   **neu** sind. Ohne Befund steht „Keine Konflikte gefunden" darin — die Datei
+   entsteht in jedem Fall.
+2. **Kürzel prüfen.** Für Neuzugänge sind sie Vorschläge. Maßgeblich ist, unter
+   welchem Kürzel ein Verein bekannt ist (DFL-Konvention), nicht was sich aus
+   dem Namen ableiten lässt.
+3. **`Region` nachtragen.** Der Lauf lässt sie leer, wo die Vorsaison sie nicht
+   kennt — sie ist nicht herleitbar ([ADR 0003](../adr/0003-elo-eichung-fuer-ligen-ohne-historie.md)).
+   Ohne sie entfällt für diese Teams die Abstiegskopplung der Regionalligen
+   ([ADR 0006](../adr/0006-abstiegskopplung-der-regionalligen.md)).
+4. **Zweitvertretungs-Status prüfen** (Spalte `Promotion`, 0 oder −50). Sie
+   entscheidet im Update-Loop über den −50-Malus; abgeleitet wird nichts mehr
+   aus dem Kürzel.
+5. **Umbenennen**: `mv RCode/TeamList_<Jahr>_entwurf.csv RCode/TeamList_<Jahr>.csv`
+
+Erst danach ist die Saison umgestellt.
+
 ### Wann der Lauf frühestens möglich ist
 
 Die neue Ligazuordnung kommt **aus der API**: Der Lauf fragt
@@ -111,7 +141,7 @@ docker-compose exec -it scheduler \
 # - Validation of changes
 ```
 
-On success, the script validates the produced `TeamList_<target>.csv` and removes intermediate league files automatically.
+On success, the script validates the produced **draft** `TeamList_<target>_entwurf.csv` and removes intermediate league files automatically. It never writes or touches `TeamList_<target>.csv` — see [Phase 2](#phase-2-die-nacharbeit).
 
 ### Method 2: Non-Interactive Mode
 
@@ -208,9 +238,10 @@ docker-compose exec -it scheduler \
 ### 5. Verify Results
 
 ```bash
-# Check new team file
+# Check the draft the run produced (not the productive file — it does not
+# exist yet; it is the result of Phase 2)
 docker-compose exec scheduler Rscript -e "
-  teams_new <- read.csv('RCode/TeamList_2025.csv', sep = ';')
+  teams_new <- read.csv('RCode/TeamList_2025_entwurf.csv', sep = ';')
   teams_old <- read.csv('RCode/TeamList_2024.csv', sep = ';')
 
   cat('Old season teams:', nrow(teams_old), '\n')
@@ -414,21 +445,27 @@ echo "Running transition..."
 docker-compose exec -T scheduler \
   Rscript scripts/season_transition.R $OLD_SEASON $NEW_SEASON --non-interactive
 
-# 3. Verify
+# 3. Verify — der Lauf erzeugt den ENTWURF, nicht die produktive Datei
 echo "Verifying..."
-if docker-compose exec -T scheduler test -f "RCode/TeamList_${NEW_SEASON}.csv"; then
-  echo "✓ New team file created"
+if docker-compose exec -T scheduler test -f "RCode/TeamList_${NEW_SEASON}_entwurf.csv"; then
+  echo "✓ Draft created"
 else
-  echo "✗ ERROR: Team file not created"
+  echo "✗ ERROR: Draft not created"
   exit 1
 fi
 
-# 4. Update configuration
-echo "Updating configuration..."
-sed -i.bak "s/SEASON=$OLD_SEASON/SEASON=$NEW_SEASON/g" .env
-
-echo "=== Season transition complete ==="
+echo "=== Phase 1 complete ==="
+echo "Phase 2 is manual: review the draft, resolve the conflicts it lists,"
+echo "then place it as RCode/TeamList_${NEW_SEASON}.csv and only THEN set"
+echo "SEASON=${NEW_SEASON} in .env."
 ```
+
+> **Das Skript endet hier bewusst.** Es setzte früher `SEASON` im selben Lauf
+> auf die neue Saison. Das ginge jetzt schief: Der Lauf schreibt einen
+> **Entwurf**, und der Produktivpfad liest ihn nicht — der Scheduler suchte
+> eine `TeamList_<neu>.csv`, die es erst nach der Nacharbeit gibt. Die
+> Umstellung von `SEASON` gehört ans Ende von Phase 2, nicht an das von
+> Phase 1.
 
 ## Troubleshooting Guide
 
@@ -446,7 +483,9 @@ Rscript scripts/season_transition/cleanup.R 2025 --confirm
 
 The wrapper only matches files of the form `TeamList_<season>_League(78|79|80)_temp.csv` in `RCode/`. It does **not** touch:
 
-- `RCode/TeamList_<season>.csv` (the final season file)
+- `RCode/TeamList_<season>.csv` (the final season file — the run never writes it either)
+- `RCode/TeamList_<season>_entwurf.csv` (the draft, i.e. the run's actual result)
+- `RCode/TeamList_<season>_entwurf_konflikte.md` (the conflict report next to it)
 - Any `.tmp` or `.lock` files
 - Anything outside `RCode/`
 - Files for other seasons

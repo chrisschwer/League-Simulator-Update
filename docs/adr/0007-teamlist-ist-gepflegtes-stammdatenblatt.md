@@ -19,13 +19,19 @@ Drei Belege aus derselben Saison:
 - Der letzte tatsächliche Lauf (Juli 2026) erzeugte ein Format, das es seit
   September 2026 nicht mehr gibt: vier Spalten gegen heute sieben.
 
-Der Saisonwechsel **kann** die produktive TeamList also gar nicht mehr
-schreiben. `csv_generation.R` selektiert `TeamID, ShortText, Promotion,
+Der Saisonwechsel **konnte** die produktive TeamList also gar nicht mehr
+schreiben. `csv_generation.R` selektierte `TeamID, ShortText, Promotion,
 InitialELO`; `League`, `Region` und `Name` fielen weg — und mit `Region` die
 gesamte Abstiegskopplung der Regionalligen ([ADR 0006](0006-abstiegskopplung-der-regionalligen.md)),
 weil `rl_group_of_team()` ohne sie `NULL` liefert und der Loop die RL-Spalten
 stillschweigend überspringt. Im `--non-interactive`-Modus geschähe das ohne
 Rückfrage: `confirm_overwrite()` gibt dort immer `TRUE` zurück.
+
+> **Umgesetzt (Issue #206, September 2026):** Der Lauf reicht alle sieben
+> Spalten durch und schreibt `TeamList_<Jahr>_entwurf.csv`; eine vorhandene
+> produktive Datei fasst er nicht mehr an. Damit ist der oben beschriebene
+> Zustand Geschichte — die *Entscheidung* darunter bleibt: Die TeamList ist
+> gepflegtes Stammdatenblatt, nicht Erzeugnis.
 
 ## Die Entscheidung
 
@@ -50,8 +56,13 @@ maschinell zu leisten ist:
 3. Vorschläge für Neuzugänge — Kürzel, ELO, Zweitvertretungs-Status
 
 Sie schreibt einen **Entwurf** (`TeamList_<Jahr>_entwurf.csv`), nicht die
-produktive Datei. Entschieden, Umsetzung in #206 — heute schreibt
-`csv_generation.R` noch das alte Vierspaltenformat direkt.
+produktive Datei.
+
+> **Umgesetzt (#206):** `csv_generation.R` schreibt den Entwurf im
+> Siebenspaltenformat und fasst eine vorhandene `TeamList_<Jahr>.csv` nicht
+> mehr an — auch im `--non-interactive`-Modus nicht. Der **Konfliktbericht**
+> entsteht als Datei `TeamList_<Jahr>_entwurf_konflikte.md` neben dem
+> Entwurf und zusätzlich als Terminalausgabe.
 
 Die **Ligazuordnung kommt dabei aus der API**, nicht aus der Vorsaison: Der
 Lauf fragt `/v3/teams?league=<id>&season=<Jahr>` je aktiver Liga einzeln ab
@@ -91,6 +102,20 @@ nennt vier Dinge:
 
 Er landet als Datei neben der TeamList, nicht im Log: Der Lauf findet einmal im
 Juli statt, und bis zur Nacharbeit wäre eine Terminalausgabe weggescrollt.
+
+> **Stand September 2026 (Issue #206):** Umgesetzt. Der Bericht entsteht als
+> `TeamList_<Jahr>_entwurf_konflikte.md` neben dem Entwurf — gleicher
+> Dateistamm, damit beide zusammen bleiben — und zusätzlich als
+> Terminalausgabe; beide kommen aus **einer** Quelle, laufen also nicht
+> auseinander. Ohne Befund entsteht die Datei ebenfalls, mit einer Zeile
+> „Keine Konflikte gefunden": Sonst bliebe offen, ob der Lauf nichts
+> gefunden oder nicht berichtet hat.
+>
+> Er nennt drei der vier Punkte (Kürzel-Konflikte, fehlende Stammregion,
+> neue Teams). Die **Kollisionen nach Ligawechsel** stecken in der
+> Kürzel-Prüfung, sind aber nicht als eigene Gruppe ausgewiesen — dafür
+> bräuchte der Bericht die Liga-Zuordnung der Vorsaison, die an dieser
+> Stelle nicht vorliegt.
 
 ## Was der Lauf nicht mehr tun darf
 
