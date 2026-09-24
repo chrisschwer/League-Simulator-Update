@@ -247,7 +247,7 @@ run_loop_capturing <- function() {
     update_all_leagues_loop(
       duration = 0, loops = 1, initial_wait = 0, n = 10, saison = "2024",
       TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 30
+      static_site_dir = tempdir()
     )
   })
   cap

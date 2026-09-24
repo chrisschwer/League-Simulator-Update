@@ -29,9 +29,10 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
                                     TeamList_file = "RCode/TeamList_2023.csv",
                                     static_site_dir = Sys.getenv("STATIC_SITE_DIR",
                                                                  "ShinyApp/public"),
-                                    full_fetch_every = 30,
+                                    full_fetch_mindestens_alle = 3600,
                                     normaltakt = 120,
-                                    plan_reduziert = FALSE) {
+                                    plan_reduziert = FALSE,
+                                    jetzt = Sys.time) {
   # ZWEI Taktwerte, und der Unterschied ist der Kern von Issue #224.
   #
   # `konservativer_takt` ist der aus dem Tagesplan abgeleitete: Dauer auf
@@ -85,11 +86,21 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
   # leave the live feed go into pending_finished_ids and stay there until a
   # full fetch actually shows them as final: the season endpoint can lag the
   # live feed by seconds (issue #154), so the trigger must re-arm the fetch
-  # until the season data has caught up. full_fetch_every is the safety net
-  # for status changes that bypass "live" (awarded/postponed results).
+  # until the season data has caught up. The safety net covers status
+  # changes that bypass "live" (awarded/postponed results, a match frozen
+  # at NS at the source): at least one full fetch every
+  # `full_fetch_mindestens_alle` SECONDS.
+  #
+  # Zeit, nicht Runden (Issue #226): Frueher zaehlte das Netz 30 Runden. Seit
+  # der Regler (#222) den Takt streckt, wurden daraus bei 5400 s Takt 45
+  # Stunden -- laenger als das Tagesfenster, das Netz griff gar nicht mehr.
+  # Teurer als eingeplant wird es dadurch nicht: Der Regler rechnet jede
+  # Runde ohnehin als Vollabruf (expected_cost_per_loop), und das Netz
+  # feuert hoechstens einmal je Runde. `jetzt` ist die Uhr dafuer; die Tests
+  # geben sie vor (helper-uhr.R).
   prev_live_ids <- NULL # NULL = unknown (no live poll yet)
   pending_finished_ids <- integer(0)
-  last_full_fetch_loop <- 0
+  letzter_vollabruf <- NULL # Zeitpunkt des letzten ERFOLGREICHEN Vollabrufs
 
   # Signature of the render-relevant fixture fields behind the last
   # generated site; any change re-renders even without a new simulation.
@@ -424,7 +435,9 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
             pending_finished_ids, setdiff(prev_live_ids, live_ids)
           )
         }
-        due_safety_fetch <- (i - last_full_fetch_loop) >= full_fetch_every
+        due_safety_fetch <- is.null(letzter_vollabruf) ||
+          as.numeric(difftime(jetzt(), letzter_vollabruf, units = "secs")) >=
+            full_fetch_mindestens_alle
         # Fetch while anything is live (the Live section shows current
         # scores), while a finished fixture is pending, or when the safety
         # net is due. Only a fully idle loop skips the fetch.
@@ -503,7 +516,7 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
       # Die Zuweisung stand frueher vor dem is.null-Check daruber. Ein
       # fehlgeschlagener Sicherheits-Abruf stellte den Zaehler damit
       # zurueck, als waere er gelungen -- das Netz war fuer weitere
-      # full_fetch_every Runden abgeschaltet, genau waehrend die API klemmt.
+      # Netz-Intervall abgeschaltet, genau waehrend die API klemmt.
       #
       # Die Folge der Verschiebung: Im Leerlauf bleibt der Abruf nach einem
       # Fehlschlag faellig und wiederholt sich jede Runde, bis er gelingt.
@@ -514,7 +527,7 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
       # seit #190 ohnehin keine feste Zahl mehr: Der Takt-Regler streckt
       # den Takt, sobald das Restkontingent knapp wird -- auch und gerade
       # waehrend eines Ausfalls.
-      last_full_fetch_loop <- i
+      letzter_vollabruf <- jetzt()
 
       # Resolve pending finished fixtures: an id leaves the set once the
       # season data shows it final (beendet or verschoben), or when no league
