@@ -239,3 +239,13 @@ table.beispiel td:first-child{font-family:var(--serif);font-size:15px}
   details.mscore table.score{animation:fade .22s cubic-bezier(.2,0,.2,1)}
   @keyframes fade{from{opacity:0}to{opacity:1}}
 }
+
+/* Kuerzel-Tooltips: abbr.kz traegt den vollen Vereinsnamen im title (Hover).
+   Zum Antippen blendet .KUERZEL_SCRIPT das Label .kz-tip ein -- fix
+   positioniert am <body>, weil die Tabellen in Scroll-Containern stehen. */
+abbr.kz{text-decoration:underline dotted var(--rule);text-underline-offset:3px;cursor:help}
+abbr.kz:focus-visible{outline:1px solid var(--tinte);outline-offset:1px}
+.kz-tip{position:fixed;z-index:20;max-width:calc(100vw - 16px);padding:4px 8px;
+  background:var(--ink);color:var(--paper);font-family:var(--sans);font-size:13px;
+  line-height:1.3;border-radius:2px;pointer-events:none;white-space:nowrap}
+.kz-tip[hidden]{display:none}
