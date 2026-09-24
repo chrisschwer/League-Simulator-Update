@@ -551,3 +551,46 @@ test_that("generate_static_site ohne Taktangabe laesst den Fuss unveraendert", {
     expect_false(grepl("Eingeschr", read_html(p)), info = basename(p))
   }
 })
+
+# ---------------------------------------------------------------------------
+# Issue #229: ganz berechnete Panels filtern Zeilen wie alle anderen
+# ---------------------------------------------------------------------------
+# Das Abstiegspanel der Regionalligen ist ganz berechnet (computed = TRUE).
+# Es muss dasselbe 1-%-Kriterium anwenden wie die Platzgruppen-Panels der
+# oberen Ligen: Eine Zeile bleibt, wenn die Summe der Panel-Spalten
+# mindestens 1 % erreicht.
+
+test_that("ganz berechnetes Panel laesst Teams unter 1 % weg (#229)", {
+  gen <- source_generator()
+  panel <- list(labels = "Abstieg", computed = TRUE)
+  obj <- data.frame(Abstieg = c(0.40, 0.01, 0.009, 0),
+                    row.names = c("GEFAEHRDET", "GRENZE", "KNAPPDRUNTER", "SICHER"))
+
+  html <- gen$render_panel_table(obj, panel)
+
+  expect_match(html, "GEFAEHRDET", fixed = TRUE)
+  expect_match(html, "GRENZE", fixed = TRUE)
+  expect_false(grepl("KNAPPDRUNTER", html, fixed = TRUE))
+  expect_false(grepl("SICHER", html, fixed = TRUE))
+})
+
+test_that("bei zwei berechneten Spalten zaehlt deren Summe (Bayern, #229)", {
+  gen <- source_generator()
+  panel <- list(labels = c("Relegation", "Abstieg"), computed = TRUE)
+  obj <- data.frame(Relegation = c(0.006, 0.004),
+                    Abstieg = c(0.006, 0.004),
+                    row.names = c("SUMMEREICHT", "SUMMEZUKLEIN"))
+
+  html <- gen$render_panel_table(obj, panel)
+
+  expect_match(html, "SUMMEREICHT", fixed = TRUE)
+  expect_false(grepl("SUMMEZUKLEIN", html, fixed = TRUE))
+})
+
+test_that("ganz berechnetes Panel ohne gefaehrdetes Team rendert leer wie die anderen (#229)", {
+  gen <- source_generator()
+  panel <- list(labels = "Abstieg", computed = TRUE)
+  obj <- data.frame(Abstieg = c(0, 0.001), row.names = c("A", "B"))
+
+  expect_identical(gen$render_panel_table(obj, panel), "")
+})

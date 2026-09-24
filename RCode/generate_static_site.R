@@ -289,13 +289,18 @@ render_heatmap <- function(result) {
 render_panel_table <- function(data_obj, panel, computed_obj = NULL) {
   computed <- .panel_computed(panel)
 
-  # Ganz berechnetes Panel: keine Platzaufloesung, keine Zeilenfilterung ueber
-  # Platzspalten -- es GIBT keine. Die Spalten gehen so hinaus, wie sie
-  # hereinkamen.
+  # Ganz berechnetes Panel: keine Platzaufloesung -- es GIBT keine
+  # Platzspalten. Die Spalten gehen so hinaus, wie sie hereinkamen. Der
+  # Zeilenfilter gilt trotzdem, mit demselben 1-%-Kriterium wie unten, nur
+  # ueber die berechneten Spalten statt ueber `filter_cols` (Issue #229).
   if (all(computed)) {
     grouped <- as.data.frame(
       .computed_spalten(data_obj, panel$labels, "render_panel_table")
     )
+    grouped <- grouped[rowSums(grouped) >= 0.01, , drop = FALSE]
+    if (nrow(grouped) == 0) {
+      return("")
+    }
     return(.panel_html(grouped, panel$labels))
   }
 
