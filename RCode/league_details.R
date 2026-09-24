@@ -13,6 +13,9 @@
 #     live       = 1H, HT, 2H, ET, BT, P, SUSP, INT, LIVE
 #     verschoben = PST, CANC, TBD, ABD
 #     offen      = alles andere (insb. NS)
+#   TBD zählt nur als verschoben, wenn sein Termin (Berliner Kalendertag)
+#   verstrichen ist; sonst macht extract_fixture_details() daraus ein offenes
+#   Spiel mit `zeit_offen = TRUE` (Issue #230).
 #   Für Fensterung und Tabelle zählen beendete und gewertete Spiele gleich
 #   (STATUS_ERGEBNIS); nur der ELO-Walk unterscheidet sie -- siehe
 #   build_league_details_payload() und Issue #157.
@@ -61,7 +64,7 @@ STATUS_AWARDED <- c("AWD", "WO")
 # Statusmenge für Fensterung und Tabelle -- NICHT die für das ELO.
 STATUS_ERGEBNIS <- c(STATUS_BEENDET, STATUS_AWARDED)
 
-extract_fixture_details <- function(fixtures) {
+extract_fixture_details <- function(fixtures, jetzt = Sys.time()) {
   # api-football fixtures arrive in two shapes depending on how the caller
   # built them: FLACH (production, via retrieveResults()/jsonlite::fromJSON's
   # default simplification) has fixture/league/teams/goals as data.frames
@@ -123,6 +126,17 @@ extract_fixture_details <- function(fixtures) {
   kickoff <- as.POSIXct(date_clean, format = "%Y-%m-%dT%H:%M:%S%z", tz = "UTC")
   attr(kickoff, "tzone") <- "UTC"
 
+  # TBD ("Time To Be Defined", Issue #230): Datum steht, Anstoßzeit nicht.
+  # Liegt der Termin (Berliner Kalendertag) heute oder später, findet das
+  # Spiel statt -- es gilt als offen ("NS") und trägt `zeit_offen`, damit der
+  # Ausblick die unverlässliche Platzhalterzeit nicht anzeigt. Verstrichene
+  # TBD-Termine bleiben TBD und damit verschoben. Verglichen wird der Tag,
+  # nicht die Uhrzeit: Die Platzhalterzeit kann vor dem echten Anstoß liegen.
+  berliner_tag <- function(x) as.Date(format(x, "%Y-%m-%d", tz = "Europe/Berlin"))
+  zeit_offen <- status == "TBD" & !is.na(kickoff) &
+    berliner_tag(kickoff) >= berliner_tag(jetzt)
+  status[zeit_offen] <- "NS"
+
   # WARUM HIER SORTIERT WIRD (Design 2026-09-12, Teil 1): Der Rust-ELO-Walk
   # verarbeitet den `schedule` aus build_league_details_payload() in genau
   # der Reihenfolge, in der er hier ankommt. Bisher war das die
@@ -144,6 +158,7 @@ extract_fixture_details <- function(fixtures) {
     round = round,
     kickoff = kickoff,
     status = status,
+    zeit_offen = zeit_offen,
     home_id = home_id,
     away_id = away_id,
     home_name = home_name,

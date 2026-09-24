@@ -6,6 +6,8 @@ source("../../RCode/league_details.R")
 # Begriffe (CONTEXT.md, verfeinert):
 # - abgeschlossen: >= 1 Spiel beendet, kein Spiel live, jedes Spiel beendet
 #   oder verschoben (PST/CANC/TBD/ABD). Verschobene halten nicht offen.
+#   TBD mit Termin heute oder später ist offen, nicht verschoben -- siehe
+#   test-tbd-termin.R (Issue #230).
 # - laufend: begonnen (>= 1 beendet/live), aber nicht abgeschlossen.
 # - ausstehend: noch nicht begonnen.
 # - aktueller Spieltag: der HÖCHSTE begonnene. Ein neu terminiertes

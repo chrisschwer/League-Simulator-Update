@@ -1404,12 +1404,17 @@ render_zonen_fussnote <- function(zonen, regel) {
 .WOCHENTAGE_KURZ <- c("So.", "Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa.")
 
 # Anstoßzeit (UTC, wie aus league_details.R) als Berliner Zeit formatiert:
-# "Wd. T.M., HH:MM<NNBSP>Uhr" — Tag/Monat ohne führende Null.
-.mwhen <- function(kickoff) {
+# "Wd. T.M., HH:MM<NNBSP>Uhr" — Tag/Monat ohne führende Null. Bei offener
+# Anstoßzeit (TBD, Issue #230) "Wd. T.M., Zeit offen": Die API-Uhrzeit ist
+# dann nur ein Platzhalter.
+.mwhen <- function(kickoff, zeit_offen = FALSE) {
   lt <- as.POSIXlt(kickoff, tz = "Europe/Berlin")
   wd <- .WOCHENTAGE_KURZ[lt$wday + 1]
   tag <- as.integer(format(lt, "%d"))
   monat <- as.integer(format(lt, "%m"))
+  if (isTRUE(zeit_offen)) {
+    return(paste0(wd, " ", tag, ".", monat, ".,", " Zeit offen"))
+  }
   zeit <- format(lt, "%H:%M")
   paste0(wd, " ", tag, ".", monat, ".,", " ", zeit, " Uhr")
 }
@@ -1618,7 +1623,7 @@ render_live <- function(live) {
 
   paste0(
     "<div class=\"match outlook\">\n",
-    "<div class=\"mwhen\">", .mwhen(row$kickoff), "</div>\n",
+    "<div class=\"mwhen\">", .mwhen(row$kickoff, row$zeit_offen), "</div>\n",
     "<div class=\"mpair\">", .match_pair(row$home_name, row$away_name), "</div>\n",
     .oddsbar(row$p_home_win, row$p_draw, row$p_away_win), "\n",
     "<details class=\"mscore\"><summary>Ergebnis-Matrix</summary>",
