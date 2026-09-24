@@ -472,6 +472,12 @@ build_league_page_data <- function(fixtures, teams,
     name_by_id[as.character(details$away_id)] <- details$away_name
     tabelle$name <- unname(name_by_id[as.character(tabelle$team_id)])
 
+    # Kürzel je Team (id-Join) -- die Seite zeigt Heatmap und Panels mit
+    # Kürzeln; der Tooltip dazu nimmt den Namen aus dieser Tabelle. Nur
+    # innerhalb EINER Liga eindeutig (FCH: Heidenheim wie Hansa Rostock).
+    kuerzel_by_id <- setNames(liga_teams$ShortText, liga_teams$TeamID)
+    tabelle$kuerzel <- unname(kuerzel_by_id[as.character(tabelle$team_id)])
+
     elo_by_id <- setNames(parsed$current_elos, liga_teams$TeamID)
     tabelle$elo <- unname(elo_by_id[as.character(tabelle$team_id)])
 

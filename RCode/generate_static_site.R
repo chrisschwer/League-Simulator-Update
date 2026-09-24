@@ -198,7 +198,41 @@ iso_utc <- function(t) {
   paste0("<td style=\"", .heat_style(p), "\">", cell_html, "</td>")
 }
 
-render_heatmap <- function(result) {
+# Text mit Tooltip: <abbr> mit title (Hover) und tabindex (Tastatur,
+# Antippen per .KUERZEL_SCRIPT). Vektorisiert; wo `tip` NA oder leer ist,
+# bleibt der Text schlicht -- zeichengleich wie ohne Tooltip.
+.tooltip_html <- function(text, tip) {
+  html <- htmltools::htmlEscape(text)
+  if (is.null(tip)) {
+    return(html)
+  }
+  tip <- rep_len(as.character(tip), length(text))
+  ifelse(
+    is.na(tip) | !nzchar(tip),
+    html,
+    paste0("<abbr class=\"kz\" title=\"", htmltools::htmlEscape(tip, attribute = TRUE),
+           "\" tabindex=\"0\">", html, "</abbr>")
+  )
+}
+
+# Ein Team-Kuerzel als Zeilenkopf, mit dem vollen Namen als Tooltip.
+# `namen` ist ein benannter Vektor Kuerzel -> Name EINER Liga (.teamnamen());
+# Kuerzel sind nur innerhalb einer Liga eindeutig.
+.kuerzel_html <- function(kuerzel, namen = NULL) {
+  .tooltip_html(kuerzel, if (is.null(namen)) NULL else unname(namen[kuerzel]))
+}
+
+# Kuerzel -> Name aus der Ligatabelle einer Seite, NULL ohne Tabelle (die
+# Seite degradiert dann auf schlichte Kuerzel).
+.teamnamen <- function(league_entry) {
+  tab <- league_entry$tabelle
+  if (is.null(tab) || is.null(tab$kuerzel) || is.null(tab$name)) {
+    return(NULL)
+  }
+  stats::setNames(as.character(tab$name), as.character(tab$kuerzel))
+}
+
+render_heatmap <- function(result, namen = NULL) {
   n <- ncol(result)
   header <- paste0(
     "<thead><tr><th scope=\"col\">Team</th>",
@@ -210,7 +244,7 @@ render_heatmap <- function(result) {
     cells <- paste0(vapply(seq_len(n), function(j) .heatmap_cell(result[i, j]),
                            character(1)), collapse = "")
     paste0("<tr><th scope=\"row\">",
-          htmltools::htmlEscape(rownames(result)[i]), "</th>", cells, "</tr>")
+          .kuerzel_html(rownames(result)[i], namen), "</th>", cells, "</tr>")
   }, character(1))
 
   paste0(
@@ -286,7 +320,8 @@ render_heatmap <- function(result) {
 #' @param computed_obj Objekt fuer die berechneten Spalten eines GEMISCHTEN
 #'   Panels (`computed_source`). Bei einem ganz berechneten Panel unnoetig --
 #'   dort ist `data_obj` bereits das fertige Objekt.
-render_panel_table <- function(data_obj, panel, computed_obj = NULL) {
+render_panel_table <- function(data_obj, panel, computed_obj = NULL,
+                               namen = NULL) {
   computed <- .panel_computed(panel)
 
   # Ganz berechnetes Panel: keine Platzaufloesung -- es GIBT keine
@@ -301,7 +336,7 @@ render_panel_table <- function(data_obj, panel, computed_obj = NULL) {
     if (nrow(grouped) == 0) {
       return("")
     }
-    return(.panel_html(grouped, panel$labels))
+    return(.panel_html(grouped, panel$labels, namen))
   }
 
   n <- ncol(data_obj)
@@ -355,13 +390,13 @@ render_panel_table <- function(data_obj, panel, computed_obj = NULL) {
     grouped <- voll
   }
 
-  .panel_html(grouped, panel$labels)
+  .panel_html(grouped, panel$labels, namen)
 }
 
 # Der gemeinsame Ausgabeteil: Prozentformatierung und Markup. Getrennt vom
 # Rechenteil, damit der berechnete und der Platzgruppen-Pfad garantiert
 # dieselbe Tabelle erzeugen.
-.panel_html <- function(grouped, labels) {
+.panel_html <- function(grouped, labels, namen = NULL) {
   if (nrow(grouped) == 0) {
     return("")
   }
@@ -381,7 +416,7 @@ render_panel_table <- function(data_obj, panel, computed_obj = NULL) {
 
   rows <- paste0(
     "<tr><th scope=\"row\">",
-    htmltools::htmlEscape(rownames(formatted)), "</th>",
+    .kuerzel_html(rownames(formatted), namen), "</th>",
     cells, "</tr>",
     collapse = "\n"
   )
@@ -504,7 +539,8 @@ render_league_page <- function(view, data_env, output_dir,
   .copy_assets(output_dir)
 
   result <- get(view$plot_source, envir = data_env)
-  heatmap_html <- render_heatmap(result)
+  namen <- .teamnamen(league_entry)
+  heatmap_html <- render_heatmap(result, namen)
 
   # Ein gemischtes Panel liest aus ZWEI Objekten: die Platzgruppe aus
   # `source`, die berechnete Spalte aus `computed_source`. Fehlt letzteres,
@@ -517,7 +553,7 @@ render_league_page <- function(view, data_env, output_dir,
       NULL
     }
     render_panel_table(get(panel$source, envir = data_env), panel,
-                       computed_obj = computed_obj)
+                       computed_obj = computed_obj, namen = namen)
   }
 
   top_html <- panel_html(view$top)
@@ -548,6 +584,7 @@ render_league_page <- function(view, data_env, output_dir,
     ""
   }
   sort_script <- if (!is.null(league_entry)) .LIGA_SORT_SCRIPT else ""
+  kuerzel_script <- if (!is.null(namen)) .KUERZEL_SCRIPT else ""
 
   rueckblick_html <- if (!is.null(league_entry) &&
                          !is.null(league_entry$rueckblick) &&
@@ -598,7 +635,7 @@ render_league_page <- function(view, data_env, output_dir,
     ausblick_html,
     .footer_html(mtime), "\n",
     .stale_script, "\n",
-    sort_script, "\n</div>\n</body>\n</html>\n"
+    sort_script, "\n", kuerzel_script, "\n</div>\n</body>\n</html>\n"
   )
 
   out_path <- file.path(output_dir, paste0(view$slug, ".html"))
@@ -640,10 +677,11 @@ render_league_page <- function(view, data_env, output_dir,
 #' den Direktaufsteigern gibt es kein Spiel, das noch zu gewinnen waere --
 #' der Quotient ist dann trivial 1 und sagt nichts. Die Zelle bleibt leer,
 #' wie ueberall sonst, wo das Modell zu einer Frage nichts weiss.
-.aufstiegs_zeile <- function(team, meister, aufstieg, quote_zeigen) {
+.aufstiegs_zeile <- function(team, meister, aufstieg, quote_zeigen,
+                             namen = NULL) {
   quote <- if (quote_zeigen) .siegquote(aufstieg, meister) else ""
   paste0(
-    "<tr><th scope=\"row\">", htmltools::htmlEscape(team), "</th>",
+    "<tr><th scope=\"row\">", .kuerzel_html(team, namen), "</th>",
     "<td>", htmltools::htmlEscape(as.character(prozent(meister))), "</td>",
     "<td>", htmltools::htmlEscape(as.character(prozent(aufstieg))), "</td>",
     "<td>", htmltools::htmlEscape(quote), "</td></tr>"
@@ -660,7 +698,7 @@ render_league_page <- function(view, data_env, output_dir,
 #' Nur Teams mit einer Meister- ODER Aufstiegschance stehen in der Tabelle.
 #' Achtzehn Zeilen, von denen fuenfzehn "0 0" zeigen, beantworten keine Frage.
 .aufstiegs_tabelle <- function(staffel, titel, meister, aufstieg,
-                               quote_zeigen) {
+                               quote_zeigen, namen = NULL) {
   teams <- names(meister)
   zeigen <- meister > 0 | aufstieg[teams] > 0
   teams <- teams[zeigen]
@@ -670,7 +708,8 @@ render_league_page <- function(view, data_env, output_dir,
   }
 
   zeilen <- vapply(teams, function(team) {
-    .aufstiegs_zeile(team, meister[[team]], aufstieg[[team]], quote_zeigen)
+    .aufstiegs_zeile(team, meister[[team]], aufstieg[[team]], quote_zeigen,
+                     namen)
   }, character(1))
 
   paste0(
@@ -704,8 +743,11 @@ render_league_page <- function(view, data_env, output_dir,
       return("")
     }
     .aufstiegs_tabelle(staffel, daten$titel, daten$meister, daten$aufstieg,
-                       quote_zeigen = isTRUE(daten$playoff))
+                       quote_zeigen = isTRUE(daten$playoff),
+                       namen = daten$namen)
   }, character(1))
+  hat_namen <- any(vapply(aufstiegsdaten, function(d) !is.null(d$namen),
+                          logical(1)))
 
   html <- paste0(
     "<!doctype html>\n<html lang=\"de\">\n<head>\n",
@@ -728,7 +770,8 @@ render_league_page <- function(view, data_env, output_dir,
     "eingetreten, &lt;1 = unter einem Prozent.</p>\n",
     "</section>\n",
     .footer_html(mtime), "\n",
-    .stale_script, "\n</div>\n</body>\n</html>\n"
+    .stale_script, "\n",
+    if (hat_namen) .KUERZEL_SCRIPT else "", "\n</div>\n</body>\n</html>\n"
   )
 
   out_path <- file.path(output_dir, paste0(view$slug, ".html"))
@@ -887,7 +930,7 @@ render_league_page <- function(view, data_env, output_dir,
 #' @param data_env Umgebung mit den Ergebnisobjekten.
 #' @return Benannte Liste Staffel -> list(titel, meister, aufstieg, playoff).
 #'   Leer, wenn keine Regionalliga dabei ist.
-.aufstiegsdaten <- function(keys, data_env) {
+.aufstiegsdaten <- function(keys, data_env, league_data = NULL) {
   reg <- league_registry()
   views <- league_views()
 
@@ -934,7 +977,9 @@ render_league_page <- function(view, data_env, output_dir,
       titel = reg[[key]]$display_name,
       meister = meister,
       aufstieg = aufstieg[names(meister)],
-      playoff = playoff
+      playoff = playoff,
+      # Kuerzel -> Name aus der Ligatabelle DIESER Staffel (Tooltips).
+      namen = .teamnamen(league_data[[key]])
     )
   }
   daten
@@ -1042,7 +1087,7 @@ generate_static_site <- function(Ergebnis = NULL, Ergebnis2 = NULL,
   # gerendert wurde. Ohne Staffeln waere sie eine leere Seite in der
   # Navigation -- schlechter als keine Seite (der Kompatibilitaetspfad
   # rendert weiterhin genau vier Seiten).
-  aufstiegsdaten <- .aufstiegsdaten(names(views), data_env)
+  aufstiegsdaten <- .aufstiegsdaten(names(views), data_env, league_data)
   aufstiegs_path <- character(0)
   if (length(aufstiegsdaten) > 0) {
     aufstiegs_view <- .aufstiegsseite_view()
@@ -1168,7 +1213,7 @@ render_liga_tabelle <- function(tabelle, zonen = NULL) {
       "<tr data-platz=\"", row$platz, "\" data-pkt=\"", row$punkte,
       "\" data-elo=\"", row$elo, "\"", .zone_attrs(zonen, row$platz), ">",
       "<td class=\"num\">", row$platz, "</td>",
-      "<th scope=\"row\">", htmltools::htmlEscape(row$name), "</th>",
+      "<th scope=\"row\">", .tooltip_html(row$name, row$kuerzel), "</th>",
       "<td class=\"num opt\">", row$spiele, "</td>",
       "<td class=\"num opt\">", .vorzeichen(row$tordifferenz, 0), "</td>",
       "<td class=\"num\">", row$punkte, "</td>",
@@ -1660,3 +1705,34 @@ render_ausblick <- function(ausblick, runde) {
     "</div>\n</section>\n"
   )
 }
+
+# Kuerzel-Tooltips zum Antippen. `title` zeigt den Namen nur bei Mausberuehrung;
+# Touch-Geraete haben kein Hover. Ein Tipp (oder Enter/Fokus per Tastatur) auf
+# ein abbr.kz blendet den Namen als kleines Label darunter ein, ein Tipp
+# daneben, Escape oder Scrollen blendet es aus. Das Label haengt am <body> und
+# wird fix positioniert, weil Heatmap und Panels in Scroll-Containern stehen,
+# die ein absolut positioniertes Kind abschneiden wuerden.
+.KUERZEL_SCRIPT <- paste0(
+  "<script>\n(function(){\n",
+  "  var tip=null, akt=null;\n",
+  "  function zu(){if(tip){tip.hidden=true;}akt=null;}\n",
+  "  function auf(el){\n",
+  "    if(!tip){tip=document.createElement('div');tip.className='kz-tip';",
+  "tip.setAttribute('role','tooltip');document.body.appendChild(tip);}\n",
+  "    tip.textContent=el.getAttribute('title');tip.hidden=false;akt=el;\n",
+  "    var r=el.getBoundingClientRect();\n",
+  "    var x=Math.min(r.left,window.innerWidth-tip.offsetWidth-8);\n",
+  "    tip.style.left=Math.max(8,x)+'px';tip.style.top=(r.bottom+4)+'px';\n",
+  "  }\n",
+  "  document.addEventListener('click',function(e){\n",
+  "    var el=e.target.closest?e.target.closest('abbr.kz'):null;\n",
+  "    if(el&&el!==akt){auf(el);}else{zu();}\n",
+  "  });\n",
+  "  document.addEventListener('keydown',function(e){\n",
+  "    if(e.key==='Escape'){zu();}\n",
+  "    else if(e.key==='Enter'&&e.target.matches&&e.target.matches('abbr.kz')){auf(e.target);}\n",
+  "  });\n",
+  "  window.addEventListener('scroll',zu,true);\n",
+  "  window.addEventListener('resize',zu);\n",
+  "})();\n</script>"
+)
