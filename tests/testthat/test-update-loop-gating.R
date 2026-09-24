@@ -112,7 +112,7 @@ test_that("full fetch happens while fixtures are live and skips only when idle",
     update_all_leagues_loop(
       duration = 0, loops = 6, initial_wait = 0, n = 10,
       saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 30
+      static_site_dir = tempdir()
     )
   })
 
@@ -146,7 +146,7 @@ test_that("a failed live poll (NULL) forces a full fetch", {
     update_all_leagues_loop(
       duration = 0, loops = 3, initial_wait = 0, n = 10,
       saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 30
+      static_site_dir = tempdir()
     )
   })
 
@@ -155,9 +155,10 @@ test_that("a failed live poll (NULL) forces a full fetch", {
   expect_equal(live_poll_count, 2) # loops 2-3
 })
 
-test_that("full_fetch_every forces a periodic safety-net fetch even when idle", {
+test_that("the safety net forces a periodic full fetch even when idle", {
   full_fetch_leagues <- character()
   live_poll_count <- 0
+  uhr <- runden_uhr(takt = 120) # Runde k steht auf (k - 1) * 120 s
 
   stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
   stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
@@ -165,6 +166,7 @@ test_that("full_fetch_every forces a periodic safety-net fetch even when idle", 
     fake_fixtures(c("FT", "NS"))
   })
   stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) {
+    uhr$weiter()
     live_poll_count <<- live_poll_count + 1
     integer(0) # nothing live, nothing finishing - pure idle loops
   })
@@ -177,12 +179,13 @@ test_that("full_fetch_every forces a periodic safety-net fetch even when idle", 
     update_all_leagues_loop(
       duration = 0, loops = 4, initial_wait = 0, n = 10,
       saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 3
+      static_site_dir = tempdir(),
+      full_fetch_mindestens_alle = 3 * 120, jetzt = uhr$jetzt
     )
   })
 
-  # Loop 1: full fetch (first iteration). Loop 2: idle -> skip.
-  # Loop 3: (3 - 1) = 2 < full_fetch_every(3) -> skip. Loop 4: (4 - 1) >= 3 -> safety-net full fetch.
+  # Loop 1 (0 s): full fetch (first iteration). Loop 2 (120 s): idle -> skip.
+  # Loop 3: 240 s < 360 s -> skip. Loop 4: 360 s >= 360 s -> safety-net full fetch.
   # -> 2 full fetches x 3 leagues = 6 retrieveResults calls
   expect_length(full_fetch_leagues, 2 * n_ligen())
   expect_equal(live_poll_count, 3) # loops 2-4
@@ -190,11 +193,11 @@ test_that("full_fetch_every forces a periodic safety-net fetch even when idle", 
 
 # --- Der Safety-Timer haengt am ERFOLG des Fetches (Issue #128, Punkt 1) ---
 #
-# Das Sicherheitsnetz (full_fetch_every) existiert fuer den Fall, dass die
+# Das Sicherheitsnetz (full_fetch_mindestens_alle) existiert fuer den Fall, dass die
 # Flanken-Erkennung etwas verpasst. Wird sein Zaehler schon beim VERSUCH
 # zurueckgesetzt statt beim Erfolg, ist es genau dann abgeschaltet, wenn es
-# gebraucht wird: waehrend die API klemmt. Bei Produktionstakt (2 Minuten,
-# Default 30) verzoegert das den naechsten Versuch um bis zu eine Stunde.
+# gebraucht wird: waehrend die API klemmt. Mit dem Default von einer Stunde
+# verzoegert das den naechsten Versuch um bis zu eine Stunde.
 #
 # Die beiden Tests halten die zwei Haelften derselben Aussage fest -- ohne
 # den zweiten liesse sich der erste erfuellen, indem man den Timer gar nicht
@@ -208,7 +211,8 @@ test_that("full_fetch_every forces a periodic safety-net fetch even when idle", 
 # billigere Variante -- prev_live_ids aus den Statusdaten des Loop-1-
 # Vollabrufs seeden, ohne Extra-Request -- beruehrt sie nicht.
 
-# Ein Durchlauf von fuenf durchgehend leeren Runden mit full_fetch_every = 3.
+# Ein Durchlauf von fuenf durchgehend leeren Runden im Abstand von 120 s mit
+# einem Netz-Intervall von 3 * 120 s.
 # Nur der Safety-Fetch kann hier abrufen; `fetch_faellt_aus` bestimmt, ob der
 # faellige Abruf in Loop 4 gelingt. Genau darin unterscheiden sich die beiden
 # Tests -- alles andere ist identisch, und als zwei Kopien nebeneinander
@@ -219,6 +223,7 @@ lauf_mit_safety_fetch <- function(fetch_faellt_aus) {
   fetch_loops <- integer(0)
   polls <- 0L
   aktueller_loop <- 1L # Loop 1 ruft ohne Poll voll ab
+  uhr <- runden_uhr(takt = 120)
 
   stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
   stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
@@ -233,6 +238,7 @@ lauf_mit_safety_fetch <- function(fetch_faellt_aus) {
   stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) {
     # Der Poll laeuft genau einmal je Loop und vor dem Abruf; der erste
     # gehoert zu Loop 2 (s. Annahme oben).
+    uhr$weiter()
     polls <<- polls + 1L
     aktueller_loop <<- polls + 1L
     integer(0) # durchgehend idle
@@ -248,7 +254,8 @@ lauf_mit_safety_fetch <- function(fetch_faellt_aus) {
     update_all_leagues_loop(
       duration = 0, loops = 5, initial_wait = 0, n = 10,
       saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 3
+      static_site_dir = tempdir(),
+      full_fetch_mindestens_alle = 3 * 120, jetzt = uhr$jetzt
     )
   })
 
@@ -256,18 +263,19 @@ lauf_mit_safety_fetch <- function(fetch_faellt_aus) {
 }
 
 test_that("ein fehlgeschlagener Safety-Fetch setzt den Timer NICHT zurueck", {
-  # Loop 1: Vollabruf ohne Poll, gelingt -> Timer auf 1. Loops 2, 3: idle,
-  # 1 bzw. 2 < 3 -> kein Abruf. Loop 4: 4 - 1 = 3 >= 3, faellig -> Abruf,
-  # schlaegt fehl. Loop 5: Der Timer darf noch auf 1 stehen, also
-  # 5 - 1 = 4 >= 3 -> erneuter Versuch. Mit dem Fehler stuende er auf 4
-  # (5 - 4 = 1 < 3) und Loop 5 bliebe still.
+  # Runden im Abstand 120 s, Netz 360 s. Loop 1 (0 s): Vollabruf ohne
+  # Poll, gelingt -> Timer auf 0 s. Loops 2, 3 (120/240 s): idle, < 360 s
+  # -> kein Abruf. Loop 4 (360 s): faellig -> Abruf, schlaegt fehl.
+  # Loop 5 (480 s): Der Timer darf noch auf 0 s stehen, also 480 >= 360
+  # -> erneuter Versuch. Mit dem Fehler stuende er auf 360 s (120 < 360)
+  # und Loop 5 bliebe still.
   expect_identical(lauf_mit_safety_fetch(fetch_faellt_aus = TRUE), c(1L, 4L, 5L))
 })
 
 test_that("ein erfolgreicher Safety-Fetch setzt den Timer sehr wohl zurueck", {
   # Gegenprobe: Der Fix darf den Timer nicht abschaffen, sondern nur an den
-  # Erfolg binden. Gelingt Loop 4, steht der Timer auf 4 und Loop 5 bleibt
-  # still (5 - 4 = 1 < 3).
+  # Erfolg binden. Gelingt Loop 4, steht der Timer auf 360 s und Loop 5
+  # bleibt still (480 - 360 = 120 < 360).
   expect_identical(lauf_mit_safety_fetch(fetch_faellt_aus = FALSE), c(1L, 4L))
 })
 
@@ -294,7 +302,7 @@ run_loop_counting_generation <- function(loops, simulate) {
     update_all_leagues_loop(
       duration = 0, loops = loops, initial_wait = 0, n = 10,
       saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 30
+      static_site_dir = tempdir()
     )
   })
   generated
@@ -322,7 +330,7 @@ test_that("the loop passes static_site_dir through to the generator", {
     update_all_leagues_loop(
       duration = 0, loops = 1, initial_wait = 0, n = 10,
       saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = target, full_fetch_every = 30
+      static_site_dir = target
     )
   })
   expect_equal(seen_dir, target)
@@ -333,7 +341,7 @@ test_that("the loop passes static_site_dir through to the generator", {
 # --- triggered by the live-feed edge can lag the live feed by seconds
 # --- (observed 2026-08-29, BVB-HSV): the old one-shot edge consumed the
 # --- trigger on a stale fetch and the finished game stayed in the Ausblick
-# --- for up to full_fetch_every loops.
+# --- until the next safety-net fetch.
 
 test_that("a finished fixture still live in season data is refetched until final (issue #154)", {
   bl_fetches <- 0L
@@ -378,7 +386,7 @@ test_that("a finished fixture still live in season data is refetched until final
     update_all_leagues_loop(
       duration = 0, loops = 5, initial_wait = 0, n = 10,
       saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 30
+      static_site_dir = tempdir()
     )
   }))
 
@@ -415,7 +423,9 @@ test_that("a fixture-data change without new finished games renders without simu
     )
   })
   # Idle live set: no edge- or live-triggered fetches, only the safety net.
-  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) integer(0))
+  uhr <- runden_uhr(takt = 120)
+  stub(update_all_leagues_loop, "retrieveLiveFixtures",
+       uhr$tick(function(...) integer(0)))
   stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
   stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) {
     sim_calls <<- sim_calls + 1L
@@ -431,7 +441,8 @@ test_that("a fixture-data change without new finished games renders without simu
     update_all_leagues_loop(
       duration = 0, loops = 3, initial_wait = 0, n = 10,
       saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 2
+      static_site_dir = tempdir(),
+      full_fetch_mindestens_alle = 2 * 120, jetzt = uhr$jetzt
     )
   })
 
@@ -456,7 +467,9 @@ test_that("simulation triggers on a changed beendet set even when the count is u
       fake_fixtures(c("NS", "FT"), ids = c(100L, 101L))
     }
   })
-  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) integer(0))
+  uhr <- runden_uhr(takt = 120)
+  stub(update_all_leagues_loop, "retrieveLiveFixtures",
+       uhr$tick(function(...) integer(0)))
   stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
   stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) {
     sim_calls <<- sim_calls + 1L
@@ -469,7 +482,8 @@ test_that("simulation triggers on a changed beendet set even when the count is u
     update_all_leagues_loop(
       duration = 0, loops = 3, initial_wait = 0, n = 10,
       saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 2
+      static_site_dir = tempdir(),
+      full_fetch_mindestens_alle = 2 * 120, jetzt = uhr$jetzt
     )
   })
 
@@ -513,7 +527,7 @@ test_that("live fixtures trigger a full fetch and re-render every loop without s
     update_all_leagues_loop(
       duration = 0, loops = 3, initial_wait = 0, n = 10,
       saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 30
+      static_site_dir = tempdir()
     )
   })
 
@@ -560,7 +574,7 @@ test_that("an awarded result (AWD) resolves a pending finished fixture", {
     update_all_leagues_loop(
       duration = 0, loops = 5, initial_wait = 0, n = 10,
       saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 30
+      static_site_dir = tempdir()
     )
   }))
 
@@ -612,7 +626,7 @@ test_that("a pending finished fixture survives a failed full fetch", {
     update_all_leagues_loop(
       duration = 0, loops = 5, initial_wait = 0, n = 10,
       saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 30
+      static_site_dir = tempdir()
     )
   })
 
@@ -677,7 +691,7 @@ test_that("das Frauen-Tormodell erreicht beide leagueSimulatorRust-Aufrufe (Liga
     update_all_leagues_loop(
       duration = 0, loops = 1, initial_wait = 0, n = 10,
       saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 30
+      static_site_dir = tempdir()
     )
   })
 
@@ -754,7 +768,7 @@ test_that("ein NULL aus retrieveResults() fuer eine Liga blockiert die anderen n
     update_all_leagues_loop(
       duration = 0, loops = 1, initial_wait = 0, n = 10,
       saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 30
+      static_site_dir = tempdir()
     )
   }))
 
@@ -798,7 +812,7 @@ test_that("ein transform_data()-Fehler in einer Liga bricht den Loop nicht ab", 
     update_all_leagues_loop(
       duration = 0, loops = 1, initial_wait = 0, n = 10,
       saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 30
+      static_site_dir = tempdir()
     )
   }))
 
@@ -841,7 +855,7 @@ test_that("ein leagueSimulatorRust()-Fehler in einer Liga bricht den Loop nicht 
     update_all_leagues_loop(
       duration = 0, loops = 1, initial_wait = 0, n = 10,
       saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 30
+      static_site_dir = tempdir()
     )
   }))
 
@@ -869,7 +883,9 @@ test_that("ein per-Liga-Fehler behaelt die vorherige Prognose der betroffenen Li
       fake_fixtures(c("FT", "FT"), ids = c(100L, 101L))
     }
   })
+  uhr <- runden_uhr(takt = 120)
   stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) {
+    uhr$weiter()
     loop_num <<- loop_num + 1L
     integer(0)
   })
@@ -893,14 +909,16 @@ test_that("ein per-Liga-Fehler behaelt die vorherige Prognose der betroffenen Li
     invisible(character(0))
   })
 
-  # full_fetch_every = 1: Loop 2 ist damit IMMER ein faelliger Safety-Fetch,
-  # unabhaengig vom (hier durchgehend leeren) Live-Poll -- sonst wuerde die
-  # idle-Erkennung den Vollabruf in Loop 2 gar nicht erst ausloesen.
+  # Netz-Intervall = ein Rundenabstand (120 s): Loop 2 ist damit IMMER ein
+  # faelliger Safety-Fetch, unabhaengig vom (hier durchgehend leeren)
+  # Live-Poll -- sonst wuerde die idle-Erkennung den Vollabruf in Loop 2 gar
+  # nicht erst ausloesen.
   with_repo_root({
     update_all_leagues_loop(
       duration = 0, loops = 2, initial_wait = 0, n = 10,
       saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 1
+      static_site_dir = tempdir(),
+      full_fetch_mindestens_alle = 120, jetzt = uhr$jetzt
     )
   })
 
@@ -949,7 +967,7 @@ test_that("ein geworfener Fehler aus retrieveResults() fuer eine Liga blockiert 
     update_all_leagues_loop(
       duration = 0, loops = 1, initial_wait = 0, n = 10,
       saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 30
+      static_site_dir = tempdir()
     )
   }))
 
@@ -983,7 +1001,7 @@ test_that("ein geworfener Fehler aus retrieveLiveFixtures() bricht den Loop nich
     update_all_leagues_loop(
       duration = 0, loops = 2, initial_wait = 0, n = 10,
       saison = "2024", TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 30
+      static_site_dir = tempdir()
     )
   }))
 
@@ -1103,7 +1121,7 @@ test_that("der Malus folgt der Spalte Promotion, nicht dem Kuerzel-Suffix", {
     update_all_leagues_loop(
       duration = 0, loops = 1, initial_wait = 0, n = 10,
       saison = "2026", TeamList_file = teamlist,
-      static_site_dir = tempdir(), full_fetch_every = 30
+      static_site_dir = tempdir()
     )
   })
 
@@ -1158,7 +1176,7 @@ test_that("ein Team ohne Zeile in der TeamList bekommt keinen erfundenen Malus",
     update_all_leagues_loop(
       duration = 0, loops = 1, initial_wait = 0, n = 10,
       saison = "2026", TeamList_file = teamlist,
-      static_site_dir = tempdir(), full_fetch_every = 30
+      static_site_dir = tempdir()
     )
   })
 
@@ -1248,7 +1266,7 @@ lauf_mit_schlafzeiten <- function(loops, duration, rest_folge = NULL,
       duration = duration, loops = loops, initial_wait = 0, n = 10,
       saison = "2024",
       TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 30
+      static_site_dir = tempdir()
     )
   }))
 
@@ -1366,7 +1384,7 @@ test_that("ein gefallenes Limit wird als Plan-Herabstufung gewarnt (issue #190, 
       duration = 10, loops = 4, initial_wait = 0, n = 10,
       saison = "2024",
       TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 30
+      static_site_dir = tempdir()
     )
   }))
 
@@ -1428,7 +1446,7 @@ lauf_mit_falscher_uhr <- function(loops, duration, waittime_sekunden) {
       duration = duration, loops = loops, initial_wait = 0, n = 10,
       saison = "2024",
       TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 30
+      static_site_dir = tempdir()
     )
   }))
 
@@ -1530,7 +1548,7 @@ lauf_mit_kontingent <- function(loops, duration, stand_folge,
       duration = duration, loops = loops, initial_wait = 0, n = 10,
       saison = "2024",
       TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
-      static_site_dir = tempdir(), full_fetch_every = 30,
+      static_site_dir = tempdir(),
       plan_reduziert = plan_reduziert
     )
   }))

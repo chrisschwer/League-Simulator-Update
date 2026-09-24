@@ -473,7 +473,9 @@ mit_rust_fake <- function(fake, expr) {
 # Liste je Render), die Zahl der /simulate-Aufrufe zum Zeitpunkt jedes
 # Renders (sim_marken), alle Payloads, alle Meldungen, die TeamList.
 
-lauf_ausfuehren <- function(loops = 1L, full_fetch_every = 30L,
+# Die Uhr laeuft je Runde 120 s weiter (helper-uhr.R); das Netz-Intervall
+# `full_fetch_mindestens_alle` ist damit in Vielfachen von 120 s anzugeben.
+lauf_ausfuehren <- function(loops = 1L, full_fetch_mindestens_alle = 3600,
                             teamlist = teamlist_datei(),
                             nord_ab_fetch2_beendet = FALSE) {
   # Vor dem Wechsel ins Repo-Root auswerten: Die TeamList-Datei und die
@@ -504,7 +506,9 @@ lauf_ausfuehren <- function(loops = 1L, full_fetch_every = 30L,
     }
     fake_fixtures(key, statuses)
   })
-  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) integer(0))
+  uhr <- runden_uhr(takt = 120)
+  stub(update_all_leagues_loop, "retrieveLiveFixtures",
+       uhr$tick(function(...) integer(0)))
   stub(update_all_leagues_loop, "transform_data", function(fixtures, teams) {
     spielplaene[[fixtures$liga]]
   })
@@ -519,7 +523,9 @@ lauf_ausfuehren <- function(loops = 1L, full_fetch_every = 30L,
     update_all_leagues_loop(
       duration = 0, loops = loops, initial_wait = 0, n = N_ITER,
       saison = "2026", TeamList_file = teamlist,
-      static_site_dir = tempdir(), full_fetch_every = full_fetch_every
+      static_site_dir = tempdir(),
+      full_fetch_mindestens_alle = full_fetch_mindestens_alle,
+      jetzt = uhr$jetzt
     )
   })))
 
@@ -986,7 +992,7 @@ test_that("die Meisteraufstiegs-Kopplung wirkt bei Nord und nicht bei Bayern", {
 test_that("(a) eine neu simulierte Regionalliga mischt mit der gueltigen Zaehlung aus dem frueheren Lauf", {
   # Loop 1: alles. Loop 2: idle. Loop 3: Sicherheits-Fetch, nur Nords
   # beendet-Menge hat sich geaendert -> nur Nord wird neu simuliert.
-  lauf <- lauf_ausfuehren(loops = 3L, full_fetch_every = 2L,
+  lauf <- lauf_ausfuehren(loops = 3L, full_fetch_mindestens_alle = 2 * 120,
                           nord_ab_fetch2_beendet = TRUE)
   expect_length(lauf$ergebnisse, 2L)
   expect_length(lauf$sim_marken, 2L)
@@ -1369,7 +1375,7 @@ lauf_mit_seitendaten <- function(build_fn, fixtures_echt = list(),
     update_all_leagues_loop(
       duration = 0, loops = 1L, initial_wait = 0, n = N_ITER,
       saison = "2026", TeamList_file = teamlist,
-      static_site_dir = tempdir(), full_fetch_every = 30L
+      static_site_dir = tempdir()
     )
   })))
 
