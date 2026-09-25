@@ -77,3 +77,6 @@ data/fixture_cache/
 # Die fachlichen Berichte eine Ebene darueber bleiben committet und aus
 # CLAUDE.md, dem Ausbauplan und der Registry verlinkt.
 docs/reports/internal/
+
+# Vergleichsbasis des Testsuite-Umbaus (#211), nur lokal
+tests/testthat/_baseline/
