@@ -15,7 +15,9 @@ library(mockery)
 
 lade_retrieve_results <- function() {
   env <- new.env()
-  Sys.setenv(RAPIDAPI_KEY = "test-key")
+  # Gilt fuer den aufrufenden Test: retrieveResults() liest den Key erst
+  # beim Aufruf, nicht beim Sourcen.
+  withr::local_envvar(RAPIDAPI_KEY = "test-key", .local_envir = parent.frame())
   source(test_path("..", "..", "RCode", "retrieveResults.R"), local = env)
   env
 }

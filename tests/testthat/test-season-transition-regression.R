@@ -44,8 +44,8 @@ test_that("Liga3 baseline is NOT 1046 for all season transitions", {
               sep = ";", row.names = FALSE, quote = FALSE)
   
   # Change working directory temporarily to use our temp RCode directory
-  old_wd <- getwd()
-  setwd(temp_dir)
+  # (withr stellt es auch zurueck, wenn der Test vorher abbricht)
+  withr::local_dir(temp_dir)
   
   # Mock realistic Liga3 with 8 teams and full match schedule
   # 2023 season: Teams play each other, creating clear standings
@@ -168,7 +168,6 @@ test_that("Liga3 baseline is NOT 1046 for all season transitions", {
   expect_equal(baseline_2024, expected_2024)
   
   # Cleanup
-  setwd(old_wd)
   unlink(rcode_dir, recursive = TRUE)
 })
 
@@ -581,8 +580,8 @@ test_that("circular dependency resolution works end-to-end", {
   }
   
   # Change to temp directory for this test
-  old_wd <- getwd()
-  setwd(temp_dir)
+  # (withr stellt es auch zurueck, wenn der Test vorher abbricht)
+  withr::local_dir(temp_dir)
   
   # Simulate scenario: Processing 2024→2025, TeamList_2024.csv doesn't exist yet
   # but TeamList_2024_League*_temp.csv files do exist
@@ -696,6 +695,5 @@ test_that("circular dependency resolution works end-to-end", {
   expect_false(baseline == 1046)
   
   # Cleanup
-  setwd(old_wd)
   unlink(rcode_dir, recursive = TRUE)
 })
