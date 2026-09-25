@@ -74,3 +74,61 @@ groupResultsDF <- function (results,
   
   return (outputDF)
 }
+
+# --- Von generate_static_site.R und render_sections.R gemeinsam genutzt
+# (seit #211 hier, unveraendert verschoben) -----------------------------------
+
+# ---------------------------------------------------------------------------
+# Heatmap cell colour: white -> tinte (#1F3A4D), t = p^0.6 so low
+# probabilities stay legible instead of washing out linearly. Text flips to
+# white once the tile is dark enough (t > 0.52).
+# ---------------------------------------------------------------------------
+
+.HEAT_INK <- c(0x1F, 0x3A, 0x4D)
+.HEAT_PAPER <- c(255, 255, 255)
+
+.heat_style <- function(p) {
+  t <- p^0.6
+  rgb <- round(.HEAT_PAPER + (.HEAT_INK - .HEAT_PAPER) * t)
+  text_colour <- if (t > 0.52) "#FFFFFF" else "#15130F"
+  sprintf("background:rgb(%d,%d,%d);color:%s", rgb[1], rgb[2], rgb[3], text_colour)
+}
+
+# Text mit Tooltip: <abbr> mit title (Hover) und tabindex (Tastatur,
+# Antippen per .KUERZEL_SCRIPT). Vektorisiert; wo `tip` NA oder leer ist,
+# bleibt der Text schlicht -- zeichengleich wie ohne Tooltip.
+.tooltip_html <- function(text, tip) {
+  html <- htmltools::htmlEscape(text)
+  if (is.null(tip)) {
+    return(html)
+  }
+  tip <- rep_len(as.character(tip), length(text))
+  ifelse(
+    is.na(tip) | !nzchar(tip),
+    html,
+    paste0("<abbr class=\"kz\" title=\"", htmltools::htmlEscape(tip, attribute = TRUE),
+           "\" tabindex=\"0\">", html, "</abbr>")
+  )
+}
+
+# Abbildung Registry-Schluessel -> Objektname, den league_views() aufloest.
+# Die Namen sind historisch gewachsen (Ergebnis, Ergebnis2, Ergebnis3) und
+# stehen als Strings in league_views(); sie bleiben, damit die Renderlogik
+# unveraendert bleibt. Fuer neue Ligen gilt die generische Form
+# "Ergebnis_<schluessel>".
+.ERGEBNIS_OBJEKTNAMEN <- c(
+  bundesliga = "Ergebnis",
+  zweite_bundesliga = "Ergebnis2",
+  dritte_liga = "Ergebnis3",
+  dritte_liga_aufstieg = "Ergebnis3_Aufstieg"
+)
+
+.ergebnis_objektname <- function(key) {
+  # `[[` auf einem benannten Vektor wirft bei unbekanntem Schluessel, statt
+  # NULL zu liefern -- deshalb der Mitgliedschaftstest.
+  if (key %in% names(.ERGEBNIS_OBJEKTNAMEN)) {
+    unname(.ERGEBNIS_OBJEKTNAMEN[[key]])
+  } else {
+    paste0("Ergebnis_", key)
+  }
+}
