@@ -1662,7 +1662,7 @@ test_that("die Aufstiegsseite verdrahtet keine Staffelnamen im Renderer", {
 # der Test weiter unten sichert ab, dass die TeamList sie NICHT traegt.
 
 rl_fixture_teams <- function(liga, saison = 2025) {
-  pfad <- test_path("..", "..", "data", "fixture_cache",
+  pfad <- test_path("fixtures", "fixture_cache",
                     paste0(liga, "_", saison, ".json"))
   skip_if_not(file.exists(pfad), paste("Fixture fehlt:", basename(pfad)))
 
@@ -1712,7 +1712,7 @@ test_that("die teams_range traegt jede belegte RL-Saison seit 2019", {
   # Teams (Corona-Jahrgaenge). Eine zu enge Spanne faellt hier auf, bevor
   # sie im Betrieb einen Saisonwechsel blockiert.
   env <- source_registry()
-  verzeichnis <- test_path("..", "..", "data", "fixture_cache")
+  verzeichnis <- test_path("fixtures", "fixture_cache")
   skip_if_not(dir.exists(verzeichnis))
 
   dateien <- list.files(verzeichnis, pattern = "^8[3-7]_[0-9]{4}\\.json$")
@@ -1750,7 +1750,7 @@ test_that("der Rundenfilter behaelt alle Hauptrundenspiele der fuenf RL", {
   erwartet_spieltage <- 34L
 
   for (id in RL_IDS) {
-    pfad <- test_path("..", "..", "data", "fixture_cache",
+    pfad <- test_path("fixtures", "fixture_cache",
                       paste0(id, "_2025.json"))
     skip_if_not(file.exists(pfad), paste("Fixture fehlt:", id))
 
@@ -1772,7 +1772,7 @@ test_that("Liga 84 ueberlebt den Sprachwechsel Nord -> North", {
   rf <- source_round_filter()
 
   for (saison in c(2024, 2025)) {
-    pfad <- test_path("..", "..", "data", "fixture_cache",
+    pfad <- test_path("fixtures", "fixture_cache",
                       paste0("84_", saison, ".json"))
     skip_if_not(file.exists(pfad))
 
@@ -1784,16 +1784,16 @@ test_that("Liga 84 ueberlebt den Sprachwechsel Nord -> North", {
   # Und beide Schreibweisen kommen wirklich vor -- sonst prueft der Test
   # oben nichts.
   labels_2024 <- jsonlite::fromJSON(
-    test_path("..", "..", "data", "fixture_cache", "84_2024.json"))$round
+    test_path("fixtures", "fixture_cache", "84_2024.json"))$round
   labels_2025 <- jsonlite::fromJSON(
-    test_path("..", "..", "data", "fixture_cache", "84_2025.json"))$round
+    test_path("fixtures", "fixture_cache", "84_2025.json"))$round
   expect_true(any(grepl("^Nord - ", labels_2024)))
   expect_true(any(grepl("^North - ", labels_2025)))
 })
 
 test_that("Liga 86 ueberlebt den Umlaut in Suedwest", {
   rf <- source_round_filter()
-  pfad <- test_path("..", "..", "data", "fixture_cache", "86_2025.json")
+  pfad <- test_path("fixtures", "fixture_cache", "86_2025.json")
   skip_if_not(file.exists(pfad))
 
   x <- jsonlite::fromJSON(pfad)
@@ -1807,7 +1807,7 @@ test_that("Liga 83 verwirft die Relegationsrunde und behaelt den Rest", {
   # kein Hauptrundenspiel und wuerde die Tabelle verfaelschen. Alles andere
   # bleibt.
   rf <- source_round_filter()
-  pfad <- test_path("..", "..", "data", "fixture_cache", "83_2025.json")
+  pfad <- test_path("fixtures", "fixture_cache", "83_2025.json")
   skip_if_not(file.exists(pfad))
 
   x <- jsonlite::fromJSON(pfad)
