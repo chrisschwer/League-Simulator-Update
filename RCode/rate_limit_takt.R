@@ -156,10 +156,17 @@ naechste_waittime <- function(remaining, limit, seconds_until_reset,
   ziel <- if (is.infinite(bezahlbar)) {
     # Eine Runde kostet nichts -- es gibt nichts zu strecken.
     ideal_waittime
-  } else if (bezahlbar <= 0 || fenster <= 0) {
-    # Das Budget traegt keine einzige Runde mehr, oder es gibt kein Fenster,
-    # ueber das gestreckt werden koennte. Aeusserste Drosselung.
+  } else if (bezahlbar <= 0) {
+    # Das Budget traegt keine einzige Runde mehr. Aeusserste Drosselung.
     max_waittime
+  } else if (fenster <= 0) {
+    # Bis zum Reset liegt keine Fensterzeit mehr: Der Reset steht unmittelbar
+    # bevor ("Reset in 0,0 h"), oder die Zeit bis dahin faellt ganz in die
+    # Nacht. Das Budget wird also neu gefuellt, bevor es wieder gebraucht
+    # wird -- zu rationieren gibt es nichts. Bis Issue #239 stand hier die
+    # aeusserste Drosselung; am 25.09. stand die Seite deshalb 90 Minuten
+    # still, bei 85 % freiem Kontingent.
+    ideal_waittime
   } else if (fenster <= bezahlbar * ideal_waittime) {
     # Das Budget traegt den ganzen Horizont im Idealtakt. Keine Drosselung
     # noetig -- frueher stand hier der Vergleich gegen `loops_remaining`,

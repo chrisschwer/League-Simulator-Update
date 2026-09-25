@@ -633,3 +633,50 @@ test_that("fenster_sekunden liefert 0 fuer nichtige Dauern", {
   expect_equal(env$fenster_sekunden(mittag, -100), 0)
   expect_equal(env$fenster_sekunden(mittag, NA_real_), 0)
 })
+
+# ---------------------------------------------------------------------------
+# Reset steht unmittelbar bevor (Issue #239)
+# ---------------------------------------------------------------------------
+#
+# Vorfall 25.09.2026, 20:33: "API 1.133/7.500 verbraucht, 6.367 verbleibend,
+# Reset in 0,0 h" -- und der Regler streckte auf 90 Minuten. Ein Fenster von
+# 0 s bis zum Reset heisst aber nicht "kein Fenster, also bremsen", sondern
+# "das Budget wird gleich neu gefuellt": Zu rationieren gibt es nichts.
+
+test_that("steht der Reset unmittelbar bevor, laeuft der Idealtakt (Vorfall 25.09.)", {
+  env <- lade_takt()
+
+  ergebnis <- env$naechste_waittime(
+    remaining = 6367, limit = 7500,
+    seconds_until_reset = 0,
+    loops_remaining = 361 - 282,
+    expected_cost_per_loop = 11,
+    current_waittime = 120,
+    ideal_waittime = 120,
+    fenster_sekunden_bis_reset = 0
+  )
+
+  expect_equal(ergebnis$waittime, 120)
+  expect_false(ergebnis$gedrosselt)
+  expect_false(ergebnis$stopp)
+})
+
+test_that("ohne bezahlbare Runde bleibt es auch bei Fenster 0 bei der Drosselung", {
+  # Die andere Haelfte der Bedingung: Traegt das Budget keine einzige Runde
+  # mehr (hier 10 Requests Rest bei 11 je Runde, ueber der Stopp-Grenze),
+  # hilft auch ein naher Reset nicht -- die Runde waere nicht bezahlt.
+  env <- lade_takt()
+
+  ergebnis <- env$naechste_waittime(
+    remaining = 10, limit = 7500,
+    seconds_until_reset = 0,
+    loops_remaining = 50,
+    expected_cost_per_loop = 11,
+    current_waittime = 120,
+    ideal_waittime = 120,
+    fenster_sekunden_bis_reset = 0
+  )
+
+  expect_equal(ergebnis$waittime, takt_default(env, "max_waittime"))
+  expect_true(ergebnis$gedrosselt)
+})
