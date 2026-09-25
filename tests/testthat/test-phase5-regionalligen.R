@@ -1639,7 +1639,9 @@ test_that("die Aufstiegsseite verdrahtet keine Staffelnamen im Renderer", {
   #
   # Geprueft wird der Code OHNE Kommentare -- ein Staffelname im Kommentar
   # ist eine Erklaerung, keine Verdrahtung.
-  code <- readLines(test_path("..", "..", "RCode", "generate_static_site.R"))
+  # Seit #211 liegen die Sektionsrenderer in render_sections.R -- beide lesen.
+  code <- unlist(lapply(c("generate_static_site.R", "render_sections.R"), function(datei)
+    readLines(test_path("..", "..", "RCode", datei))))
   code <- sub("#.*$", "", code)
 
   for (muster in c('"Bayern"\\s*(==|%in%)', '(==|%in%)\\s*c?\\(?"Bayern"',
