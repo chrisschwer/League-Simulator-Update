@@ -140,7 +140,7 @@ test_that("second team detection and conversion works", {
 })
 
 test_that("non-interactive mode uses defaults", {
-  options(season_transition.non_interactive = TRUE)
+  withr::local_options(season_transition.non_interactive = TRUE)
 
   # season_transition.non_interactive = TRUE above already makes the real
   # check_interactive_mode() return FALSE, so only can_accept_input (a
@@ -151,8 +151,6 @@ test_that("non-interactive mode uses defaults", {
 
   expect_equal(result$short_name, "ENE")
   expect_equal(result$initial_elo, 1046)
-
-  options(season_transition.non_interactive = FALSE)
 })
 
 test_that("get_team_short_name_interactive validates format", {

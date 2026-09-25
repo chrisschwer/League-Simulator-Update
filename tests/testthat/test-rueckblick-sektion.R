@@ -42,6 +42,9 @@ spielzeile <- function(kickoff, home, away, gh, ga, ph, px, pa, delta,
 }
 
 mk_rueckblick <- function() {
+  # fixture_id kommt aus sample(): fester Seed, damit die Zeilen reproduzierbar
+  # sind und der globale Zufallszustand danach unveraendert bleibt.
+  withr::local_seed(211)
   rbind(
     spielzeile("2026-08-28 18:30", "FC Alpha", "SV Beta", 2, 1,
                0.44, 0.26, 0.30, 7.5),
@@ -53,6 +56,7 @@ mk_rueckblick <- function() {
 }
 
 mk_live <- function() {
+  withr::local_seed(212)
   df <- spielzeile("2026-08-30 17:30", "1. FC Delta", "FC Alpha", 1, 0,
                    NA, NA, NA, NA)
   df$status <- "1H"
