@@ -8,11 +8,11 @@
 
 **Tech Stack:** R 4.6 / testthat 3 (`ListReporter` für den Ergebnisabgleich), `withr`, `git mv`; Rust-Tests (`cargo test`, 76 Tests) unberührt.
 
-**Spec:** Issue #211 (Struktur, Doppel-Cluster, Unabhängigkeitsrisiken; Kommentar vom 24.09. zum Generator-Split), Issue #212 (Lücken, hohle Tests), Review-Bericht `~/.claude/plans/jolly-munching-token.md` (N8, N9), Christophs Vorgabe vom 15.09.2026: zweistufig — erst Struktur, dann 1:1 verschieben, dann grün beweisen, erst dann Redundanz-Review. Überarbeitet am 25.09.2026 nach einem unabhängigen Gutachten (Fable): Namensregel mit optionalem Thema-Segment, Wächtertest, Zieltabelle auf den Stand 25.09., robusteres Beweisverfahren, geänderte Reihenfolge.
+**Spec:** Issue #211 (Struktur, Doppel-Cluster, Unabhängigkeitsrisiken; Kommentar vom 24.09. zum Generator-Split), Issue #212 (Lücken, hohle Tests), Review-Bericht `~/.claude/plans/jolly-munching-token.md` (N8, N9), Christophs Vorgabe vom 15.09.2026: zweistufig — erst Struktur, dann 1:1 verschieben, dann grün beweisen, erst dann Redundanz-Review. Überarbeitet am 25.09.2026 nach einem unabhängigen Gutachten (Fable): Namensregel mit optionalem Thema-Segment, Wächtertest, Zieltabelle auf den Stand 25.09., robusteres Beweisverfahren, geänderte Reihenfolge. Zweitgutachten am selben Tag eingearbeitet: Werkzeugnamen an `.gitignore` vorbei, `source_module()` als einziger Sourcing-Helfer, sauberer Schnitt für `render_sections.R`, Vergleichswerkzeug vor Phase 0, Kollisionen schon in der Tabelle aufgelöst.
 
 ## Global Constraints
 
-- Ab Testfreigabe keine Teständerung ohne Rückfrage (Christophs Regel). In Stufe 2 heißt das: **kein `expect_*` wird geändert, entfernt oder ergänzt**; erlaubt sind nur Verschieben, Umbenennen der Datei, das Zusammenführen byteidentischer Helfer-Definitionen und das **Nachführen von Stringliteralen, die eine umbenannte Testdatei benennen** (heute: `test-ein-elo-walk.R:694` liest `test-rust-required.R`, `:719` den Snapshot-Runner). Jede solche Nachführung steht einzeln im PR-Text.
+- Ab Testfreigabe keine Teständerung ohne Rückfrage (Christophs Regel). In Stufe 2 heißt das: **kein `expect_*` wird geändert, entfernt oder ergänzt**; erlaubt sind nur Verschieben, Umbenennen der Datei, das Zusammenführen byteidentischer Helfer-Definitionen, das **Ersetzen reiner Sourcing-Helfer durch `source_module(...)`** (Task 6 Regel 3) und das **Nachführen von Pfad-Stringliteralen**, die eine umbenannte Testdatei oder eine geteilte `RCode/`-Datei benennen (heute: `test-ein-elo-walk.R:694` liest `test-rust-required.R`, `:719` den Snapshot-Runner; nach 0.4 muss `test-phase5-regionalligen.R:1642` zusätzlich `render_sections.R` lesen). Jede solche Änderung steht einzeln im PR-Text.
 - Neu hinzukommen darf in Stufe 2 genau ein Test: der Struktur-Wächter (Task 5). Er prüft Dateinamen, keine Produktivlogik.
 - Bestehende Zusicherung bleibt beweisbar: Vorher/Nachher-Abgleich der Einzeltests (Name, Anzahl Erwartungen, Ergebnis) als **Multimenge** muss identisch sein; Abweichungen sind ein Stopp, kein Fix.
 - Sprache in Repo-Dateien: Deutsch (Commits, Kommentare, Doku), wie im Repo üblich.
@@ -27,7 +27,7 @@
 > - `<einheit>` ist exakt der Dateistamm einer Datei in `RCode/` (`league_details`, `updateScheduler`) — oder eines der festen Präfixe `scripts` (dann folgt der Stamm einer Datei unter `scripts/`: `test-scripts-preview_site.R`) oder `waechter` (Meta-Tests, die Quelltext als Text lesen). Einheitsnamen enthalten keinen Bindestrich; alles bis zum ersten Bindestrich nach `test-` ist daher die Einheit.
 > - `<thema>` ist optional und benennt eine Funktion oder ein Verhalten der Einheit (`-gating`, `-rueckblick`, `-verdrahtung`); nie Issue, PR, Phase oder Reparatur (`phase5`, `haertung`, `move`, `fix`, Nummern). Ein Thema lohnt sich, wenn die Datei sonst deutlich über ~1.000 Zeilen wüchse oder die Tests eigene Helfer/Fakes brauchen.
 > - Zuordnung im Zweifel: die Einheit, deren Funktion der Test aufruft und deren Ergebnis er prüft; rufen mehrere, die äußerste (der Aufrufer). Gestubbte oder nur gesourcte Mitspieler zählen nicht.
-> - Jede Testdatei sourct ihre Einheit selbst. Gemeinsame Helfer heißen `helper-<zweck>.R` (testthat lädt sie automatisch); keine Helferdefinition in zwei Dateien. Unterordner (`fixtures/`, `helpers/`) enthalten nur Daten und explizit gesourcte Runner, nie Tests — testthat liest sie nicht.
+> - Jede Testdatei sourct ihre Einheit selbst, mit `source_module("<einheit>", ...)` aus `helper-source.R` (mehrere Einheiten erlaubt; die eigene muss dabei sein). Eigene `source_xyz()`-Helfer nur, wenn sie mehr tun als sourcen. Gemeinsame Helfer heißen `helper-<zweck>.R` (testthat lädt sie automatisch); keine Helferdefinition in zwei Dateien. Unterordner (`fixtures/`, `helpers/`) enthalten nur Daten und explizit gesourcte Runner, nie Tests — testthat liest sie nicht.
 > - Wird eine `RCode/`-Datei geteilt, umbenannt oder gelöscht, ziehen ihre Testdateien im selben PR mit (`git mv`); `test-waechter-teststruktur.R` schlägt sonst fehl.
 > - Neue Testarten bekommen ein festes Präfix, das in `test-waechter-teststruktur.R` in die geschlossene Liste aufgenommen wird (absehbar: `js` für Client-JS, #212).
 > - Ausführen einer Einheit mit allen Themen: `testthat::test_dir("tests/testthat", filter = "^league_details")`.
@@ -40,14 +40,15 @@
 
 | Schritt | Was | Stand / Wer |
 |---|---|---|
+| 0.0 | Vergleichswerkzeug vorziehen: Task 4 Step 1 + Step 3 (`scripts/dev/ergebnisse_tests.R`, `_baseline/` in `.gitignore`). Grund: 0.4 und 0.5 ändern Testköpfe bzw. Testcode und brauchen denselben Multimengen-Nachweis wie Stufe 2. Jeder Phase-0-PR nimmt vorher/nachher auf (gleiche Umgebung, Task 3) und stellt den Vergleich (Task 7 Step 2) in den PR-Text. | Claude |
 | 0.1 | #222 mergen, #216 schließen | ✓ erledigt |
 | 0.2 | Deploy auf Eddie | ✓ erledigt (Pin `9c71147`) |
-| 0.3 | Rest von #209 (Sourcing-Block-Kopien, Registry-Literale, Batch-Endpunkt) | **entkoppelt:** eigener PR, jederzeit; keine Voraussetzung für Stufe 2. Läuft er zuerst, entfallen Sourcing-Zeilen in Testköpfen — dann Vorher-Aufnahme (Task 4) erst danach. |
-| 0.4 | `RCode/generate_static_site.R` teilen: Seitengerüst, Aufstiegsseite, `generate_static_site()` bleiben; ab Zeile 1113 (`.komma` … Sektionsrenderer Ligatabelle, Zonen, Rückblick, Live, Ausblick) nach `RCode/render_sections.R`. Reine Verschiebung, Sourcing in den Aufrufern und den ~zehn Testdateien, die den Generator laden, nachziehen. Vier-Argument-Pfad **nicht** anfassen (Redundanz-Review). Eigener PR unter #211. **Vor Stufe 1 Task 1**, weil die Zuordnung sonst gegen die alte Einheit rechnet. | Sonnet-Agent |
-| 0.5 | Unabhängigkeit herstellen (vorgezogen aus der alten Stufe 3.6): in den 13 Dateien, die Arbeitsverzeichnis, Umgebung oder Optionen ohne Rückbau ändern (u. a. `test-season-transition-regression.R` 4×, `test-rust-required.R` 6×), `setwd` → `withr::local_dir`, `Sys.setenv` → `withr::local_envvar`, `options` → `withr::local_options`, `sample()` ohne Seed → `withr::local_seed`. **Kein `expect_*` ändert sich.** Grund: testthat läuft alphabetisch, das Umbenennen ändert die Reihenfolge; leckender Zustand ließe Stufe 2 an Altlasten stoppen statt an Verschiebefehlern. Nachweis wie Task 6 (Multimenge vor/nach). | Sonnet-Agent |
-| 0.6 | Altlasten außerhalb von `tests/testthat/`: `tests/issue-31-test-specifications.md` löschen (Spezifikation eines erledigten Issues); prüfen, ob `tests/TeamList_2024.csv` noch gelesen wird (sonst löschen). **Nicht im Repo, nur lokal** (per `.gitignore:30/:56` ausgeschlossen): `tests/rust/` (Rust-vs-C++-Vergleichsskripte, laufen nicht mehr, weil die C++-Engine seit #102 fehlt) und `tests/test_poisson_fix.R` — Christoph löscht sie in seinem Checkout selbst oder gibt es frei. | Claude |
+| 0.3 | Rest von #209 (Sourcing-Block-Kopien, Registry-Literale, Batch-Endpunkt) | **entkoppelt:** eigener PR, keine Voraussetzung für Stufe 2. Er ändert Kopfzeilen von Testdateien, darum: (a) **nie zwischen Vorher- und Nachher-Aufnahme** von Stufe 2 mergen — sonst Vorher-Aufnahme wiederholen, `git bisect` würde auf #209 zeigen; (b) landet er nach Task 1, Task 1 erneut laufen lassen und `ziel_final` über (`datei_alt`, `test_that_titel`, Vorkommen) aus der alten CSV übernehmen. |
+| 0.4 | `RCode/generate_static_site.R` teilen. Der Schnitt bei Zeile 1113 ist **nicht** sauber: `.heat_style` (Z. 180), `.tooltip_html` (Z. 204) und `.ergebnis_objektname` (Z. 903) werden auf beiden Seiten gerufen. Deshalb: (1) diese drei nach `RCode/render_helpers.R` (die Einheit für gemeinsame Render-Helfer, wird von `generate_static_site.R` schon gesourct); (2) ab Zeile 1113 (`.komma` … Sektionsrenderer Ligatabelle, Zonen, Rückblick, Live, Ausblick) nach `RCode/render_sections.R`, das `render_helpers.R` selbst sourct (gleiches `ofile`-Muster wie `generate_static_site.R:13-28`) und damit **allein ladbar** ist; (3) `generate_static_site.R` sourct `render_sections.R`. Aufrufer, die nur den Generator laden (`update_all_leagues_loop.R:128`, `scripts/preview_site.R:45`), bleiben unverändert, weil der Generator die Sektionen mitlädt — prüfen. Der Meta-Block `test-phase5-regionalligen.R:1642` liest den Generator als Text und muss danach auch `render_sections.R` lesen (Pfadliste wächst, Erwartung bleibt). Vier-Argument-Pfad **nicht** anfassen (Redundanz-Review). Eigener PR unter #211, Nachweis per Multimenge (0.0). | Sonnet-Agent |
+| 0.5 | Unabhängigkeit herstellen (vorgezogen aus der alten Stufe 3.6): in den 13 Dateien, die Arbeitsverzeichnis, Umgebung oder Optionen ohne Rückbau ändern (u. a. `test-season-transition-regression.R` 4×, `test-rust-required.R` 6×), `setwd` → `withr::local_dir`, `Sys.setenv` → `withr::local_envvar`, `options` → `withr::local_options`, `sample()` ohne Seed → `withr::local_seed` (`sample()` in Tests ohne Seed ist heute gar nicht zu reproduzieren, deshalb ist der Seed eine Unabhängigkeits-, keine Erwartungsänderung). **Kein `expect_*` ändert sich.** Grund: testthat läuft alphabetisch, das Umbenennen ändert die Reihenfolge; leckender Zustand ließe Stufe 2 an Altlasten stoppen statt an Verschiebefehlern. Nachweis per Multimenge (0.0). | Sonnet-Agent |
+| 0.6 | Altlasten außerhalb von `tests/testthat/`: `tests/issue-31-test-specifications.md` und `tests/TeamList_2024.csv` löschen (die Spezifikation gehört zu einem erledigten Issue; die CSV liest kein Test — alle Treffer meinen `RCode/…` oder Temp-Kopien). **Nicht im Repo, nur lokal** (per `.gitignore:30/:56` ausgeschlossen): `tests/rust/` (Rust-vs-C++-Vergleichsskripte, laufen nicht mehr, weil die C++-Engine seit #102 fehlt) und `tests/test_poisson_fix.R` — Christoph löscht sie in seinem Checkout selbst oder gibt es frei. | Claude |
 
-Reihenfolge: 0.4 und 0.5 nacheinander (beide fassen Testköpfe an), 0.6 beliebig. Stufe 1 startet nach 0.4, Stufe 2 nach 0.5.
+Reihenfolge: **0.0 → 0.4 → 0.5 → Stufe 1 → Stufe 2.** 0.5 steht vor Stufe 1, weil die CSV aus Task 1 Zeilennummern als Schnittvorlage trägt und 0.5 Zeilen verschiebt. 0.6 beliebig, 0.3 nach den Regeln in seiner Zeile.
 
 ---
 
@@ -56,7 +57,7 @@ Reihenfolge: 0.4 und 0.5 nacheinander (beide fassen Testköpfe an), 0.6 beliebig
 ### Task 1: Zuordnung Testblock → Einheit maschinell herleiten
 
 **Files:**
-- Create: `scripts/dev/test_zuordnung.R` (Werkzeug, nicht Produktivpfad; dokumentiert in Task 2)
+- Create: `scripts/dev/zuordnung_tests.R` (Werkzeug, nicht Produktivpfad; dokumentiert in Task 2)
 - Create: `docs/plans/2026-09-15-testsuite-zuordnung.csv` (Ergebnis, wird in Task 2 zur Tabelle)
 
 **Interfaces:**
@@ -64,11 +65,11 @@ Reihenfolge: 0.4 und 0.5 nacheinander (beide fassen Testköpfe an), 0.6 beliebig
 
 - [ ] **Step 1: Regeln der Zuordnung als Test festhalten**
 
-`tests/testthat/test-scripts-test_zuordnung.R` (heißt schon nach der Zielregel):
+`tests/testthat/test-scripts-zuordnung_tests.R` (heißt schon nach der Zielregel):
 
 ```r
 source_zuordnung <- function() {
-  source(file.path("..", "..", "scripts", "dev", "test_zuordnung.R"), local = TRUE)
+  source(file.path("..", "..", "scripts", "dev", "zuordnung_tests.R"), local = TRUE)
   environment()
 }
 
@@ -88,6 +89,13 @@ test_that("ein Block, der Funktionen mehrerer Einheiten ruft, bekommt die am hae
                    "league_details")
 })
 
+test_that("indirekte Aufrufe ueber Stringliterale zaehlen als Aufruf", {
+  z <- source_zuordnung()
+  index <- list(abstiegswahrscheinlichkeit = "rl_abstiegskopplung")
+  body <- 'p <- fn(env, "abstiegswahrscheinlichkeit")(prognose, gewichte)'
+  expect_identical(z$einheit_fuer_block(body, index), "rl_abstiegskopplung")
+})
+
 test_that("ein Block ohne bekannte Funktion bekommt NA, keinen Rateversuch", {
   z <- source_zuordnung()
   expect_true(is.na(z$einheit_fuer(character(0), list())))
@@ -99,22 +107,34 @@ test_that("Grep-Tests auf Quelltext werden als waechter erkannt", {
   expect_identical(z$einheit_fuer_block(body, list()), "waechter")
 })
 
-test_that("die per source() geladene Einheit wird aus dem Dateikopf gelesen", {
+test_that("die geladenen Einheiten werden aus allen Pfadformen gelesen", {
   z <- source_zuordnung()
   kopf <- c('source(test_path("..", "..", "RCode", "league_details.R"))',
-            'source("../../RCode/render_helpers.R")')
-  expect_identical(z$gesourcte_einheiten(kopf), c("league_details", "render_helpers"))
+            'source("../../RCode/render_helpers.R")',
+            'source(rcode("rl_aufstieg.R"), local = env)',
+            'for (datei in c("rl_abstiegskopplung.R", "staffel_zuordnung.R")) source(rcode(datei))')
+  expect_identical(z$gesourcte_einheiten(kopf, c("league_details", "render_helpers", "rl_aufstieg",
+                                                 "rl_abstiegskopplung", "staffel_zuordnung")),
+                   c("league_details", "render_helpers", "rl_aufstieg",
+                     "rl_abstiegskopplung", "staffel_zuordnung"))
+})
+
+test_that("Kommentare und unbekannte Dateinamen zaehlen nicht als geladene Einheit", {
+  z <- source_zuordnung()
+  kopf <- c('# frueher: source("../../RCode/rust_integration.R")',
+            'pfad <- "fixtures/TeamList_minimal.R"')
+  expect_identical(z$gesourcte_einheiten(kopf, c("rust_integration")), character(0))
 })
 ```
 
 - [ ] **Step 2: Test laufen lassen, muss fehlschlagen**
 
-Run: `Rscript -e 'testthat::test_file("tests/testthat/test-scripts-test_zuordnung.R")'`
-Expected: FAIL, `scripts/dev/test_zuordnung.R` existiert nicht.
+Run: `Rscript -e 'testthat::test_file("tests/testthat/test-scripts-zuordnung_tests.R")'`
+Expected: FAIL, `scripts/dev/zuordnung_tests.R` existiert nicht.
 
 - [ ] **Step 3: Werkzeug schreiben**
 
-`scripts/dev/test_zuordnung.R`:
+`scripts/dev/zuordnung_tests.R`:
 
 ```r
 # Ordnet jeden test_that()-Block einer RCode-Einheit zu -- maschinell, als
@@ -133,13 +153,22 @@ funktionsindex <- function(rcode_dir = "RCode") {
   index
 }
 
-gesourcte_einheiten <- function(zeilen) {
-  treffer <- regmatches(zeilen, regexpr("RCode[\"/, ]+\"?[A-Za-z_]+\\.R", zeilen))
-  unique(sub("\\.R$", "", sub(".*[\"/ ]", "", treffer)))
+# Alle Stringliterale "<name>.R" ausserhalb von Kommentaren, deren <name> ein
+# RCode-Stamm ist -- deckt test_path(..., "x.R"), "../../RCode/x.R", rcode("x.R")
+# und Dateilisten in for-Schleifen ab.
+gesourcte_einheiten <- function(zeilen, einheiten) {
+  code <- sub("#.*$", "", zeilen)
+  treffer <- unlist(regmatches(code, gregexpr("[A-Za-z_]+\\.R\"", code)))
+  namen <- unique(sub("\\.R\"$", "", treffer))
+  namen[namen %in% einheiten]
 }
 
+# Direkte Aufrufe name(...) und indirekte ueber Stringliterale -- viele Tests
+# rufen fn(env, "abstiegswahrscheinlichkeit")(...) oder get("name", env).
 gerufene_funktionen <- function(body, index) {
-  kandidaten <- regmatches(body, gregexpr("[.A-Za-z_][.A-Za-z0-9_]*(?=\\()", body, perl = TRUE))[[1]]
+  direkt <- regmatches(body, gregexpr("[.A-Za-z_][.A-Za-z0-9_]*(?=\\()", body, perl = TRUE))[[1]]
+  literal <- gsub("\"", "", regmatches(body, gregexpr("\"[.A-Za-z_][.A-Za-z0-9_]*\"", body))[[1]])
+  kandidaten <- c(direkt, literal)
   kandidaten[kandidaten %in% names(index)]
 }
 
@@ -157,7 +186,7 @@ einheit_fuer_block <- function(body, index) {
 }
 
 testbloecke <- function(datei) {
-  ausdruecke <- parse(datei, keep.source = TRUE)
+  ausdruecke <- parse(datei, keep.source = TRUE, encoding = "UTF-8")
   quelle <- attr(ausdruecke, "srcref")
   bloecke <- list()
   for (i in seq_along(ausdruecke)) {
@@ -176,13 +205,17 @@ testbloecke <- function(datei) {
 
 zuordnung_schreiben <- function(ziel = "docs/plans/2026-09-15-testsuite-zuordnung.csv") {
   index <- funktionsindex()
+  einheiten <- sub("\\.R$", "", list.files("RCode", pattern = "\\.R$"))
   dateien <- list.files("tests/testthat", pattern = "^test-.*\\.R$", full.names = TRUE)
   zeilen <- list()
   for (d in dateien) {
-    src <- paste(gesourcte_einheiten(readLines(d, warn = FALSE)), collapse = " ")
+    src <- paste(gesourcte_einheiten(readLines(d, warn = FALSE, encoding = "UTF-8"), einheiten),
+                 collapse = " ")
     for (b in testbloecke(d)) {
       fns <- gerufene_funktionen(b$body, index)
       vorschlag <- einheit_fuer_block(b$body, index)
+      # ohne Funktionsstimme: die einzige gesourcte Einheit der Datei, falls eindeutig
+      if (is.na(vorschlag) && nzchar(src) && !grepl(" ", src)) vorschlag <- src
       zeilen[[length(zeilen) + 1]] <- data.frame(
         datei_alt = basename(d), einheit_source = src, test_that_titel = b$titel,
         zeile_von = b$von, zeile_bis = b$bis,
@@ -205,18 +238,18 @@ if (sys.nframe() == 0) zuordnung_schreiben()
 
 - [ ] **Step 4: Test laufen lassen, muss bestehen**
 
-Run: `Rscript -e 'testthat::test_file("tests/testthat/test-scripts-test_zuordnung.R")'`
-Expected: 5 PASS.
+Run: `Rscript -e 'testthat::test_file("tests/testthat/test-scripts-zuordnung_tests.R")'`
+Expected: 7 PASS.
 
 - [ ] **Step 5: Zuordnung erzeugen und Trefferquote prüfen**
 
-Run: `Rscript scripts/dev/test_zuordnung.R && Rscript -e 'z <- read.csv("docs/plans/2026-09-15-testsuite-zuordnung.csv"); cat(nrow(z), "Bloecke,", sum(is.na(z$einheit_vorschlag) | z$einheit_vorschlag == ""), "ohne Vorschlag,", sum(nzchar(z$bemerkung)), "Abweichungen source/Stimme\n"); print(sort(table(z$einheit_vorschlag), decreasing = TRUE))'`
-Expected: ≈ 780 Blöcke (777 + 5 neue); ohne Vorschlag < 10 %. Blöcke ohne Vorschlag und alle Abweichungen von Hand nach der Zweifelsregel entscheiden (`ziel_final`, `bemerkung` = Grund).
+Run: `Rscript scripts/dev/zuordnung_tests.R && Rscript -e 'z <- read.csv("docs/plans/2026-09-15-testsuite-zuordnung.csv"); cat(nrow(z), "Bloecke,", sum(is.na(z$einheit_vorschlag) | z$einheit_vorschlag == ""), "ohne Vorschlag,", sum(nzchar(z$bemerkung)), "Abweichungen source/Stimme\n"); print(sort(table(z$einheit_vorschlag), decreasing = TRUE))'`
+Expected: ≈ 784 Blöcke (777 + 7 neue); ohne Vorschlag < 10 %. Blöcke ohne Vorschlag und alle Abweichungen von Hand nach der Zweifelsregel entscheiden (`ziel_final`, `bemerkung` = Grund).
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add scripts/dev/test_zuordnung.R tests/testthat/test-scripts-test_zuordnung.R docs/plans/2026-09-15-testsuite-zuordnung.csv
+git add scripts/dev/zuordnung_tests.R tests/testthat/test-scripts-zuordnung_tests.R docs/plans/2026-09-15-testsuite-zuordnung.csv
 git commit -m "chore(#211): Zuordnung Testblock -> RCode-Einheit maschinell herleiten"
 ```
 
@@ -225,7 +258,7 @@ git commit -m "chore(#211): Zuordnung Testblock -> RCode-Einheit maschinell herl
 **Files:**
 - Create: `tests/testthat/README.md` (die Struktur, neben den Tests — dort sucht man sie)
 - Modify: `CONTEXT.md` (ein Verweis unter Decisions)
-- Modify: `docs/README.md` oder `docs/user-guide/README.md` (Eintrag für `scripts/dev/test_zuordnung.R` und `scripts/dev/test_ergebnisse.R`)
+- Modify: `docs/README.md` oder `docs/user-guide/README.md` (Eintrag für `scripts/dev/zuordnung_tests.R` und `scripts/dev/ergebnisse_tests.R`)
 - Memory: `project_testsuite_struktur.md` (Kurzfassung + Link auf README)
 
 **Interfaces:**
@@ -243,7 +276,7 @@ Inhalt: die Zielregel oben (wörtlich), dann die Helferliste, dann die Tabelle. 
 | `helper-fixtures.R` | Bestand (`create_test_season`, …) |
 | `helper-league-details.R` | Bestand (`fd_row`, `make_details`, `make_test_teams`) |
 | `helper-uhr.R` | Bestand (`runden_uhr`) |
-| `helper-source.R` | neu: `source_generator` u. ä., sofern byteidentisch |
+| `helper-source.R` | neu: `source_module(...)` (Task 6 Regel 3) — ersetzt `source_generator`, `source_registry`, `source_views`, `source_round_filter`, `source_aufstieg` u. ä., soweit sie nur `RCode/`-Dateien laden. Helfer, die mehr tun (z. B. `source_scheduler`, wertet bis `main()` aus), bleiben in ihrer Datei |
 | `helper-html.R` | neu: `make_data_env`, `read_html`, sofern byteidentisch |
 | `helper-repo.R` | neu: `with_repo_root`, sofern byteidentisch |
 | `helper-rust.R` | neu: Fake-Rust-Server, sofern mehr als eine Datei ihn nutzt |
@@ -256,20 +289,20 @@ Inhalt: die Zielregel oben (wörtlich), dann die Helferliste, dann die Tabelle. 
 | test-transform_data.R | test-transform_data, test-rundenfilter-schutznetz (Transform-Hälfte), test-elo-walk-reihenfolge (Transform-Hälfte), test-gewertete-spiele (Zeilen 200–238) |
 | test-transform_data-kuerzel.R | test-kuerzel-vertrag, test-teamlist-eindeutigkeit (bilden Cluster 1 — liegen damit für Stufe 3.1 nebeneinander) |
 | test-round_filter.R | test-rundenfilter-schutznetz (Filter-Hälfte) |
-| test-league_details.R | test-fixture-details, test-fixture-details-produktionsform, test-spieltag-logik, test-gewertete-spiele (Fensterung/Tabelle), test-elo-walk-reihenfolge (Details-Hälfte), test-tbd-termin (Details-Hälfte, ruft `extract_fixture_details`) |
+| test-league_details.R | test-fixture-details, test-fixture-details-produktionsform, test-spieltag-logik, test-ligatabelle (61 Z., kein eigenes Thema), test-gewertete-spiele (Fensterung/Tabelle), test-elo-walk-reihenfolge (Details-Hälfte), test-tbd-termin (Details-Hälfte, ruft `extract_fixture_details`) |
 | test-league_details-client.R | test-league-details-client, test-league-details-client-haertung |
-| test-league_details-tabelle.R | test-ligatabelle |
 | test-league_details-seitendaten.R | test-league-page-data, test-league-page-data-rueckblick, test-league-page-data-ausblick |
-| test-rust_integration.R | test-home-advantage-single-source, test-tormodell-rust-durchreichung, test-rust-required (Server-Start), test-league-registry Block ~Zeile 371 |
+| test-rust_integration.R | test-home-advantage-single-source, test-tormodell-rust-durchreichung, test-league-registry Block ~Zeile 371 |
+| test-rust_integration-server.R | test-rust-required (Server-Start) — eigenes Thema, weil `start_rust_server` und `with_repo_root` dort anders definiert sind als in den übrigen Quellen |
 | test-league_registry.R | test-league-registry, test-frauen-ligen-aktivierung §1–2, test-phase5-regionalligen §1, test-n-ligen-entflechtung §1, test-rl-aufstieg (Registry-Slots), test-rl-zonen-verdrahtung (Regeltext) |
 | test-league_views.R | test-league-views, test-frauen-ligen-live §1–2, test-phase5-regionalligen §2 |
-| test-generate_static_site.R | test-generate-static-site, test-live-na-guard, test-phase5-regionalligen §3–4, test-frauen-ligen-live §3, test-n-ligen-entflechtung §2 |
+| test-generate_static_site.R | test-generate-static-site, test-live-na-guard, test-phase5-regionalligen §3–4 (ohne Meta-Block :1642), test-frauen-ligen-live §3, test-n-ligen-entflechtung §2 |
 | test-render_sections-tabelle.R | test-ligatabelle-sektion |
 | test-render_sections-zonen.R | test-rl-zonenlinien, test-rl-zonen-verdrahtung (Render-Hälfte) |
 | test-render_sections-rueckblick.R | test-rueckblick-sektion |
 | test-render_sections-ausblick.R | test-ausblick-sektion, test-tbd-termin (Ausblick-Hälfte) |
 | test-render_sections-farbskala.R | test-score-matrix-farbskala |
-| test-render_sections-tooltip.R | test-kuerzel-tooltip (Generator-Blöcke; Blöcke, die nur `league_details` prüfen, laut CSV nach test-league_details.R; ob Tooltip-Renderer nach dem Split in `render_sections` oder im Seitengerüst liegen, entscheidet die CSV) |
+| test-render_sections-tooltip.R | test-kuerzel-tooltip (Generator-Blöcke ohne den `site.css`-Block :182; Blöcke, die nur `league_details` prüfen, laut CSV nach test-league_details.R; ob Tooltip-Renderer nach dem Split in `render_sections` oder im Seitengerüst liegen, entscheidet die CSV) |
 | test-render_helpers.R | test-render-helpers-move |
 | test-update_all_leagues_loop.R | test-update-loop-league-data, test-n-ligen-entflechtung §3, test-rust-required (Loop-Teil) |
 | test-update_all_leagues_loop-gating.R | test-update-loop-gating (1.750 Z., mockery-Stubs) |
@@ -282,7 +315,8 @@ Inhalt: die Zielregel oben (wörtlich), dann die Helferliste, dann die Tabelle. 
 | test-retrieveResults.R | test-retrieveResults |
 | test-retrieveResults-rate-limit-header.R | test-rate-limit-header |
 | test-api_service.R | test-team-short-name (`get_team_short_name` liegt in `api_service.R`) |
-| test-rl_abstiegskopplung.R | test-rl-abstiegskopplung, test-rl-nord-aufstiegskopplung |
+| test-rl_abstiegskopplung.R | test-rl-abstiegskopplung |
+| test-rl_abstiegskopplung-nord.R | test-rl-nord-aufstiegskopplung — eigenes Thema, weil `K_DRITTE_LIGA` anders definiert ist als in test-rl-abstiegskopplung |
 | test-rl_aufstieg.R | test-rl-aufstieg (Rechenteil), test-phase5-regionalligen §4a |
 | test-aufstiegsspiele.R | test-aufstiegsspiele |
 | test-staffel_zuordnung.R | test-staffel-zuordnung |
@@ -298,10 +332,9 @@ Inhalt: die Zielregel oben (wörtlich), dann die Helferliste, dann die Tabelle. 
 | test-team_record_builder.R | test-team-record-builder |
 | test-scripts-season_transition.R | test-season-transition-csv-snapshot, test-season-transition-cleanup-wrapper |
 | test-scripts-preview_site.R | test-preview-site |
-| test-scripts-test_zuordnung.R | (neu aus Task 1) |
-| test-scripts-test_ergebnisse.R | (neu aus Task 4, falls das Werkzeug Tests bekommt) |
-| test-waechter-modellkonstanten.R | test-modellkonstanten-nur-in-rust, test-frauen-ligen-aktivierung Block ~Zeile 84 |
-| test-waechter-elo-walk.R | test-ein-elo-walk Meta-Blöcke (~Zeilen 694, 719) |
+| test-scripts-zuordnung_tests.R | (neu aus Task 1) |
+| test-waechter-quelltext.R | Blöcke, die Produktivquelltext oder Assets als Text lesen: test-modellkonstanten-nur-in-rust, test-frauen-ligen-aktivierung Block ~Zeile 84 (Fenstergrenzen in `updateScheduler.R`), test-phase5-regionalligen Block :1642 (Staffelnamen im Generator), test-kuerzel-tooltip Block :182 (`site.css`) |
+| test-waechter-ci-pfade.R | test-ein-elo-walk Meta-Blöcke (~Zeilen 694, 719: CI-Pfad `test-rust-required.R`, Snapshot-Runner) |
 | test-waechter-teststruktur.R | (neu aus Task 5) |
 
 **Einheiten ohne Testdatei nach dem Umbau** (gehören zu #212, nicht hierher): `input_handler`, `team_data_carryover`, `Tabelle`.
@@ -341,7 +374,7 @@ Vorher- und Nachher-Aufnahme müssen unter **derselben** Umgebung laufen, sonst 
 ### Task 4: Vorher-Aufnahme der Einzelergebnisse
 
 **Files:**
-- Create: `scripts/dev/test_ergebnisse.R`
+- Create: `scripts/dev/ergebnisse_tests.R`
 - Create (gitignored, lokal): `tests/testthat/_baseline/vorher.csv`
 
 **Interfaces:**
@@ -350,8 +383,8 @@ Vorher- und Nachher-Aufnahme müssen unter **derselben** Umgebung laufen, sonst 
 - [ ] **Step 1: Werkzeug schreiben**
 
 ```r
-# scripts/dev/test_ergebnisse.R -- Einzelergebnisse je test_that()-Block als CSV.
-# Aufruf: Rscript scripts/dev/test_ergebnisse.R <ziel.csv>
+# scripts/dev/ergebnisse_tests.R -- Einzelergebnisse je test_that()-Block als CSV.
+# Aufruf: Rscript scripts/dev/ergebnisse_tests.R <ziel.csv>
 args <- commandArgs(trailingOnly = TRUE)
 ziel <- if (length(args) >= 1) args[1] else "tests/testthat/_baseline/ergebnisse.csv"
 dir.create(dirname(ziel), showWarnings = FALSE, recursive = TRUE)
@@ -368,14 +401,14 @@ cat(nrow(df), "Bloecke,", sum(df$expectations), "Erwartungen,",
 
 - [ ] **Step 2: Vorher-Aufnahme auf dem Stand von `main` nach Phase 0**
 
-Run: `Rscript scripts/dev/test_ergebnisse.R tests/testthat/_baseline/vorher.csv`
+Run: `Rscript scripts/dev/ergebnisse_tests.R tests/testthat/_baseline/vorher.csv`
 Expected: 0 Fehlschläge; Zahl der Blöcke und Erwartungen in den PR-Text.
 
 - [ ] **Step 3: `_baseline/` in `.gitignore`, Commit des Werkzeugs**
 
 ```bash
 echo "tests/testthat/_baseline/" >> .gitignore
-git add scripts/dev/test_ergebnisse.R .gitignore
+git add scripts/dev/ergebnisse_tests.R .gitignore
 git commit -m "chore(#211): Einzelergebnisse der Testsuite als Vergleichsbasis aufnehmen"
 ```
 
@@ -407,13 +440,15 @@ test_that("jede Testdatei beginnt mit einer RCode-Einheit oder einem festen Prae
 
 test_that("test-scripts-* nennt ein existierendes Skript", {
   s <- stamm[einheit_von == "scripts"]
-  skript <- sub("^scripts-", "", s)
+  skript <- sub("-.*$", "", sub("^scripts-", "", s))   # Thema abschneiden
   expect_identical(s[!skript %in% skripte], character(0))
 })
 
 test_that("kein Dateiname nennt Anlass, Phase oder Issue", {
-  # ganze Segmente, damit test-fixture_cache.R nicht als "fix" gilt
-  verboten <- "(^|-)(fix|move|haertung|issue)(-|$)|phase[0-9]|[0-9]{3}"
+  # ganze Segmente, damit test-fixture_cache.R nicht als "fix" gilt; keine
+  # Ziffernregel -- sie traefe legitime Themen wie -liga1034, Issue-Nummern
+  # faengt schon das Wort "issue"
+  verboten <- "(^|-)(fix|move|haertung|issue|pr[0-9]+|phase[0-9]+)(-|$)"
   expect_identical(testdateien[grepl(verboten, stamm)], character(0))
 })
 
@@ -421,15 +456,15 @@ test_that("jede Einheiten-Testdatei sourct ihre Einheit", {
   pruefen <- testdateien[einheit_von %in% einheiten]
   ohne <- pruefen[!vapply(seq_along(pruefen), function(i) {
     e <- einheit_von[testdateien == pruefen[i]]
-    any(grepl(paste0("\\b", e, "\\.R\\b|source_module\\(\"", e, "\""),
-              readLines(test_path(pruefen[i]), warn = FALSE), perl = TRUE))
+    code <- sub("#.*$", "", readLines(test_path(pruefen[i]), warn = FALSE, encoding = "UTF-8"))
+    any(grepl(paste0("\\b", e, "\\.R\\b|source_module\\([^)]*\"", e, "\""), code, perl = TRUE))
   }, logical(1))]
   expect_identical(ohne, character(0))
 })
 
 test_that("kein Top-Level-Name ist in einer Testdatei doppelt definiert", {
   doppelt <- unlist(lapply(c(testdateien, list.files(test_path(), pattern = "^helper-.*\\.R$")), function(d) {
-    ausdruecke <- parse(test_path(d))
+    ausdruecke <- parse(test_path(d), encoding = "UTF-8")
     namen <- unlist(lapply(ausdruecke, function(e)
       if (is.call(e) && as.character(e[[1]]) %in% c("<-", "=") && is.name(e[[2]])) as.character(e[[2]])))
     if (any(duplicated(namen))) paste0(d, ": ", unique(namen[duplicated(namen)]))
@@ -440,7 +475,7 @@ test_that("kein Top-Level-Name ist in einer Testdatei doppelt definiert", {
 test_that("keine Helferdefinition steht in zwei helper-Dateien", {
   helfer <- list.files(test_path(), pattern = "^helper-.*\\.R$")
   namen <- unlist(lapply(helfer, function(d) {
-    ausdruecke <- parse(test_path(d))
+    ausdruecke <- parse(test_path(d), encoding = "UTF-8")
     unlist(lapply(ausdruecke, function(e)
       if (is.call(e) && as.character(e[[1]]) %in% c("<-", "=") && is.name(e[[2]])) as.character(e[[2]])))
   }))
@@ -459,16 +494,30 @@ test_that("keine Helferdefinition steht in zwei helper-Dateien", {
 **Regeln für jeden Commit:**
 1. Ganze Datei → `git mv` (Historie bleibt). Aufgeteilte Datei → die größere Hälfte per `git mv`, die kleinere Hälfte **wortgleich** an das Ende der Zieldatei anhängen.
 2. „1:1" gilt für Blöcke, **nicht** für Dateiköpfe: `library(...)`, `source(...)` und Top-Level-Konstanten (z. B. `namen` in `test-kuerzel-tooltip.R:18`) werden beim Zusammenführen geteilter Zustand. Jeder Kopf wird mitgenommen; Namenskollisionen fängt der Wächter (doppelte Top-Level-Namen). Kollidieren nicht-identische Helfer oder Konstanten, wird **nicht** umbenannt, sondern die Quelle bekommt ein eigenes Thema (Rückfrage an Christoph, Tabelle nachführen).
-3. Helfer, die byteidentisch in mehreren Zieldateien stehen (`source_generator`, `make_data_env`, …), wandern in die passende `helper-*.R`. Keine Vereinheitlichung nicht-identischer Varianten in dieser Stufe.
-4. Kein `expect_*`, kein `test_that`-Titel, kein Stub, kein Fixture wird angefasst. Ausnahmen: ein `context()` (veraltet) darf entfallen; Stringliterale, die eine umbenannte Testdatei benennen, werden nachgeführt und im PR-Text einzeln gelistet. Kommentare, die alte Testdateinamen nennen (~52), werden mitgeführt, wo sie im selben Commit ohnehin berührt werden; sonst bleiben sie für Stufe 3.
-5. Nach jedem Commit **Einzellauf und Gesamtlauf**: `Rscript -e 'testthat::test_file("tests/testthat/test-<ziel>.R")'` und `Rscript scripts/dev/test_ergebnisse.R /tmp/zwischen.csv` → 0 Fehlschläge. (Der Einzellauf fängt fehlendes Sourcing, der Gesamtlauf Reihenfolgeeffekte.)
+3. **Sourcing:** Der erste Commit von Task 6 legt `helper-source.R` mit genau dieser Funktion an:
+
+   ```r
+   # Laedt eine oder mehrere RCode-Einheiten in eine Umgebung und gibt sie zurueck.
+   # source() statt sys.source(), weil generate_static_site.R sein eigenes
+   # Verzeichnis ueber das ofile-Muster findet.
+   source_module <- function(..., envir = new.env()) {
+     for (einheit in c(...)) {
+       source(test_path("..", "..", "RCode", paste0(einheit, ".R")), local = envir)
+     }
+     envir
+   }
+   ```
+
+   Danach werden reine Sourcing-Helfer an ihren Aufrufstellen ersetzt, z. B. `env <- source_generator()` → `env <- source_module("generate_static_site")`, `source_aufstieg()` → `source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")`, und die Definition fällt weg. Damit lösen sich die Namenskollisionen der `source_*`-Varianten beim Zusammenführen (etwa in `test-league_registry.R`), und der Wächter findet in jeder Datei ihre Einheit. `test-season-transition-regression.R` hat heute **keinen** `source()`-Aufruf und lebt von der Sourcing-Wand in `helper-test-setup.R`; sie bekommt oben `source_module("season_processor", envir = environment())`. Andere Helfer, die byteidentisch in mehreren Zieldateien stehen (`make_data_env`, …), wandern in die passende `helper-*.R`. Keine Vereinheitlichung nicht-identischer Varianten, die mehr tun als sourcen — das ist Stufe 3.6.
+4. Kein `expect_*`, kein `test_that`-Titel, kein Stub, kein Fixture wird angefasst. Ausnahmen: ein `context()` (veraltet) darf entfallen; die Kopfänderungen aus Regel 3; Stringliterale, die eine umbenannte Testdatei benennen, werden nachgeführt. Alle Ausnahmen stehen einzeln im PR-Text, die Multimenge (Task 7) belegt, dass sich kein Ergebnis ändert. Kommentare, die alte Testdateinamen nennen (~52), werden mitgeführt, wo sie im selben Commit ohnehin berührt werden; sonst bleiben sie für Stufe 3.
+5. Nach jedem Commit **Einzellauf und Gesamtlauf**: `Rscript -e 'testthat::test_file("tests/testthat/test-<ziel>.R")'` und `Rscript scripts/dev/ergebnisse_tests.R /tmp/zwischen.csv` → 0 Fehlschläge. (Der Einzellauf fängt fehlendes Sourcing, der Gesamtlauf Reihenfolgeeffekte.)
 
 - [ ] **Step 1–N: Reihenfolge der Commits** (klein → groß, damit Fehler früh auffallen)
 
 1. Reine Umbenennungen ganzer Dateien (ein Commit je 5–8 Dateien, Liste aus der README-Tabelle: alle Zeilen mit genau einer Quelle ohne „Hälfte").
 2. Zusammenführungen ganzer Dateien, je Zieldatei ein Commit (alle Zeilen mit mehreren Quellen ohne „Hälfte").
-3. Aufteilungen, je Quelldatei ein Commit, CSV-Zeilen als Schnittvorlage: gewertete-spiele, rundenfilter-schutznetz, elo-walk-reihenfolge, rl-zonen-verdrahtung, rl-verdrahtung, tbd-termin, kuerzel-tooltip, frauen-ligen-aktivierung, frauen-ligen-live, n-ligen-entflechtung, phase5-regionalligen, rust-required, ein-elo-walk (Meta-Blöcke → waechter-elo-walk).
-4. Helfer-Dateien (ein Commit): byteidentische Kopien nach `helper-*.R`.
+3. Aufteilungen, je Quelldatei ein Commit, CSV-Zeilen als Schnittvorlage: gewertete-spiele, rundenfilter-schutznetz, elo-walk-reihenfolge, rl-zonen-verdrahtung, rl-verdrahtung, tbd-termin, kuerzel-tooltip, frauen-ligen-aktivierung, frauen-ligen-live, n-ligen-entflechtung, phase5-regionalligen (Block :1642 → waechter-quelltext), rust-required (Server-Start → rust_integration-server), ein-elo-walk (Meta-Blöcke → waechter-ci-pfade). kuerzel-tooltip gibt Block :182 an waechter-quelltext ab.
+4. Helfer-Dateien (ein Commit): byteidentische Kopien nach `helper-*.R`. (`helper-source.R` entsteht schon im ersten Commit, siehe Regel 3.)
 
 - [ ] **Step N+1: Wächter grün**
 
@@ -479,7 +528,7 @@ Expected: alle Blöcke PASS.
 
 - [ ] **Step 1: Nachher-Aufnahme** (gleiche Umgebung wie Task 3)
 
-Run: `Rscript scripts/dev/test_ergebnisse.R tests/testthat/_baseline/nachher.csv`
+Run: `Rscript scripts/dev/ergebnisse_tests.R tests/testthat/_baseline/nachher.csv`
 
 - [ ] **Step 2: Vergleich als Multimenge**
 
@@ -490,13 +539,16 @@ Titel sind nicht eindeutig (heute schon doppelt: „Bayern summiert exakt auf zw
 v <- read.csv("tests/testthat/_baseline/vorher.csv", stringsAsFactors = FALSE)
 n <- read.csv("tests/testthat/_baseline/nachher.csv", stringsAsFactors = FALSE)
 # einzige zulaessige Zusatzzeilen: die Bloecke des Waechters aus Task 5
-ex <- parse("tests/testthat/test-waechter-teststruktur.R")
+ex <- parse("tests/testthat/test-waechter-teststruktur.R", encoding = "UTF-8")
 waechter <- unlist(lapply(ex, function(e) if (is.call(e) && identical(e[[1]], as.name("test_that"))) e[[2]]))
 stopifnot(!any(waechter %in% v$test))
 n <- n[!n$test %in% waechter, ]
 zeilen <- function(d) sort(do.call(paste, c(d, sep = "\r")))   # Multimenge: sortierte Zeilen
-nur_vorher <- setdiff(zeilen(v), zeilen(n)); nur_nachher <- setdiff(zeilen(n), zeilen(v))
-print(nur_vorher); print(nur_nachher)
+# Anzeige als Multimengen-Differenz (Haeufigkeit je Zeile), nicht per setdiff
+alle <- union(zeilen(v), zeilen(n))
+h_v <- table(factor(zeilen(v), levels = alle)); h_n <- table(factor(zeilen(n), levels = alle))
+abw <- data.frame(zeile = alle, vorher = as.integer(h_v), nachher = as.integer(h_n))
+print(abw[abw$vorher != abw$nachher, ])
 stopifnot(identical(zeilen(v), zeilen(n)))
 cat("identisch:", nrow(v), "Bloecke,", sum(v$expectations), "Erwartungen\n")
 ```
