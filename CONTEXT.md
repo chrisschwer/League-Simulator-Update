@@ -68,3 +68,4 @@ Berechnet nach jedem Spiel Wahrscheinlichkeiten für die Endplatzierung in zehn 
 - [ADR 0006](docs/adr/0006-abstiegskopplung-der-regionalligen.md) — die **Abstiegskopplung** wird je Iteration exakt ausgezählt; die fünf **Staffeln** koppeln verschieden, und die **Aufstiegsrelegation** ist saisonabhängig konfiguriert.
 - [ADR 0007](docs/adr/0007-teamlist-ist-gepflegtes-stammdatenblatt.md) — die **TeamList** ist gepflegtes Stammdatenblatt; der **Saisonwechsel** läuft in zwei Phasen und schreibt einen Entwurf, nicht die produktive Datei.
 - [ADR 0008](docs/adr/0008-zweitvertretungs-malus-nach-55b-nr-3-1.md) — der −50-Malus für **Zweitvertretungen** folgt § 55b Nr. 3.1 (Sperre hängt an der ersten Mannschaft), nicht einer Ligapauschale.
+- Testsuite (#211, 25.09.2026): `test-<einheit>[-<thema>].R` je `RCode/`-Einheit; Regel, Helfer und Zieldateien in [`tests/testthat/README.md`](tests/testthat/README.md).
