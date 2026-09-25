@@ -41,8 +41,8 @@
 | Schritt | Was | Stand / Wer |
 |---|---|---|
 | 0.0 | Vergleichswerkzeug vorziehen: Task 4 Step 1 + Step 3 (`scripts/dev/ergebnisse_tests.R`, `_baseline/` in `.gitignore`). Grund: 0.4 und 0.5 ändern Testköpfe bzw. Testcode und brauchen denselben Multimengen-Nachweis wie Stufe 2. Jeder Phase-0-PR nimmt vorher/nachher auf (gleiche Umgebung, Task 3) und stellt den Vergleich (Task 7 Step 2) in den PR-Text. | Claude |
-| 0.1 | #222 mergen, #216 schließen | ✓ erledigt |
-| 0.2 | Deploy auf Eddie | ✓ erledigt (Pin `9c71147`) |
+| 0.1 | Befund aus der ersten Messung (0.0) beheben: #233 hat zwei Tests in `test-rl-verdrahtung.R` gebrochen (`tabellenzeile()` suchte den nackten Namen, seither steht er in `<abbr class="kz">`); in der CI unsichtbar, weil die Tests den gitignorten `data/fixture_cache/` lasen und skippten. Testhilfe repariert (keine Erwartung geändert) und die 34 RL-Spielpläne 2019–2025 als eingefrorene Kopie nach `tests/testthat/fixtures/fixture_cache/`. | ✓ PR #237 |
+| (erledigt) | #222 gemergt, #216 geschlossen; Deploy auf Eddie (Pin `9c71147`) | ✓ |
 | 0.3 | Rest von #209 (Sourcing-Block-Kopien, Registry-Literale, Batch-Endpunkt) | **entkoppelt:** eigener PR, keine Voraussetzung für Stufe 2. Er ändert Kopfzeilen von Testdateien, darum: (a) **nie zwischen Vorher- und Nachher-Aufnahme** von Stufe 2 mergen — sonst Vorher-Aufnahme wiederholen, `git bisect` würde auf #209 zeigen; (b) landet er nach Task 1, Task 1 erneut laufen lassen und `ziel_final` über (`datei_alt`, `test_that_titel`, Vorkommen) aus der alten CSV übernehmen. |
 | 0.4 | `RCode/generate_static_site.R` teilen. Der Schnitt bei Zeile 1113 ist **nicht** sauber: `.heat_style` (Z. 180), `.tooltip_html` (Z. 204) und `.ergebnis_objektname` (Z. 903) werden auf beiden Seiten gerufen. Deshalb: (1) diese drei nach `RCode/render_helpers.R` (die Einheit für gemeinsame Render-Helfer, wird von `generate_static_site.R` schon gesourct); (2) ab Zeile 1113 (`.komma` … Sektionsrenderer Ligatabelle, Zonen, Rückblick, Live, Ausblick) nach `RCode/render_sections.R`, das `render_helpers.R` selbst sourct (gleiches `ofile`-Muster wie `generate_static_site.R:13-28`) und damit **allein ladbar** ist; (3) `generate_static_site.R` sourct `render_sections.R`. Aufrufer, die nur den Generator laden (`update_all_leagues_loop.R:128`, `scripts/preview_site.R:45`), bleiben unverändert, weil der Generator die Sektionen mitlädt — prüfen. Der Meta-Block `test-phase5-regionalligen.R:1642` liest den Generator als Text und muss danach auch `render_sections.R` lesen (Pfadliste wächst, Erwartung bleibt). Vier-Argument-Pfad **nicht** anfassen (Redundanz-Review). Eigener PR unter #211, Nachweis per Multimenge (0.0). | Sonnet-Agent |
 | 0.5 | Unabhängigkeit herstellen (vorgezogen aus der alten Stufe 3.6): in den 13 Dateien, die Arbeitsverzeichnis, Umgebung oder Optionen ohne Rückbau ändern (u. a. `test-season-transition-regression.R` 4×, `test-rust-required.R` 6×), `setwd` → `withr::local_dir`, `Sys.setenv` → `withr::local_envvar`, `options` → `withr::local_options`, `sample()` ohne Seed → `withr::local_seed` (`sample()` in Tests ohne Seed ist heute gar nicht zu reproduzieren, deshalb ist der Seed eine Unabhängigkeits-, keine Erwartungsänderung). **Kein `expect_*` ändert sich.** Grund: testthat läuft alphabetisch, das Umbenennen ändert die Reihenfolge; leckender Zustand ließe Stufe 2 an Altlasten stoppen statt an Verschiebefehlern. Nachweis per Multimenge (0.0). | Sonnet-Agent |
@@ -372,13 +372,14 @@ gh pr create --draft --title "Testsuite: Zielstruktur (#211, Stufe 1)" --body-fi
 Christophs Entscheidung (25.09.): **jede Aufnahme läuft zweimal — mit und ohne Rust-Server —, und beide Läufe müssen exakt das für ihre Umgebung erwartete Verhalten zeigen.** Vorher und Nachher werden je Umgebung verglichen (mit↔mit, ohne↔ohne), nie über Kreuz.
 
 - [ ] **Step 1: Umgebungen festschreiben.** Im PR-Text protokollieren:
-  - *mit*: `league-simulator-rust --api` läuft, Health auf `:8080` grün (so wie die CI, `ci.yml` ~Z. 150–165);
-  - *ohne*: kein Prozess auf `:8080` (`curl -sf localhost:8080/health` schlägt fehl), `RUST_API_URL` ungesetzt;
-  - in beiden gleich: `data/fixture_cache/` vorhanden ja/nein (2 Dateien hängen daran), `RAPIDAPI_KEY=dummy`, Paketversionen von `testthat`, `mockery`, `withr`, `sys` (`sessionInfo()` in den PR).
+  - *mit*: `league-simulator-rust --api` läuft, Health auf `:8080` grün (so wie die CI, `ci.yml` ~Z. 150–165), **und** das Binary liegt unter `league-simulator-rust/target/release/` (zwei Tests — `test-rust-required.R`, `test-tormodell-rust-durchreichung.R` — starten ihren eigenen Server von dort oder `/usr/local/bin`); das Binary aus dem aktuellen Quellstand bauen;
+  - *ohne*: kein Prozess auf `:8080` (`curl -sf localhost:8080/health` schlägt fehl), `RUST_API_URL` ungesetzt, **kein** Binary an den beiden Pfaden;
+  - in beiden gleich: keine lokalen, gitignorten Daten im Arbeitsverzeichnis — so wie die CI (nach 0.1 liest kein Test mehr `data/fixture_cache/`; `ShinyApp/data/Ergebnis.Rds` fehlt dann, zwei Blöcke skippen in beiden Umgebungen), `RAPIDAPI_KEY=dummy`, Paketversionen von `testthat`, `mockery`, `withr`, `sys` (`sessionInfo()` in den PR).
+  - *Referenz* (gemessen 25.09. nach 0.1, PR #237): ohne Rust 777 Blöcke, 3232 Erwartungen, 0 Fehlschläge, 10 Skips (4× Server, 2× Binary, 2× `interactive-prompts` unbedingt, 2× `Ergebnis.Rds`); mit Rust 3311 Erwartungen, 0 Fehlschläge, 4 Skips.
 - [ ] **Step 2: Erwartetes Verhalten je Umgebung** (wird in Task 4 an der Vorher-Aufnahme geprüft und in Task 7 an der Nachher-Aufnahme):
-  - *mit*: 0 Fehlschläge, 0 Fehler, **kein** Block skippt wegen des Rust-Servers.
+  - *mit*: 0 Fehlschläge, 0 Fehler, **kein** Block skippt wegen Rust (Server oder Binary).
   - *ohne*: 0 Fehlschläge, 0 Fehler; Rust-abhängige Blöcke **skippen**, statt zu scheitern.
-  - Die Differenzmenge „skippt ohne, läuft mit" enthält nur Blöcke aus Dateien, die den Server ansprechen (`connect_rust_simulator`, `RUST_API_URL`, `start_rust_server`, `localhost:8080`) — sonst hängt ein Test unerkannt am Server.
+  - Die Differenzmenge „skippt ohne, läuft mit" enthält nur Blöcke aus Dateien, die den Server ansprechen (`connect_rust_simulator`, `RUST_API_URL`, `start_rust_server`, `localhost:8080`, `league-simulator-rust`) — sonst hängt ein Test unerkannt am Server.
   - Weicht die Vorher-Aufnahme davon ab (z. B. ein Test scheitert ohne Server, statt zu skippen), ist das ein Befund **vor** dem Umbau: Stopp, Christoph fragen, ob er in Phase 0 behoben oder als erwartete Ausnahme protokolliert wird. Im Umbau selbst wird nichts daran geändert.
 
 ### Task 4: Vorher-Aufnahme der Einzelergebnisse
@@ -422,7 +423,7 @@ Expected: das Verhalten aus Task 3 Step 2, geprüft mit
 b <- "tests/testthat/_baseline/"; m <- read.csv(paste0(b, "vorher-mit.csv")); o <- read.csv(paste0(b, "vorher-ohne.csv"))
 stopifnot(sum(m$failed) == 0, !any(m$error), sum(o$failed) == 0, !any(o$error))
 nur_ohne <- unique(o$file[o$skipped & !(paste(o$file, o$test) %in% paste(m$file, m$test)[m$skipped])])
-rust <- vapply(nur_ohne, function(f) any(grepl("connect_rust_simulator|RUST_API_URL|start_rust_server|localhost:8080",
+rust <- vapply(nur_ohne, function(f) any(grepl("connect_rust_simulator|RUST_API_URL|start_rust_server|localhost:8080|league-simulator-rust",
   readLines(file.path("tests/testthat", f), warn = FALSE))), logical(1))
 print(nur_ohne); stopifnot(all(rust))
 ```
