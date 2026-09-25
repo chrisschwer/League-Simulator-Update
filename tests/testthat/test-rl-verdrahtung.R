@@ -1108,12 +1108,15 @@ test_that("die Verdrahtung aendert die Zahl der Simulationen je Runde nicht", {
 # fuer zehn Ligen und fuer die Rundenlabels der Regionalligen ("North - 7")
 # ebenso laeuft, war Annahme. Diese Tests machen sie zur Zusicherung.
 #
-# ECHTE FIXTURES: data/fixture_cache/84_2025.json (Regionalliga Nord
+# ECHTE FIXTURES: tests/testthat/fixtures/fixture_cache/84_2025.json (eingefrorene
+# Kopie aus dem Offline-Cache data/fixture_cache/, Regionalliga Nord
 # 2025/26, 307 Hauptrundenspiele, 18 Teams, alle beendet). Der Cache liegt
 # FLACH (Spalten fixture_id, round, teams_home_id, ...); extract_fixture_
 # details() erwartet dagegen die API-Form (fixtures$league$round,
-# fixtures$teams$home$id, ...). cache_als_api_form() baut sie nach. Der
-# Cache ist gitignored -- ohne die Datei skippen die betroffenen Tests.
+# fixtures$teams$home$id, ...). cache_als_api_form() baut sie nach. Die
+# Kopie ist committet, damit die Tests auch in der CI laufen (bis 25.09.2026
+# lasen sie den gitignorten Cache und skippten dort still -- so blieb ein
+# Bruch durch #233 unbemerkt).
 #
 # Damit die Seite einen Ausblick hat, gilt die Saison bis zu einer
 # Stichrunde als gespielt: Spiele spaeterer Runden werden auf "NS" ohne
@@ -1137,13 +1140,13 @@ test_that("die Verdrahtung aendert die Zahl der Simulationen je Runde nicht", {
 BIS_RUNDE <- 10L
 
 cache_pfad <- function(api_id, saison = 2025L) {
-  test_path("..", "..", "data", "fixture_cache", paste0(api_id, "_", saison, ".json"))
+  test_path("fixtures", "fixture_cache", paste0(api_id, "_", saison, ".json"))
 }
 
 cache_lesen <- function(api_id = "84") {
   pfad <- cache_pfad(api_id)
   skip_if_not(file.exists(pfad),
-              sprintf("Fixture-Cache fehlt (gitignored, nur lokal): %s", pfad))
+              sprintf("Fixture fehlt: %s", pfad))
   as.data.frame(jsonlite::fromJSON(pfad), stringsAsFactors = FALSE)
 }
 
@@ -1424,7 +1427,10 @@ abschnitt <- function(html, id) {
 # Die Zeile der Ligatabelle eines Teams (ein <tr data-platz=...>...</tr>).
 tabellenzeile <- function(html, name) {
   zeilen <- regmatches(html, gregexpr("<tr data-platz=\"[^\"]*\"[^>]*>.*?</tr>", html))[[1]]
-  treffer <- zeilen[grepl(paste0("<th scope=\"row\">", name, "</th>"), zeilen, fixed = TRUE)]
+  # Zeilenkopf ohne Markup vergleichen: Seit #233 steht der Name in einem
+  # <abbr class="kz">-Tooltip, nicht mehr nackt im <th>.
+  koepfe <- sub(".*?<th scope=\"row\">(.*?)</th>.*", "\\1", zeilen, perl = TRUE)
+  treffer <- zeilen[gsub("<[^>]+>", "", koepfe) == name]
   if (length(treffer) != 1L) NA_character_ else treffer
 }
 
