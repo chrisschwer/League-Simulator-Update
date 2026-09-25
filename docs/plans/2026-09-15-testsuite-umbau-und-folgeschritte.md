@@ -46,7 +46,7 @@
 | 0.3 | Rest von #209 (Sourcing-Block-Kopien, Registry-Literale, Batch-Endpunkt) | **entkoppelt:** eigener PR, keine Voraussetzung für Stufe 2. Er ändert Kopfzeilen von Testdateien, darum: (a) **nie zwischen Vorher- und Nachher-Aufnahme** von Stufe 2 mergen — sonst Vorher-Aufnahme wiederholen, `git bisect` würde auf #209 zeigen; (b) landet er nach Task 1, Task 1 erneut laufen lassen und `ziel_final` über (`datei_alt`, `test_that_titel`, Vorkommen) aus der alten CSV übernehmen. |
 | 0.4 | `RCode/generate_static_site.R` teilen. Der Schnitt bei Zeile 1113 ist **nicht** sauber: `.heat_style` (Z. 180), `.tooltip_html` (Z. 204) und `.ergebnis_objektname` (Z. 903) werden auf beiden Seiten gerufen. Deshalb: (1) diese drei nach `RCode/render_helpers.R` (die Einheit für gemeinsame Render-Helfer, wird von `generate_static_site.R` schon gesourct); (2) ab Zeile 1113 (`.komma` … Sektionsrenderer Ligatabelle, Zonen, Rückblick, Live, Ausblick) nach `RCode/render_sections.R`, das `render_helpers.R` selbst sourct (gleiches `ofile`-Muster wie `generate_static_site.R:13-28`) und damit **allein ladbar** ist; (3) `generate_static_site.R` sourct `render_sections.R`. Aufrufer, die nur den Generator laden (`update_all_leagues_loop.R:128`, `scripts/preview_site.R:45`), bleiben unverändert, weil der Generator die Sektionen mitlädt — prüfen. Der Meta-Block `test-phase5-regionalligen.R:1642` liest den Generator als Text und muss danach auch `render_sections.R` lesen (Pfadliste wächst, Erwartung bleibt). Vier-Argument-Pfad **nicht** anfassen (Redundanz-Review). Eigener PR unter #211, Nachweis per Multimenge (0.0). | Sonnet-Agent |
 | 0.5 | Unabhängigkeit herstellen (vorgezogen aus der alten Stufe 3.6): in den 13 Dateien, die Arbeitsverzeichnis, Umgebung oder Optionen ohne Rückbau ändern (u. a. `test-season-transition-regression.R` 4×, `test-rust-required.R` 6×), `setwd` → `withr::local_dir`, `Sys.setenv` → `withr::local_envvar`, `options` → `withr::local_options`, `sample()` ohne Seed → `withr::local_seed` (`sample()` in Tests ohne Seed ist heute gar nicht zu reproduzieren, deshalb ist der Seed eine Unabhängigkeits-, keine Erwartungsänderung). **Kein `expect_*` ändert sich.** Grund: testthat läuft alphabetisch, das Umbenennen ändert die Reihenfolge; leckender Zustand ließe Stufe 2 an Altlasten stoppen statt an Verschiebefehlern. Nachweis per Multimenge (0.0). | Sonnet-Agent |
-| 0.6 | Altlasten außerhalb von `tests/testthat/`: `tests/issue-31-test-specifications.md` und `tests/TeamList_2024.csv` löschen (die Spezifikation gehört zu einem erledigten Issue; die CSV liest kein Test — alle Treffer meinen `RCode/…` oder Temp-Kopien). **Nicht im Repo, nur lokal** (per `.gitignore:30/:56` ausgeschlossen): `tests/rust/` (Rust-vs-C++-Vergleichsskripte, laufen nicht mehr, weil die C++-Engine seit #102 fehlt) und `tests/test_poisson_fix.R` — Christoph löscht sie in seinem Checkout selbst oder gibt es frei. | Claude |
+| 0.6 | Altlasten außerhalb von `tests/testthat/`: `tests/issue-31-test-specifications.md` und `tests/TeamList_2024.csv` löschen (die Spezifikation gehört zu einem erledigten Issue; die CSV liest kein Test — alle Treffer meinen `RCode/…` oder Temp-Kopien). **Nicht im Repo, nur lokal** (per `.gitignore:30/:56` ausgeschlossen): `tests/rust/` (Rust-vs-C++-Vergleichsskripte, laufen nicht mehr, weil die C++-Engine seit #102 fehlt) und `tests/test_poisson_fix.R` — ✓ am 25.09. im lokalen Checkout gelöscht (Christophs Freigabe). | Claude |
 
 Reihenfolge: **0.0 → 0.4 → 0.5 → Stufe 1 → Stufe 2.** 0.5 steht vor Stufe 1, weil die CSV aus Task 1 Zeilennummern als Schnittvorlage trägt und 0.5 Zeilen verschiebt. 0.6 beliebig, 0.3 nach den Regeln in seiner Zeile.
 
@@ -353,6 +353,8 @@ Memory `project_testsuite_struktur.md`: Regel + Helferliste + Link; `MEMORY.md`-
 
 PR (Draft) nur mit README, CONTEXT-Zeile, CSV und Werkzeug. **Christoph bestätigt die Tabelle**; erst danach Stufe 2. Änderungswünsche nur in README + CSV.
 
+> **Stand 25.09.2026:** Die Zieltabelle in diesem Plan hat Christoph freigegeben. Offen bleibt nur die Einzelzuordnung der Blöcke ohne Vorschlag (~8 %) und der Abweichungen source/Stimme in der CSV; sie folgt der Zweifelsregel und der freigegebenen Tabelle und braucht nur dann eine Rückfrage, wenn ein Block in keine Tabellenzeile passt.
+
 - [ ] **Step 5: Commit + PR**
 
 ```bash
@@ -367,9 +369,17 @@ gh pr create --draft --title "Testsuite: Zielstruktur (#211, Stufe 1)" --body-fi
 
 ### Task 3: Umgebung festschreiben
 
-Vorher- und Nachher-Aufnahme müssen unter **derselben** Umgebung laufen, sonst wandern Skips und der Vergleich misst die Umgebung statt des Umbaus.
+Christophs Entscheidung (25.09.): **jede Aufnahme läuft zweimal — mit und ohne Rust-Server —, und beide Läufe müssen exakt das für ihre Umgebung erwartete Verhalten zeigen.** Vorher und Nachher werden je Umgebung verglichen (mit↔mit, ohne↔ohne), nie über Kreuz.
 
-- [ ] **Step 1:** Umgebung wählen und im PR-Text protokollieren: Rust-Server an (`league-simulator-rust --api`, Health auf `:8080`) **oder** aus — empfohlen **an**, damit die 11 Dateien, die sich ohne Server überspringen, mitgeprüft werden; `data/fixture_cache/` vorhanden ja/nein (2 Dateien hängen daran); `RAPIDAPI_KEY=dummy`; Paketversionen von `testthat`, `mockery`, `withr`, `sys` (`Rscript -e 'sessionInfo()'` in den PR).
+- [ ] **Step 1: Umgebungen festschreiben.** Im PR-Text protokollieren:
+  - *mit*: `league-simulator-rust --api` läuft, Health auf `:8080` grün (so wie die CI, `ci.yml` ~Z. 150–165);
+  - *ohne*: kein Prozess auf `:8080` (`curl -sf localhost:8080/health` schlägt fehl), `RUST_API_URL` ungesetzt;
+  - in beiden gleich: `data/fixture_cache/` vorhanden ja/nein (2 Dateien hängen daran), `RAPIDAPI_KEY=dummy`, Paketversionen von `testthat`, `mockery`, `withr`, `sys` (`sessionInfo()` in den PR).
+- [ ] **Step 2: Erwartetes Verhalten je Umgebung** (wird in Task 4 an der Vorher-Aufnahme geprüft und in Task 7 an der Nachher-Aufnahme):
+  - *mit*: 0 Fehlschläge, 0 Fehler, **kein** Block skippt wegen des Rust-Servers.
+  - *ohne*: 0 Fehlschläge, 0 Fehler; Rust-abhängige Blöcke **skippen**, statt zu scheitern.
+  - Die Differenzmenge „skippt ohne, läuft mit" enthält nur Blöcke aus Dateien, die den Server ansprechen (`connect_rust_simulator`, `RUST_API_URL`, `start_rust_server`, `localhost:8080`) — sonst hängt ein Test unerkannt am Server.
+  - Weicht die Vorher-Aufnahme davon ab (z. B. ein Test scheitert ohne Server, statt zu skippen), ist das ein Befund **vor** dem Umbau: Stopp, Christoph fragen, ob er in Phase 0 behoben oder als erwartete Ausnahme protokolliert wird. Im Umbau selbst wird nichts daran geändert.
 
 ### Task 4: Vorher-Aufnahme der Einzelergebnisse
 
@@ -391,8 +401,9 @@ dir.create(dirname(ziel), showWarnings = FALSE, recursive = TRUE)
 Sys.setenv(RAPIDAPI_KEY = Sys.getenv("RAPIDAPI_KEY", "dummy"))
 res <- testthat::test_dir("tests/testthat", reporter = "silent", stop_on_failure = FALSE)
 df <- as.data.frame(res)
-df <- df[, c("test", "nb", "failed", "skipped", "error")]
-names(df) <- c("test", "expectations", "failed", "skipped", "error")
+# file nur zur Diagnose (Rust-Plausibilitaet); der Vergleich ignoriert die Spalte
+df <- df[, c("file", "test", "nb", "failed", "skipped", "error")]
+names(df) <- c("file", "test", "expectations", "failed", "skipped", "error")
 df <- df[do.call(order, df), ]
 utils::write.csv(df, ziel, row.names = FALSE)
 cat(nrow(df), "Bloecke,", sum(df$expectations), "Erwartungen,",
@@ -401,8 +412,22 @@ cat(nrow(df), "Bloecke,", sum(df$expectations), "Erwartungen,",
 
 - [ ] **Step 2: Vorher-Aufnahme auf dem Stand von `main` nach Phase 0**
 
-Run: `Rscript scripts/dev/ergebnisse_tests.R tests/testthat/_baseline/vorher.csv`
-Expected: 0 Fehlschläge; Zahl der Blöcke und Erwartungen in den PR-Text.
+Run (einmal je Umgebung aus Task 3):
+`Rscript scripts/dev/ergebnisse_tests.R tests/testthat/_baseline/vorher-mit.csv`
+`Rscript scripts/dev/ergebnisse_tests.R tests/testthat/_baseline/vorher-ohne.csv`
+Expected: das Verhalten aus Task 3 Step 2, geprüft mit
+
+```r
+# Rscript -e '<dieser Block>' -- Plausibilitaet je Umgebung
+b <- "tests/testthat/_baseline/"; m <- read.csv(paste0(b, "vorher-mit.csv")); o <- read.csv(paste0(b, "vorher-ohne.csv"))
+stopifnot(sum(m$failed) == 0, !any(m$error), sum(o$failed) == 0, !any(o$error))
+nur_ohne <- unique(o$file[o$skipped & !(paste(o$file, o$test) %in% paste(m$file, m$test)[m$skipped])])
+rust <- vapply(nur_ohne, function(f) any(grepl("connect_rust_simulator|RUST_API_URL|start_rust_server|localhost:8080",
+  readLines(file.path("tests/testthat", f), warn = FALSE))), logical(1))
+print(nur_ohne); stopifnot(all(rust))
+```
+
+Zahlen (Blöcke, Erwartungen, Skips je Umgebung) in den PR-Text.
 
 - [ ] **Step 3: `_baseline/` in `.gitignore`, Commit des Werkzeugs**
 
@@ -526,9 +551,9 @@ Expected: alle Blöcke PASS.
 
 ### Task 7: Nachher-Aufnahme und Beweis der Gleichheit
 
-- [ ] **Step 1: Nachher-Aufnahme** (gleiche Umgebung wie Task 3)
+- [ ] **Step 1: Nachher-Aufnahme** (beide Umgebungen wie Task 3)
 
-Run: `Rscript scripts/dev/ergebnisse_tests.R tests/testthat/_baseline/nachher.csv`
+Run: `Rscript scripts/dev/ergebnisse_tests.R tests/testthat/_baseline/nachher-mit.csv` und `… nachher-ohne.csv`; danach die Plausibilitätsprüfung aus Task 4 Step 2 auf die Nachher-Dateien.
 
 - [ ] **Step 2: Vergleich als Multimenge**
 
@@ -536,8 +561,11 @@ Titel sind nicht eindeutig (heute schon doppelt: „Bayern summiert exakt auf zw
 
 ```r
 # Rscript -e '<dieser Block>'
-v <- read.csv("tests/testthat/_baseline/vorher.csv", stringsAsFactors = FALSE)
-n <- read.csv("tests/testthat/_baseline/nachher.csv", stringsAsFactors = FALSE)
+# einmal mit umgebung <- "mit", einmal mit umgebung <- "ohne"
+umgebung <- "mit"
+spalten <- c("test", "expectations", "failed", "skipped", "error")   # ohne file: der aendert sich
+v <- read.csv(sprintf("tests/testthat/_baseline/vorher-%s.csv", umgebung), stringsAsFactors = FALSE)[, spalten]
+n <- read.csv(sprintf("tests/testthat/_baseline/nachher-%s.csv", umgebung), stringsAsFactors = FALSE)[, spalten]
 # einzige zulaessige Zusatzzeilen: die Bloecke des Waechters aus Task 5
 ex <- parse("tests/testthat/test-waechter-teststruktur.R", encoding = "UTF-8")
 waechter <- unlist(lapply(ex, function(e) if (is.call(e) && identical(e[[1]], as.name("test_that"))) e[[2]]))
@@ -607,4 +635,5 @@ Nach Stufe 3, in der neuen Struktur, je Punkt ein kleiner TDD-PR:
 - Struktur in Memory und Projektdoku: Task 2 (README, CONTEXT.md, Memory). ✓
 - Offen für Veränderung: Thema-Segment statt Monsterdateien, Zweifelsregel, geschlossene Präfixliste, Split/Umbenennung zieht Tests per Wächter mit. ✓
 - Danach #212: Stufe 4. ✓
-- Offen für Christoph: (a) Zieltabelle freigeben (Task 2 Step 4); (b) Umgebung der Beweisläufe — Rust-Server an (Empfehlung) oder aus; (c) Reihenfolge Stufe 3.1–3.8; (d) Client-JS-Testweg in Stufe 4; (e) lokale Altlasten `tests/rust/`, `tests/test_poisson_fix.R` selbst löschen oder freigeben.
+- Entschieden am 25.09.: Zieltabelle freigegeben; Beweisläufe mit **und** ohne Rust-Server, je mit dem erwarteten Verhalten (Task 3); lokale Altlasten gelöscht.
+- Offen für Christoph: (a) Reihenfolge Stufe 3.1–3.8; (b) Client-JS-Testweg in Stufe 4 (Punkt 3).
