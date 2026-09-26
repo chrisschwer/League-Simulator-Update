@@ -1,7 +1,7 @@
 # Struktur der Testsuite
 
 Entschieden am 25.09.2026 (#211, Plan `docs/plans/2026-09-15-testsuite-umbau-und-folgeschritte.md`).
-Ab Stufe 2 des Umbaus erzwingt `test-waechter-teststruktur.R` die Regel.
+Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 
 ## Regel
 
@@ -11,7 +11,7 @@ Ab Stufe 2 des Umbaus erzwingt `test-waechter-teststruktur.R` die Regel.
 - `<einheit>` ist exakt der Dateistamm einer Datei in `RCode/` (`league_details`, `updateScheduler`) — oder eines der festen Präfixe `scripts` (dann folgt der Stamm einer Datei unter `scripts/`: `test-scripts-preview_site.R`) oder `waechter` (Meta-Tests, die Quelltext als Text lesen). Einheitsnamen enthalten keinen Bindestrich; alles bis zum ersten Bindestrich nach `test-` ist daher die Einheit.
 - `<thema>` ist optional und benennt eine Funktion oder ein Verhalten der Einheit (`-gating`, `-rueckblick`, `-verdrahtung`); nie Issue, PR, Phase oder Reparatur (`phase5`, `haertung`, `move`, `fix`, Nummern). Ein Thema lohnt sich, wenn die Datei sonst deutlich über ~1.000 Zeilen wüchse oder die Tests eigene Helfer/Fakes brauchen.
 - Zuordnung im Zweifel: die Einheit, deren Funktion der Test aufruft und deren Ergebnis er prüft; rufen mehrere, die äußerste (der Aufrufer). Gestubbte oder nur gesourcte Mitspieler zählen nicht.
-- Jede Testdatei sourct ihre Einheit selbst, mit `source_module("<einheit>", ...)` aus `helper-source.R` (mehrere Einheiten erlaubt; die eigene muss dabei sein). Eigene `source_xyz()`-Helfer nur, wenn sie mehr tun als sourcen. Gemeinsame Helfer heißen `helper-<zweck>.R` (testthat lädt sie automatisch); keine Helferdefinition in zwei Dateien. Unterordner (`fixtures/`, `helpers/`) enthalten nur Daten und explizit gesourcte Runner, nie Tests — testthat liest sie nicht.
+- Jede Testdatei nennt ihre Einheit im Quelltext — per `source()`-Literal `<einheit>.R` oder `source_module("<einheit>", ...)` aus `helper-source.R` (mehrere Einheiten erlaubt; die eigene muss dabei sein). Eine Einheit gilt auch als gesourct, wenn die Datei eine Einheit nennt, die sie per `source()` mitlädt (`render_sections` über `generate_static_site`). Die flächige Umstellung auf `source_module()` folgt als eigener PR (3.0). Eigene `source_xyz()`-Helfer nur, wenn sie mehr tun als sourcen. Gemeinsame Helfer heißen `helper-<zweck>.R` (testthat lädt sie automatisch); keine Helferdefinition in zwei Dateien (Ausnahme bis Stufe 3.6: die reinen Sourcing-Helfer `source_*` sowie zwei Gruppen wortgleicher Doppel, die Stufe 2 bewusst lokal gelassen hat — vierzehn Namen mit nur einer Fassung (`fake_transformed`, `html_lesen`, `K_DRITTE_LIGA`, `meister_bayern`, `meister_nord`, `prognose_aus_meister`, `prognosen_2026`, `sieg_nord_gegen_bayern`, `prognose_zeile`, `zaehlung`, `zaehlung_nordost89`, `STAFFELN_ERWARTET`, `rust_binary`, `stop_rust_server`) und neun Namen mit mehreren, nicht identischen Fassungen (`fake_fixtures`, `fake_response`, `fn`, `generator_modul`, `N_ITER`, `n_ligen`, `n_sims_pro_runde`, `RL_SCHLUESSEL`, `start_rust_server`)). Unterordner (`fixtures/`, `helpers/`) enthalten nur Daten und explizit gesourcte Runner, nie Tests — testthat liest sie nicht.
 - Wird eine `RCode/`-Datei geteilt, umbenannt oder gelöscht, ziehen ihre Testdateien im selben PR mit (`git mv`); `test-waechter-teststruktur.R` schlägt sonst fehl.
 - Neue Testarten laufen, wo möglich, als R-Test unter der Einheit, die den Gegenstand erzeugt (Client-JS: `test-render_sections-js.R`, #212). Nur was sich keiner Einheit zuordnen lässt, bekommt ein festes Präfix, das in `test-waechter-teststruktur.R` in die geschlossene Liste aufgenommen wird.
 - Ausführen einer Einheit mit allen Themen: `testthat::test_dir("tests/testthat", filter = "^league_details")`.
@@ -21,17 +21,18 @@ Ab Stufe 2 des Umbaus erzwingt `test-waechter-teststruktur.R` die Regel.
 | Datei | Inhalt |
 |---|---|
 | `helper-test-setup.R` | globales Sourcing (`source_rcode_modules`); wird in Stufe 4 auf „Fehler statt `message()`" umgestellt |
-| `helper-fixtures.R` | Test-Saisons und API-Attrappen (`create_test_season`, ...) |
+| `helper-fixtures.R` | Test-Saisons und API-Attrappen (`create_test_season`, ..., `mk_ergebnis`, `ewr_spiel`/`ewr_fixtures`/`ewr_teams`, `RL_IDS`/`RL_SLUGS`/`AUFSTIEGSSEITE_SLUG`/`RL_DIREKTAUFSTIEG`/`RL_AUFSTIEGSSPIELE`) |
 | `helper-league-details.R` | `fd_row`, `make_details`, `make_test_teams` |
 | `helper-uhr.R` | `runden_uhr` (steuerbare Uhr für Loop-Tests) |
-| `helper-source.R` | ab Stufe 2: `source_module(...)`, lädt RCode-Einheiten in eine Umgebung |
-| `helper-html.R`, `helper-repo.R`, `helper-rust.R` | ab Stufe 2: byteidentische Helfer, die heute in mehreren Testdateien kopiert stehen |
+| `helper-source.R` | seit Stufe 2: `source_module(...)`, lädt RCode-Einheiten in eine Umgebung |
+| `helper-html.R` | seit Stufe 2: `read_html`, `make_data_env` |
+| `helper-repo.R` | seit Stufe 2: `with_repo_root` |
 | `helpers/season-transition-snapshot-runner.R` | explizit gesourcter Runner, kein Test |
 | `fixtures/` | Testdaten, u. a. `fixtures/fixture_cache/` (eingefrorene RL-Spielpläne, siehe README dort) |
 
 ## Zieldateien
 
-787 `test_that`-Blöcke aus 68 Quelldateien, Stand 25.09.2026. Die Einzelzuordnung je Block steht in `docs/plans/2026-09-15-testsuite-zuordnung.csv` (Spalte `ziel_final`); „(n Bl.)" markiert Quelldateien, die aufgeteilt werden.
+787 `test_that`-Blöcke aus 68 Quelldateien, Stand 25.09.2026, dazu 6 Wächterblöcke (793). Die Einzelzuordnung je Block steht in `docs/plans/2026-09-15-testsuite-zuordnung.csv` (Spalte `ziel_final`); „(n Bl.)" markiert Quelldateien, die aufgeteilt werden.
 
 | Zieldatei | Blöcke | nimmt auf |
 |---|---|---|
@@ -85,6 +86,7 @@ Ab Stufe 2 des Umbaus erzwingt `test-waechter-teststruktur.R` die Regel.
 | `test-updateScheduler.R` | 4 | frauen-ligen-aktivierung (4 Bl.) |
 | `test-waechter-ci-pfade.R` | 2 | ein-elo-walk (2 Bl.) |
 | `test-waechter-quelltext.R` | 9 | ein-elo-walk (3 Bl.), frauen-ligen-aktivierung (1 Bl.), kuerzel-tooltip (1 Bl.), modellkonstanten-nur-in-rust, phase5-regionalligen (1 Bl.) |
+| `test-waechter-teststruktur.R` | 6 | — (neu in Stufe 2, prüft die Namenskonvention selbst) |
 
 ## Werkzeuge
 

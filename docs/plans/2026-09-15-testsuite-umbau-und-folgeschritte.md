@@ -375,7 +375,9 @@ Christophs Entscheidung (25.09.): **jede Aufnahme läuft zweimal — mit und ohn
   - *mit*: `league-simulator-rust --api` läuft, Health auf `:8080` grün (so wie die CI, `ci.yml` ~Z. 150–165), **und** das Binary liegt unter `league-simulator-rust/target/release/` (zwei Tests — `test-rust-required.R`, `test-tormodell-rust-durchreichung.R` — starten ihren eigenen Server von dort oder `/usr/local/bin`); das Binary aus dem aktuellen Quellstand bauen;
   - *ohne*: kein Prozess auf `:8080` (`curl -sf localhost:8080/health` schlägt fehl), `RUST_API_URL` ungesetzt, **kein** Binary an den beiden Pfaden;
   - in beiden gleich: keine lokalen, gitignorten Daten im Arbeitsverzeichnis — so wie die CI (nach 0.1 liest kein Test mehr `data/fixture_cache/`; `ShinyApp/data/Ergebnis.Rds` fehlt dann, zwei Blöcke skippen in beiden Umgebungen), `RAPIDAPI_KEY=dummy`, Paketversionen von `testthat`, `mockery`, `withr`, `sys` (`sessionInfo()` in den PR).
-  - *Referenz* (gemessen 25.09. nach 0.1, PR #237): ohne Rust 777 Blöcke, 3232 Erwartungen, 0 Fehlschläge, 10 Skips (4× Server, 2× Binary, 2× `interactive-prompts` unbedingt, 2× `Ergebnis.Rds`); mit Rust 3311 Erwartungen, 0 Fehlschläge, 4 Skips.
+  - *Referenz* (gemessen 25.09. nach 0.1, PR #237): ohne Rust 777 Blöcke, 3232 Erwartungen, 0 Fehlschläge, 10 Skips (4× Server, 2× Binary, 2× `interactive-prompts` unbedingt, 2× `Ergebnis.Rds`); mit Rust 3311 Erwartungen, 0 Fehlschläge, 4 Skips. Nach #242 (main `4bae96d`, 26.09.): 787 Blöcke; ohne Rust 3246 Erwartungen, 10 Skips; mit Rust 3325 Erwartungen, 4 Skips. Maßgeblich ist immer die eigene Vorher-Aufnahme, nicht diese Zahlen.
+
+  > **Ergänzt 26.09. (Review vor Stufe 2) — beide Aufnahmen in frischen Worktrees, Binary in beiden.** Der Haupt-Checkout enthält gitignorte Daten (`data/`, `data/fixture_cache/`, `ShinyApp/data/Ergebnis.Rds`); eine Nachher-Aufnahme dort zeigt zwei Skips weniger als die CI und die Vorher-Aufnahme, und der Vergleich schlägt fehl. Deshalb: Vorher in `git worktree add --detach <pfad-vorher> origin/main`, Nachher in `git worktree add --detach <pfad-nachher> <branch-HEAD>` — nie im Haupt-Checkout. `rust_binary()` (`test-rust-required.R`, `test-tormodell-rust-durchreichung.R`) sucht das Binary **relativ zum jeweiligen Worktree** unter `league-simulator-rust/target/release/`, `/usr/local/bin` ist auf dem Entwicklerrechner leer; das Binary muss also in **beide** Worktrees kopiert werden (einmal bauen: `CARGO_TARGET_DIR` außerhalb des Repos, dann je Worktree nach `target/release/`). Das lokal vorhandene Binary vom 12.09. ist älter als zwei Rust-Commits (`d5f8f3e`, `0334d34`) — neu bauen, und derselbe Build stellt den Server auf `:8080` für die „mit"-Läufe. Beide Worktrees nach der Nachher-Aufnahme mit `git worktree remove` entfernen.
 - [ ] **Step 2: Erwartetes Verhalten je Umgebung** (wird in Task 4 an der Vorher-Aufnahme geprüft und in Task 7 an der Nachher-Aufnahme):
   - *mit*: 0 Fehlschläge, 0 Fehler, **kein** Block skippt wegen Rust (Server oder Binary).
   - *ohne*: 0 Fehlschläge, 0 Fehler; Rust-abhängige Blöcke **skippen**, statt zu scheitern.
@@ -445,6 +447,8 @@ git commit -m "chore(#211): Einzelergebnisse der Testsuite als Vergleichsbasis a
 
 Der Wächter wird **zuerst** geschrieben und läuft am Anfang rot (heute passen 49 Dateinamen nicht). Er ist das Abnahmekriterium von Task 6 und hält die Regel danach dauerhaft.
 
+> **Entschieden 26.09. (Review vor Stufe 2):** Der vierte Block („jede Einheiten-Testdatei sourct ihre Einheit") akzeptiert eine Datei auch dann, wenn sie eine Einheit nennt, die die geprüfte Einheit per `source()` mitlädt. Grund: Die sechs `test-render_sections-*.R` laden ausnahmslos `generate_static_site.R` und brauchen dessen Funktionen (`render_league_page`, `league_views`, `render_heatmap`, `render_panel_table`); `render_sections.R` allein reicht ihnen nicht, und der Generator sourct es selbst. Umsetzung: Der Wächter liest je `RCode/`-Datei die Literale `"<x>.R"` in `source()`-Zeilen (Lader-Karte Einheit → mitgeladene Einheiten, transitiv) und prüft „nennt die Einheit oder einen ihrer Lader". Die README bekommt den Satz: „Eine Einheit gilt als gesourct, wenn die Datei sie oder eine Einheit nennt, die sie per `source()` mitlädt." Verworfen: beide Einheiten laden (Doppelladung), Umbenennung nach `generate_static_site-<thema>` (widerspricht der freigegebenen Tabelle).
+
 - [ ] **Step 1: Wächter schreiben**
 
 ```r
@@ -509,7 +513,7 @@ test_that("keine Helferdefinition steht in zwei helper-Dateien", {
 })
 ```
 
-- [ ] **Step 2: Laufen lassen, muss rot sein** (erwartet: Liste der heutigen Fehlbenennungen). Commit mit dem Wächter zusammen mit dem ersten Verschiebe-Commit, damit `main` nie rot ist — oder im Branch rot lassen, bis Task 6 fertig ist; gemergt wird nur grün.
+- [ ] **Step 2: Laufen lassen, muss rot sein** (erwartet: Liste der heutigen Fehlbenennungen; die anderen fünf Blöcke sind auf dem Ist-Stand grün — am 26.09. geprüft: keine doppelten Top-Level-Namen, keine Helferdoppel). **Entschieden 26.09.:** Die rote Ausgabe wird als Nachweis in den PR-Text übernommen, der Wächter selbst aber erst als **letzter Commit von Task 6** eingecheckt (Step N+1). So hält jeder Commit im Branch Regel 5 („0 Fehlschläge") wörtlich, der `git bisect`-Test aus Task 7 bleibt ein schlichter `test_dir`, und die CI des Draft-PR ist nur rot, wenn wirklich etwas schiefging. Verworfen: Wächter ab Commit 1 rot mitführen (Regel 5 müsste zu „0 außer Wächter" werden); Wächter mit `skip()` einchecken (das Muster, das #212 Punkt 5 abschafft).
 
 ### Task 6: Dateien verschieben — je Zieldatei ein Commit
 
@@ -520,6 +524,8 @@ test_that("keine Helferdefinition steht in zwei helper-Dateien", {
 **Regeln für jeden Commit:**
 1. Ganze Datei → `git mv` (Historie bleibt). Aufgeteilte Datei → die größere Hälfte per `git mv`, die kleinere Hälfte **wortgleich** an das Ende der Zieldatei anhängen.
 2. „1:1" gilt für Blöcke, **nicht** für Dateiköpfe: `library(...)`, `source(...)` und Top-Level-Konstanten (z. B. `namen` in `test-kuerzel-tooltip.R:18`) werden beim Zusammenführen geteilter Zustand. Jeder Kopf wird mitgenommen; Namenskollisionen fängt der Wächter (doppelte Top-Level-Namen). Kollidieren nicht-identische Helfer oder Konstanten, wird **nicht** umbenannt, sondern die Quelle bekommt ein eigenes Thema (Rückfrage an Christoph, Tabelle nachführen).
+
+   > **Entschieden 26.09. (Review vor Stufe 2) — Zwischen-Definitionen und mehrfach gebrauchte Helfer.** Vier geteilte Dateien haben Top-Level-Definitionen *zwischen* den Blöcken (`test-rl-verdrahtung.R` 27, `test-n-ligen-entflechtung.R` 7 inkl. globalem `source(update_all_leagues_loop.R)` Z. 192, `test-phase5-regionalligen.R` 5, `test-frauen-ligen-aktivierung.R` 1). Regel: **Jede Top-Level-Definition folgt den Blöcken, die sie unmittelbar oder über andere Definitionen benutzen**; die Zugehörigkeit wird maschinell aus den Namensverweisen bestimmt (Skript im Scratchpad, Ergebnis in den PR-Text), nicht per Augenmaß. Braucht mehr als eine Zieldatei dieselbe Definition und gibt es nur **eine Fassung** (identisch bis auf Kommentare und Leerraum — nicht „bytegleich"), wandert sie in die passende `helper-*.R`: `read_html`, `make_data_env` → `helper-html.R`; `with_repo_root` (7 Quellen, zwei unterscheiden sich nur durch einen Kommentar) → `helper-repo.R`; `mk_ergebnis` (Prognose-Attrappe, gebraucht in `test-generate_static_site.R` und `test-rl_abstiegskopplung.R`, Basis von `alle_ergebnisse`) → `helper-fixtures.R`. Gibt es mehrere Fassungen (`fake_fixtures` 4×), bleibt jede in ihrer Zieldatei bis Stufe 3.6. `helper-rust.R` entsteht in Stufe 2 nicht (kein byteidentischer Fake-Server in mehreren Zieldateien). Verworfen: Kopien in mehreren Testdateien (README-Regel „keine Helferdefinition in zwei Dateien" wäre vom ersten Tag an unwahr, der Wächter prüft sie zwischen Testdateien nicht).
 3. **Sourcing:** Der erste Commit von Task 6 legt `helper-source.R` mit genau dieser Funktion an:
 
    ```r
@@ -535,6 +541,8 @@ test_that("keine Helferdefinition steht in zwei helper-Dateien", {
    ```
 
    Danach werden reine Sourcing-Helfer an ihren Aufrufstellen ersetzt, z. B. `env <- source_generator()` → `env <- source_module("generate_static_site")`, `source_aufstieg()` → `source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")`, und die Definition fällt weg. Damit lösen sich die Namenskollisionen der `source_*`-Varianten beim Zusammenführen (etwa in `test-league_registry.R`), und der Wächter findet in jeder Datei ihre Einheit. `test-season-transition-regression.R` hat heute **keinen** `source()`-Aufruf und lebt von der Sourcing-Wand in `helper-test-setup.R`; sie bekommt oben `source_module("season_processor", envir = environment())`. Andere Helfer, die byteidentisch in mehreren Zieldateien stehen (`make_data_env`, …), wandern in die passende `helper-*.R`. Keine Vereinheitlichung nicht-identischer Varianten, die mehr tun als sourcen — das ist Stufe 3.6.
+
+   > **Entschieden 26.09. (Review vor Stufe 2):** Die flächige Ersetzung entfällt in Stufe 2. Befund: Alle Helfer-Kollisionen beim Zusammenführen sind byteidentisch (`source_generator` 12×, `source_registry` 2×, `mk_ergebnis` 2×) — bis auf `source_aufstieg`, dessen Phase-5-Fassung zusätzlich `aufstiegsspiele.R` lädt; der Wächter akzeptiert auch das Literal `<einheit>.R`, das jeder bestehende Helfer enthält. Deshalb: byteidentische Helfer werden im Zielkopf zu **einer** Definition zusammengeführt; ersetzt werden nur die 13 `source_aufstieg()`-Aufrufe aus `test-phase5-regionalligen.R`, mit `source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "aufstiegsspiele", "rl_aufstieg")` — Argumentliste = exakt die Dateiliste des ersetzten Helfers, je Aufrufstelle. `helper-source.R` entsteht trotzdem (Regressionsdatei, Sektionsdateien). Die flächige Umstellung (~345 Aufrufstellen) wird ein eigener PR **direkt nach Stufe 2** mit demselben Identitätsbeweis; der README-Satz „sourct … mit `source_module()`" wird bis dahin zu „nennt ihre Einheit im Kopf" abgeschwächt.
 4. Kein `expect_*`, kein `test_that`-Titel, kein Stub, kein Fixture wird angefasst. Ausnahmen: ein `context()` (veraltet) darf entfallen; die Kopfänderungen aus Regel 3; Stringliterale, die eine umbenannte Testdatei benennen, werden nachgeführt. Alle Ausnahmen stehen einzeln im PR-Text, die Multimenge (Task 7) belegt, dass sich kein Ergebnis ändert. Kommentare, die alte Testdateinamen nennen (~52), werden mitgeführt, wo sie im selben Commit ohnehin berührt werden; sonst bleiben sie für Stufe 3.
 5. Nach jedem Commit **Einzellauf und Gesamtlauf**: `Rscript -e 'testthat::test_file("tests/testthat/test-<ziel>.R")'` und `Rscript scripts/dev/ergebnisse_tests.R /tmp/zwischen.csv` → 0 Fehlschläge. (Der Einzellauf fängt fehlendes Sourcing, der Gesamtlauf Reihenfolgeeffekte.)
 
@@ -545,10 +553,10 @@ test_that("keine Helferdefinition steht in zwei helper-Dateien", {
 3. Aufteilungen, je Quelldatei ein Commit, CSV-Zeilen als Schnittvorlage: gewertete-spiele, rundenfilter-schutznetz, elo-walk-reihenfolge, rl-zonen-verdrahtung, rl-verdrahtung, tbd-termin, kuerzel-tooltip, frauen-ligen-aktivierung, frauen-ligen-live, n-ligen-entflechtung, phase5-regionalligen (Block :1642 → waechter-quelltext), rust-required (Server-Start → rust_integration-server), ein-elo-walk (Meta-Blöcke → waechter-ci-pfade). kuerzel-tooltip gibt Block :182 an waechter-quelltext ab.
 4. Helfer-Dateien (ein Commit): byteidentische Kopien nach `helper-*.R`. (`helper-source.R` entsteht schon im ersten Commit, siehe Regel 3.)
 
-- [ ] **Step N+1: Wächter grün**
+- [ ] **Step N+1: Wächter einchecken, grün**
 
-Run: `Rscript -e 'testthat::test_file("tests/testthat/test-waechter-teststruktur.R")'`
-Expected: alle Blöcke PASS.
+Run: `Rscript -e 'testthat::test_file("tests/testthat/test-waechter-teststruktur.R")'`, danach Einzel- und Gesamtlauf wie Regel 5.
+Expected: alle Blöcke PASS; Gesamtlauf 0 Fehlschläge. Erst jetzt `git add tests/testthat/test-waechter-teststruktur.R` und Commit (Entscheidung 26.09., Task 5 Step 2). Im selben Commit: README-Sätze nachführen (Lader-Regel des Wächters; „sourct … mit `source_module()`" → „nennt ihre Einheit im Kopf", bis der Folge-PR die Umstellung bringt; Helferliste: `helper-rust.R` entfällt, `mk_ergebnis` in `helper-fixtures.R`).
 
 ### Task 7: Nachher-Aufnahme und Beweis der Gleichheit
 
@@ -586,7 +594,7 @@ Expected: `identisch: <N> Bloecke, <E> Erwartungen`, dieselben Zahlen wie Task 4
 
 - [ ] **Step 3: Doppelte Titel notieren**
 
-Run: `Rscript -e 'n <- read.csv("tests/testthat/_baseline/nachher.csv"); print(unique(n$test[duplicated(n$test)]))'`
+Run: `Rscript -e 'n <- read.csv("tests/testthat/_baseline/nachher-mit.csv"); print(unique(n$test[duplicated(n$test)]))'`
 Doppelte Titel sind zulässig, aber die ersten Kandidaten für Stufe 3 — in die CSV-Spalte `bemerkung`.
 
 - [ ] **Step 4: CI**
@@ -600,6 +608,8 @@ Push, PR (Draft → nach grüner CI ready). PR-Text: Umgebung (Task 3), Zahlen a
 ## Stufe 3 (#211c) — Redundanz-Review, je Cluster ein PR
 
 Erst jetzt werden Erwartungen angefasst — und nur mit Christophs Wort je PR. Reihenfolge nach Nutzen; die Cluster-Nummern verweisen auf Issue #211.
+
+**Vorab, PR 3.0 (entschieden 26.09.):** die flächige Umstellung der reinen Sourcing-Helfer auf `source_module()` (~345 Aufrufstellen, zwölf Helfernamen), die aus Stufe 2 herausgenommen wurde. Reines Refactoring ohne Erwartungsänderung, Nachweis per identischer Multimenge wie Task 7; danach gilt der README-Satz „sourct … mit `source_module()`" wieder wörtlich. Läuft direkt nach dem Merge von Stufe 2, vor 3.1.
 
 | PR | Cluster (aus #211) | Was bleibt | Was fällt (Vorschlag) |
 |---|---|---|---|
@@ -646,4 +656,6 @@ Nach Stufe 3, in der neuen Struktur, je Punkt ein kleiner TDD-PR:
 - Danach #212: Stufe 4. ✓
 - Entschieden am 25.09.: Zieltabelle freigegeben; Beweisläufe mit **und** ohne Rust-Server, je mit dem erwarteten Verhalten (Task 3); lokale Altlasten gelöscht.
 - Entschieden am 25.09.: Client-JS per Node + jsdom mit Syntaxprüfung, Skripte bleiben inline (Stufe 4 Punkt 3).
+- Entschieden am 26.09. (Review vor Stufe 2, vier Punkte): (1) keine flächige `source_module()`-Ersetzung in Stufe 2 — nur die 13 `source_aufstieg()`-Stellen aus Phase 5, Rest als PR 3.0 (Task 6 Regel 3); (2) der Wächter akzeptiert „nennt die Einheit oder einen ihrer Lader", damit die sechs `test-render_sections-*.R` bestehen (Task 5); (3) Zwischen-Definitionen folgen ihren Blöcken, einfassige Mehrfach-Helfer nach `helper-html.R`/`helper-repo.R`/`helper-fixtures.R` (Task 6 Regel 2); (4) der Wächter wird zuerst geschrieben, zuletzt committet (Task 5 Step 2). Dazu Ergänzung ohne Entscheidung: beide Aufnahmen in frischen Worktrees mit je einem frisch gebauten Binary (Task 3).
+- Geprüft am 26.09.: alle 68 Dateien laufen isoliert (je eigener R-Prozess) grün — 787 Blöcke, 0 Fehlschläge, 0 Fehler, 10 Skips ohne Rust; Voraussetzung für den Einzellauf je Commit (Task 6 Regel 5) ist damit erfüllt.
 - Offen für Christoph: Reihenfolge Stufe 3.1–3.8.
