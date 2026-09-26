@@ -266,10 +266,10 @@ fake_fixtures <- function(key, statuses) {
 
 # --- Der Fake-Rust-Server ---------------------------------------------------
 
-N_ITER <- 10L
+N_ITER_FAKE <- 10L
 
 # Zaehlmatrizen der 3. Liga: Zeile = Staffel (STAFFELN-Reihenfolge), Spalte
-# = k Absteiger (0..4), Zelle = Iterationen. Jede Zeile summiert auf N_ITER,
+# = k Absteiger (0..4), Zelle = Iterationen. Jede Zeile summiert auf N_ITER_FAKE,
 # die Erwartungswerte ueber alle Staffeln auf exakt 4 (die Invariante von
 # absteiger_verteilung()).
 COUNTS_REGULAER <- matrix(c(
@@ -402,10 +402,10 @@ rust_fake <- function() {
         time_ms = 1L
       )
       if (!is.null(payload$group_of_team)) {
-        if (!identical(as.integer(payload$iterations), N_ITER)) {
+        if (!identical(as.integer(payload$iterations), N_ITER_FAKE)) {
           stop(sprintf(
             "Fake-Engine: die Zaehlmatrix ist auf %d Iterationen gebaut, angefragt waren %s",
-            N_ITER, payload$iterations
+            N_ITER_FAKE, payload$iterations
           ))
         }
         counts <- if (malus) COUNTS_MALUS else COUNTS_REGULAER
@@ -514,7 +514,7 @@ lauf_ausfuehren <- function(loops = 1L, full_fetch_mindestens_alle = 3600,
 
   msgs <- capture_messages(mit_rust_fake(fake, with_repo_root({
     update_all_leagues_loop(
-      duration = 0, loops = loops, initial_wait = 0, n = N_ITER,
+      duration = 0, loops = loops, initial_wait = 0, n = N_ITER_FAKE,
       saison = "2026", TeamList_file = teamlist,
       static_site_dir = tempdir(),
       full_fetch_mindestens_alle = full_fetch_mindestens_alle,
@@ -1369,7 +1369,7 @@ lauf_mit_seitendaten <- function(build_fn, fixtures_echt = list(),
 
   msgs <- capture_messages(mit_rust_fake(fake, with_repo_root({
     update_all_leagues_loop(
-      duration = 0, loops = 1L, initial_wait = 0, n = N_ITER,
+      duration = 0, loops = 1L, initial_wait = 0, n = N_ITER_FAKE,
       saison = "2026", TeamList_file = teamlist,
       static_site_dir = tempdir()
     )

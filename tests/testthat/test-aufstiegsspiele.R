@@ -839,30 +839,8 @@ test_that("p_sieg_matrix: andere Raten (Frauen-Tormodell) liefern andere Zahlen 
 
 # --- Anbindung: rl_aufstiegsprognose leitet p_sieg aus den Paarungen her ------
 
-# Wie in test-rl-aufstieg.R: Prognosematrix aus den Meisterwahrscheinlichkeiten.
-prognose_aus_meister <- function(p_meister, teams = 18L) {
-  m <- matrix(0, nrow = length(p_meister), ncol = teams,
-              dimnames = list(names(p_meister), as.character(seq_len(teams))))
-  m[, 1] <- p_meister
-  m[, 2] <- 1 - p_meister
-  m
-}
-
-meister_nord <- c(A = 0.6, B = 0.4)
-meister_bayern <- c(C = 0.7, D = 0.3)
-sieg_nord_gegen_bayern <- matrix(c(0.5, 0.8,
-                                   0.3, 0.6), nrow = 2, byrow = TRUE,
-                                 dimnames = list(c("A", "B"), c("C", "D")))
-
-prognosen_2026 <- function() {
-  list(
-    Nord     = prognose_aus_meister(meister_nord),
-    Nordost  = prognose_aus_meister(c(E = 0.9, F = 0.1)),
-    West     = prognose_aus_meister(c(G = 0.55, H = 0.45)),
-    SuedWest = prognose_aus_meister(c(I = 1.0, J = 0.0)),
-    Bayern   = prognose_aus_meister(meister_bayern, teams = 19L)
-  )
-}
+# prognose_aus_meister(), das Rechenbeispiel meister_nord / meister_bayern /
+# sieg_nord_gegen_bayern und prognosen_2026() stehen in helper-fixtures.R.
 
 elos_2026 <- list(Nord = c(A = 1520, B = 1480), Bayern = c(C = 1560, D = 1440))
 paarungen_2026 <- function() paarungen_aus(elos_2026$Nord, elos_2026$Bayern)

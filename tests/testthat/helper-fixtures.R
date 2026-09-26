@@ -184,3 +184,84 @@ RL_DIREKTAUFSTIEG <- c("rl_nordost", "rl_west", "rl_suedwest")
 # Nord und Bayern spielen stattdessen zwei Aufstiegsspiele gegeneinander.
 RL_AUFSTIEGSSPIELE <- c("rl_nord", "rl_bayern")
 
+# --- Regionalliga-Aufstieg-Attrappen ------------------------------------------
+# Gebraucht in test-rl_aufstieg.R und test-aufstiegsspiele.R (#211, Stufe 3.6).
+
+# Prognosematrix (Teams x Plaetze) aus den Meisterwahrscheinlichkeiten; der
+# Rest der Masse liegt auf Platz 2, damit jede Zeile summiert.
+prognose_aus_meister <- function(p_meister, teams = 18L) {
+  m <- matrix(0, nrow = length(p_meister), ncol = teams,
+              dimnames = list(names(p_meister), as.character(seq_len(teams))))
+  m[, 1] <- p_meister
+  m[, 2] <- 1 - p_meister
+  m
+}
+
+# Das Rechenbeispiel fuer die Doppelsumme. X = Nord {A, B}, Y = Bayern {C, D}.
+#   P(A) = 0.6 * (0.7 * 0.5 + 0.3 * 0.8) = 0.6 * 0.59 = 0.354
+#   P(B) = 0.4 * (0.7 * 0.3 + 0.3 * 0.6) = 0.4 * 0.39 = 0.156
+#   P(C) = 0.7 * (0.6 * 0.5 + 0.4 * 0.7) = 0.7 * 0.58 = 0.406
+#   P(D) = 0.3 * (0.6 * 0.2 + 0.4 * 0.4) = 0.3 * 0.28 = 0.084
+# Summe ueber beide Staffeln: 1.000 -- genau einer steigt auf.
+meister_nord <- c(A = 0.6, B = 0.4)
+meister_bayern <- c(C = 0.7, D = 0.3)
+sieg_nord_gegen_bayern <- matrix(c(0.5, 0.8,
+                                   0.3, 0.6), nrow = 2, byrow = TRUE,
+                                 dimnames = list(c("A", "B"), c("C", "D")))
+
+# Prognosen aller fuenf Staffeln fuer die ganze Kette rl_aufstiegsprognose().
+prognosen_2026 <- function() {
+  list(
+    Nord     = prognose_aus_meister(meister_nord),
+    Nordost  = prognose_aus_meister(c(E = 0.9, F = 0.1)),
+    West     = prognose_aus_meister(c(G = 0.55, H = 0.45)),
+    SuedWest = prognose_aus_meister(c(I = 1.0, J = 0.0)),
+    Bayern   = prognose_aus_meister(meister_bayern, teams = 19L)
+  )
+}
+
+# --- Abstiegskopplung-Attrappen -----------------------------------------------
+# Gebraucht in test-rl_abstiegskopplung.R und test-rl_abstiegskopplung-nord.R
+# (#211, Stufe 3.6).
+
+STAFFELN_ERWARTET <- c("Nord", "Nordost", "West", "SuedWest", "Bayern")
+N_ITER <- 10000
+K_DRITTE_LIGA <- 4L  # Absteiger der 3. Liga; Spalten 0..4
+
+# Zaehlmatrix der 3. Liga bauen. Jede nicht genannte Staffel bekommt
+# "immer 0 Drittliga-Absteiger". ACHTUNG: In einer echten Zaehlung entfallen
+# in JEDER Iteration genau K Absteiger auf die fuenf Staffeln zusammen --
+# die Summe der Erwartungswerte ueber alle Zeilen muss also exakt K sein.
+# Alle Fixtures erfuellen das; ein Fixture, das es verletzt, muss die
+# Implementierung ablehnen (eigener Test).
+zaehlung <- function(...) {
+  m <- matrix(0, nrow = 5, ncol = K_DRITTE_LIGA + 1)
+  m[, 1] <- N_ITER
+  zeilen <- list(...)
+  for (staffel in names(zeilen)) {
+    m[match(staffel, STAFFELN_ERWARTET), ] <- zeilen[[staffel]]
+  }
+  m
+}
+
+# Fixture "Nordost 89 %": In 89 % der Iterationen faellt genau ein
+# Drittligist nach Nordost, nie zwei. Erwartungswerte: Nordost 0.89,
+# Nord 1.11, West 1, SuedWest 1, Bayern 0 -- Summe 4.
+zaehlung_nordost89 <- function() {
+  zaehlung(
+    Nordost  = c(1100, 8900, 0, 0, 0),
+    Nord     = c(0, 8900, 1100, 0, 0),
+    West     = c(0, N_ITER, 0, 0, 0),
+    SuedWest = c(0, N_ITER, 0, 0, 0)
+  )
+}
+
+# Prognosezeile eines Teams, das nur die genannten Plaetze erreichen kann.
+# `plaetze` sind absolute Plaetze, `p` die Wahrscheinlichkeiten dazu.
+prognose_zeile <- function(teams, plaetze, p, name = "A") {
+  stopifnot(abs(sum(p) - 1) < 1e-12)
+  m <- matrix(0, nrow = 1, ncol = teams,
+              dimnames = list(name, as.character(seq_len(teams))))
+  m[1, plaetze] <- p
+  m
+}

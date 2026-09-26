@@ -91,47 +91,8 @@ fn <- function(env, name) {
   get(name, envir = env, inherits = FALSE)
 }
 
-STAFFELN_ERWARTET <- c("Nord", "Nordost", "West", "SuedWest", "Bayern")
-N_ITER <- 10000
-K_DRITTE_LIGA <- 4L  # Absteiger der 3. Liga; Spalten 0..4
-
-# Zaehlmatrix der 3. Liga bauen. Jede nicht genannte Staffel bekommt
-# "immer 0 Drittliga-Absteiger". ACHTUNG: In einer echten Zaehlung entfallen
-# in JEDER Iteration genau K Absteiger auf die fuenf Staffeln zusammen --
-# die Summe der Erwartungswerte ueber alle Zeilen muss also exakt K sein.
-# Alle Fixtures unten erfuellen das; ein Fixture, das es verletzt, muss die
-# Implementierung ablehnen (eigener Test).
-zaehlung <- function(...) {
-  m <- matrix(0, nrow = 5, ncol = K_DRITTE_LIGA + 1)
-  m[, 1] <- N_ITER
-  zeilen <- list(...)
-  for (staffel in names(zeilen)) {
-    m[match(staffel, STAFFELN_ERWARTET), ] <- zeilen[[staffel]]
-  }
-  m
-}
-
-# Fixture "Nordost 89 %": In 89 % der Iterationen faellt genau ein
-# Drittligist nach Nordost, nie zwei. Erwartungswerte: Nordost 0.89,
-# Nord 1.11, West 1, SuedWest 1, Bayern 0 -- Summe 4.
-zaehlung_nordost89 <- function() {
-  zaehlung(
-    Nordost  = c(1100, 8900, 0, 0, 0),
-    Nord     = c(0, 8900, 1100, 0, 0),
-    West     = c(0, N_ITER, 0, 0, 0),
-    SuedWest = c(0, N_ITER, 0, 0, 0)
-  )
-}
-
-# Prognosezeile eines Teams, das nur die genannten Plaetze erreichen kann.
-# `plaetze` sind absolute Plaetze, `p` die Wahrscheinlichkeiten dazu.
-prognose_zeile <- function(teams, plaetze, p, name = "A") {
-  stopifnot(abs(sum(p) - 1) < 1e-12)
-  m <- matrix(0, nrow = 1, ncol = teams,
-              dimnames = list(name, as.character(seq_len(teams))))
-  m[1, plaetze] <- p
-  m
-}
+# STAFFELN_ERWARTET, N_ITER, K_DRITTE_LIGA, zaehlung(), zaehlung_nordost89()
+# und prognose_zeile() stehen in helper-fixtures.R.
 
 # --- Kernformel: das verbindliche Zahlenbeispiel ----------------------------
 
