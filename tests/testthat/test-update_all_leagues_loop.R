@@ -3,7 +3,7 @@
 # generate_static_site() weiter. Fehlt eine Liga (Endpoint-Fehler ->
 # NULL), wird trotzdem gerendert — Degradation statt Abbruch.
 #
-# Mocking wie in test-update-loop-gating.R: mockery::stub() gegen die
+# Mocking wie in test-update_all_leagues_loop-gating.R: mockery::stub() gegen die
 # Funktionsumgebung von update_all_leagues_loop(), Aufruf unter Repo-Root.
 
 library(testthat)
@@ -151,7 +151,7 @@ run_loop_capturing <- function() {
 test_that("der Loop holt die Ligen aus der Registry, in Registry-Reihenfolge", {
   # Vorher standen die drei retrieveResults-Aufrufe einzeln im Code. Jetzt
   # iteriert der Loop -- die Reihenfolge muss dieselbe bleiben, weil
-  # test-update-loop-league-data.R sie über SENTINEL-1/2/3 pinnt.
+  # diese Datei sie über SENTINEL-1/2/3 pinnt.
   cap <- run_loop_capturing()
 
   reg <- new.env()
@@ -208,7 +208,7 @@ test_that("league_data behaelt seine Schluessel und Reihenfolge", {
 
 test_that("Loop 1 simuliert jede Liga plus den Aufstiegslauf", {
   # Drei Ligen + ein Aufstiegslauf = 4. Die Zahl folgt der Registry, nicht
-  # einer festen Annahme -- test-update-loop-gating.R pinnt sie als 4 bzw. 8.
+  # einer festen Annahme -- test-update_all_leagues_loop-gating.R pinnt sie als 4 bzw. 8.
   cap <- run_loop_capturing()
 
   reg <- new.env()

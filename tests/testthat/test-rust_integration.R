@@ -134,7 +134,7 @@ test_that("tore_slope = tore_intercept = 0 ergibt (fast) nur 0:0 -- ueber den ec
 # Der Heimvorteil ist eine Modellkonstante und lebt ausschliesslich im
 # Rust-Server (ADR 0002). Dieser Test haelt fest, dass die R-Seite ihn im
 # Simulationspfad nicht mitsendet; das Gegenstueck fuer /league-details steht
-# in test-league-details-client.R.
+# in test-league_details-client.R.
 #
 # Warum beides abgedeckt sein muss: Die Prognose-Heatmap entsteht ueber
 # POST /simulate, Ligatabelle/Rueckblick/Ausblick ueber POST /league-details.

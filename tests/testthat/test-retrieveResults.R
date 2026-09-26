@@ -8,7 +8,7 @@
 # Mocking: Die Datei wird per source() geladen, kein Paket -- ein
 # Namespace-Mock (local_mocked_bindings) greift hier nicht, mockery::stub()
 # schreibt den Aufruf innerhalb der Funktion um (Muster aus
-# test-check-api-limits.R / test-update-loop-gating.R).
+# test-checkAPILimits.R / test-update_all_leagues_loop-gating.R).
 
 library(testthat)
 library(mockery)

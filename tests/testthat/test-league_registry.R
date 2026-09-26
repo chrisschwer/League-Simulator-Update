@@ -16,7 +16,7 @@ library(mockery)
 # schwankende Teamzahlen).
 #
 # Diese Phase ist ausdruecklich VERHALTENSNEUTRAL fuer die drei Altligen:
-# test-league-views.R muss unveraendert gruen bleiben, ausser der einen
+# test-league_views.R muss unveraendert gruen bleiben, ausser der einen
 # Zeile, die "exakt drei Ligen" pinnt.
 
 # --- Struktur ---------------------------------------------------------------
@@ -38,7 +38,8 @@ test_that("seit Phase 5 sind alle zehn Ligen aktiv", {
   #
   # Er prueft jetzt die Aussage, die ueber Phasen hinweg gilt: `active` und
   # league_ids() sagen dasselbe, und der Produktivpfad hat keine Liga
-  # verloren. Die konkrete Liste pinnt test-phase5-regionalligen.R.
+  # verloren. Die konkrete Liste pinnt der Test "league_registry kennt alle
+  # zehn Ligen" oben.
   env <- source_module("league_registry")
   reg <- env$league_registry()
   aktiv <- Filter(function(l) isTRUE(l$active), reg)
@@ -182,7 +183,7 @@ test_that("league_views wird aus der Registry abgeleitet", {
   # Die Panel-Renderlogik bleibt unveraendert; league_views() behaelt seine
   # heutige Form (top/bottom mit filter_cols/labels/groups). Geprueft wird
   # hier nur, dass die Ableitung greift -- die Panel-Details pinnt
-  # test-league-views.R.
+  # test-league_views.R.
   env <- new.env()
   source(test_path("..", "..", "RCode", "league_views.R"), local = env)
   views <- env$league_views()
@@ -236,7 +237,7 @@ test_that("validate_team_count traegt zehn Ligen", {
   # SEASON_TRANSITION_LEAGUES tatsaechlich abruft. Genau daran misst die
   # Untergrenze jetzt -- nicht mehr an der kleinsten einzelnen Liga (12),
   # gegen die praktisch nichts durchfiel. Die Grenzen pinnt
-  # test-saisonwechsel-schutzgrenzen.R.
+  # test-season_processor.R.
   expect_true(env$validate_team_count(schreibe(56))$valid)
   # Eine einzelne Liga reicht dagegen nicht mehr.
   expect_false(env$validate_team_count(schreibe(18))$valid)
@@ -415,8 +416,8 @@ test_that("die Frauen-Ligen sind aktiv", {
   # ANGEPASST in Phase 5: Die Aussage dieses Tests ist, dass die beiden
   # Frauen-Bundesligen im Produktivpfad stehen -- nicht, wie viele Ligen es
   # insgesamt sind. Die Gesamtliste stand hier als feste Aufzaehlung und
-  # wurde mit den Regionalligen falsch; sie ist ohnehin in
-  # test-phase5-regionalligen.R gepinnt.
+  # wurde mit den Regionalligen falsch; sie ist ohnehin im Test
+  # "league_registry kennt alle zehn Ligen" oben gepinnt.
   env <- new.env()
   source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
 
@@ -435,8 +436,8 @@ test_that("die Frauen-Ligen sind aktiv", {
 
 # Der Test "die Regionalligen bleiben inaktiv" stand hier bis Phase 5. Er
 # entfaellt ersatzlos: Seine Aussage ist genau das, was Phase 5 aufhebt --
-# die fuenf Staffeln sind jetzt aktiv (test-phase5-regionalligen.R,
-# Abschnitt 1).
+# die fuenf Staffeln sind jetzt aktiv (Abschnitt "1. Registry: alle fuenf
+# Regionalligen sind aktiv" weiter unten).
 
 test_that("beide Frauen-Ligen tragen das Frauen-Tormodell", {
   # Ab jetzt wirksam: Der Loop sendet die Parameter an die Engine.
@@ -460,7 +461,7 @@ test_that("beide Frauen-Ligen tragen das Frauen-Tormodell", {
 #
 # Diese Phase ist VERHALTENSNEUTRAL. Solange league_ids() nur die drei
 # Altligen liefert, muss alles beim Alten bleiben -- insbesondere bleibt
-# test-update-loop-gating.R (526 Zeilen, 12 Tests) unverändert grün. Diese
+# test-update_all_leagues_loop-gating.R (526 Zeilen, 12 Tests) unverändert grün. Diese
 # Datei prüft, dass die Mechanik darüber hinaus n-fähig ist.
 #
 # Zwei Randbedingungen, an denen der Umbau scheitern würde:
@@ -479,14 +480,15 @@ test_that("die Registry liefert Schluessel in Fetch-Reihenfolge", {
   # league_data und league_views() sind über diese Schlüssel verbunden; der
   # Loop baut sie, der Generator indiziert damit. Die Reihenfolge bestimmt
   # zudem, in welcher Folge die Ligen abgerufen werden -- sie darf sich nicht
-  # unbemerkt ändern (test-update-loop-league-data.R pinnt SENTINEL-1/2/3).
+  # unbemerkt ändern (test-update_all_leagues_loop.R pinnt SENTINEL-1/2/3).
   env <- new.env()
   source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
 
   # ANGEPASST in Phase 5: Die Aufzaehlung wuchs mit jedem Livegang mit. Die
   # Aussage dieses Tests ist die REIHENFOLGE -- dass sie die der Registry
-  # ist, nicht welche Ligen es gerade sind. Die konkrete Liste pinnt
-  # test-phase5-regionalligen.R.
+  # ist, nicht welche Ligen es gerade sind. Die konkrete Liste pinnt der
+  # Test "league_ids liefert zehn Ligen in Registry-Reihenfolge" weiter
+  # unten.
   expect_equal(env$active_league_keys(),
                names(Filter(function(l) isTRUE(l$active), env$league_registry())))
   expect_equal(env$active_league_keys(), names(env$active_leagues()))
@@ -565,7 +567,8 @@ test_that("die Registry weiss, welche Liga einen Aufstiegslauf braucht", {
 # Ein `groups = cbind(c(-3, -1))` waere fuer die drei koppelnden Staffeln
 # nicht nur ungenau, sondern SICHTBAR FALSCH: Es behauptete eine Zahl von
 # Abstiegsplaetzen, die das Modell selbst nicht kennt. Genau darum wurden
-# die RL in Phase 5a zurueckgestellt (test-frauen-ligen-live.R, Kopf).
+# die RL in Phase 5a zurueckgestellt (test-generate_static_site.R, Kopf des
+# Abschnitts "aus test-frauen-ligen-live.R").
 #
 # Entscheidung des Nutzers (2026-09-07): "einfache gewichtete Aufaddition
 # zur Abstiegswahrscheinlichkeit je Team" -- also Variante (C) unten. Die
@@ -699,11 +702,13 @@ test_that("die Registry weiss, welche Liga einen Aufstiegslauf braucht", {
 # 1. Registry: alle fuenf Regionalligen sind aktiv
 # ===========================================================================
 
-# ACHTUNG fuer die Implementierung: Diese drei Tests in
-# test-frauen-ligen-aktivierung.R sagen heute das GEGENTEIL und werden mit
-# der Aktivierung rot. Sie sind Bestand aus Phase 5a und muessen dort
-# mitgezogen werden -- absichtlich NICHT von hier aus mit erledigt, damit
-# der Schritt sichtbar bleibt:
+# ACHTUNG fuer die Implementierung: Diese drei Tests, damals alle in einer
+# Datei (heute aufgeteilt auf test-checkAPILimits.R und
+# test-season_validation.R, der erste entfaellt ersatzlos), sagten zum
+# Zeitpunkt dieses Kommentars das GEGENTEIL und wurden mit der Aktivierung
+# rot. Sie sind Bestand aus Phase 5a und mussten dort mitgezogen werden --
+# absichtlich NICHT von hier aus mit erledigt, damit der Schritt sichtbar
+# blieb:
 #
 #   "die Regionalligen bleiben inaktiv" (Zeile 22)  -- entfaellt ersatzlos;
 #       ihre Aussage ist genau das, was Phase 5 aufhebt.
@@ -851,7 +856,7 @@ test_that("die Anzeigereihenfolge laesst die Abrufreihenfolge unberuehrt", {
   # Issue #178 verschiebt NUR die Navigation. league_ids() bestimmt, in
   # welcher Folge der Loop die API abruft, und league_views() haelt die
   # Ligen in Registry-Reihenfolge -- beides ist Vertrag (siehe
-  # test-league-views.R) und darf sich durch eine Darstellungsfrage nicht
+  # test-league_views.R) und darf sich durch eine Darstellungsfrage nicht
   # mitbewegen. Ohne diesen Test faellt eine solche Kopplung erst im
   # Betrieb auf.
   reg <- source_module("league_registry")
@@ -955,7 +960,7 @@ test_that("die teams_range traegt jede belegte RL-Saison seit 2019", {
 test_that("keine Regionalliga sendet ein eigenes Tormodell", {
   # ADR 0004: Die RL gehoeren zur Wechselgemeinschaft Herren. Ein
   # staffelweiser Intercept wuerde jeden Auf- und Absteiger stillschweigend
-  # umskalieren -- und test-modellkonstanten-nur-in-rust.R rot faerben.
+  # umskalieren -- und test-waechter-quelltext.R rot faerben.
   env <- source_module("league_registry")
 
   for (id in RL_IDS) {

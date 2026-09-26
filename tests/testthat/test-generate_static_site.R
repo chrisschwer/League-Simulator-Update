@@ -757,7 +757,8 @@ test_that("die Navigation gruppiert nach nav_group", {
   # BEIDEN Gruppen. Das war eine Aussage ueber die Reihenfolge, die dieser
   # Test gar nicht treffen wollte -- seit #178 steht "Regionalliga"
   # zwischen ihnen. Geprueft wird jetzt die Zugehoerigkeit, nicht die
-  # Nachbarschaft; die Reihenfolge pinnt test-phase5-regionalligen.R.
+  # Nachbarschaft; die Reihenfolge pinnt der Test
+  # ".nav_groups ordnet die Gruppen nach NAV_GRUPPEN_REIHENFOLGE" weiter unten.
   gen <- source_module("generate_static_site")
   gruppen <- gen$.nav_groups()
 

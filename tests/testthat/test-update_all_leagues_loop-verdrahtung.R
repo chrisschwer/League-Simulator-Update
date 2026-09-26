@@ -38,7 +38,7 @@
 # welche R-Funktion es abschickt.
 #
 # Die uebrigen Mitspieler (retrieveResults, transform_data, ...) bleiben wie
-# in test-update-loop-gating.R mockery-Stubs: Der Loop haelt diese Aufrufe
+# in test-update_all_leagues_loop-gating.R mockery-Stubs: Der Loop haelt diese Aufrufe
 # ausdruecklich INLINE (Kommentar dort), das ist Vertrag.
 #
 # ===========================================================================
@@ -116,7 +116,7 @@ source("../../RCode/update_all_leagues_loop.R")
 
 rcode <- function(datei) test_path("..", "..", "RCode", datei)
 
-# --- Registry-abgeleitete Zahlen (wie in test-update-loop-gating.R) --------
+# --- Registry-abgeleitete Zahlen (wie in test-update_all_leagues_loop-gating.R) --------
 
 registry_env <- function() {
   env <- new.env()
@@ -859,7 +859,7 @@ test_that("Nord und Bayern stellen zusammen genau einen Aufsteiger", {
 
 # --- Aufstiegs-Invarianten auf den VERDRAHTETEN Objekten -------------------
 #
-# test-phase5-regionalligen.R prueft dieselben Summen auf Modell-Ebene, an
+# test-rl_aufstieg.R prueft dieselben Summen auf Modell-Ebene, an
 # rl_aufstiegsprognose() direkt. Hier laufen sie ueber das, was der Loop in
 # `ergebnisse` ablegt -- denn dort brechen sie: falsche Rotation, falsche
 # ELO-Zuordnung, vertauschte Staffeln, doppelt gezaehlte Liga.
@@ -1077,7 +1077,7 @@ test_that("die Verdrahtung aendert die Zahl der Simulationen je Runde nicht", {
   expect_identical(n_ligen(), 10L)
   # Eine je Liga plus der Malus-Lauf jeder Liga mit Aufstiegsbeschraenkung
   # (3. Liga, 2. Frauen-BL, fuenf RL) -- dieselbe Formel wie in
-  # test-update-loop-gating.R. Die Abstiegs- und Aufstiegsspalten sind
+  # test-update_all_leagues_loop-gating.R. Die Abstiegs- und Aufstiegsspalten sind
   # Rechnungen auf vorhandenen Ergebnissen, keine weiteren Simulationen.
   expect_identical(lauf$sim_marken[[1]], n_sims_pro_runde())
   expect_length(lauf$simulate, n_sims_pro_runde())
@@ -1093,7 +1093,7 @@ test_that("die Verdrahtung aendert die Zahl der Simulationen je Runde nicht", {
 # ueber liga_keys fuer alle Ligen auf und reicht das Ergebnis als
 # league_data an generate_static_site() weiter; dort haengen die Abschnitte
 # an league_entry. Belegt war das bisher nur fuer die drei Altligen
-# (test-update-loop-league-data.R, test-ligatabelle-sektion.R). Dass es
+# (test-update_all_leagues_loop.R, test-render_sections-tabelle.R). Dass es
 # fuer zehn Ligen und fuer die Rundenlabels der Regionalligen ("North - 7")
 # ebenso laeuft, war Annahme. Diese Tests machen sie zur Zusicherung.
 #
@@ -1659,7 +1659,7 @@ test_that("faellt build_league_page_data() fuer eine Regionalliga aus, rendert d
   }
 
   # Die Seite steht -- Prognose ja, die drei Abschnitte nein. Genau wie bei
-  # den Altligen ohne league_entry (test-ligatabelle-sektion.R).
+  # den Altligen ohne league_entry (test-render_sections-tabelle.R).
   for (slug in c("rl-nord", "index")) {
     html <- html_lesen(file.path(seite$out, paste0(slug, ".html")))
     expect_match(html, "<section id=\"prognose\">", fixed = TRUE, info = slug)

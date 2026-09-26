@@ -15,7 +15,8 @@ source("../../RCode/league_details.R")
 # --- Fixture-Bau -------------------------------------------------------------
 #
 # Genestetes Format (List-Columns einzeiliger data.frames), wie
-# test-elo-walk-reihenfolge.R und test-league-page-data.R es benutzen.
+# test-league_details.R/test-transform_data.R und
+# test-league_details-seitendaten.R es benutzen.
 # extract_fixture_details() unterstuetzt es ausdruecklich.
 
 eew_spiel <- function(fixture_id, datum, status, heim_id, gast_id,
@@ -64,7 +65,7 @@ eew_liga_fixtures <- function() {
 # (RCode/TeamList_<season>.csv bzw. die *_temp.csv-Dateien waehrend einer
 # laufenden Verarbeitung). Die Tests legen sie in einem tempdir() an und
 # setzen das Arbeitsverzeichnis dorthin -- so wie die bestehenden
-# Saisonwechsel-Tests (test-season-transition-regression.R) es tun. Kein Test
+# Saisonwechsel-Tests (test-season_processor-regression.R) es tun. Kein Test
 # fasst RCode/TeamList_2026.csv an.
 
 eew_teamlist <- function() {

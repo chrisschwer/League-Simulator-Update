@@ -11,7 +11,7 @@ library(mockery)
 # --- rl_group_of_team: der Produktivpfad, ungefiltert ----------------------
 #
 # Diese Funktion hatte keinen Test. Das ist der zweite Grund, warum die
-# Kuerzel-Kollision (s. test-staffel-zuordnung.R) unbemerkt blieb: Getestet
+# Kuerzel-Kollision (s. test-staffel_zuordnung.R) unbemerkt blieb: Getestet
 # war nur group_of_team() -- und zwar stets mit einer schon auf eine Liga
 # gefilterten TeamList. Der Loop uebergibt aber die GANZE TeamList, und
 # genau dort entstand der Fehler.

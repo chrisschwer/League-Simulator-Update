@@ -60,7 +60,7 @@ library(testthat)
 #   steigt in die 3. Liga auf). Wird als fertige Zahl hineingereicht und
 #   NICHT intern aus rl_aufstieg.R geholt: Das haelt die Module getrennt und
 #   macht die Zahl im Test setzbar. Default 0 = Verhalten wie bisher, die
-#   118 Tests in test-rl-abstiegskopplung.R bleiben unveraendert gruen.
+#   118 Tests in test-rl_abstiegskopplung.R bleiben unveraendert gruen.
 #   Werte ausserhalb [0, 1], NA oder Vektoren der Laenge != 1 -> Fehler.
 #
 #   Nur Nord ist betroffen. West, SuedWest und Nordost sind Direktaufsteiger,

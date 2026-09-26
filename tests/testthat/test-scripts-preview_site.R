@@ -183,7 +183,7 @@ test_that("preview_site laeuft mit einer Fixture, die nur die Altligen kennt", {
   # CI-Container scheitert system2() ganz ("Function not implemented").
   # processx nutzt exec() direkt und ist eine testthat-Abhaengigkeit, also
   # immer verfuegbar. Dasselbe Muster wie in
-  # test-season-transition-cleanup-wrapper.R.
+  # test-scripts-season_transition.R.
   project_root <- normalizePath(file.path(testthat::test_path(), "..", ".."))
   skript <- file.path(project_root, "scripts", "preview_site.R")
   fixture <- file.path(project_root, "ShinyApp", "data", "Ergebnis.Rds")

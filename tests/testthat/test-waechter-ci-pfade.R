@@ -25,7 +25,8 @@ test_that("rust_binary findet das Binary auch am Ort des Produktionsimages", {
   # target/release/ gibt es im Image nicht, weil der Rust-Build in einer
   # verworfenen Build-Stage passiert.
   #
-  # test-rust-required.R hat sich deshalb seit jeher still uebersprungen. Das
+  # test-update_all_leagues_loop-rust.R hat sich deshalb seit jeher still
+  # uebersprungen. Das
   # faellt nicht auf: Ein Skip ist gruen. Genau deshalb steht hier ein Test --
   # er prueft die SUCHE, nicht den Fund, und bleibt damit auf jeder Maschine
   # aussagekraeftig, auch ohne gebautes Binary.

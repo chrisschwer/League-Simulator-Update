@@ -14,7 +14,7 @@
 # mock anyway. mockery::stub() sidesteps both problems: it rewrites the
 # lookup inside update_all_leagues_loop()'s own function environment, so
 # it is immune to those later source() calls - already the pattern used
-# elsewhere in this suite (see test-season-processor.R).
+# elsewhere in this suite (see test-season_processor.R).
 
 library(testthat)
 library(mockery)
@@ -25,7 +25,7 @@ source("../../RCode/update_all_leagues_loop.R")
 # relative to the repo root (e.g. "RCode/rust_integration.R"), but testthat
 # runs this file with the working directory set to tests/testthat. Run the
 # call under test with cwd temporarily switched to the repo root, mirroring
-# the with_repo_root() helper in test-rust-required.R.
+# the with_repo_root() helper in test-update_all_leagues_loop-rust.R.
 # Erwartungswerte folgen der Ligazahl, nicht festen Zahlen (n_ligen(),
 # n_sims_pro_runde() aus helper-fixtures.R): Sobald eine weitere Liga aktiv
 # geschaltet wird, muessen diese Tests weiterhin gelten -- sie pruefen das
@@ -598,7 +598,7 @@ test_that("update_all_leagues_loop has no machine-specific default output direct
 # Die Registry bleibt UNGESTUBBT: Alle zehn Ligen sind aktiv, retrieveResults()
 # wird fuer jede Liga einzeln aufgerufen (Parameter `league` = api_id), und
 # leagueSimulatorRust() faellt fuer jede Liga in Registry-Reihenfolge an --
-# genau wie in run_loop_capturing() aus test-n-ligen-entflechtung.R. Um einen
+# genau wie in run_loop_capturing() aus test-update_all_leagues_loop.R. Um einen
 # Aufruf seiner Liga zuzuordnen, wird die Aufrufreihenfolge an
 # active_league_keys() (plus, wo has_promotion_restriction() gilt, ein
 # zweiter Malus-Aufruf direkt danach) ausgerichtet -- leagueSimulatorRust()
@@ -1353,7 +1353,7 @@ test_that("ein gefallenes Limit wird als Plan-Herabstufung gewarnt (issue #190, 
 #
 # Mit dem nachgefuehrten Takt stimmt diese Rechnung nicht mehr. Der
 # Scheduler plant 361 Runden a 2 Minuten; streckt der Regler auf 90
-# Minuten (der freie Plan, s. test-rate-limit-takt.R), liefen dieselben 361
+# Minuten (der freie Plan, s. test-rate_limit_takt.R), liefen dieselben 361
 # Runden ueber drei Wochen statt bis 23:00. Ohne diese Abbruchbedingung
 # waere die Drosselung also nicht Budgetschonung, sondern eine Verschiebung
 # des Verbrauchs in die Folgetage.

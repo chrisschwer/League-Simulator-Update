@@ -1,7 +1,7 @@
 # checkAPILimits() entscheidet einmal je Scheduler-Lauf, wie viele Runden das
 # Tagesbudget hergibt. Der Funktionskoerper war bis hierher voellig ungetestet
 # -- gedeckt war nur der Default-Ausdruck der Signatur
-# (test-frauen-ligen-aktivierung.R). Diese Datei holt das nach.
+# (weiter unten in dieser Datei). Diese Datei holt das nach.
 #
 # Anlass ist Issue #129, Punkt 1: Die Funktion trug einen Cache-Zweig, der die
 # von retrieveResults() aufgezeichneten Rate-Limit-Header wiederverwenden
@@ -28,7 +28,7 @@
 # httr-Objekt in der Ladeumgebung greift nicht, weil httr::GET am `::`
 # vorbeigeht. mockery::stub() schreibt den Aufruf innerhalb der Funktion um
 # und ist das Muster, mit dem diese Suite ohnehin arbeitet
-# (test-update-loop-gating.R).
+# (test-update_all_leagues_loop-gating.R).
 
 library(testthat)
 library(mockery)

@@ -641,7 +641,7 @@ test_that("circular dependency resolution works end-to-end", {
   # Deshalb wird jetzt der Fixture-Seam gestubbt: keine Spiele fuer keine Liga.
   # Damit wird der Endpoint gar nicht erst befragt (siehe den Test
   # "gibt bei durchweg spiellosen Ligen die Startwerte zurueck" in
-  # test-ein-elo-walk.R), und der Test braucht weiterhin keinen Rust-Server.
+  # test-elo_aggregation.R), und der Test braucht weiterhin keinen Rust-Server.
   stub(calculate_final_elos, "retrieveResults", function(...) NULL)
   
   # Test - should NOT crash with circular dependency
