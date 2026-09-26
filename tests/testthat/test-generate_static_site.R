@@ -435,7 +435,6 @@ test_that("ein fehlschlagendes file.rename laesst die alte Seite unangetastet", 
   expect_length(list.files(out, pattern = "\\.tmp$"), 0)
 })
 
-
 # ---------------------------------------------------------------------------
 # Eingeschraenkter Service im Seitenfuss (Issue #224, Refs #190)
 # ---------------------------------------------------------------------------

@@ -218,7 +218,6 @@ test_that("der zweite ELO-Walk existiert nicht mehr", {
                info = "SpielNichtSimulieren war die C++-Engine, geloescht in Issue #102")
 })
 
-
 # =============================================================================
 # 5. Der Heimvorteil 100 ist aus dem Repo verschwunden
 # =============================================================================

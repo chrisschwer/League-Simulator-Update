@@ -11,7 +11,6 @@ library(testthat)
 
 source("../../RCode/league_details.R")
 
-
 # --- Fixture-Bau -------------------------------------------------------------
 #
 # Genestetes Format (List-Columns einzeiliger data.frames), wie
@@ -58,7 +57,6 @@ eew_liga_fixtures <- function() {
   )
 }
 
-
 # --- TeamList ----------------------------------------------------------------
 #
 # Der Saisonwechsel liest die TeamList der ABLAUFENDEN Saison von Platte
@@ -95,7 +93,6 @@ eew_mit_teamlist <- function(season, teams, code) {
 
   force(code)
 }
-
 
 # --- Mock-Endpoint -----------------------------------------------------------
 #
@@ -138,7 +135,6 @@ antwort_zum_payload <- function(payload, elo_offsets = NULL) {
                 collapse = ", "),
           paste0('"', payload$team_names, '"', collapse = ", "))
 }
-
 
 # =============================================================================
 # 1. Die End-ELOs kommen aus /league-details -- nicht aus einer R-Rechnung
@@ -255,7 +251,6 @@ test_that("calculate_final_elos sendet den Spielplan chronologisch an den Endpoi
   expect_equal(heim_idx, c(1, 2, 3))
   expect_equal(gast_idx, c(2, 3, 4))
 })
-
 
 # =============================================================================
 # 2. Alle zehn Ligen -- und das Ueberspringen leerer Ligen
@@ -378,7 +373,6 @@ test_that("calculate_final_elos gibt bei durchweg spiellosen Ligen die Startwert
   expect_equal(ergebnis$FinalELO[order(ergebnis$TeamID)],
                eew_teamlist()$InitialELO[order(eew_teamlist()$TeamID)])
 })
-
 
 # =============================================================================
 # 3. Beide Aufrufer -- der zweite steht in derselben Datei

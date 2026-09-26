@@ -175,7 +175,6 @@ test_that("faellt die Abfrage aus, greift die konservative Schaetzung aus der Re
   })
 })
 
-
 # --- Aus #204 mitgenommen (der dort geplante PR #216 wird von #190
 # --- abgeloest): zwei Randfaelle, die aus einem leeren oder kaputten
 # --- Kontingent eine ungueltige Rundenzahl machten.
@@ -202,7 +201,6 @@ test_that("ein erschoepftes Kontingent ergibt 0 Runden, nicht eine", {
 
   mit_api_key(expect_equal(f(360), 0))
 })
-
 
 test_that("die fehlgeschlagene Probe meldet sich sofort, nicht erst beim Prozessende", {
   # Issue #224: R sammelt Warnungen im Produktivlauf und gibt sie erst beim

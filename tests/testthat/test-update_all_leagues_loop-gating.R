@@ -229,7 +229,6 @@ test_that("ein erfolgreicher Safety-Fetch setzt den Timer sehr wohl zurueck", {
   expect_identical(lauf_mit_safety_fetch(fetch_faellt_aus = FALSE), c(1L, 4L))
 })
 
-
 # Shared harness for the site-generation gate: runs a short loop with every
 # collaborator stubbed and returns how often generate_static_site() fired.
 run_loop_counting_generation <- function(loops, simulate) {
@@ -962,7 +961,6 @@ test_that("ein geworfener Fehler aus retrieveLiveFixtures() bricht den Loop nich
   expect_gte(generated, 1L) # mindestens Loop 1 hat gerendert
 })
 
-
 # ===========================================================================
 # Der Zweitvertretungs-Malus kommt aus der Spalte Promotion (Issue #206/#196)
 # ===========================================================================
@@ -1343,7 +1341,6 @@ test_that("ein gefallenes Limit wird als Plan-Herabstufung gewarnt (issue #190, 
   expect_true(any(grepl("Limit", meldungen)))
 })
 
-
 # --- Das Zeitfenster schlaegt die Rundenzahl ---------------------------
 #
 # Bis hierher endete der Loop AUSSCHLIESSLICH daran, dass `seq_len(loops)`
@@ -1433,7 +1430,6 @@ test_that("ein Lauf, der ins Fenster passt, laeuft alle Runden durch", {
   expect_equal(lauf$runden, 3L)
   expect_false(any(grepl("Zeitfenster", lauf$meldungen)))
 })
-
 
 # --- Erschoepftes Kontingent: die Runde ruft gar nichts ab --------------
 #
@@ -1562,8 +1558,6 @@ test_that("die Reset-Wartezeit wird am Fenster-Ende gekappt", {
   # Nach dem Abbruch darf keine weitere Runde abgerufen haben.
   expect_false(2L %in% lauf$fetches)
 })
-
-
 
 # --- Takt-Erholung nach reduziertem Tagesplan (Issue #224) --------------
 #

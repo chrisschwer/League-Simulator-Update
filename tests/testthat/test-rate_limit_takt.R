@@ -478,7 +478,6 @@ test_that("ohne Header-Werte sagt die Budget-Zeile genau das", {
   expect_no_match(zeile, "NA")
 })
 
-
 # --- Der Planungshorizont bei kleinem Kontingent (Issue #224, Punkt 3) ---
 #
 # Das Restbudget muss bis zum NAECHSTEN RESET reichen, nicht nur bis zum
@@ -597,7 +596,6 @@ test_that("der Fenster-Horizont deckelt nicht laenger an loops_remaining", {
   # Stunde je Runde, nicht 12 h / 9 Runden aus dem alten Deckel.
   expect_gt(ergebnis$waittime, 3600)
 })
-
 
 test_that("fenster_sekunden zaehlt nur Zeit innerhalb des Scheduler-Fensters", {
   # Die Nacht kann keine Runden aufnehmen: Zwischen 23:00 und 11:00 laeuft

@@ -921,7 +921,6 @@ test_that("extract_fixture_details verhält sich bei Bundesliga unverändert", {
 # Warnung, ohne dass irgendeine Spaltenpruefung anschlaegt. Der Test
 # "elo_neutral wandert mit" unten ist die einzige Stelle, die das faengt.
 
-
 # --- Fixture-Bau --------------------------------------------------------------
 #
 # Bewusst im GENESTETEN Format (List-Columns einzeiliger data.frames), weil

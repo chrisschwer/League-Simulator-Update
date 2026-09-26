@@ -11,7 +11,6 @@ library(testthat)
 
 source("../../RCode/league_details.R")
 
-
 # =============================================================================
 # 6. Damit die Umstellung in der CI ueberhaupt geprueft wird
 # =============================================================================
