@@ -126,17 +126,6 @@ library(testthat)
 # aufstiegskopplung.R, test-rl-abstiegskopplung.R) bleiben unveraendert und
 # muessen gruen bleiben.
 
-source_aufstiegsspiele <- function() {
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
-  source(test_path("..", "..", "RCode", "staffel_zuordnung.R"), local = env)
-  for (datei in c("rl_abstiegskopplung.R", "rl_aufstieg.R", "aufstiegsspiele.R")) {
-    pfad <- test_path("..", "..", "RCode", datei)
-    if (file.exists(pfad)) source(pfad, local = env)
-  }
-  env
-}
-
 fn <- function(env, name) {
   if (!exists(name, envir = env, inherits = FALSE)) {
     stop(sprintf(
@@ -231,7 +220,7 @@ skellam <- function(d, la, lb) {
 # --- tordifferenz_verteilung: ein Spiel ---------------------------------------
 
 test_that("tordifferenz_verteilung: Form -- Laenge 2 * max_tore + 1, Namen -max_tore..max_tore", {
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   f <- fn(env, "tordifferenz_verteilung")
 
   v <- f(1.3, 1.1, max_tore = 15)
@@ -248,7 +237,7 @@ test_that("tordifferenz_verteilung stimmt mit der Skellam-Dichte ueberein (lambd
   # Geschlossene Form: P(D = d) = exp(-2) * I_|d|(2).
   #   P(D = 0) = 0.308508322553671
   #   P(D = 1) = P(D = -1) = 0.215269289248938
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   f <- fn(env, "tordifferenz_verteilung")
   v <- f(1, 1, max_tore = 15)
 
@@ -265,7 +254,7 @@ test_that("tordifferenz_verteilung stimmt mit der Skellam-Dichte ueberein (lambd
 
 test_that("tordifferenz_verteilung stimmt mit der Skellam-Dichte ueberein (lambda 1.5 gegen 1.2)", {
   # P(D = -2) = 0.084798943251594
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   f <- fn(env, "tordifferenz_verteilung")
   v <- f(1.5, 1.2, max_tore = 15)
 
@@ -284,7 +273,7 @@ test_that("tordifferenz_verteilung stimmt mit der Skellam-Dichte ueberein (lambd
 })
 
 test_that("tordifferenz_verteilung: Spiegelung -- P_(a,b)(d) = P_(b,a)(-d)", {
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   f <- fn(env, "tordifferenz_verteilung")
   v <- f(1.7, 0.9, max_tore = 12)
   w <- f(0.9, 1.7, max_tore = 12)
@@ -299,7 +288,7 @@ test_that("tordifferenz_verteilung ist die Antidiagonalsumme der Rust-score_matr
   # P(Heim i, Gast j) = pmf_home[i] * pmf_away[j] (league_details/mod.rs).
   # Die Differenzverteilung ist die Summe ueber die Antidiagonalen i - j = d.
   # Die Raten sind die von 1500 gegen 1400 mit Heimvorteil 40.
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   f <- fn(env, "tordifferenz_verteilung")
   la <- 1.57180842446946
   lb <- 1.07186973645008
@@ -322,7 +311,7 @@ test_that("tordifferenz_verteilung summiert auf 1 bis auf einen Rest < 1e-9", {
   # ist bei 1.93 noch 2.9e-10, bei 1.32 nur 1.2e-12. Keine Renormierung --
   # die Summe darf 1 nicht ueberschreiten, und der Rest ist genau der
   # Schwanz beider Seiten.
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   f <- fn(env, "tordifferenz_verteilung")
 
   for (paar in list(c(1.32, 1.32), c(1.9, 0.8), c(1.93, 0.72), c(0.001, 1.5))) {
@@ -342,7 +331,7 @@ test_that("tordifferenz_verteilung summiert auf 1 bis auf einen Rest < 1e-9", {
 })
 
 test_that("tordifferenz_verteilung: lambda 0 auf einer Seite -- die Differenz ist die Poisson-Verteilung selbst", {
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   f <- fn(env, "tordifferenz_verteilung")
   v <- f(1, 0, max_tore = 10)
   expect_equal(v[["0"]], exp(-1), tolerance = 1e-14)
@@ -355,7 +344,7 @@ test_that("tordifferenz_verteilung: lambda 0 auf einer Seite -- die Differenz is
 # --- verlaengerung_lambda: lambda / 3, explizit ------------------------------
 
 test_that("verlaengerung_lambda ist exakt lambda_90 / 3 -- Spielzeit-Proportionalitaet", {
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   f <- fn(env, "verlaengerung_lambda")
   expect_identical(f(1.5), 0.5)
   expect_identical(f(0.9), 0.3)
@@ -382,7 +371,7 @@ test_that("Symmetrie: gleiche Staerke -> Quote exakt 0.5, MIT Heimvorteil in bei
   # Heimrecht hat, hat es im Rueckspiel nicht. Er faengt Indexfehler in der
   # Faltung UND einen Heimvorteil, der nur einmal oder beidesmal derselben
   # Seite zugeschlagen wird.
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   q <- fn(env, "zweikampf_quote")
 
   expect_equal(q(L_GLEICH$hin, L_GLEICH$rueck, L_GLEICH$neutral,
@@ -406,7 +395,7 @@ test_that("Symmetrie-Gegenprobe: Heimvorteil beidesmal fuer A ergaebe 0.548, nic
   # Implementierung muss mit den richtigen Raten bei 0.5 liegen -- und mit
   # den falschen Raten selbst 0.548 liefern, sonst rechnet sie das Rueckspiel
   # nicht aus seinen eigenen Raten.
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   q <- fn(env, "zweikampf_quote")
 
   bug <- orakel_quote(L_GLEICH$hin, L_GLEICH$hin, L_GLEICH$neutral)
@@ -419,7 +408,7 @@ test_that("Symmetrie-Gegenprobe: Heimvorteil beidesmal fuer A ergaebe 0.548, nic
 })
 
 test_that("Symmetrie ohne Heimvorteil: alle Raten gleich -> exakt 0.5", {
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   q <- fn(env, "zweikampf_quote")
   n <- c(1.3218390804597700, 1.3218390804597700)
   expect_equal(q(n, n, n, max_tore = MAX_TORE_EXAKT), 0.5, tolerance = 1e-12)
@@ -430,7 +419,7 @@ test_that("Symmetrie ohne Heimvorteil: alle Raten gleich -> exakt 0.5", {
 test_that("Summe zu 1: quote aus Sicht von A + quote aus Sicht von B == 1", {
   # Aus Sicht von B sind die Paare vertauscht: B's Hinspiel ist A's
   # Hinspiel mit getauschten Rollen.
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   q <- fn(env, "zweikampf_quote")
 
   for (paar in list(c(1600, 1400), c(1520, 1480), c(1300, 1700), c(1500, 1900))) {
@@ -450,7 +439,7 @@ test_that("Summe zu 1: quote aus Sicht von A + quote aus Sicht von B == 1", {
 })
 
 test_that("Monotonie: hoehere Raten fuer A -> hoehere Quote, streng monoton", {
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   q <- fn(env, "zweikampf_quote")
 
   # A's Rate waechst in allen drei Spielen, B's bleibt.
@@ -477,7 +466,7 @@ test_that("Monotonie: hoehere Raten fuer A -> hoehere Quote, streng monoton", {
 
 test_that("Wert: die Raten von 1600 gegen 1400 -> 0.741839833112276", {
   # Vorgerechnet mit dem Poisson-Additivitaets-Orakel oben.
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   q <- fn(env, "zweikampf_quote")
   L <- L_1600_1400
 
@@ -492,7 +481,7 @@ test_that("Wert: die Raten von 1600 gegen 1400 -> 0.741839833112276", {
 })
 
 test_that("Werte: die Implementierung stimmt ueber ein Raten-Gitter mit dem Orakel ueberein", {
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   q <- fn(env, "zweikampf_quote")
 
   for (ea in c(1350, 1500, 1650)) {
@@ -513,7 +502,7 @@ test_that("Werte: die Implementierung stimmt ueber ein Raten-Gitter mit dem Orak
 test_that("Randfall: winzige Raten -> fast immer 0:0 -> fast immer Elfmeter -> Quote nahe 0.5", {
   # Raten 0.0021 gegen 0.0019: Praktisch jedes Spiel endet 0:0, die
   # Verlaengerung auch, es entscheidet die Muenze.
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   q <- fn(env, "zweikampf_quote")
 
   a <- c(0.0021, 0.0019)
@@ -527,7 +516,7 @@ test_that("Randfall: sehr grosse Staerkedifferenz -> Quote nahe 1, aber nie uebe
   # ELO-Differenz 1000 ohne Heimvorteil: Rate 3.11 gegen die Klemme 0.001.
   # B trifft praktisch nie; A verliert nur, wenn es in beiden Spielen und
   # der Verlaengerung torlos bleibt und dann die Muenze verliert.
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   q <- fn(env, "zweikampf_quote")
 
   L <- zweikampf_lambdas(2500, 1500, ha = 0)
@@ -551,7 +540,7 @@ test_that("Randfall: sehr grosse Staerkedifferenz -> Quote nahe 1, aber nie uebe
 })
 
 test_that("zweikampf_quote lehnt unbrauchbare Raten ab", {
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   q <- fn(env, "zweikampf_quote")
   ok <- c(1.3, 1.1)
   expect_error(q(c(1.3), ok, ok))               # Laenge 1
@@ -567,7 +556,7 @@ test_that("Die Verlaengerung ist wirksam: gegen die Rechnung 'Gleichstand -> sof
   # Bei ungleichen Raten muessen sich die Zahlen unterscheiden, und die
   # Quote des staerkeren Teams muss MIT Verlaengerung hoeher sein: Es
   # bekommt noch eine Chance, statt in den Muenzwurf zu gehen.
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   q <- fn(env, "zweikampf_quote")
   L <- L_1600_1400
 
@@ -590,7 +579,7 @@ test_that("Die Verlaengerung ist wirksam: gegen die Rechnung 'Gleichstand -> sof
 })
 
 test_that("Die Verlaengerung rechnet mit neutral / 3 -- nicht mit / 2 und nicht mit 90 Minuten", {
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   q <- fn(env, "zweikampf_quote")
   L <- L_1600_1400
 
@@ -606,7 +595,7 @@ test_that("Die Verlaengerung rechnet mit den NEUTRALEN Raten, nicht mit denen de
   # Bei gleicher Staerke: Nimmt die Verlaengerung die Hinspiel-Raten (mit
   # Heimvorteil fuer A), kommt 0.50297 statt 0.5 heraus. Mit den neutralen
   # Raten bleibt es exakt 0.5.
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   q <- fn(env, "zweikampf_quote")
   L <- L_GLEICH
 
@@ -623,7 +612,7 @@ test_that("Die Verlaengerung rechnet mit den NEUTRALEN Raten, nicht mit denen de
 test_that("Elfmeter 50:50: bei gleichen Raten in allen drei Spielen ist die Quote exakt 0.5", {
   # Jede andere Muenze als 50:50 faellt hier auf -- alles vor dem
   # Elfmeterschiessen ist symmetrisch.
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   q <- fn(env, "zweikampf_quote")
   for (r in c(0.4, 1.3, 2.0)) {
     p <- c(r, r)
@@ -635,7 +624,7 @@ test_that("Elfmeter 50:50: bei gleichen Raten in allen drei Spielen ist die Quot
 # --- Heimvorteil: im Einzelspiel wirksam, in der Gesamtdifferenz neutral ------
 
 test_that("Heimvorteil wirkt im Einzelspiel: Hinspiel-Siegquote von A > Rueckspiel-Siegquote von A", {
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   td <- fn(env, "tordifferenz_verteilung")
   L <- L_GLEICH
 
@@ -655,7 +644,7 @@ test_that("Heimvorteil hebt sich ueber Hin- und Rueckspiel EXAKT auf: Quote(mit)
   # hin_a + rueck_a = 2 * neutral_a. Das ist kein Bug, sondern eine
   # Eigenschaft des linearen Tormodells -- siehe Testkopf. Ein Test, der
   # hier eine Differenz verlangte, waere mathematisch unerfuellbar.
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   q <- fn(env, "zweikampf_quote")
 
   for (paar in list(c(1600, 1400), c(1520, 1480), c(1300, 1700))) {
@@ -675,7 +664,7 @@ test_that("Die Gesamtdifferenz ueber zwei Spiele ist vom Heimvorteil unabhaengig
   # Verteilung, also auch dieselbe Gleichstandswahrscheinlichkeit
   # (0.149344690258871 fuer 1600 gegen 1400). "Seltener Gleichstand durch
   # getauschtes Heimrecht" gibt es in diesem Modell nicht.
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   td <- fn(env, "tordifferenz_verteilung")
   L <- L_1600_1400
 
@@ -706,7 +695,7 @@ test_that("max_tore: die Quote aendert sich ab 15 nur noch um < 1e-9 (ELO-Differ
   # Schwanz je Spiel bei 15 Toren: 7e-11 (1600/1400), 1e-12 (1500/1500),
   # 1.5e-10 (1400/1650, Rate 1.84). Ueber zwei Spiele hoechstens das
   # Doppelte -- alles unter 1e-9.
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   q <- fn(env, "zweikampf_quote")
 
   for (paar in list(c(1600, 1400), c(1500, 1500), c(1400, 1650))) {
@@ -720,7 +709,7 @@ test_that("max_tore: die Quote aendert sich ab 15 nur noch um < 1e-9 (ELO-Differ
 })
 
 test_that("max_tore ist der Default 15 und wird durchgereicht", {
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   q <- fn(env, "zweikampf_quote")
   td <- fn(env, "tordifferenz_verteilung")
   L <- L_1600_1400
@@ -753,7 +742,7 @@ elo_nord <- c(A = 1520, B = 1480, X = 1600)
 elo_bayern <- c(C = 1560, D = 1440)
 
 test_that("p_sieg_matrix: dimnames aus den Paarungen, Werte in [0, 1], Eintraege = zweikampf_quote", {
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   m <- fn(env, "p_sieg_matrix")
   q <- fn(env, "zweikampf_quote")
 
@@ -791,7 +780,7 @@ test_that("p_sieg_matrix: dimnames aus den Paarungen, Werte in [0, 1], Eintraege
 })
 
 test_that("p_sieg_matrix: die Zeilenreihenfolge der Paarungen ist egal -- Zuordnung ueber a und b", {
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   m <- fn(env, "p_sieg_matrix")
   pa <- paarungen_aus(elo_nord, elo_bayern)
   gemischt <- pa[c(6, 2, 4, 1, 5, 3), ]
@@ -803,7 +792,7 @@ test_that("p_sieg_matrix: die Zeilenreihenfolge der Paarungen ist egal -- Zuordn
 test_that("p_sieg_matrix: Gegenrichtung ist 1 - t(p_sieg) -- kein Unentschieden ueber zwei Spiele", {
   # Die Paarungen aus Bayern-Sicht: a = Bayern-Team, b = Nord-Team, mit
   # eigenen Raten (Bayern hat dann im Hinspiel Heimrecht).
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   m <- fn(env, "p_sieg_matrix")
   M <- m(paarungen_aus(elo_nord, elo_bayern), max_tore = MAX_TORE_EXAKT)
   R <- m(paarungen_aus(elo_bayern, elo_nord), max_tore = MAX_TORE_EXAKT)
@@ -815,7 +804,7 @@ test_that("p_sieg_matrix: Gegenrichtung ist 1 - t(p_sieg) -- kein Unentschieden 
 })
 
 test_that("p_sieg_matrix: gleiche Staerke ueberall -> ueberall exakt 0.5", {
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   m <- fn(env, "p_sieg_matrix")
   M <- m(paarungen_aus(c(A = 1500, B = 1500), c(C = 1500, D = 1500)),
          max_tore = MAX_TORE_EXAKT)
@@ -823,7 +812,7 @@ test_that("p_sieg_matrix: gleiche Staerke ueberall -> ueberall exakt 0.5", {
 })
 
 test_that("p_sieg_matrix bricht bei fehlender Paarung oder fehlender Spalte ab", {
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   m <- fn(env, "p_sieg_matrix")
   pa <- paarungen_aus(elo_nord, elo_bayern)
 
@@ -836,7 +825,7 @@ test_that("p_sieg_matrix bricht bei fehlender Paarung oder fehlender Spalte ab",
 })
 
 test_that("p_sieg_matrix: andere Raten (Frauen-Tormodell) liefern andere Zahlen -- R kennt keine Konstanten", {
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   m <- fn(env, "p_sieg_matrix")
   herren <- m(paarungen_aus(c(A = 1600), c(C = 1450)), max_tore = MAX_TORE_EXAKT)
   frauen <- m(paarungen_aus(c(A = 1600), c(C = 1450), slope = 0.0024058833,
@@ -889,7 +878,7 @@ orakel_aufstieg_nord <- function() {
 }
 
 test_that("Anbindung: die hergeleitete Matrix laeuft durch aufstiegswahrscheinlichkeit()", {
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   m <- fn(env, "p_sieg_matrix")
   aw <- fn(env, "aufstiegswahrscheinlichkeit")
 
@@ -908,7 +897,7 @@ test_that("Anbindung: die hergeleitete Matrix laeuft durch aufstiegswahrscheinli
 })
 
 test_that("Anbindung: rl_aufstiegsprognose rechnet p_sieg aus paarungen, wenn keins uebergeben wird", {
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   f <- fn(env, "rl_aufstiegsprognose")
   pr <- prognosen_2026()
 
@@ -932,7 +921,7 @@ test_that("Anbindung: rl_aufstiegsprognose rechnet p_sieg aus paarungen, wenn ke
 test_that("Anbindung: ein explizites p_sieg hat Vorrang vor der Herleitung aus paarungen", {
   # Beides uebergeben: Es gilt das Rechenbeispiel aus test-rl-aufstieg.R
   # (0.354 / 0.156), nicht die Herleitung.
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   f <- fn(env, "rl_aufstiegsprognose")
   pr <- prognosen_2026()
 
@@ -945,7 +934,7 @@ test_that("Anbindung: ein explizites p_sieg hat Vorrang vor der Herleitung aus p
 
 test_that("Anbindung: ohne p_sieg UND ohne paarungen bricht es weiter mit 'p_sieg' ab", {
   # Das bestehende Verhalten (test-rl-aufstieg.R) bleibt: keine erfundene 50:50.
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   f <- fn(env, "rl_aufstiegsprognose")
   expect_error(f("Nord", prognosen_2026(), season = 2026), "p_sieg")
   expect_error(f("Bayern", prognosen_2026(), season = 2026, p_sieg = NULL,
@@ -953,7 +942,7 @@ test_that("Anbindung: ohne p_sieg UND ohne paarungen bricht es weiter mit 'p_sie
 })
 
 test_that("Anbindung: fehlt ein Team in paarungen, nennt der Fehler das Team", {
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   f <- fn(env, "rl_aufstiegsprognose")
   pa <- paarungen_2026()
   # Ueber Variablen, damit der deparste Aufruf in einer generischen
@@ -971,7 +960,7 @@ test_that("Anbindung: fehlt ein Team in paarungen, nennt der Fehler das Team", {
 })
 
 test_that("Anbindung: Direktaufsteiger brauchen weder p_sieg noch paarungen", {
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   f <- fn(env, "rl_aufstiegsprognose")
   df <- f("Nordost", prognosen_2026(), season = 2026, paarungen = paarungen_2026())
   expect_equal(df["E", "Aufstieg"], 0.9)
@@ -981,7 +970,7 @@ test_that("Anbindung: Direktaufsteiger brauchen weder p_sieg noch paarungen", {
 test_that("Anbindung: gleiche Staerke ueberall -> die Doppelsumme halbiert die Meisterwahrscheinlichkeit", {
   # Mit lauter 0.5 in p_sieg ist P(Aufstieg) = P(Meister) / 2 -- der
   # Muenzwurf-Test aus test-rl-aufstieg.R, jetzt ueber die Herleitung.
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   f <- fn(env, "rl_aufstiegsprognose")
   pa <- paarungen_aus(c(A = 1500, B = 1500), c(C = 1500, D = 1500))
   df <- f("Nord", prognosen_2026(), season = 2026, paarungen = pa)
@@ -996,7 +985,7 @@ test_that("Anbindung: gleiche Staerke ueberall -> die Doppelsumme halbiert die M
 # test-staffel-zuordnung.R.
 
 source_mit_client <- function() {
-  env <- source_aufstiegsspiele()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   source(test_path("..", "..", "RCode", "rust_integration.R"), local = env)
   env
 }
