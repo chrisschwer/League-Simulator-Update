@@ -523,3 +523,472 @@ test_that("die Registry weiss, welche Liga einen Aufstiegslauf braucht", {
   expect_false(env$has_promotion_restriction("78"))
   expect_false(env$has_promotion_restriction("79"))
 })
+
+# --- aus test-phase5-regionalligen.R ---
+# Phase 5: Die fuenf Regionalligen gehen live.
+#
+# Bisher aktiv: 78, 79, 80 (Herren) und 82, 1034 (Frauen) -- fuenf Ligen,
+# fuenf Seiten plus Methodik. Danach: zehn Ligen, zehn Liga-Seiten, die
+# Seite "Aufstieg in die 3. Liga" und Methodik -- zwoelf Seiten -- sowie
+# eine Navigation mit drei Gruppen (Herren / Frauen / Regionalliga).
+#
+# Diese Datei ist test-first geschrieben: Sie MUSS rot sein, solange
+# `active = FALSE` in RCode/league_registry.R steht und league_views() die
+# fuenf RL-Eintraege nicht kennt.
+#
+# ===========================================================================
+# DIE ENTSCHEIDUNG, DIE PHASE 5 VERLANGT: die Abstiegsdarstellung der RL
+# ===========================================================================
+#
+# Die Altligen und die Frauen-Ligen stellen ihr unteres Panel als
+# PLATZGRUPPE dar: `bottom = list(filter_cols = ..., labels = ...,
+# groups = cbind(c(17, 18)))`. render_panel_table() summiert dann die
+# Spalten 17 und 18 der Prognosematrix. Das setzt voraus, dass FESTSTEHT,
+# welche Plaetze Abstiegsplaetze sind.
+#
+# Fuer DREI der fuenf Regionalligen steht das gerade NICHT fest. Wie viele
+# Teams absteigen, haengt davon ab, wie viele Drittligisten in genau diese
+# Staffel fallen (Phase 6, RCode/rl_abstiegskopplung.R):
+#
+#   Nord      3 + k, kein Deckel -- 3 bis 7, zusaetzlich gekoppelt an den
+#                                   EIGENEN Meisteraufstieg (Basis 2 statt
+#                                   3). Die einzige Staffel mit BEIDEN
+#                                   Kopplungen.
+#   Nordost   1 + k, Deckel 2    -- 1 bis 2
+#   SuedWest  3 + k, Deckel 5    -- 3 bis 5
+#
+# West (konstant 4) und Bayern (konstant 2) koppeln NICHT an die 3. Liga.
+# Sie brauchen die berechnete Spalte aus anderen Gruenden:
+#
+#   West    Die Zahl ist fest, die Ligagroesse aber nicht (teams_range
+#           16-22). "Die letzten vier" liesse sich als feste Gruppe nur
+#           mit NEGATIVEN Grenzen schreiben -- und dort hat dieses Projekt
+#           schon zweimal falsch gerechnet, weil R negative Indizes als
+#           AUSSCHLUSS liest.
+#   Bayern  Weist unten ZWEI Groessen aus (Relegation und Abstieg), von
+#           denen die Relegation bewusst nicht aufgeloest wird.
+#
+# Ein `groups = cbind(c(-3, -1))` waere fuer die drei koppelnden Staffeln
+# nicht nur ungenau, sondern SICHTBAR FALSCH: Es behauptete eine Zahl von
+# Abstiegsplaetzen, die das Modell selbst nicht kennt. Genau darum wurden
+# die RL in Phase 5a zurueckgestellt (test-frauen-ligen-live.R, Kopf).
+#
+# Entscheidung des Nutzers (2026-09-07): "einfache gewichtete Aufaddition
+# zur Abstiegswahrscheinlichkeit je Team" -- also Variante (C) unten. Die
+# Alternativen und warum sie ausscheiden:
+#
+#   (A) Feste Platzgruppe wie die Altligen. AUSGESCHLOSSEN, s.o.: Sie
+#       behauptet Wissen, das nicht existiert.
+#   (B) Die "wahrscheinlichste" Platzzahl waehlen (etwa argmax P(k)) und
+#       daraus eine feste Gruppe bauen. AUSGESCHLOSSEN: Das rundet eine
+#       Verteilung auf einen Punkt und zeigt fuer jedes Team eine Zahl, die
+#       nur unter EINER von mehreren Auszaehlungen stimmt -- lautlos falsch.
+#   (C) Das untere Panel kommt aus einer BERECHNETEN Spalte statt aus einer
+#       Platzgruppe: `rl_abstiegsprognose()` liefert je Team fertige
+#       Wahrscheinlichkeiten, die ueber alle k gemischt sind. GEWAEHLT.
+#
+# Die View traegt dafuer im `bottom` KEINE `groups`/`filter_cols`, sondern
+# eine Kennzeichnung, dass die Werte vorberechnet hereinkommen. Die hier
+# gepruefte Form:
+#
+#   bottom = list(
+#     source  = "Abstieg_rl_<staffel>",   # eigenes Objekt, kein Platzband
+#     computed = TRUE,                     # -> keine Gruppenaufloesung
+#     labels  = "Abstieg"                  # Bayern: c("Relegation", "Abstieg")
+#   )
+#
+# `computed = TRUE` ist der Vertrag: Wo es steht, DARF weder `groups` noch
+# `filter_cols` stehen, und render_league_page() reicht die Spalten des
+# Objekts unveraendert durch, statt Platzspalten zu summieren. Die Spalten
+# des Objekts sind genau die `labels` -- das ist die Form, die
+# rl_abstiegsprognose() heute schon liefert (data.frame mit rownames =
+# Teams und Spalte "Abstieg", fuer Bayern "Relegation" + "Abstieg").
+#
+# Warum ein eigenes Merkmal und nicht "leere groups": Ein NULL-Test waere
+# implizit; `computed = TRUE` steht als Aussage da und laesst sich pruefen,
+# ohne das Fehlen von etwas zu interpretieren.
+#
+# Beim oberen Panel von Nord und Bayern stehen eine Platzgruppe (Meister)
+# und eine berechnete Spalte (Aufstieg) NEBENEINANDER. `computed` ist
+# deshalb ein logischer Vektor ueber die Spalten -- ein Eintrag je Label:
+#
+#   top = list(
+#     source   = "Ergebnis_rl_nord",        # fuer die Meister-Spalte
+#     computed = c(FALSE, TRUE),
+#     computed_source = "Aufstieg_rl_nord", # fuer die Aufstiegs-Spalte
+#     filter_cols = 1L,
+#     labels   = c("Meister", "Aufstieg"),
+#     groups   = cbind(c(1, 1))             # nur fuer die NICHT-computed
+#   )
+#
+# isTRUE(all(...$computed)) heisst "ganz berechnet", any() heisst
+# "gemischt". Bei den drei Direktaufsteigern faellt der Fall weg: dort ist
+# `computed` durchgehend FALSE und eine einzige Spalte genuegt.
+#
+# ---------------------------------------------------------------------------
+# ZWEI PFLICHT-INVARIANTEN (Vorgabe des Nutzers, 2026-09-07)
+# ---------------------------------------------------------------------------
+#
+# Die gerechnete Spalte hat eine Eigenschaft, die eine Platzgruppe nicht
+# haette -- und die sie pruefbar macht:
+#
+#   SUMME ueber alle Teams P(Team steigt ab) = E[Zahl der Absteiger]
+#
+# Das ist Algebra, keine Naeherung: Jede Platzspalte der Prognosematrix
+# summiert ueber die Teams auf 1 (genau ein Team belegt jeden Platz), also
+# ist die Teamsumme der Abstiegswahrscheinlichkeiten gleich der Summe der
+# Platzgewichte -- und die ist der Erwartungswert der Absteigerzahl.
+#
+# Fuer Bayern gilt beides EXAKT und ohne Erwartungswert, weil die Staffel
+# entkoppelt ist: Summe Abstieg = 2 und Summe Relegation = 2.
+#
+# Die Toleranz ist deshalb 1e-9, nicht 0.01. Eine weite Toleranz wuerde
+# genau den Fehler durchlassen, den diese Invariante fangen soll: eine
+# Gewichtung, die "ungefaehr stimmt" und die Wahrscheinlichkeitsmasse
+# verliert.
+#
+# ---------------------------------------------------------------------------
+# OBEN: Meister und Aufstieg als ZWEI Spalten (Vorgabe des Nutzers)
+# ---------------------------------------------------------------------------
+#
+# Phase 7, RCode/rl_aufstieg.R, Saison 2026/27:
+#
+#   West, SuedWest, Nordost  Direktaufstieg -- P(Aufstieg) = P(Meister)
+#   Nord, Bayern             KEIN Direktaufstieg, sondern zwei
+#                            Aufstiegsspiele gegeneinander. P(Aufstieg) ist
+#                            die Doppelsumme ueber beide Staffeln und
+#                            STRIKT KLEINER als P(Meister).
+#
+# Fuer Nord und Bayern steht deshalb ein EXTRA-Wert rechts neben der
+# Meisterwahrscheinlichkeit: zwei Spalten, "Meister" und "Aufstieg". Die
+# Meisterspalte ist eine echte Platzgruppe (Platz 1), die Aufstiegsspalte
+# eine berechnete. Ein Panel traegt hier also BEIDES -- deshalb sitzt
+# `computed` an der einzelnen Spalte und nicht am ganzen Panel.
+#
+# Fuer die drei Direktaufsteiger fallen beide Groessen zusammen; dort
+# genuegt eine Spalte. Ein Test haelt fest, dass sie dort wirklich gleich
+# sind -- sonst waere die Vereinfachung eine stille Abweichung.
+#
+# ---------------------------------------------------------------------------
+# EIGENE SEITE "Aufstieg in die 3. Liga" -- entschieden
+# ---------------------------------------------------------------------------
+#
+# Der Nutzer hat am 2026-09-07 Variante 2 gewaehlt (Randsummen), Navigation
+# unter "Regionalliga". Die Tests dazu stehen in Abschnitt 4a; hier nur die
+# verworfenen Alternativen, damit die Entscheidung nachvollziehbar bleibt.
+#
+#   Variante 1 -- die volle Paarungsmatrix, 18 x 19 Zellen. VERWORFEN:
+#     342 Zellen, praktisch alle nahe null. Die Meisterwahrscheinlichkeit
+#     konzentriert sich je Staffel auf zwei, drei Teams; das Produkt
+#     zweier kleiner Zahlen ist noch kleiner. Auf Mobil unlesbar -- sie
+#     zeigt viel und sagt wenig.
+#
+#   Variante 2 -- Randsummen je Team. GEWAEHLT: Team, P(Meister),
+#     P(Aufstieg), Siegquote. Das ist die ueber den Gegner ausintegrierte
+#     Matrix, also dieselbe Information ohne die 342 Zellen. Beantwortet
+#     die Frage, die der Leser hat.
+#
+#   Variante 3 -- Variante 2 plus die wahrscheinlichsten Paarungen.
+#     VERWORFEN: Der Schwellwert waere eine willkuerliche Setzung, und die
+#     Tabelle wechselte im Saisonverlauf ihre Laenge.
+#
+# Begruendung des Nutzers fuer die einfachste Form: "Fuer naechste Saison
+# muessen wir eh vermutlich neue Aufstiegsregeln implementieren, und dann
+# bauen wir halt auch die Aufstiegsseite passend um." Also kein Vorbau fuer
+# Regeln, die es noch nicht gibt.
+#
+# ===========================================================================
+
+# --- Quellen ----------------------------------------------------------------
+
+source_views <- function() {
+  env <- new.env()
+  source(test_path("..", "..", "RCode", "league_views.R"), local = env)
+  env
+}
+
+source_round_filter <- function() {
+  env <- new.env()
+  source(test_path("..", "..", "RCode", "round_filter.R"), local = env)
+  env
+}
+
+# Die fuenf RL in Registry-Reihenfolge. Sie ist Vertrag (Fetch-Reihenfolge
+# und Navigation), deshalb hier einmal ausgeschrieben.
+RL_SCHLUESSEL <- c("rl_nord", "rl_nordost", "rl_west", "rl_suedwest",
+                   "rl_bayern")
+RL_IDS <- c("84", "85", "87", "86", "83")
+
+# Die Staffeln mit Direktaufstieg 2026/27 (Par. 55b DFB-SpO Nr. 2 plus der
+# Rotationsplatz, den 2026/27 Nordost traegt).
+RL_DIREKTAUFSTIEG <- c("rl_nordost", "rl_west", "rl_suedwest")
+# Nord und Bayern spielen stattdessen zwei Aufstiegsspiele gegeneinander.
+RL_AUFSTIEGSSPIELE <- c("rl_nord", "rl_bayern")
+
+# ===========================================================================
+# 1. Registry: alle fuenf Regionalligen sind aktiv
+# ===========================================================================
+
+# ACHTUNG fuer die Implementierung: Diese drei Tests in
+# test-frauen-ligen-aktivierung.R sagen heute das GEGENTEIL und werden mit
+# der Aktivierung rot. Sie sind Bestand aus Phase 5a und muessen dort
+# mitgezogen werden -- absichtlich NICHT von hier aus mit erledigt, damit
+# der Schritt sichtbar bleibt:
+#
+#   "die Regionalligen bleiben inaktiv" (Zeile 22)  -- entfaellt ersatzlos;
+#       ihre Aussage ist genau das, was Phase 5 aufhebt.
+#   "checkAPILimits skaliert mit fuenf Ligen" (Zeile 146) -- die Formel
+#       1 + 5/2 wird zu 1 + 10/2. Der Default folgt der Ligazahl, also
+#       laesst sich das aus league_ids() ableiten, statt die Zahl zu
+#       wiederholen.
+#   "die Saisonvalidierung prueft nur die Altligen" (Zeile 131) -- bleibt
+#       gruen: SEASON_TRANSITION_LEAGUES ist bewusst bei 78/79/80, weil es
+#       fuer die neuen Ligen keine aufgezeichneten API-Antworten gibt. Das
+#       ist eine eigene Entscheidung, kein Versehen.
+
+test_that("league_ids liefert zehn Ligen in Registry-Reihenfolge", {
+  # Die Reihenfolge bestimmt, in welcher Folge der Loop abruft und in
+  # welcher Reihenfolge die Navigation baut -- sie darf sich nicht
+  # unbemerkt aendern. Deshalb der exakte Vektor, nicht nur die Laenge.
+  env <- source_registry()
+
+  expect_identical(
+    env$league_ids(),
+    c("78", "79", "80", "82", "1034", "84", "85", "87", "86", "83")
+  )
+  expect_identical(env$league_ids(), env$league_ids(active_only = FALSE))
+})
+
+test_that("active_league_keys nennt die fuenf Regionalligen mit", {
+  env <- source_registry()
+
+  expect_identical(
+    env$active_league_keys(),
+    c("bundesliga", "zweite_bundesliga", "dritte_liga",
+      "frauen_bundesliga", "zweite_frauen_bundesliga", RL_SCHLUESSEL)
+  )
+  expect_identical(env$active_league_keys(), names(env$active_leagues()))
+})
+
+test_that("jede Regionalliga traegt active = TRUE", {
+  env <- source_registry()
+  reg <- env$league_registry()
+
+  for (key in RL_SCHLUESSEL) {
+    expect_true(isTRUE(reg[[key]]$active), info = key)
+  }
+})
+
+test_that("die nav_group ordnet die zehn Ligen drei Gruppen zu", {
+  # Werte, nicht Vorhandensein: Jede Liga bekommt ihre Gruppe genannt.
+  env <- source_registry()
+  reg <- env$league_registry()
+
+  gruppen <- vapply(reg, function(l) l$nav_group %||% NA_character_,
+                    character(1))
+  expect_identical(
+    unname(gruppen),
+    c("Herren", "Herren", "Herren", "Frauen", "Frauen",
+      rep("Regionalliga", 5))
+  )
+})
+
+test_that("die Regionalligen behalten das Herren-Tormodell", {
+  # Sie tauschen Teams mit der 3. Liga, gehoeren also zur
+  # Wechselgemeinschaft Herren (ADR 0004). goal_model() muss NULL liefern:
+  # nichts senden, der Rust-Default greift. Ein eigener Intercept wuerde
+  # jeden Auf- und Absteiger stillschweigend umskalieren.
+  env <- source_registry()
+
+  for (id in RL_IDS) {
+    expect_null(env$goal_model(id), info = id)
+    expect_identical(env$league_family(id), "herren", info = id)
+  }
+})
+
+test_that("aus den Regionalligen duerfen Zweitvertretungen nicht aufsteigen", {
+  # Wie in der 3. Liga: Die Aufstiegstabelle braucht einen zweiten Lauf mit
+  # -50-Malus. has_promotion_restriction() steuert das.
+  env <- source_registry()
+
+  for (id in RL_IDS) {
+    expect_true(env$has_promotion_restriction(id), info = id)
+  }
+})
+
+test_that("Registry und AUFSTIEGSROTATION sagen dasselbe ueber 2026/27", {
+  # Die promotion_slots/playoff_slots der Registry sind ABGELEITET; die
+  # massgebliche Quelle ist AUFSTIEGSROTATION in RCode/rl_aufstieg.R. Wenn
+  # beide auseinanderlaufen, zeigt die Seite einen anderen Modus als die
+  # Rechnung -- ohne dass etwas fehlschlaegt.
+  env <- source_registry()
+  auf <- new.env()
+  source(test_path("..", "..", "RCode", "staffel_zuordnung.R"), local = auf)
+  source(test_path("..", "..", "RCode", "rl_aufstieg.R"), local = auf)
+
+  reg <- env$league_registry()
+  for (key in RL_SCHLUESSEL) {
+    eintrag <- reg[[key]]
+    slots <- auf$rl_aufstiegs_slots(eintrag$staffel, 2026)
+    expect_identical(eintrag$promotion_slots, slots$promotion_slots,
+                     info = key)
+    expect_identical(eintrag$playoff_slots, slots$playoff_slots, info = key)
+  }
+})
+
+test_that("Nord und Bayern haben 2026/27 exakt null Direktaufstiegsplaetze", {
+  # Rechnerisch nicht moeglich heisst exakt 0, nicht "klein". Wo das kippt,
+  # zeigte die Seite einen Direktaufstieg, den es nicht gibt.
+  env <- source_registry()
+  reg <- env$league_registry()
+
+  for (key in RL_AUFSTIEGSSPIELE) {
+    expect_identical(reg[[key]]$promotion_slots, 0L, info = key)
+    expect_identical(reg[[key]]$playoff_slots, 1L, info = key)
+  }
+  for (key in RL_DIREKTAUFSTIEG) {
+    expect_identical(reg[[key]]$promotion_slots, 1L, info = key)
+    expect_identical(reg[[key]]$playoff_slots, 0L, info = key)
+  }
+})
+
+test_that("nur Bayern traegt Relegationsplaetze nach unten", {
+  # playoff_slots ist richtungslos; Bayern braucht das eigene Feld
+  # relegation_playoff_slots, weil es BEIDES hat.
+  env <- source_registry()
+  reg <- env$league_registry()
+
+  expect_identical(reg$rl_bayern$relegation_playoff_slots, 2L)
+  for (key in setdiff(RL_SCHLUESSEL, "rl_bayern")) {
+    expect_null(reg[[key]]$relegation_playoff_slots, info = key)
+  }
+})
+
+test_that("league_views und Registry stimmen in Schluesseln und Slugs ueberein", {
+  # Ueber die Schluessel sind Loop, Registry und Generator verbunden; ueber
+  # die Slugs entstehen die Dateinamen. Zwei Quellen, eine Aussage.
+  reg <- source_registry()$league_registry()
+  views <- source_views()$league_views()
+
+  expect_identical(names(views), names(reg))
+  expect_identical(
+    vapply(views, function(v) v$slug, character(1)),
+    vapply(reg, function(l) l$slug, character(1))
+  )
+})
+
+test_that("die Anzeigereihenfolge laesst die Abrufreihenfolge unberuehrt", {
+  # Issue #178 verschiebt NUR die Navigation. league_ids() bestimmt, in
+  # welcher Folge der Loop die API abruft, und league_views() haelt die
+  # Ligen in Registry-Reihenfolge -- beides ist Vertrag (siehe
+  # test-league-views.R) und darf sich durch eine Darstellungsfrage nicht
+  # mitbewegen. Ohne diesen Test faellt eine solche Kopplung erst im
+  # Betrieb auf.
+  reg <- source_registry()
+  views <- source_views()$league_views()
+
+  expect_identical(
+    reg$league_ids(),
+    c("78", "79", "80", "82", "1034", "84", "85", "87", "86", "83")
+  )
+  expect_named(
+    views,
+    c("bundesliga", "zweite_bundesliga", "dritte_liga",
+      "frauen_bundesliga", "zweite_frauen_bundesliga", RL_SCHLUESSEL)
+  )
+})
+
+# ===========================================================================
+# 5. teams_range gegen die FIXTURES, nicht gegen die TeamList
+# ===========================================================================
+
+# Die TeamList fuehrt je RL-Staffel 29-33 Eintraege: alle Teams, die je in
+# dieser Staffel aufgetreten sind, damit ein Auf- oder Absteiger seinen
+# ELO-Wert wiederfindet. Tatsaechlich spielen 18-19. Wer die Validierung
+# gegen die TeamList laufen laesst, bekommt entweder eine falsche Spanne
+# (bis 33) oder einen Fehlalarm.
+#
+# Dieser Test sichert ab, dass die Spanne die echten Spielplaene traegt;
+# der Test weiter unten sichert ab, dass die TeamList sie NICHT traegt.
+
+rl_fixture_teams <- function(liga, saison = 2025) {
+  pfad <- test_path("fixtures", "fixture_cache",
+                    paste0(liga, "_", saison, ".json"))
+  skip_if_not(file.exists(pfad), paste("Fixture fehlt:", basename(pfad)))
+
+  x <- jsonlite::fromJSON(pfad)
+  rf <- source_round_filter()
+  keep <- rf$is_regular_season_round(x$round)
+  unique(c(x$teams_home_name[keep], x$teams_away_name[keep]))
+}
+
+test_that("die echten RL-Spielplaene 2025 liegen in der teams_range", {
+  # 2025 spielten alle fuenf Staffeln mit 18 Teams. Der Wert wird gemessen,
+  # nicht angenommen -- er kommt aus dem committeten Spielplan.
+  env <- source_registry()
+
+  for (i in seq_along(RL_IDS)) {
+    id <- RL_IDS[[i]]
+    teams <- rl_fixture_teams(id)
+    spanne <- env$league_teams_range(id)
+
+    expect_identical(length(teams), 18L, info = id)
+    expect_gte(length(teams), spanne[[1]])
+    expect_lte(length(teams), spanne[[2]])
+  }
+})
+
+test_that("die TeamList fuehrt weit mehr Eintraege als eine Staffel Teams hat", {
+  # Der Grund, warum die Validierung NICHT gegen die TeamList laufen darf.
+  # Geprueft wird der Abstand, nicht nur die Ungleichheit: Er ist gross und
+  # strukturell, nicht ein Rundungsfehler.
+  env <- source_registry()
+  tl <- utils::read.csv(
+    test_path("..", "..", "RCode", "TeamList_2026.csv"),
+    sep = ";", stringsAsFactors = FALSE
+  )
+
+  for (id in RL_IDS) {
+    eintraege <- sum(as.character(tl$League) == id)
+    spanne <- env$league_teams_range(id)
+
+    expect_gt(eintraege, spanne[[2]])
+    expect_gte(eintraege, 29L)
+  }
+})
+
+test_that("die teams_range traegt jede belegte RL-Saison seit 2019", {
+  # Der Cache reicht von 2019 bis 2025 und enthaelt Staffeln mit 17 bis 22
+  # Teams (Corona-Jahrgaenge). Eine zu enge Spanne faellt hier auf, bevor
+  # sie im Betrieb einen Saisonwechsel blockiert.
+  env <- source_registry()
+  verzeichnis <- test_path("fixtures", "fixture_cache")
+  skip_if_not(dir.exists(verzeichnis))
+
+  dateien <- list.files(verzeichnis, pattern = "^8[3-7]_[0-9]{4}\\.json$")
+  skip_if(length(dateien) == 0, "kein RL-Fixture-Cache vorhanden")
+
+  for (datei in dateien) {
+    teile <- strsplit(sub("\\.json$", "", datei), "_")[[1]]
+    teams <- rl_fixture_teams(teile[[1]], teile[[2]])
+    spanne <- env$league_teams_range(teile[[1]])
+
+    expect_gte(length(teams), spanne[[1]], label = datei)
+    expect_lte(length(teams), spanne[[2]], label = datei)
+  }
+})
+
+# ===========================================================================
+# 7. Waechter: keine Modellkonstante wandert mit den neuen Ligen nach R
+# ===========================================================================
+
+test_that("keine Regionalliga sendet ein eigenes Tormodell", {
+  # ADR 0004: Die RL gehoeren zur Wechselgemeinschaft Herren. Ein
+  # staffelweiser Intercept wuerde jeden Auf- und Absteiger stillschweigend
+  # umskalieren -- und test-modellkonstanten-nur-in-rust.R rot faerben.
+  env <- source_registry()
+
+  for (id in RL_IDS) {
+    expect_identical(env$goal_model_args(id), list(), info = id)
+  }
+})

@@ -956,3 +956,406 @@ test_that("eine fehlende Liga wird uebersprungen und benannt", {
   expect_true(file.exists(file.path(out, "index.html")))
   expect_false(file.exists(file.path(out, "3-liga.html")))
 })
+
+# --- aus test-phase5-regionalligen.R ---
+# Gleichverteilte Prognose: jeder Platz traegt 1/n. Damit sind die
+# erwarteten Prozentwerte der Panels exakt bekannt.
+
+# Die fuenf RL in Registry-Reihenfolge. Sie ist Vertrag (Fetch-Reihenfolge
+# und Navigation), deshalb hier einmal ausgeschrieben.
+RL_SCHLUESSEL <- c("rl_nord", "rl_nordost", "rl_west", "rl_suedwest",
+                   "rl_bayern")
+RL_SLUGS <- c("rl-nord", "rl-nordost", "rl-west", "rl-suedwest", "rl-bayern")
+
+# Slug der Seite "Aufstieg in die 3. Liga". Steht hier und nicht erst bei
+# den Aufstiegstests: testthat wertet Top-Level-Code sequenziell aus, und
+# die Navigations- und Seitenzahl-Tests weiter oben brauchen den Wert
+# bereits.
+AUFSTIEGSSEITE_SLUG <- "rl-aufstieg"
+
+# Die Staffeln mit Direktaufstieg 2026/27 (Par. 55b DFB-SpO Nr. 2 plus der
+# Rotationsplatz, den 2026/27 Nordost traegt).
+RL_DIREKTAUFSTIEG <- c("rl_nordost", "rl_west", "rl_suedwest")
+# Nord und Bayern spielen stattdessen zwei Aufstiegsspiele gegeneinander.
+RL_AUFSTIEGSSPIELE <- c("rl_nord", "rl_bayern")
+
+# --- 2a. Oben: Direktaufstieg vs. Aufstiegsspiele ---------------------------
+
+test_that("Nordost, West und SuedWest zeigen oben eine Aufstiegsspalte", {
+  # Direktaufsteiger: P(Aufstieg) = P(Meister), beide Groessen fallen
+  # zusammen. Eine Spalte genuegt, und sie ist eine echte Platzgruppe
+  # (Platz 1). Geprueft wird der WERT der gerenderten Tabelle: Bei 18
+  # gleichverteilten Teams traegt Platz 1 genau 1/18 = 6 %.
+  gen <- source_generator()
+  views <- gen$league_views()
+
+  for (key in RL_DIREKTAUFSTIEG) {
+    v <- views[[key]]
+    expect_identical(v$top$labels, "Aufstieg", info = key)
+    # Direktaufstieg ist eine Platzgruppe, keine berechnete Spalte.
+    expect_false(any(isTRUE(v$top$computed)), info = key)
+
+    html <- gen$render_panel_table(mk_ergebnis(18), v$top)
+    expect_match(html, "<td>6</td>", info = key)
+    # Waere die Gruppe versehentlich 1:2, stuenden hier 11 %.
+    expect_no_match(html, "<td>11</td>", info = key)
+  }
+})
+
+# ===========================================================================
+# 3. Navigation: zweistufig, drei Gruppen, Methodik separat
+# ===========================================================================
+
+test_that(".nav_groups ordnet die Gruppen nach NAV_GRUPPEN_REIHENFOLGE", {
+  # ANGEPASST (Issue #178): Die Reihenfolge war bis hierher ein Nebenprodukt
+  # der Registry-Reihenfolge -- die Regionalligen standen als dritte Gruppe
+  # UNTER den Frauen-Ligen und lasen sich dadurch, als stuenden sie quer zu
+  # den beiden Geschlechter-Gruppen. Tatsaechlich sind es Herren-Ligen
+  # derselben Wechselgemeinschaft (ADR 0004).
+  #
+  # Die Anzeigereihenfolge ist jetzt eigene Angabe im Renderer und NICHT
+  # mehr die Registry-Reihenfolge: Die Registry bestimmt weiterhin die
+  # Abrufreihenfolge (league_ids()), und die beiden duerfen sich
+  # unabhaengig voneinander bewegen.
+  gen <- source_generator()
+  gruppen <- gen$.nav_groups()
+
+  expect_identical(vapply(gruppen, function(g) g$group, character(1)),
+                   c("Herren", "Regionalliga", "Frauen"))
+  expect_length(gruppen[[1]]$items, 3)
+  # Fuenf Staffeln plus die Seite "Aufstieg in die 3. Liga", die der
+  # Nutzer bewusst unter "Regionalliga" haengt statt in eine eigene Gruppe.
+  expect_length(gruppen[[2]]$items, 6)
+  expect_length(gruppen[[3]]$items, 2)
+})
+
+test_that("eine unbekannte nav_group faellt ans Ende, statt zu verschwinden", {
+  # Die Sortierung darf nicht stillschweigend filtern: Traegt eine kuenftige
+  # Liga eine Gruppe, die NAV_GRUPPEN_REIHENFOLGE nicht kennt, muss sie
+  # sichtbar bleiben -- hinten, aber da. Ein Renderer, der sie weglaesst,
+  # verlaere eine ganze Liga aus der Navigation, ohne dass etwas fehlschlaegt.
+  gen <- source_generator()
+
+  expect_identical(
+    gen$.nav_gruppen_sortiert(c("Frauen", "Uebersee", "Herren")),
+    c("Herren", "Frauen", "Uebersee")
+  )
+})
+
+test_that("jede Liga steht in genau der Gruppe ihrer Registry", {
+  # Gruppenzugehoerigkeit, nicht nur Vorhandensein der Links: Ein Test, der
+  # nur prueft, dass "rl-nord.html" irgendwo im HTML steht, besteht auch,
+  # wenn die Liga unter "Frauen" haengt.
+  gen <- source_generator()
+  gruppen <- gen$.nav_groups()
+
+  slugs_je_gruppe <- lapply(gruppen, function(g) {
+    vapply(g$items, function(i) i$slug, character(1))
+  })
+  names(slugs_je_gruppe) <- vapply(gruppen, function(g) g$group, character(1))
+
+  expect_identical(slugs_je_gruppe$Herren,
+                   c("index", "2-bundesliga", "3-liga"))
+  expect_identical(slugs_je_gruppe$Frauen,
+                   c("frauen-bundesliga", "2-frauen-bundesliga"))
+  expect_identical(slugs_je_gruppe$Regionalliga,
+                   c(RL_SLUGS, AUFSTIEGSSEITE_SLUG))
+})
+
+test_that("das Navigations-HTML ordnet die RL-Links der Regionalliga-Zeile zu", {
+  # Geprueft wird die gerenderte STRUKTUR: Die fuenf RL-Links muessen in
+  # DERSELBEN nav-row stehen wie das Gruppenlabel "Regionalliga" -- und
+  # keiner davon in der Herren- oder Frauen-Zeile.
+  gen <- source_generator()
+  html <- gen$.nav_html("index")
+
+  zeilen <- regmatches(
+    html,
+    gregexpr('<div class="nav-row">.*?</div>', html)
+  )[[1]]
+
+  gruppe_von <- function(zeile) {
+    sub('.*<span class="nav-group">(.*?)</span>.*', "\\1", zeile)
+  }
+  labels <- vapply(zeilen, gruppe_von, character(1), USE.NAMES = FALSE)
+
+  # Drei Ligagruppen plus die label-lose Methodik-Zeile. Die Regionalligen
+  # stehen seit Issue #178 zwischen Herren und Frauen; Methodik bleibt die
+  # LETZTE Zeile -- sie wird in .nav_html() hinter den Gruppenzeilen
+  # angehaengt und von der Gruppensortierung gar nicht erfasst.
+  expect_identical(labels, c("Herren", "Regionalliga", "Frauen", ""))
+
+  # Die fuenf Staffeln UND die Aufstiegsseite -- sie haengt bewusst hier
+  # und nicht in einer eigenen Gruppe.
+  rl_zeile <- zeilen[labels == "Regionalliga"]
+  for (slug in c(RL_SLUGS, AUFSTIEGSSEITE_SLUG)) {
+    expect_match(rl_zeile, paste0('href="', slug, '.html"'), fixed = TRUE,
+                 info = slug)
+  }
+
+  # Kein RL-Link verirrt sich in eine andere Zeile.
+  for (andere in zeilen[labels != "Regionalliga"]) {
+    for (slug in c(RL_SLUGS, AUFSTIEGSSEITE_SLUG)) {
+      expect_no_match(andere, paste0('href="', slug, '.html"'), fixed = TRUE,
+                      info = slug)
+    }
+  }
+})
+
+test_that("Methodik bleibt eine eigene, gruppenlose Zeile", {
+  gen <- source_generator()
+  html <- gen$.nav_html("methodik")
+
+  zeilen <- regmatches(
+    html,
+    gregexpr('<div class="nav-row">.*?</div>', html)
+  )[[1]]
+  methodik_zeile <- zeilen[grepl("methodik.html", zeilen, fixed = TRUE)]
+
+  expect_length(methodik_zeile, 1)
+  expect_match(methodik_zeile, '<span class="nav-group"></span>', fixed = TRUE)
+  expect_match(methodik_zeile, 'aria-current="page"', fixed = TRUE)
+})
+
+# ===========================================================================
+# 4. Seiten: zehn Liga-Seiten plus Methodik
+# ===========================================================================
+
+# Vollstaendige Ergebnisliste fuer alle zehn Ligen inklusive der
+# Sonderlaeufe (Aufstiegstabellen ohne Zweitvertretungen) und der
+# berechneten RL-Spalten.
+alle_ergebnisse <- function() {
+  ergebnisse <- list(
+    bundesliga = mk_ergebnis(18),
+    zweite_bundesliga = mk_ergebnis(18),
+    dritte_liga = mk_ergebnis(20),
+    dritte_liga_aufstieg = mk_ergebnis(20),
+    frauen_bundesliga = mk_ergebnis(14),
+    zweite_frauen_bundesliga = mk_ergebnis(14),
+    zweite_frauen_bundesliga_aufstieg = mk_ergebnis(14)
+  )
+
+  teams <- paste0("T", seq_len(18))
+  for (key in RL_SCHLUESSEL) {
+    ergebnisse[[key]] <- mk_ergebnis(18)
+    # Die berechnete Abstiegsspalte: ein data.frame in genau der Form, die
+    # rl_abstiegsprognose() liefert.
+    ergebnisse[[paste0(key, "_abstieg")]] <-
+      if (identical(key, "rl_bayern")) {
+        data.frame(Relegation = rep(2 / 18, 18), Abstieg = rep(2 / 18, 18),
+                   row.names = teams)
+      } else {
+        data.frame(Abstieg = rep(3 / 18, 18), row.names = teams)
+      }
+  }
+  # Nord und Bayern: berechnete Aufstiegsspalte aus den Aufstiegsspielen.
+  # Die Spalte heisst wie bei rl_aufstiegsprognose() "Aufstieg"; sie steht
+  # als EXTRA-Wert rechts neben der Meisterspalte.
+  for (key in RL_AUFSTIEGSSPIELE) {
+    ergebnisse[[paste0(key, "_aufstieg")]] <-
+      data.frame(Aufstieg = rep(0.5 / 18, 18), row.names = teams)
+  }
+  ergebnisse
+}
+
+test_that("generate_static_site schreibt zehn Liga-Seiten und die Methodik", {
+  gen <- source_generator()
+  out <- withr::local_tempdir()
+
+  paths <- gen$generate_static_site(
+    output_dir = out,
+    now = as.POSIXct("2026-09-07 12:00", tz = "Europe/Berlin"),
+    ergebnisse = alle_ergebnisse()
+  )
+
+  # Zehn Liga-Seiten, die Aufstiegsseite und Methodik.
+  expect_length(paths, 12)
+  for (f in c("index.html", "2-bundesliga.html", "3-liga.html",
+              "frauen-bundesliga.html", "2-frauen-bundesliga.html",
+              paste0(RL_SLUGS, ".html"),
+              paste0(AUFSTIEGSSEITE_SLUG, ".html"), "methodik.html")) {
+    expect_true(file.exists(file.path(out, f)), info = f)
+  }
+})
+
+test_that("jede Regionalliga-Seite traegt ihren eigenen Titel", {
+  # Zehn Seiten aus einer Schleife: Ein vertauschter Index faellt sonst
+  # nicht auf, weil alle Seiten gleich aussehen.
+  gen <- source_generator()
+  out <- withr::local_tempdir()
+
+  gen$generate_static_site(
+    output_dir = out,
+    now = as.POSIXct("2026-09-07 12:00", tz = "Europe/Berlin"),
+    ergebnisse = alle_ergebnisse()
+  )
+
+  erwartet <- c("rl-nord" = "Nord", "rl-nordost" = "Nordost",
+                "rl-west" = "West", "rl-suedwest" = "SüdWest",
+                "rl-bayern" = "Bayern")
+  for (slug in names(erwartet)) {
+    html <- paste(readLines(file.path(out, paste0(slug, ".html")),
+                            warn = FALSE), collapse = "\n")
+    expect_match(html,
+                 paste0("<title>30 Punkte · ", erwartet[[slug]], "</title>"),
+                 fixed = TRUE, info = slug)
+    expect_match(html, 'aria-current="page"', fixed = TRUE, info = slug)
+  }
+})
+
+test_that("die Bayern-Seite zeigt Relegation und Abstieg als zwei Spalten", {
+  # Ende zu Ende: Die zwei Groessen duerfen nicht zu einer Zahl
+  # verschmelzen. Gemessen an Werten, die sich unterscheiden -- waeren sie
+  # gleich, bewiese die Tabelle nichts.
+  gen <- source_generator()
+  out <- withr::local_tempdir()
+
+  ergebnisse <- alle_ergebnisse()
+  ergebnisse$rl_bayern_abstieg <- data.frame(
+    Relegation = rep(0.11, 18),
+    Abstieg = rep(0.22, 18),
+    row.names = paste0("T", seq_len(18))
+  )
+
+  gen$generate_static_site(
+    output_dir = out,
+    now = as.POSIXct("2026-09-07 12:00", tz = "Europe/Berlin"),
+    ergebnisse = ergebnisse
+  )
+
+  html <- paste(readLines(file.path(out, "rl-bayern.html"), warn = FALSE),
+                collapse = "\n")
+
+  expect_match(html, "Relegation", fixed = TRUE)
+  expect_match(html, "<td>11</td><td>22</td>", fixed = TRUE)
+  # Nicht zu 33 % addiert.
+  expect_no_match(html, "<td>33</td>", fixed = TRUE)
+})
+
+test_that("die Nord-Seite zeigt oben Meister und Aufstieg nebeneinander", {
+  # Ende zu Ende fuer das GEMISCHTE Panel: Die Meisterspalte kommt als
+  # Platzsumme aus der Prognosematrix (1/18 = 6 %), die Aufstiegsspalte
+  # unveraendert aus dem berechneten Objekt. Die Zahlen sind bewusst
+  # verschieden, sonst bewiese die Tabelle nichts.
+  gen <- source_generator()
+  out <- withr::local_tempdir()
+
+  ergebnisse <- alle_ergebnisse()
+  ergebnisse$rl_nord_aufstieg <- data.frame(
+    Aufstieg = rep(0.37, 18), row.names = paste0("T", seq_len(18))
+  )
+
+  gen$generate_static_site(
+    output_dir = out,
+    now = as.POSIXct("2026-09-07 12:00", tz = "Europe/Berlin"),
+    ergebnisse = ergebnisse
+  )
+
+  html <- paste(readLines(file.path(out, "rl-nord.html"), warn = FALSE),
+                collapse = "\n")
+
+  expect_match(html, "Meister", fixed = TRUE)
+  # 6 % Meister, 37 % Aufstieg -- in dieser Reihenfolge, in einer Zeile.
+  expect_match(html, "<td>6</td><td>37</td>", fixed = TRUE)
+})
+
+test_that("die berechnete Abstiegsspalte landet unveraendert in der Tabelle", {
+  # Der schaerfste Test des `computed`-Pfades: Der Wert darf NICHT ueber
+  # Platzspalten summiert werden. Bei einer gleichverteilten Prognose ueber
+  # 18 Plaetze waere jede Platzsumme ein Vielfaches von 1/18 (6, 11, 17 %)
+  # -- 41 % kann nur durchgereicht sein.
+  gen <- source_generator()
+  out <- withr::local_tempdir()
+
+  ergebnisse <- alle_ergebnisse()
+  ergebnisse$rl_nord_abstieg <- data.frame(
+    Abstieg = rep(0.41, 18), row.names = paste0("T", seq_len(18))
+  )
+
+  gen$generate_static_site(
+    output_dir = out,
+    now = as.POSIXct("2026-09-07 12:00", tz = "Europe/Berlin"),
+    ergebnisse = ergebnisse
+  )
+
+  html <- paste(readLines(file.path(out, "rl-nord.html"), warn = FALSE),
+                collapse = "\n")
+  expect_match(html, "<td>41</td>", fixed = TRUE)
+})
+
+# --- Die Seite existiert und haengt unter "Regionalliga" --------------------
+
+test_that("die Aufstiegsseite steht in der Regionalliga-Gruppe der Navigation", {
+  # Entscheidung des Nutzers: keine eigene Gruppe. Geprueft wird die
+  # ZUGEHOERIGKEIT, nicht nur das Vorhandensein des Links -- ein Test auf
+  # "rl-aufstieg.html steht irgendwo im HTML" bestuende auch, wenn die
+  # Seite unter "Frauen" haengt.
+  gen <- source_generator()
+  gruppen <- gen$.nav_groups()
+
+  namen <- vapply(gruppen, function(g) g$group, character(1))
+  expect_true("Regionalliga" %in% namen)
+
+  rl_gruppe <- gruppen[[which(namen == "Regionalliga")]]
+  slugs <- vapply(rl_gruppe$items, function(i) i$slug, character(1))
+
+  expect_true(AUFSTIEGSSEITE_SLUG %in% slugs)
+  # Fuenf Staffeln plus die Aufstiegsseite, und die Seite steht hinter den
+  # Staffeln -- sie fasst sie zusammen, sie leitet sie nicht ein.
+  expect_identical(slugs, c(RL_SLUGS, AUFSTIEGSSEITE_SLUG))
+})
+
+test_that("die Aufstiegsseite wird mitgerendert und traegt ihren Titel", {
+  gen <- source_generator()
+  out <- withr::local_tempdir()
+
+  gen$generate_static_site(
+    output_dir = out,
+    now = as.POSIXct("2026-09-07 12:00", tz = "Europe/Berlin"),
+    ergebnisse = alle_ergebnisse()
+  )
+
+  pfad <- file.path(out, paste0(AUFSTIEGSSEITE_SLUG, ".html"))
+  expect_true(file.exists(pfad))
+
+  html <- paste(readLines(pfad, warn = FALSE), collapse = "\n")
+  expect_match(html, "Aufstieg in die 3. Liga", fixed = TRUE)
+  expect_match(html, 'aria-current="page"', fixed = TRUE)
+})
+
+test_that("die Siegquote bleibt leer, wo es keine Meisterchance gibt", {
+  # FESTGELEGT: leer, nicht 0 und nicht NaN. Eine 0 waere eine Aussage
+  # ueber die Spielstaerke, die aus den Daten nicht folgt -- das Team
+  # erreicht das Aufstiegsspiel ja gar nicht. NaN waere ein sichtbarer
+  # Rechenfehler auf einer veroeffentlichten Seite.
+  gen <- source_generator()
+
+  # 0/0 muss zur leeren Zelle werden, jeder definierte Wert bleibt.
+  expect_identical(gen$.siegquote(0, 0), "")
+  expect_identical(gen$.siegquote(0.2, 0.4), gen$prozent(0.5))
+
+  # Auch der Grenzfall "Aufstieg > 0, Meister = 0" darf nicht durchrutschen
+  # -- er ist rechnerisch unmoeglich und deshalb ein Fehler in den Daten,
+  # keine Unendlichkeit auf der Seite.
+  expect_identical(gen$.siegquote(0.1, 0), "")
+})
+
+test_that("die gerenderte Seite laesst die Zelle ohne Meisterchance leer", {
+  # Ende zu Ende: Weder "0" noch "NaN" noch "Inf" darf im HTML stehen.
+  gen <- source_generator()
+  out <- withr::local_tempdir()
+
+  gen$generate_static_site(
+    output_dir = out,
+    now = as.POSIXct("2026-09-07 12:00", tz = "Europe/Berlin"),
+    ergebnisse = alle_ergebnisse()
+  )
+
+  html <- paste(readLines(file.path(out, paste0(AUFSTIEGSSEITE_SLUG, ".html")),
+                          warn = FALSE), collapse = "\n")
+
+  expect_no_match(html, "NaN", fixed = TRUE)
+  expect_no_match(html, "Inf", fixed = TRUE)
+  # Eine leere Zelle, nicht eine mit Inhalt.
+  expect_match(html, "<td></td>", fixed = TRUE)
+})

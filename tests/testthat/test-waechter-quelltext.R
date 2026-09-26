@@ -336,3 +336,23 @@ test_that("der einzige Heimvorteil in R ist der der Kalibrierung, und er ist 40"
   expect_true(exists("HOME_ADVANTAGE_MODEL"))
   expect_equal(HOME_ADVANTAGE_MODEL, 40)
 })
+
+# --- aus test-phase5-regionalligen.R ---
+test_that("die Aufstiegsseite verdrahtet keine Staffelnamen im Renderer", {
+  # Maschineller Schutz gegen die Falle: Stuende "Bayern" oder "Nord" als
+  # Playoff-Paarung im Seitengenerator, waere die Seite ab 2027/28 lautlos
+  # falsch. Die Namen duerfen dort nur als Anzeigetext vorkommen, nicht als
+  # Bedingung.
+  #
+  # Geprueft wird der Code OHNE Kommentare -- ein Staffelname im Kommentar
+  # ist eine Erklaerung, keine Verdrahtung.
+  # Seit #211 liegen die Sektionsrenderer in render_sections.R -- beide lesen.
+  code <- unlist(lapply(c("generate_static_site.R", "render_sections.R"), function(datei)
+    readLines(test_path("..", "..", "RCode", datei))))
+  code <- sub("#.*$", "", code)
+
+  for (muster in c('"Bayern"\\s*(==|%in%)', '(==|%in%)\\s*c?\\(?"Bayern"',
+                   '"Nord"\\s*(==|%in%)', '(==|%in%)\\s*c?\\(?"Nord"')) {
+    expect_false(any(grepl(muster, code)), info = muster)
+  }
+})

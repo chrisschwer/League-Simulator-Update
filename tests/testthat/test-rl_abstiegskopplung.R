@@ -871,3 +871,288 @@ test_that("Nords Meisteraufstieg senkt auch die PLATZ-Wahrscheinlichkeiten", {
   expect_true(all(mit <= ohne + 1e-12))
   expect_true(any(mit < ohne - 1e-12))
 })
+
+# --- aus test-phase5-regionalligen.R ---
+source_views <- function() {
+  env <- new.env()
+  source(test_path("..", "..", "RCode", "league_views.R"), local = env)
+  env
+}
+
+# Gleichverteilte Prognose: jeder Platz traegt 1/n. Damit sind die
+# erwarteten Prozentwerte der Panels exakt bekannt.
+mk_ergebnis <- function(teams) {
+  m <- matrix(1 / teams, nrow = teams, ncol = teams,
+              dimnames = list(paste0("T", seq_len(teams)),
+                              as.character(seq_len(teams))))
+  as.table(m)
+}
+
+# Die fuenf RL in Registry-Reihenfolge. Sie ist Vertrag (Fetch-Reihenfolge
+# und Navigation), deshalb hier einmal ausgeschrieben.
+RL_SCHLUESSEL <- c("rl_nord", "rl_nordost", "rl_west", "rl_suedwest",
+                   "rl_bayern")
+
+test_that("die Abstiegsspalten heissen wie die Spalten von rl_abstiegsprognose", {
+  # Der Vertrag zwischen Phase 6 und der View: rl_abstiegsprognose()
+  # liefert einen data.frame mit rownames = Teams und genau diesen
+  # Spalten. Laufen die Namen auseinander, faellt die Spalte beim Rendern
+  # aus -- oder es steht die falsche unter der falschen Ueberschrift.
+  views <- source_views()$league_views()
+
+  rl <- new.env()
+  source(test_path("..", "..", "RCode", "staffel_zuordnung.R"), local = rl)
+  source(test_path("..", "..", "RCode", "rl_abstiegskopplung.R"), local = rl)
+
+  # Zaehlmatrix der 3. Liga: alle vier Absteiger sicher nach Nord.
+  counts <- matrix(0, nrow = 5, ncol = 5,
+                   dimnames = list(rl$STAFFELN, as.character(0:4)))
+  counts["Nord", "4"] <- 1000
+  for (s in c("Nordost", "West", "SuedWest", "Bayern")) {
+    counts[s, "0"] <- 1000
+  }
+
+  staffel_von <- c(rl_nord = "Nord", rl_nordost = "Nordost",
+                   rl_west = "West", rl_suedwest = "SuedWest",
+                   rl_bayern = "Bayern")
+
+  for (key in RL_SCHLUESSEL) {
+    df <- rl$rl_abstiegsprognose(staffel_von[[key]], mk_ergebnis(18), counts)
+    expect_identical(colnames(df), views[[key]]$bottom$labels, info = key)
+  }
+})
+
+test_that("die Abstiegsgrenze von Nord verschiebt sich mit der 3. Liga", {
+  # Das positive Gegenstueck zum Verbot der festen Platzgruppe: Es reicht
+  # nicht, dass die View keine Grenze BEHAUPTET -- die zugrunde liegende
+  # Zahl muss sich mit der 3. Liga auch wirklich bewegen. Sonst waere
+  # `computed = TRUE` nur eine andere Schreibweise fuer dieselbe Konstante.
+  rl <- new.env()
+  source(test_path("..", "..", "RCode", "staffel_zuordnung.R"), local = rl)
+  source(test_path("..", "..", "RCode", "rl_abstiegskopplung.R"), local = rl)
+
+  bauen <- function(k_nord) {
+    m <- matrix(0, nrow = 5, ncol = 5,
+                dimnames = list(rl$STAFFELN, as.character(0:4)))
+    m["Nord", as.character(k_nord)] <- 1000
+    # Die restlichen Absteiger muessen irgendwo hin -- die Summe der
+    # Erwartungswerte ueber alle Staffeln ist exakt 4.
+    m["West", as.character(4 - k_nord)] <- 1000
+    for (s in c("Nordost", "SuedWest", "Bayern")) m[s, "0"] <- 1000
+    m
+  }
+
+  # 18 Teams, gleichverteilt: jeder Platz 1/18. Bei d Abstiegsplaetzen
+  # traegt jedes Team d/18.
+  ohne <- rl$rl_abstiegsprognose("Nord", mk_ergebnis(18), bauen(0))
+  mit  <- rl$rl_abstiegsprognose("Nord", mk_ergebnis(18), bauen(2))
+
+  expect_equal(unname(ohne$Abstieg[[1]]), 3 / 18)   # Basis 3
+  expect_equal(unname(mit$Abstieg[[1]]), 5 / 18)    # 3 + 2
+  expect_gt(mit$Abstieg[[1]], ohne$Abstieg[[1]])
+})
+
+test_that("West bleibt bei jeder Auszaehlung der 3. Liga bei vier Absteigern", {
+  # ACHTUNG, die haeufigste Fehlannahme in diesem Modell: Der
+  # Registry-Kommentar bei rl_west spricht von "gegenlaeufig", die
+  # Implementierung (abstiegsplaetze) und test-rl-abstiegskopplung.R:389
+  # setzen dagegen FESTE 4. Massgeblich ist die Implementierung -- die
+  # Verminderungsgruende des WDFV haengen an den Oberligen und an der
+  # Lizenzierung, nicht an der 3. Liga (Modellannahmen 2 und 5.3).
+  #
+  # Der Test haelt genau das fest, damit die Seite nicht eines Tages einen
+  # Abstieg zeigt, der mit k schrumpft.
+  rl <- new.env()
+  source(test_path("..", "..", "RCode", "staffel_zuordnung.R"), local = rl)
+  source(test_path("..", "..", "RCode", "rl_abstiegskopplung.R"), local = rl)
+
+  bauen <- function(k_west) {
+    m <- matrix(0, nrow = 5, ncol = 5,
+                dimnames = list(rl$STAFFELN, as.character(0:4)))
+    m["West", as.character(k_west)] <- 1000
+    m["Nord", as.character(4 - k_west)] <- 1000
+    for (s in c("Nordost", "SuedWest", "Bayern")) m[s, "0"] <- 1000
+    m
+  }
+
+  for (k in 0:4) {
+    df <- rl$rl_abstiegsprognose("West", mk_ergebnis(18), bauen(k))
+    # 4 von 18 Plaetzen, gleichverteilt.
+    expect_equal(unname(df$Abstieg[[1]]), 4 / 18, tolerance = 1e-12,
+                 info = paste("k =", k))
+  }
+})
+
+test_that("Nordost kann rechnerisch nie mehr als zwei Absteiger haben", {
+  # Der Deckel bei 2 (Modellannahmen 5.1). Ein Team, das sicher Dritter von
+  # unten wird, hat deshalb EXAKT 0 Abstiegswahrscheinlichkeit -- nicht
+  # 1e-17. Wo rechnerisch nichts moeglich ist, muss die Zelle leer bleiben
+  # und nicht "<1" zeigen.
+  rl <- new.env()
+  source(test_path("..", "..", "RCode", "staffel_zuordnung.R"), local = rl)
+  source(test_path("..", "..", "RCode", "rl_abstiegskopplung.R"), local = rl)
+
+  m <- matrix(0, nrow = 5, ncol = 5,
+              dimnames = list(rl$STAFFELN, as.character(0:4)))
+  m["Nordost", "2"] <- 1000     # zwei Drittliga-Absteiger, Deckel greift
+  m["Nord", "2"] <- 1000
+  for (s in c("West", "SuedWest", "Bayern")) m[s, "0"] <- 1000
+
+  # T1 wird sicher Drittletzter (Platz 16 von 18), T2 sicher Letzter.
+  prognose <- matrix(0, nrow = 18, ncol = 18,
+                     dimnames = list(paste0("T", 1:18), as.character(1:18)))
+  prognose[1, 16] <- 1
+  prognose[2, 18] <- 1
+  for (i in 3:18) prognose[i, if (i <= 15) i else i - 1] <- 1
+
+  df <- rl$rl_abstiegsprognose("Nordost", prognose, m)
+  expect_identical(df["T1", "Abstieg"], 0)
+  expect_identical(df["T2", "Abstieg"], 1)
+})
+
+# --- 2c. Die beiden Pflicht-Invarianten -------------------------------------
+
+test_that("die Summe der Abstiegswahrscheinlichkeiten ist E[Absteigerzahl]", {
+  # PFLICHTTEST (Vorgabe des Nutzers). Jede Platzspalte der Prognose
+  # summiert ueber die Teams auf 1, also ist die Teamsumme der
+  # Abstiegswahrscheinlichkeiten gleich der Summe der Platzgewichte -- und
+  # die ist genau der Erwartungswert der Absteigerzahl.
+  #
+  # Enge Toleranz mit Absicht: Eine Gewichtung, die Wahrscheinlichkeitsmasse
+  # verliert (etwa durch einen abgeschnittenen Deckel oder einen
+  # Off-by-one bei der Platzaufloesung), faellt bei 0.01 nicht auf.
+  rl <- new.env()
+  source(test_path("..", "..", "RCode", "staffel_zuordnung.R"), local = rl)
+  source(test_path("..", "..", "RCode", "rl_abstiegskopplung.R"), local = rl)
+
+  # Eine gemischte Zaehlung: Nord bekommt in 90 % der Iterationen einen
+  # Drittliga-Absteiger, sonst keinen. E[k_Nord] = 0.9.
+  m <- matrix(0, nrow = 5, ncol = 5,
+              dimnames = list(rl$STAFFELN, as.character(0:4)))
+  m["Nord", "0"] <- 1000
+  m["Nord", "1"] <- 9000
+  m["West", "1"] <- 10000
+  m["Nordost", "1"] <- 10000
+  m["SuedWest", "1"] <- 10000
+  # Die Summe der Erwartungswerte ueber alle Staffeln muss exakt 4 sein:
+  # 0.9 + 1 + 1 + 1 = 3.9, Bayern traegt die fehlenden 0.1.
+  m["Bayern", "0"] <- 9000
+  m["Bayern", "1"] <- 1000
+
+  verteilung <- rl$absteiger_verteilung(m)
+  ks <- as.numeric(colnames(verteilung))
+
+  staffel_von <- c(rl_nord = "Nord", rl_nordost = "Nordost",
+                   rl_west = "West", rl_suedwest = "SuedWest",
+                   rl_bayern = "Bayern")
+
+  for (key in names(staffel_von)) {
+    staffel <- staffel_von[[key]]
+    teams <- if (identical(staffel, "Bayern")) 19L else 18L
+
+    # E[Absteigerzahl] = SUMME ueber k von P(k) * abstiegsplaetze(k).
+    erwartet <- sum(verteilung[staffel, ] * rl$abstiegsplaetze(staffel, ks))
+
+    df <- rl$rl_abstiegsprognose(staffel, mk_ergebnis(teams), m)
+    expect_equal(sum(df$Abstieg), erwartet, tolerance = 1e-9, info = staffel)
+  }
+})
+
+test_that("die Invariante haelt auch bei ungleichverteilter Prognose", {
+  # Die Aussage darf nicht an der Gleichverteilung haengen: Sie folgt
+  # allein daraus, dass jede PLATZSPALTE auf 1 summiert. Eine Prognose, in
+  # der jedes Team einen festen Platz belegt, ist der Gegenbeweis gegen
+  # einen Test, der nur mit 1/n zufaellig aufgeht.
+  rl <- new.env()
+  source(test_path("..", "..", "RCode", "staffel_zuordnung.R"), local = rl)
+  source(test_path("..", "..", "RCode", "rl_abstiegskopplung.R"), local = rl)
+
+  m <- matrix(0, nrow = 5, ncol = 5,
+              dimnames = list(rl$STAFFELN, as.character(0:4)))
+  m["SuedWest", "1"] <- 7000
+  m["SuedWest", "2"] <- 3000
+  m["Nord", "1"] <- 10000
+  m["West", "1"] <- 10000
+  # 1.3 + 1 + 1 = 3.3; Nordost traegt 0.7.
+  m["Nordost", "0"] <- 3000
+  m["Nordost", "1"] <- 7000
+  m["Bayern", "0"] <- 10000
+
+  # Permutationsmatrix: Team i belegt sicher Platz i.
+  prognose <- diag(18)
+  dimnames(prognose) <- list(paste0("T", 1:18), as.character(1:18))
+
+  verteilung <- rl$absteiger_verteilung(m)
+  ks <- as.numeric(colnames(verteilung))
+  erwartet <- sum(verteilung["SuedWest", ] * rl$abstiegsplaetze("SuedWest", ks))
+
+  df <- rl$rl_abstiegsprognose("SuedWest", prognose, m)
+  expect_equal(sum(df$Abstieg), erwartet, tolerance = 1e-9)
+  # 3 + k mit P(k=1) = 0.7 und P(k=2) = 0.3: E = 4.3.
+  expect_equal(erwartet, 4.3, tolerance = 1e-12)
+})
+
+test_that("Bayern summiert exakt auf zwei Absteiger und zwei Releganten", {
+  # PFLICHTTEST (Vorgabe des Nutzers). Bayern ist entkoppelt: Die zwei
+  # Letzten steigen direkt ab, die zwei davor gehen in die Relegation. Hier
+  # gibt es keinen Erwartungswert, der schwanken koennte -- beide Summen
+  # sind exakt 2, unabhaengig von der 3. Liga und von der Ligagroesse.
+  #
+  # Die Summen duerfen NICHT verrechnet werden: 2 und 2, nicht 4 in einer
+  # Spalte. Die Relegation wird bewusst nicht aufgeloest (wir simulieren
+  # die Bayernligen nicht).
+  rl <- new.env()
+  source(test_path("..", "..", "RCode", "staffel_zuordnung.R"), local = rl)
+  source(test_path("..", "..", "RCode", "rl_abstiegskopplung.R"), local = rl)
+
+  bauen <- function(k_bayern) {
+    m <- matrix(0, nrow = 5, ncol = 5,
+                dimnames = list(rl$STAFFELN, as.character(0:4)))
+    m["Bayern", as.character(k_bayern)] <- 1000
+    m["Nord", as.character(4 - k_bayern)] <- 1000
+    for (s in c("Nordost", "West", "SuedWest")) m[s, "0"] <- 1000
+    m
+  }
+
+  # 2026/27 spielt Bayern mit 19 Vereinen; 18 muss ebenso tragen.
+  for (teams in c(18L, 19L)) {
+    for (k in 0:4) {
+      df <- rl$rl_abstiegsprognose("Bayern", mk_ergebnis(teams), bauen(k))
+
+      expect_identical(colnames(df), c("Relegation", "Abstieg"))
+      expect_equal(sum(df$Abstieg), 2, tolerance = 1e-9,
+                   info = paste(teams, "Teams, k =", k))
+      expect_equal(sum(df$Relegation), 2, tolerance = 1e-9,
+                   info = paste(teams, "Teams, k =", k))
+    }
+  }
+})
+
+test_that("Bayerns Relegation trifft die zwei Plaetze VOR den Absteigern", {
+  # Relativ gerechnet: n-3 und n-2 (Modellannahmen 5.4). Bei 19 Teams also
+  # die Plaetze 16 und 17, direkt ab Platz 18 der Abstieg. Feste
+  # Platznummern (17/18, aus der Regeldoku) waeren bei 19 Vereinen um eins
+  # verschoben -- und niemand saehe es.
+  rl <- new.env()
+  source(test_path("..", "..", "RCode", "staffel_zuordnung.R"), local = rl)
+  source(test_path("..", "..", "RCode", "rl_abstiegskopplung.R"), local = rl)
+
+  m <- matrix(0, nrow = 5, ncol = 5,
+              dimnames = list(rl$STAFFELN, as.character(0:4)))
+  m["Bayern", "0"] <- 1000
+  m["Nord", "4"] <- 1000
+  for (s in c("Nordost", "West", "SuedWest")) m[s, "0"] <- 1000
+
+  # Team i belegt sicher Platz i, 19 Teams.
+  prognose <- diag(19)
+  dimnames(prognose) <- list(paste0("T", 1:19), as.character(1:19))
+
+  df <- rl$rl_abstiegsprognose("Bayern", prognose, m)
+
+  expect_identical(df[c("T16", "T17"), "Relegation"], c(1, 1))
+  expect_identical(df[c("T18", "T19"), "Abstieg"], c(1, 1))
+  # Und keine Ueberschneidung: Wer absteigt, ist nicht in der Relegation.
+  expect_identical(df[c("T18", "T19"), "Relegation"], c(0, 0))
+  expect_identical(df[c("T16", "T17"), "Abstieg"], c(0, 0))
+  expect_identical(df["T15", "Relegation"], 0)
+})

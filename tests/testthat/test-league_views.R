@@ -171,3 +171,200 @@ test_that("die drei Altligen bleiben unveraendert", {
   expect_equal(views$dritte_liga$top$source, "Ergebnis3_Aufstieg")
   expect_equal(views$dritte_liga$bottom$filter_cols, 17:20)
 })
+
+# --- aus test-phase5-regionalligen.R ---
+source_views <- function() {
+  env <- new.env()
+  source(test_path("..", "..", "RCode", "league_views.R"), local = env)
+  env
+}
+
+# Die fuenf RL in Registry-Reihenfolge. Sie ist Vertrag (Fetch-Reihenfolge
+# und Navigation), deshalb hier einmal ausgeschrieben.
+RL_SCHLUESSEL <- c("rl_nord", "rl_nordost", "rl_west", "rl_suedwest",
+                   "rl_bayern")
+RL_SLUGS <- c("rl-nord", "rl-nordost", "rl-west", "rl-suedwest", "rl-bayern")
+
+# Slug der Seite "Aufstieg in die 3. Liga". Steht hier und nicht erst bei
+# den Aufstiegstests: testthat wertet Top-Level-Code sequenziell aus, und
+# die Navigations- und Seitenzahl-Tests weiter oben brauchen den Wert
+# bereits.
+AUFSTIEGSSEITE_SLUG <- "rl-aufstieg"
+# Nord und Bayern spielen stattdessen zwei Aufstiegsspiele gegeneinander.
+RL_AUFSTIEGSSPIELE <- c("rl_nord", "rl_bayern")
+
+# ===========================================================================
+# 2. league_views: die fuenf neuen Ansichten
+# ===========================================================================
+
+test_that("league_views kennt zehn Ligen in Registry-Reihenfolge", {
+  env <- source_views()
+  views <- env$league_views()
+
+  expect_named(
+    views,
+    c("bundesliga", "zweite_bundesliga", "dritte_liga",
+      "frauen_bundesliga", "zweite_frauen_bundesliga", RL_SCHLUESSEL)
+  )
+})
+
+test_that("die Regionalliga-Slugs und nav_labels sind die der Registry", {
+  views <- source_views()$league_views()
+
+  expect_identical(
+    unname(vapply(views[RL_SCHLUESSEL], function(v) v$slug, character(1))),
+    RL_SLUGS
+  )
+  expect_identical(
+    unname(vapply(views[RL_SCHLUESSEL], function(v) v$nav_label,
+                  character(1))),
+    c("Nord", "Nordost", "West", "SüdWest", "Bayern")
+  )
+})
+
+test_that("jede Regionalliga liest Heatmap und Panels aus eigenen Objekten", {
+  # Der Generator loest ueber diese Namen auf. Zwei Ligen, die versehentlich
+  # dasselbe Objekt lesen, zeigen dieselben Zahlen unter verschiedenen
+  # Ueberschriften -- und nichts schlaegt fehl.
+  views <- source_views()$league_views()
+
+  plot_quellen <- vapply(views[RL_SCHLUESSEL],
+                         function(v) v$plot_source, character(1))
+  expect_identical(
+    unname(plot_quellen),
+    paste0("Ergebnis_", RL_SCHLUESSEL)
+  )
+  expect_identical(length(unique(plot_quellen)), 5L)
+})
+
+test_that("Nord und Bayern zeigen oben Meister UND Aufstieg getrennt", {
+  # 2026/27 haben beide keinen Direktplatz (BFV A&A 2026/27 I. Nr. 1).
+  # Eine einzelne Spalte "Aufstieg" ueber P(Platz 1) waere die Aussage
+  # "Meister = Aufsteiger" -- und die ist fuer diese beiden falsch. Der
+  # Aufstiegswert steht als EXTRA-Wert rechts neben der
+  # Meisterwahrscheinlichkeit.
+  views <- source_views()$league_views()
+
+  for (key in RL_AUFSTIEGSSPIELE) {
+    v <- views[[key]]
+    expect_identical(v$top$labels, c("Meister", "Aufstieg"), info = key)
+  }
+})
+
+test_that("bei Nord und Bayern ist nur die Aufstiegsspalte berechnet", {
+  # Gemischtes Panel: Die Meisterspalte bleibt eine Platzgruppe (Platz 1),
+  # die Aufstiegsspalte kommt aus der Doppelsumme. `computed` traegt
+  # deshalb einen Eintrag je Label -- steht dort ein einzelnes TRUE, waere
+  # auch die Meisterspalte vorberechnet und die Platzgruppe wirkungslos.
+  views <- source_views()$league_views()
+
+  for (key in RL_AUFSTIEGSSPIELE) {
+    v <- views[[key]]
+    expect_identical(v$top$computed, c(FALSE, TRUE), info = key)
+    # Die berechnete Spalte kommt aus einem EIGENEN Objekt, nicht aus der
+    # Prognosematrix -- sonst waere es wieder nur eine Platzsumme.
+    expect_false(identical(v$top$computed_source, v$plot_source), info = key)
+    expect_true(is.character(v$top$computed_source), info = key)
+  }
+})
+
+# --- 2b. Unten: variable Abstiegsgrenzen ------------------------------------
+
+test_that("keine Regionalliga stellt den Abstieg als feste Platzgruppe dar", {
+  # DER FACHLICHE KERN, aber nicht fuer alle fuenf aus demselben Grund.
+  #
+  # DREI Staffeln haben eine variable Zahl von Abstiegsplaetzen, abhaengig
+  # davon, wie viele Drittligisten in die Staffel fallen:
+  #   Nord     3-7  (3 + k, dazu 2 statt 3 als Basis, wenn der eigene
+  #                  Meister aufsteigt -- die einzige Staffel mit beiden
+  #                  Kopplungen)
+  #   Nordost  1-2  (1 + k, Schema bis 2)
+  #   SuedWest 3-5  (3 + k, Deckel 5)
+  # Eine `groups`-Matrix koennte dort nur EINE Zahl behaupten und waere
+  # fuer jede andere Auszaehlung falsch, ohne dass etwas fehlschlaegt.
+  #
+  # WEST und BAYERN sind dagegen KONSTANT (4 bzw. 2) -- sie koppeln nicht
+  # an die 3. Liga. Sie stehen aus anderen Gruenden in dieser Gruppe:
+  #
+  #   West:   Die Zahl ist fest, die Ligagroesse aber nicht (teams_range
+  #           16-22). "Die letzten vier" liesse sich nur als NEGATIVE
+  #           Grenze c(-4, -1) schreiben -- und genau dort hat dieses
+  #           Projekt schon zweimal falsch gerechnet, weil R negative
+  #           Indizes als AUSSCHLUSS liest. Die berechnete Spalte loest
+  #           die Plaetze gegen die tatsaechliche Teamzahl auf.
+  #   Bayern: weist unten ZWEI Groessen aus (Relegation und Abstieg), von
+  #           denen die Relegation bewusst nicht aufgeloest wird --
+  #           ebenfalls keine reine Platzsumme.
+  #
+  # Hier stand zuvor "vier der fuenf ... (3-5 / 1-2 / 3-7 / 4-0)". Das
+  # "4-0" beschrieb die gegenlaeufige West-Kopplung, die in babc828
+  # verworfen wurde.
+  views <- source_views()$league_views()
+
+  for (key in RL_SCHLUESSEL) {
+    v <- views[[key]]
+    expect_true(isTRUE(v$bottom$computed), info = key)
+    expect_null(v$bottom$groups, info = key)
+    expect_null(v$bottom$filter_cols, info = key)
+  }
+})
+
+test_that("die Altligen und Frauen-Ligen behalten ihre Platzgruppen", {
+  # Gegenprobe: `computed` ist eine Ausnahme fuer die RL, keine stille
+  # Verhaltensaenderung der uebrigen fuenf Ligen.
+  views <- source_views()$league_views()
+  alt <- c("bundesliga", "zweite_bundesliga", "dritte_liga",
+           "frauen_bundesliga", "zweite_frauen_bundesliga")
+
+  for (key in alt) {
+    v <- views[[key]]
+    for (panel in c("top", "bottom")) {
+      expect_false(isTRUE(v[[panel]]$computed),
+                   info = paste(key, panel))
+      expect_false(is.null(v[[panel]]$groups), info = paste(key, panel))
+    }
+  }
+})
+
+test_that("vier Staffeln weisen unten nur den Abstieg aus", {
+  views <- source_views()$league_views()
+
+  for (key in setdiff(RL_SCHLUESSEL, "rl_bayern")) {
+    expect_identical(views[[key]]$bottom$labels, "Abstieg", info = key)
+  }
+})
+
+test_that("Bayern weist unten zwei getrennte Baender aus", {
+  # "Fuer die Regionalliga Bayern gibt es nach unten nur die
+  # Wahrscheinlichkeiten fuer Relegation und direkten Abstieg."
+  # (Entscheidung Christoph, 2026-09-06, Modellannahmen 3.)
+  #
+  # Die Relegation wird NICHT in eine Abstiegswahrscheinlichkeit
+  # aufgeloest: Wir simulieren die Bayernligen nicht, jede Gewinnquote
+  # waere erfunden. Deshalb zwei Spalten, nicht eine Summe.
+  views <- source_views()$league_views()
+  v <- views$rl_bayern
+
+  expect_identical(v$bottom$labels, c("Relegation", "Abstieg"))
+})
+
+# --- Die vier Spalten -------------------------------------------------------
+
+test_that("die Aufstiegstabelle traegt genau vier Spalten", {
+  # Team, P(Meister), P(Aufstieg), Siegquote. Nicht mehr -- die
+  # Paarungsmatrix ist bewusst nicht Teil dieser Seite.
+  views <- source_views()$league_views()
+  v <- views[[AUFSTIEGSSEITE_SLUG]]
+
+  expect_identical(v$columns, c("Meister", "Aufstieg", "Siegquote"))
+})
+
+test_that("die Aufstiegsseite deckt alle fuenf Staffeln ab", {
+  # Auch die drei Direktaufsteiger stehen dort -- die Seite zeigt den
+  # ganzen Weg in die 3. Liga, nicht nur die Aufstiegsspiele.
+  views <- source_views()$league_views()
+  v <- views[[AUFSTIEGSSEITE_SLUG]]
+
+  expect_identical(v$staffeln, c("Nord", "Nordost", "West", "SuedWest",
+                                 "Bayern"))
+})
