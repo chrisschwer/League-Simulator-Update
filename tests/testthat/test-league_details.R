@@ -879,3 +879,175 @@ test_that("extract_fixture_details verhält sich bei Bundesliga unverändert", {
   expect_equal(nrow(details), 2)
   expect_equal(details$round, c(12L, 13L))
 })
+
+# --- aus test-elo-walk-reihenfolge.R ---
+# Issue #146, Teil 1: Der ELO-Walk muss die Spiele in der Reihenfolge sehen,
+# in der sie STATTGEFUNDEN haben -- nicht in der, in der api-football sie
+# ausliefert.
+#
+# WARUM DAS UEBERHAUPT EIN PROBLEM IST: Der Rust-Walk verarbeitet den
+# Spielplan in Listenreihenfolge. Solange die API nach Spieltag sortiert
+# liefert, faellt das nicht auf. Bei einem NACHHOLSPIEL faellt es auf: Ein
+# verlegtes Spiel des 5. Spieltags, tatsaechlich ausgetragen zwischen dem
+# 13. und dem 14., wandert in der Liste an den Platz des 5. Spieltags. Der
+# Walk verrechnet es dort -- mit ELO-Staenden, die zum Zeitpunkt des Spiels
+# noch gar nicht galten -- und schreibt die Runden 6 bis 13 anschliessend mit
+# leicht falschen Werten fort.
+#
+# Der R-Walk (elo_aggregation.R:96) sortiert laengst chronologisch. Nur die
+# beiden Payload-Bauer tun es nicht. Entscheidung aus dem Design vom
+# 12.09.2026: R sortiert, Rust bleibt unveraendert -- kein neues Payload-Feld,
+# keine Schnittstellenaenderung. Die Anstosszeit liegt R ohnehin vor.
+#
+# SORTIERSCHLUESSEL: Anstosszeit aufsteigend, bei Gleichstand die bestehende
+# OriginalOrder (die API-Reihenfolge). Bei identischer Anstosszeit spielen
+# verschiedene Teams; fuers ELO-Ergebnis ist die Reihenfolge dort gleichgueltig
+# -- sie muss nur DETERMINISTISCH sein, damit sich Prognosen nicht zwischen
+# zwei Laeufen ueber dieselbe Eingabe bewegen.
+#
+# DIE STELLE, AN DER ES STILL SCHIEFGEHT -- und der eigentliche Grund fuer
+# diese Datei:
+#
+# transform_data() haengt an den zurueckgegebenen data.frame ein Attribut
+# `elo_neutral` (transform_data.R:298). Dieser logische Vektor reist
+# ZEILENGLEICH mit; rust_integration.R:237 liest ihn und reicht ihn an die
+# Engine (Issue #157: am gruenen Tisch gewertete Spiele -- AWD, WO -- zaehlen
+# fuer die Endtabelle, duerfen die Staerkeschaetzung aber nicht bewegen).
+#
+# Das Attribut ist an nichts gekoppelt ausser an die Zeilenposition. Wer die
+# Zeilen umsortiert und den Vektor stehen laesst, laesst den ELO-Walk die
+# FALSCHEN Spiele ueberspringen: ein regulaer gespieltes Spiel faellt aus der
+# Staerkeschaetzung, ein gewertetes geht hinein. Ohne Fehlermeldung, ohne
+# Warnung, ohne dass irgendeine Spaltenpruefung anschlaegt. Der Test
+# "elo_neutral wandert mit" unten ist die einzige Stelle, die das faengt.
+
+
+# --- Fixture-Bau --------------------------------------------------------------
+#
+# Bewusst im GENESTETEN Format (List-Columns einzeiliger data.frames), weil
+# beide Produktivfunktionen dieses Format ausdruecklich unterstuetzen und die
+# bestehenden Tests es durchgaengig benutzen (siehe helper-fixtures.R:
+# create_test_fixtures_api). Kein neues Fixture-Muster erfinden.
+#
+# Gegenueber create_test_fixtures_api() kommen zwei Felder dazu, die es dort
+# nicht braucht, hier aber den ganzen Testgegenstand ausmachen: `date` (der
+# Sortierschluessel) und `league$round` (damit der Rundenfilter greift und
+# extract_fixture_details() die Runde ableiten kann).
+
+# Ein Spiel als Liste der vier List-Column-Bausteine.
+ewr_spiel <- function(fixture_id, datum, status, heim_id, gast_id,
+                      tore_heim = NA_real_, tore_gast = NA_real_,
+                      runde = 1L) {
+  list(
+    teams = data.frame(
+      home = I(list(data.frame(id = heim_id, name = paste("Team", heim_id)))),
+      away = I(list(data.frame(id = gast_id, name = paste("Team", gast_id))))
+    ),
+    goals = data.frame(home = tore_heim, away = tore_gast),
+    fixture = data.frame(
+      id = fixture_id,
+      date = datum,
+      status = I(list(data.frame(short = status)))
+    ),
+    league = data.frame(round = paste("Regular Season -", runde))
+  )
+}
+
+# Aus mehreren ewr_spiel()-Ergebnissen den fixtures-Tibble bauen, wie ihn
+# retrieveResults() liefert.
+ewr_fixtures <- function(...) {
+  spiele <- list(...)
+  tibble::tibble(
+    teams   = lapply(spiele, `[[`, "teams"),
+    goals   = lapply(spiele, `[[`, "goals"),
+    fixture = lapply(spiele, `[[`, "fixture"),
+    league  = lapply(spiele, `[[`, "league")
+  )
+}
+
+# Vier Teams, Kurznamen wie in helper-fixtures.R.
+ewr_teams <- function() {
+  data.frame(
+    TeamID = c(101, 102, 103, 104),
+    ShortText = c("TEA", "TEB", "TEC", "TED"),
+    InitialELO = c(1500, 1450, 1550, 1400),
+    stringsAsFactors = FALSE
+  )
+}
+
+
+# --- extract_fixture_details(): der Payload-Pfad ------------------------------
+#
+# Zweiter betroffener Pfad. Hier ist die Lage tueckischer als bei
+# transform_data(): league_details.R sortiert durchaus nach kickoff -- aber
+# nur in rueckblick_matches(), ausblick_matches() und live_matches(), also
+# fuer die ANZEIGE. build_league_details_payload() bekommt das ungefilterte,
+# unsortierte `details` und baut daraus den schedule, den der ELO-Walk von
+# /league-details abarbeitet. Die Anzeige ist chronologisch, der Walk ist es
+# nicht.
+
+test_that("extract_fixture_details liefert die Spiele chronologisch", {
+  # Dieselbe Nachholspiel-Konstellation wie oben, jetzt auf dem
+  # league-details-Pfad.
+  fixtures <- ewr_fixtures(
+    ewr_spiel(1001, "2026-08-10T18:30:00+00:00", "FT", 101, 102, 2, 1, runde = 1),
+    ewr_spiel(1002, "2026-09-30T18:30:00+00:00", "FT", 103, 104, 0, 3, runde = 2),
+    ewr_spiel(1003, "2026-08-24T18:30:00+00:00", "FT", 101, 103, 1, 1, runde = 3)
+  )
+
+  details <- extract_fixture_details(fixtures)
+
+  expect_equal(details$fixture_id, c(1001, 1003, 1002))
+  expect_false(is.unsorted(details$kickoff))
+  # Runde und Tore muessen mit ihrer Zeile gewandert sein.
+  expect_equal(details$round, c(1L, 3L, 2L))
+  expect_equal(details$goals_home, c(2, 1, 0))
+})
+
+test_that("extract_fixture_details entscheidet bei gleicher Anstosszeit nach Eingabereihenfolge", {
+  # Tiebreak wie bei transform_data(): dieselbe Anstosszeit, die
+  # API-Reihenfolge bleibt. Das spaetere Spiel an Position 1 sorgt dafuer,
+  # dass die Sortierung ueberhaupt etwas zu tun hat.
+  fixtures <- ewr_fixtures(
+    ewr_spiel(1001, "2026-09-12T18:30:00+00:00", "NS", 101, 104, runde = 3),
+    ewr_spiel(1002, "2026-08-10T15:30:00+00:00", "FT", 103, 102, 1, 0, runde = 1),
+    ewr_spiel(1003, "2026-08-10T15:30:00+00:00", "FT", 101, 102, 2, 2, runde = 1)
+  )
+
+  details <- extract_fixture_details(fixtures)
+
+  expect_equal(details$fixture_id, c(1002, 1003, 1001))
+})
+
+test_that("der an Rust gehende league-details-Payload ist chronologisch", {
+  # Die eigentliche Zusicherung: nicht die Anzeige, sondern der schedule,
+  # den build_league_details_payload() an /league-details schickt.
+  #
+  # Gepruefte Konstellation: Das Spiel an API-Position 2 (30.09.) ist das
+  # letzte im Kalender und muss im schedule hinten stehen. Die Eintraege sind
+  # list(heim_idx, gast_idx, tore_h, tore_g) mit 1-basierten Indizes in
+  # teams$TeamID.
+  fixtures <- ewr_fixtures(
+    ewr_spiel(1001, "2026-08-10T18:30:00+00:00", "FT", 101, 102, 2, 1, runde = 1),
+    ewr_spiel(1002, "2026-09-30T18:30:00+00:00", "FT", 103, 104, 0, 3, runde = 2),
+    ewr_spiel(1003, "2026-08-24T18:30:00+00:00", "FT", 101, 103, 1, 1, runde = 3)
+  )
+  teams <- ewr_teams()
+
+  details <- extract_fixture_details(fixtures)
+  payload <- build_league_details_payload(details, teams)
+
+  heim_idx <- vapply(payload$schedule, function(e) e[[1]], numeric(1))
+  gast_idx <- vapply(payload$schedule, function(e) e[[2]], numeric(1))
+
+  # 101->1, 102->2, 103->3, 104->4
+  expect_equal(heim_idx, c(1, 1, 3))
+  expect_equal(gast_idx, c(2, 3, 4))
+
+  # Die Tore muessen ebenfalls zeilengleich mitgewandert sein -- sonst
+  # rechnete der Walk das richtige Spiel mit dem falschen Ergebnis.
+  tore_heim <- vapply(payload$schedule, function(e) e[[3]], numeric(1))
+  tore_gast <- vapply(payload$schedule, function(e) e[[4]], numeric(1))
+  expect_equal(tore_heim, c(2, 1, 0))
+  expect_equal(tore_gast, c(1, 1, 3))
+})
