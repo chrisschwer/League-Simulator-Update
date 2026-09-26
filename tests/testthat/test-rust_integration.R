@@ -13,61 +13,6 @@
 
 library(testthat)
 
-# --- Server-Helfer, dupliziert aus test-rust-required.R -----------------
-#
-# test_dir() laedt jede test-*.R-Datei in einer eigenen Umgebung; die dortigen
-# start_rust_server()/stop_rust_server() sind hier nicht sichtbar. Die
-# Duplikation ist das etablierte Muster in dieser Suite (with_repo_root()
-# steht ebenso in fuenf weiteren Dateien).
-
-rust_binary <- function() {
-  kandidaten <- c(
-    file.path("..", "..", "league-simulator-rust", "target", "release", "league-simulator-rust"),
-    "/usr/local/bin/league-simulator-rust"
-  )
-  for (bin in kandidaten) {
-    if (file.exists(bin)) {
-      return(normalizePath(bin))
-    }
-  }
-  skip(sprintf("Rust binary not found in any of: %s; run `cargo build --release` in league-simulator-rust/",
-               paste(kandidaten, collapse = ", ")))
-}
-
-start_rust_server <- function(port = 18081L) {
-  bin <- rust_binary()
-  log <- tempfile(fileext = ".log")
-  old_port <- Sys.getenv("PORT", unset = NA)
-  Sys.setenv(PORT = as.character(port))
-  pid <- sys::exec_background(bin, args = "--api", std_out = log, std_err = log)
-  if (is.na(old_port)) Sys.unsetenv("PORT") else Sys.setenv(PORT = old_port)
-  prior_rust_api_url <- Sys.getenv("RUST_API_URL", unset = NA)
-  Sys.setenv(RUST_API_URL = sprintf("http://localhost:%d", port))
-  ok <- FALSE
-  for (i in 1:50) {
-    Sys.sleep(0.2)
-    res <- tryCatch(httr::GET(paste0(Sys.getenv("RUST_API_URL"), "/health"),
-                              httr::timeout(0.5)),
-                    error = function(e) NULL)
-    if (!is.null(res) && httr::status_code(res) == 200) { ok <- TRUE; break }
-  }
-  list(pid = pid, log = log, ok = ok, port = port,
-       prior_rust_api_url = prior_rust_api_url)
-}
-
-stop_rust_server <- function(handle) {
-  if (!is.null(handle$pid)) {
-    try(tools::pskill(handle$pid), silent = TRUE)
-  }
-  if (!is.null(handle$prior_rust_api_url)) {
-    if (is.na(handle$prior_rust_api_url)) {
-      Sys.unsetenv("RUST_API_URL")
-    } else {
-      Sys.setenv(RUST_API_URL = handle$prior_rust_api_url)
-    }
-  }
-}
-
 # --- Fixture: 4-Team-Liga, kein Spiel gespielt, verschiedene ELOs --------
 #
 # Verschiedene ELOs (nicht alle 1500 wie make_test_teams()), damit ein
@@ -89,7 +34,7 @@ test_that("tore_slope = tore_intercept = 0 ergibt (fast) nur 0:0 -- ueber den ec
   skip_if_not_installed("httr")
   skip_if_not_installed("jsonlite")
 
-  handle <- start_rust_server()
+  handle <- start_rust_server(18081L) # eigener Port neben test-update_all_leagues_loop-rust.R
   on.exit(stop_rust_server(handle), add = TRUE)
   if (!handle$ok) {
     skip(sprintf("Rust server failed to come up on port %d; log: %s",

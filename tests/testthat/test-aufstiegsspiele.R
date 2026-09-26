@@ -985,9 +985,7 @@ test_that("Anbindung: gleiche Staerke ueberall -> die Doppelsumme halbiert die M
 # test-staffel-zuordnung.R.
 
 test_that("Integration: match_preview_rust liefert die Raten des Rust-Tormodells", {
-  skip_if_not(nzchar(Sys.getenv("RUST_API_URL", "http://localhost:8080")))
-  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele", "rust_integration")
-  skip_if_not(env$connect_rust_simulator(), "Rust-Server nicht erreichbar")
+  env <- skip_if_no_rust(source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele", "rust_integration"))
   f <- fn(env, "match_preview_rust")
 
   # 1500 gegen 1400, Server-Defaults (Heimvorteil 40, Herren-Tormodell):
@@ -1009,9 +1007,7 @@ test_that("Integration: match_preview_rust liefert die Raten des Rust-Tormodells
 })
 
 test_that("Integration: zweikampf_paarungen_rust liefert das paarungen-data.frame", {
-  skip_if_not(nzchar(Sys.getenv("RUST_API_URL", "http://localhost:8080")))
-  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele", "rust_integration")
-  skip_if_not(env$connect_rust_simulator(), "Rust-Server nicht erreichbar")
+  env <- skip_if_no_rust(source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele", "rust_integration"))
   f <- fn(env, "zweikampf_paarungen_rust")
 
   pa <- f(elos_2026$Nord, elos_2026$Bayern)
@@ -1037,9 +1033,7 @@ test_that("Integration: zweikampf_paarungen_rust liefert das paarungen-data.fram
 })
 
 test_that("Integration: die ganze Kette -- Rust-Raten -> p_sieg_matrix -> rl_aufstiegsprognose", {
-  skip_if_not(nzchar(Sys.getenv("RUST_API_URL", "http://localhost:8080")))
-  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele", "rust_integration")
-  skip_if_not(env$connect_rust_simulator(), "Rust-Server nicht erreichbar")
+  env <- skip_if_no_rust(source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele", "rust_integration"))
 
   pa <- fn(env, "zweikampf_paarungen_rust")(elos_2026$Nord, elos_2026$Bayern)
   M <- fn(env, "p_sieg_matrix")(pa)

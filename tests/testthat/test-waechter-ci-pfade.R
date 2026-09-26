@@ -86,7 +86,8 @@ test_that("rust_binary findet das Binary auch am Ort des Produktionsimages", {
   # faellt nicht auf: Ein Skip ist gruen. Genau deshalb steht hier ein Test --
   # er prueft die SUCHE, nicht den Fund, und bleibt damit auf jeder Maschine
   # aussagekraeftig, auch ohne gebautes Binary.
-  quelle <- readLines(test_path("test-update_all_leagues_loop-rust.R"), warn = FALSE)
+  # rust_binary() steht seit Stufe 3.6 in helper-rust.R.
+  quelle <- readLines(test_path("helper-rust.R"), warn = FALSE)
   code <- paste(quelle, collapse = "\n")
 
   expect_match(code, "/usr/local/bin/league-simulator-rust", fixed = TRUE,
