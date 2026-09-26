@@ -173,3 +173,166 @@ test_that("das Stylesheet kennt Kuerzel und Tipp-Label", {
   expect_match(css, "abbr.kz", fixed = TRUE)
   expect_match(css, ".kz-tip", fixed = TRUE)
 })
+
+# --- aus test-ein-elo-walk.R ---
+# Issue #146, Teil 2: EIN ELO-Walk statt zweier.
+#
+# WORUM ES GEHT. Das Projekt rechnet ELO an zwei Stellen -- und zwar mit
+# verschiedenen Heimvorteilen:
+#
+#   Prognose   (Rust, /simulate und /league-details)  home_advantage = 40
+#   Saisonwechsel (R, calculate_elo_update)           home_advantage = 100
+#
+# Nachgeprueft im Design vom 12.09.2026: Die beiden Formeln sind sonst
+# MATHEMATISCH IDENTISCH -- dieselbe Clamp auf +/-400, dieselbe Wurzel der
+# Tordifferenz (Minimum 1), derselbe K-Faktor 20, dieselbe Erwartungsformel.
+# Sie unterscheiden sich in genau diesem einen Wert.
+#
+# Der R-Walk ist damit kein zweites Modell, sondern ein DUPLIKAT mit einem
+# abweichenden Parameter. Die Start-ELOs jeder neuen Saison entstehen auf
+# einer Physik, mit der anschliessend keine einzige Prognose rechnet.
+#
+# WARUM NICHT EINFACH 40 EINSETZEN. Weil die beiden Werte gar nicht
+# vergleichbar sind: In Rust wirkt der Heimvorteil ueber das Poisson-Tormodell
+# (tore_slope), in R ueber die ELO-Erwartungsformel. An den beobachteten
+# Anteilen geeicht laege der R-Wert bei ~25,8. Eine 25,8 einzutragen hiesse,
+# die zweite Physik zu konservieren -- mit einer Zahl, die niemand mehr mit
+# der 40 der Prognose in Beziehung setzen kann. Die einzige Variante, die
+# EINEN Heimvorteil herstellt, ist die Loeschung (Design, Abschnitt Context).
+#
+# WAS DIESE DATEI ABSICHERT. Die drei R-Funktionen calculate_final_elos(),
+# update_elos_for_match() und calculate_elo_update() entfallen; die End-ELOs
+# des Saisonwechsels kommen kuenftig ueber POST /league-details, also aus
+# demselben Rust-Walk, der auch jede Prognose rechnet. Damit erfuellt der
+# Saisonwechsel endlich, was ADR 0002 verlangt: keine Modelllogik in R.
+#
+# Die Tests sind ROT, solange die Umstellung nicht implementiert ist. Sie
+# beschreiben den Sollzustand, nicht den heutigen.
+#
+# ----------------------------------------------------------------------------
+# ZWEI ENTWURFSENTSCHEIDUNGEN, DIE DIESE TESTS FESTSCHREIBEN
+#
+# (1) ZWEI INJIZIERBARE SEAMS. Die Tests duerfen weder einen laufenden
+#     Rust-Server noch einen API-Schluessel brauchen. calculate_final_elos()
+#     bekommt deshalb zwei Parameter mit Produktions-Defaults, genau wie
+#     build_league_page_data() es vormacht (league_details.R:
+#     `fetch_fn = fetch_league_details`):
+#
+#       calculate_final_elos(season,
+#                            fetch_fn    = fetch_league_details,
+#                            fixtures_fn = retrieveResults)
+#
+#     WARUM ZWEI und nicht einer: extract_fixture_details() braucht die ROHEN
+#     api-football-Fixtures (verschachtelte fixture/league/teams/goals-Spalten).
+#     fetch_league_results() -- die Quelle des alten Walks -- liefert bereits
+#     ein FLACHGEKLOPFTES data.frame mit Spalten wie `teams_home_id`; das
+#     passt nicht in extract_fixture_details(). Der Fixture-Seam muss also
+#     retrieveResults()-Gestalt liefern, und der Endpoint-Seam ist davon
+#     unabhaengig.
+#
+#     Sollte die Implementierung die Parameter anders benennen, sind diese
+#     Tests entsprechend anzupassen -- die SACHE, die sie pruefen, bleibt:
+#     die End-ELOs kommen aus dem Endpoint, nicht aus einer R-Rechnung.
+#
+# (2) DIE MOCK-ANTWORT FOLGT DEM GESENDETEN PAYLOAD. Seit PR #200 sortiert
+#     extract_fixture_details() chronologisch; eine Mock-Antwort mit fest
+#     verdrahteter Reihenfolge wuerde deshalb still am Payload vorbeigehen.
+#     antwort_zum_payload() unten liest `elo_values` und `team_names` aus dem
+#     tatsaechlich gesendeten Payload und baut die Antwort daraus -- dasselbe
+#     Muster wie in test-league-page-data-*.R.
+
+
+# =============================================================================
+# 4. Die Abwesenheit -- damit der zweite Walk nicht still zurueckkehrt
+# =============================================================================
+
+test_that("der zweite ELO-Walk existiert nicht mehr", {
+  # DER WACHHUND. Ohne diesen Test koennte jemand calculate_elo_update()
+  # spaeter "zur Sicherheit" wieder einfuehren -- etwa als vermeintlich
+  # harmlosen Offline-Helfer -- und damit die zweite Physik zurueckholen, die
+  # Teil 2 gerade beseitigt hat. Das faellt an keiner anderen Stelle auf:
+  # Zwei ELO-Implementierungen widersprechen sich nur in den Zahlen, nie im
+  # Typ.
+  #
+  # helper-test-setup.R sourct alle Dateien aus RCode/ in die globale
+  # Umgebung, bevor irgendein Test laeuft. exists() sieht hier also genau
+  # das, was das Repo definiert.
+  expect_false(exists("calculate_elo_update"),
+               info = "calculate_elo_update war der R-Walk mit home_advantage = 100 (Issue #146, Teil 2)")
+  expect_false(exists("update_elos_for_match"),
+               info = "update_elos_for_match war der Schleifenkoerper des geloeschten R-Walks")
+
+  # UEBERNOMMEN aus test-elo-aggregation-engine-selection.R, die mit Teil 2
+  # entfaellt.
+  #
+  # Diese Datei war der Wachhund der VORIGEN Bereinigung: Issue #102 loeschte
+  # die kompilierte C++-Engine und legte elo_aggregation.R auf den reinen
+  # R-Pfad fest. Sie hielt fest, dass SpielNichtSimulieren() nicht
+  # zurueckkehrt -- und zugleich, dass calculate_elo_update() EXISTIERT.
+  #
+  # Genau dieser zweite Satz ist heute falsch: Teil 2 loescht die Funktion, die
+  # #102 als tragend festgeschrieben hat. Beide Saetze in derselben Suite
+  # stehen zu lassen hiesse, eine Datei zu behalten, die der anderen
+  # widerspricht -- deshalb wandert der noch gueltige Teil hierher und die
+  # alte Datei entfaellt (Entscheidung Christoph).
+  #
+  # Die Linie ist damit durchgehend: erst raus die C++-Engine, jetzt raus der
+  # zweite R-Walk. Uebrig bleibt EINE Implementierung, und die steht in Rust.
+  expect_false(exists("SpielNichtSimulieren"),
+               info = "SpielNichtSimulieren war die C++-Engine, geloescht in Issue #102")
+})
+
+
+# =============================================================================
+# 5. Der Heimvorteil 100 ist aus dem Repo verschwunden
+# =============================================================================
+
+test_that("kein Produktivcode setzt einen Heimvorteil von 100", {
+  # DIE EIGENTLICHE ZUSICHERUNG DES GANZEN VORHABENS, als Textpruefung.
+  #
+  # Warum als Grep und nicht ueber einen Funktionsaufruf: Nach der Loeschung
+  # gibt es keine R-Funktion mehr, die man auf ihren Heimvorteil befragen
+  # koennte. Der Wert kann aber jederzeit als Literal irgendwo wieder
+  # auftauchen -- in einem Skript, einem neuen Helfer, einer Kopie der alten
+  # Formel. Genau das soll auffallen.
+  #
+  # Gesucht wird die ZUWEISUNG (`home_advantage <- 100`, `home_advantage =
+  # 100`), nicht die Zahl 100 an sich. Kommentare und Dokumentation, die den
+  # historischen Wert nennen, sind ausdruecklich erlaubt und sollen es
+  # bleiben: Sie erklaeren, warum es ihn nicht mehr gibt.
+  wurzel <- normalizePath("../..")
+  dateien <- c(
+    list.files(file.path(wurzel, "RCode"), pattern = "\\.R$", full.names = TRUE),
+    list.files(file.path(wurzel, "scripts"), pattern = "\\.R$", full.names = TRUE)
+  )
+
+  treffer <- character(0)
+  for (datei in dateien) {
+    zeilen <- readLines(datei, warn = FALSE)
+    # Kommentarzeilen ausklammern -- der Fund soll Code sein, nicht Prosa.
+    code <- zeilen[!grepl("^\\s*#", zeilen)]
+    verdacht <- grep("home_advantage\\s*(<-|=)\\s*100\\b", code, value = TRUE)
+    if (length(verdacht) > 0) {
+      treffer <- c(treffer, paste0(basename(datei), ": ", verdacht))
+    }
+  }
+
+  expect_equal(treffer, character(0),
+               info = paste("home_advantage = 100 ist die zweite ELO-Physik",
+                            "(Issue #146, Teil 2). Fundstellen:",
+                            paste(treffer, collapse = " | ")))
+})
+
+test_that("der einzige Heimvorteil in R ist der der Kalibrierung, und er ist 40", {
+  # Positivseite derselben Zusicherung. HOME_ADVANTAGE_MODEL
+  # (elo_calibration.R:23) ist der einzige Heimvorteil, der in R ueberhaupt
+  # noch als Zahl steht -- und er beschreibt ausdruecklich den Rust-Default,
+  # damit die Offline-Kalibrierung dieselbe Physik rechnet wie die Prognose.
+  #
+  # Der Test bindet die beiden aneinander: Wer den Rust-Default aendert, ohne
+  # hier nachzuziehen, bekommt eine Kalibrierung, die etwas anderes misst als
+  # das, was laeuft. (Der Rust-Wert steht in
+  # league-simulator-rust/src/models/mod.rs und in CLAUDE.md.)
+  expect_true(exists("HOME_ADVANTAGE_MODEL"))
+  expect_equal(HOME_ADVANTAGE_MODEL, 40)
+})
