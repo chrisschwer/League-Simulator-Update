@@ -171,7 +171,7 @@ test_that("load_team_list erlaubt gleiche Kurznamen in den beiden Frauen-Ligen",
 # Wird in der Vertrag-Haelfte unten geprueft: Bloecke "KEIN Verstoss" /
 # "Nord, Nordost und Bayern".
 #
-# KORRIGIERT (Issue #197): Hier stand, aufstiegswahrscheinlichkeit() ordne
+# KORRIGIERT (Issue #197): In diesem Abschnitt stand, aufstiegswahrscheinlichkeit() ordne
 # ueber NAMEN zu und ein doppeltes Kuerzel vertausche Teams. Das trifft
 # nicht zu -- die beiden Staffeln liegen auf getrennten Achsen der
 # p_sieg-Matrix. Begruendung im Detail in transform_data.R.
