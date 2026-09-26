@@ -879,15 +879,6 @@ source_views <- function() {
   env
 }
 
-# Gleichverteilte Prognose: jeder Platz traegt 1/n. Damit sind die
-# erwarteten Prozentwerte der Panels exakt bekannt.
-mk_ergebnis <- function(teams) {
-  m <- matrix(1 / teams, nrow = teams, ncol = teams,
-              dimnames = list(paste0("T", seq_len(teams)),
-                              as.character(seq_len(teams))))
-  as.table(m)
-}
-
 # Die fuenf RL in Registry-Reihenfolge. Sie ist Vertrag (Fetch-Reihenfolge
 # und Navigation), deshalb hier einmal ausgeschrieben.
 RL_SCHLUESSEL <- c("rl_nord", "rl_nordost", "rl_west", "rl_suedwest",

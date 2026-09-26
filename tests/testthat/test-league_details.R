@@ -934,48 +934,6 @@ test_that("extract_fixture_details verhält sich bei Bundesliga unverändert", {
 # Sortierschluessel) und `league$round` (damit der Rundenfilter greift und
 # extract_fixture_details() die Runde ableiten kann).
 
-# Ein Spiel als Liste der vier List-Column-Bausteine.
-ewr_spiel <- function(fixture_id, datum, status, heim_id, gast_id,
-                      tore_heim = NA_real_, tore_gast = NA_real_,
-                      runde = 1L) {
-  list(
-    teams = data.frame(
-      home = I(list(data.frame(id = heim_id, name = paste("Team", heim_id)))),
-      away = I(list(data.frame(id = gast_id, name = paste("Team", gast_id))))
-    ),
-    goals = data.frame(home = tore_heim, away = tore_gast),
-    fixture = data.frame(
-      id = fixture_id,
-      date = datum,
-      status = I(list(data.frame(short = status)))
-    ),
-    league = data.frame(round = paste("Regular Season -", runde))
-  )
-}
-
-# Aus mehreren ewr_spiel()-Ergebnissen den fixtures-Tibble bauen, wie ihn
-# retrieveResults() liefert.
-ewr_fixtures <- function(...) {
-  spiele <- list(...)
-  tibble::tibble(
-    teams   = lapply(spiele, `[[`, "teams"),
-    goals   = lapply(spiele, `[[`, "goals"),
-    fixture = lapply(spiele, `[[`, "fixture"),
-    league  = lapply(spiele, `[[`, "league")
-  )
-}
-
-# Vier Teams, Kurznamen wie in helper-fixtures.R.
-ewr_teams <- function() {
-  data.frame(
-    TeamID = c(101, 102, 103, 104),
-    ShortText = c("TEA", "TEB", "TEC", "TED"),
-    InitialELO = c(1500, 1450, 1550, 1400),
-    stringsAsFactors = FALSE
-  )
-}
-
-
 # --- extract_fixture_details(): der Payload-Pfad ------------------------------
 #
 # Zweiter betroffener Pfad. Hier ist die Lage tueckischer als bei

@@ -17,13 +17,6 @@ library(mockery)
 
 source("../../RCode/update_all_leagues_loop.R")
 
-with_repo_root <- function(expr) {
-  old <- getwd()
-  on.exit(setwd(old), add = TRUE)
-  setwd(file.path(old, "..", ".."))
-  force(expr)
-}
-
 fake_fixtures <- function(statuses) {
   list(
     fixture = list(

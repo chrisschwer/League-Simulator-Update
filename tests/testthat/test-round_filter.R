@@ -5,7 +5,6 @@ source_round_filter <- function() {
   source(test_path("..", "..", "RCode", "round_filter.R"), local = env)
   env
 }
-RL_IDS <- c("84", "85", "87", "86", "83")
 
 # ===========================================================================
 # 6. Rundenfilter an den echten RL-Spielplaenen

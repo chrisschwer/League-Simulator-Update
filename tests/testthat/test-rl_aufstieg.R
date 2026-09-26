@@ -441,6 +441,14 @@ test_that("rl_aufstiegsprognose bricht bei fehlender Partnerprognose ab", {
   expect_error(f("Nord", pr, season = 2026, p_sieg = sieg_nord_gegen_bayern), "Bayern")
 })
 
+# Der Aufstiegsteil braucht VIER Dateien, und die Reihenfolge ist nicht
+# beliebig: rl_aufstieg.R ruft pruefe_staffel() auf, das in
+# rl_abstiegskopplung.R steht, und p_sieg_matrix() aus aufstiegsspiele.R.
+# Fehlt eine, faellt die Aufloesung ueber die Elternumgebung auf zufaellig
+# vorhandene Definitionen aus anderen Testdateien zurueck -- der Test waere
+# dann von der Ausfuehrungsreihenfolge abhaengig. (Begruendung des
+# ehemaligen source_aufstieg()-Helfers, s. Git-Historie phase5 f62724d,
+# Z. 201-206; die Reihenfolge steckt seit T6 in den source_module()-Aufrufen.)
 # --- aus test-phase5-regionalligen.R ---
 test_that("bei den Direktaufsteigern sind Meister und Aufstieg wirklich gleich", {
   # Die Rechtfertigung der einen Spalte: Nur wenn rl_aufstiegsprognose()

@@ -13,8 +13,6 @@ source_generator <- function() {
   environment()
 }
 
-read_html <- function(path) paste(readLines(path, warn = FALSE), collapse = "\n")
-
 namen <- c(ALP = "FC Alpha", BET = "SV Beta")
 
 mk_matrix <- function(teams, n = length(teams)) {

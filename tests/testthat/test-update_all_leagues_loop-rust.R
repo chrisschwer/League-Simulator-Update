@@ -69,15 +69,6 @@ stop_rust_server <- function(handle) {
   }
 }
 
-# Source the production loop fresh so the test sees the current state of the code.
-# The loop's source() calls inside its body assume cwd = repo root; we set it explicitly.
-with_repo_root <- function(expr) {
-  old <- getwd()
-  on.exit(setwd(old), add = TRUE)
-  setwd(file.path(old, "..", ".."))   # tests/testthat -> repo root
-  force(expr)
-}
-
 # --- Tests ---
 
 context("Phase 1 — Rust required, no fallback")

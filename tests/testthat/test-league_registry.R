@@ -717,13 +717,6 @@ source_round_filter <- function() {
 # und Navigation), deshalb hier einmal ausgeschrieben.
 RL_SCHLUESSEL <- c("rl_nord", "rl_nordost", "rl_west", "rl_suedwest",
                    "rl_bayern")
-RL_IDS <- c("84", "85", "87", "86", "83")
-
-# Die Staffeln mit Direktaufstieg 2026/27 (Par. 55b DFB-SpO Nr. 2 plus der
-# Rotationsplatz, den 2026/27 Nordost traegt).
-RL_DIREKTAUFSTIEG <- c("rl_nordost", "rl_west", "rl_suedwest")
-# Nord und Bayern spielen stattdessen zwei Aufstiegsspiele gegeneinander.
-RL_AUFSTIEGSSPIELE <- c("rl_nord", "rl_bayern")
 
 # ===========================================================================
 # 1. Registry: alle fuenf Regionalligen sind aktiv

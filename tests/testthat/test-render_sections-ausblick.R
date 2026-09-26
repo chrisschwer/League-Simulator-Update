@@ -6,22 +6,6 @@ source_generator <- function() {
   environment()
 }
 
-make_data_env <- function() {
-  env <- new.env()
-  mk <- function(n, teams) {
-    m <- matrix(1 / n, nrow = teams, ncol = n,
-                dimnames = list(paste0("T", seq_len(teams)), as.character(seq_len(n))))
-    as.table(m)
-  }
-  env$Ergebnis <- mk(18, 18)
-  env$Ergebnis2 <- mk(18, 18)
-  env$Ergebnis3 <- mk(20, 20)
-  env$Ergebnis3_Aufstieg <- mk(20, 20)
-  env
-}
-
-read_html <- function(path) paste(readLines(path, warn = FALSE), collapse = "\n")
-
 mk_score_matrix <- function() {
   m <- matrix(0, nrow = 7, ncol = 7)
   m[1, 1] <- 0.123   # 0:0 -> "12,3"

@@ -17,24 +17,6 @@ source_generator <- function() {
   environment()
 }
 
-# Build a data environment with the same object names and shapes as the
-# production ShinyApp/data/Ergebnis.Rds.
-make_data_env <- function() {
-  env <- new.env()
-  mk <- function(n, teams) {
-    m <- matrix(1 / n, nrow = teams, ncol = n,
-                dimnames = list(paste0("T", seq_len(teams)), as.character(seq_len(n))))
-    as.table(m)
-  }
-  env$Ergebnis <- mk(18, 18)
-  env$Ergebnis2 <- mk(18, 18)
-  env$Ergebnis3 <- mk(20, 20)
-  env$Ergebnis3_Aufstieg <- mk(20, 20)
-  env
-}
-
-read_html <- function(path) paste(readLines(path, warn = FALSE), collapse = "\n")
-
 # Der Block der Prognose-Heatmap einer Seite (erste table.heatmap).
 heatmap_block <- function(html) {
   m <- regmatches(html, regexpr('<table class="heatmap"(.|\n)*?</table>', html))
@@ -644,13 +626,6 @@ library(testthat)
 # und aendern sich unabhaengig von Auf- und Abstieg; ein Registry-Feld
 # suggerierte eine Systematik, die es nicht gibt.
 
-mk_ergebnis <- function(teams) {
-  m <- matrix(1 / teams, nrow = teams, ncol = teams,
-              dimnames = list(paste0("T", seq_len(teams)),
-                              as.character(seq_len(teams))))
-  as.table(m)
-}
-
 # --- 1. Panel-Grenzen relativ zur Teamzahl ----------------------------------
 
 test_that("negative Panel-Grenzen zaehlen von unten", {
@@ -965,19 +940,6 @@ test_that("eine fehlende Liga wird uebersprungen und benannt", {
 # und Navigation), deshalb hier einmal ausgeschrieben.
 RL_SCHLUESSEL <- c("rl_nord", "rl_nordost", "rl_west", "rl_suedwest",
                    "rl_bayern")
-RL_SLUGS <- c("rl-nord", "rl-nordost", "rl-west", "rl-suedwest", "rl-bayern")
-
-# Slug der Seite "Aufstieg in die 3. Liga". Steht hier und nicht erst bei
-# den Aufstiegstests: testthat wertet Top-Level-Code sequenziell aus, und
-# die Navigations- und Seitenzahl-Tests weiter oben brauchen den Wert
-# bereits.
-AUFSTIEGSSEITE_SLUG <- "rl-aufstieg"
-
-# Die Staffeln mit Direktaufstieg 2026/27 (Par. 55b DFB-SpO Nr. 2 plus der
-# Rotationsplatz, den 2026/27 Nordost traegt).
-RL_DIREKTAUFSTIEG <- c("rl_nordost", "rl_west", "rl_suedwest")
-# Nord und Bayern spielen stattdessen zwei Aufstiegsspiele gegeneinander.
-RL_AUFSTIEGSSPIELE <- c("rl_nord", "rl_bayern")
 
 # --- 2a. Oben: Direktaufstieg vs. Aufstiegsspiele ---------------------------
 

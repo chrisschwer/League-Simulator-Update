@@ -68,13 +68,6 @@ stop_rust_server <- function(handle) {
   }
 }
 
-with_repo_root <- function(expr) {
-  old <- getwd()
-  on.exit(setwd(old), add = TRUE)
-  setwd(file.path(old, "..", ".."))
-  force(expr)
-}
-
 # --- Fixture: 4-Team-Liga, kein Spiel gespielt, verschiedene ELOs --------
 #
 # Verschiedene ELOs (nicht alle 1500 wie make_test_teams()), damit ein

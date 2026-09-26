@@ -114,13 +114,6 @@ library(mockery)
 
 source("../../RCode/update_all_leagues_loop.R")
 
-with_repo_root <- function(expr) {
-  old <- getwd()
-  on.exit(setwd(old), add = TRUE)
-  setwd(file.path(old, "..", ".."))
-  force(expr)
-}
-
 rcode <- function(datei) test_path("..", "..", "RCode", datei)
 
 # --- Registry-abgeleitete Zahlen (wie in test-update-loop-gating.R) --------

@@ -44,13 +44,6 @@ n_sims_pro_runde <- function() {
   length(ids) + sum(vapply(ids, env$has_promotion_restriction, logical(1)))
 }
 
-with_repo_root <- function(expr) {
-  old <- getwd()
-  on.exit(setwd(old), add = TRUE)
-  setwd(file.path(old, "..", "..")) # tests/testthat -> repo root
-  force(expr)
-}
-
 # Minimal stand-in for one league's raw fixture list. The loop reads
 # fixture$id + fixture$status$short (beendet-set per league, pending-set
 # resolution) and id/date/status/goals for the render signature.

@@ -183,15 +183,6 @@ source_views <- function() {
 # und Navigation), deshalb hier einmal ausgeschrieben.
 RL_SCHLUESSEL <- c("rl_nord", "rl_nordost", "rl_west", "rl_suedwest",
                    "rl_bayern")
-RL_SLUGS <- c("rl-nord", "rl-nordost", "rl-west", "rl-suedwest", "rl-bayern")
-
-# Slug der Seite "Aufstieg in die 3. Liga". Steht hier und nicht erst bei
-# den Aufstiegstests: testthat wertet Top-Level-Code sequenziell aus, und
-# die Navigations- und Seitenzahl-Tests weiter oben brauchen den Wert
-# bereits.
-AUFSTIEGSSEITE_SLUG <- "rl-aufstieg"
-# Nord und Bayern spielen stattdessen zwei Aufstiegsspiele gegeneinander.
-RL_AUFSTIEGSSPIELE <- c("rl_nord", "rl_bayern")
 
 # ===========================================================================
 # 2. league_views: die fuenf neuen Ansichten
