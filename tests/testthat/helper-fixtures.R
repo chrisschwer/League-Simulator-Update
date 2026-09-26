@@ -168,9 +168,16 @@ ewr_teams <- function() {
 
 # Regionalliga-Testkonstanten: bisher kopiert in test-generate_static_site.R,
 # test-league_registry.R, test-league_views.R und test-round_filter.R
-# (#211, Stufe 2, T7). RL_SCHLUESSEL bleibt lokal (zwei Fassungen, siehe README).
+# (#211, Stufe 2, T7).
 RL_IDS <- c("84", "85", "87", "86", "83")
 RL_SLUGS <- c("rl-nord", "rl-nordost", "rl-west", "rl-suedwest", "rl-bayern")
+
+# Die fuenf RL in Registry-Reihenfolge. Sie ist Vertrag (Fetch-Reihenfolge
+# und Navigation), deshalb hier einmal ausgeschrieben. Bisher kopiert in
+# test-generate_static_site.R, test-league_registry.R, test-league_views.R
+# und test-rl_abstiegskopplung.R (#211, Stufe 3.6).
+RL_SCHLUESSEL <- c("rl_nord", "rl_nordost", "rl_west", "rl_suedwest",
+                   "rl_bayern")
 
 # Slug der Seite "Aufstieg in die 3. Liga". Steht hier und nicht erst bei
 # den Aufstiegstests: testthat wertet Top-Level-Code sequenziell aus, und
@@ -267,8 +274,9 @@ prognose_zeile <- function(teams, plaetze, p, name = "A") {
 }
 
 # --- Loop-Attrappen ------------------------------------------------------------
-# Gebraucht in test-update_all_leagues_loop-gating.R, -sicherheitsnetz.R und
-# (fake_transformed) test-update_all_leagues_loop.R (#211, Stufe 3.6).
+# Gebraucht in test-update_all_leagues_loop-gating.R, -sicherheitsnetz.R,
+# -verdrahtung.R (n_ligen, n_sims_pro_runde) und test-update_all_leagues_loop.R
+# (fake_transformed) (#211, Stufe 3.6).
 
 # Minimal stand-in for one league's raw fixture list. The loop reads
 # fixture$id + fixture$status$short (beendet-set per league, pending-set
@@ -288,6 +296,18 @@ fake_fixtures <- function(statuses, ids = seq_along(statuses),
     ),
     goals = list(home = goals_home, away = goals_away)
   )
+}
+
+# Ligazahl der Registry und Simulationen je Runde: eine je Liga, plus ein
+# zweiter Lauf fuer jede Liga, aus der Zweitvertretungen nicht aufsteigen
+# duerfen (3. Liga, 2. Frauen-BL). Die Loop-Tests leiten ihre Erwartungen
+# daraus ab statt aus festen Zahlen.
+n_ligen <- function() length(source_module("league_registry")$league_ids())
+
+n_sims_pro_runde <- function() {
+  env <- source_module("league_registry")
+  ids <- env$league_ids()
+  length(ids) + sum(vapply(ids, env$has_promotion_restriction, logical(1)))
 }
 
 # Minimal stand-in for transform_data()'s output: leagueSimulatorRust() is

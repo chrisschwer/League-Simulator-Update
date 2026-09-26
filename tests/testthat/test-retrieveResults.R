@@ -22,14 +22,14 @@ lade_retrieve_results <- function() {
   env
 }
 
-fake_response <- function(status) {
+fake_response_status <- function(status) {
   structure(list(status_code = status), class = "response")
 }
 
 test_that("retrieveResults meldet Statuscode und Liga per message() bei HTTP-Fehler", {
   env <- lade_retrieve_results()
   f <- env$retrieveResults
-  stub(f, "VERB", function(...) fake_response(500))
+  stub(f, "VERB", function(...) fake_response_status(500))
   stub(f, "status_code", function(response) response$status_code)
 
   msgs <- capture_messages(
@@ -44,7 +44,7 @@ test_that("retrieveResults meldet Statuscode und Liga per message() bei HTTP-Feh
 test_that("retrieveResults meldet die Liga auch bei leerer Antwort (200, kein response)", {
   env <- lade_retrieve_results()
   f <- env$retrieveResults
-  stub(f, "VERB", function(...) fake_response(200))
+  stub(f, "VERB", function(...) fake_response_status(200))
   stub(f, "status_code", function(response) response$status_code)
   stub(f, "content", function(...) '{"response": []}')
   stub(f, "fromJSON", function(...) list(response = list()))

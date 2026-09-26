@@ -124,13 +124,7 @@ registry_env <- function() {
   env
 }
 
-n_ligen <- function() length(registry_env()$league_ids())
-
-n_sims_pro_runde <- function() {
-  env <- registry_env()
-  ids <- env$league_ids()
-  length(ids) + sum(vapply(ids, env$has_promotion_restriction, logical(1)))
-}
+# n_ligen() und n_sims_pro_runde() stehen in helper-fixtures.R.
 
 # --- Die Ligen des Fake-Betriebs --------------------------------------------
 #
@@ -640,8 +634,10 @@ groesste_abweichung <- function(a, b) {
   max(abs(as.matrix(a[rownames(b), colnames(b), drop = FALSE]) - as.matrix(b)))
 }
 
-RL_SCHLUESSEL <- c(Nord = "rl_nord", Nordost = "rl_nordost", West = "rl_west",
-                   SuedWest = "rl_suedwest", Bayern = "rl_bayern")
+# Staffel -> Registry-Schluessel. Die unbenannte Fassung RL_SCHLUESSEL
+# (gleiche Reihenfolge) steht in helper-fixtures.R.
+RL_SCHLUESSEL_JE_STAFFEL <- c(Nord = "rl_nord", Nordost = "rl_nordost", West = "rl_west",
+                              SuedWest = "rl_suedwest", Bayern = "rl_bayern")
 
 # ===========================================================================
 # 1. Die 3. Liga sendet die Staffel-Zuordnung -- in Spielplan-Reihenfolge
@@ -725,8 +721,8 @@ test_that("jede Staffel bekommt ihre Abstiegsspalte aus der regulaeren Zaehlung 
     modell()$rl_abstiegsprognose("SuedWest", erg[["rl_suedwest"]], COUNTS_REGULAER)
   ), 1e-3)
 
-  for (staffel in names(RL_SCHLUESSEL)) {
-    key <- RL_SCHLUESSEL[[staffel]]
+  for (staffel in names(RL_SCHLUESSEL_JE_STAFFEL)) {
+    key <- RL_SCHLUESSEL_JE_STAFFEL[[staffel]]
     was <- paste0("Ergebnis_", key, "_abstieg")
     ist <- erg[[paste0(key, "_abstieg")]]
     expect_gleich(ist, abstieg_erwartet(staffel, key, erg), was)
@@ -831,8 +827,8 @@ test_that("Summe P(Abstieg) je Staffel ist E[Absteigerzahl] -- Nord um p_meister
     expect_lt(p_nord, 1)
   }
 
-  for (staffel in names(RL_SCHLUESSEL)) {
-    ist <- erg[[paste0(RL_SCHLUESSEL[[staffel]], "_abstieg")]]
+  for (staffel in names(RL_SCHLUESSEL_JE_STAFFEL)) {
+    ist <- erg[[paste0(RL_SCHLUESSEL_JE_STAFFEL[[staffel]], "_abstieg")]]
     expect_false(is.null(ist), info = sprintf("Abstiegsspalte %s fehlt", staffel))
     if (is.null(ist) || (identical(staffel, "Nord") && is.null(p_nord))) next
     soll <- e_absteiger(staffel) - if (identical(staffel, "Nord")) p_nord else 0
@@ -1383,16 +1379,11 @@ lauf_mit_seitendaten <- function(build_fn, fixtures_echt = list(),
   )
 }
 
-generator_modul <- function() {
-  source(rcode("generate_static_site.R"), local = TRUE)
-  environment()
-}
-
 # Rendert das, was der Loop an generate_static_site() uebergeben hat, mit
 # dem echten Generator. Rueckgabe: Ausgabeverzeichnis und Meldungen.
 seite_rendern <- function(ergebnisse, league_data, out = NULL) {
   if (is.null(out)) out <- withr::local_tempdir(.local_envir = parent.frame())
-  gen <- generator_modul()
+  gen <- source_module("generate_static_site")
   msgs <- capture_messages(
     gen$generate_static_site(
       output_dir = out,
@@ -1402,10 +1393,6 @@ seite_rendern <- function(ergebnisse, league_data, out = NULL) {
     )
   )
   list(out = out, msgs = msgs)
-}
-
-html_lesen <- function(pfad) {
-  paste(readLines(pfad, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
 }
 
 # Der Ausschnitt <section id="..."> ... </section>; NA, wenn es ihn nicht gibt.

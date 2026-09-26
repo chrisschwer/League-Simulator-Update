@@ -929,10 +929,7 @@ test_that("eine fehlende Liga wird uebersprungen und benannt", {
 
 # --- aus test-phase5-regionalligen.R ---
 
-# Die fuenf RL in Registry-Reihenfolge. Sie ist Vertrag (Fetch-Reihenfolge
-# und Navigation), deshalb hier einmal ausgeschrieben.
-RL_SCHLUESSEL <- c("rl_nord", "rl_nordost", "rl_west", "rl_suedwest",
-                   "rl_bayern")
+# RL_SCHLUESSEL (die fuenf RL in Registry-Reihenfolge) steht in helper-fixtures.R.
 
 # --- 2a. Oben: Direktaufstieg vs. Aufstiegsspiele ---------------------------
 

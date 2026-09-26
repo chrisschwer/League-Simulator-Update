@@ -693,10 +693,7 @@ test_that("die Registry weiss, welche Liga einen Aufstiegslauf braucht", {
 #
 # ===========================================================================
 
-# Die fuenf RL in Registry-Reihenfolge. Sie ist Vertrag (Fetch-Reihenfolge
-# und Navigation), deshalb hier einmal ausgeschrieben.
-RL_SCHLUESSEL <- c("rl_nord", "rl_nordost", "rl_west", "rl_suedwest",
-                   "rl_bayern")
+# RL_SCHLUESSEL (die fuenf RL in Registry-Reihenfolge) steht in helper-fixtures.R.
 
 # ===========================================================================
 # 1. Registry: alle fuenf Regionalligen sind aktiv

@@ -37,11 +37,6 @@ skript_pfad <- function() {
   normalizePath(test_path("..", "..", "scripts", "preview_site.R"), mustWork = TRUE)
 }
 
-generator_modul <- function() {
-  source(test_path("..", "..", "RCode", "generate_static_site.R"), local = TRUE)
-  environment()
-}
-
 preview_ausfuehren <- function(fixture, outdir) {
   rscript <- Sys.which("Rscript")
   skip_if(!nzchar(rscript), "Rscript nicht im PATH")
@@ -54,10 +49,6 @@ preview_ausfuehren <- function(fixture, outdir) {
        ausgabe = as.character(ausgabe))
 }
 
-html_lesen <- function(pfad) {
-  paste(readLines(pfad, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
-}
-
 mk_prognose <- function(teams) {
   n <- length(teams)
   as.table(matrix(1 / n, n, n, dimnames = list(teams, as.character(seq_len(n)))))
@@ -67,7 +58,7 @@ mk_prognose <- function(teams) {
 # Teamnamen (Praefix je Liga), damit die gerenderten Seiten unterscheidbar
 # sind; Nord bekommt fuer ein Team eine markante Abstiegswahrscheinlichkeit.
 fixture_zehn_ligen <- function(pfad, nord_abstieg_t1 = 0.37) {
-  objektname <- generator_modul()$.ergebnis_objektname
+  objektname <- source_module("generate_static_site")$.ergebnis_objektname
   groesse <- c(
     bundesliga = 18L, zweite_bundesliga = 18L, dritte_liga = 20L,
     frauen_bundesliga = 14L, zweite_frauen_bundesliga = 14L,

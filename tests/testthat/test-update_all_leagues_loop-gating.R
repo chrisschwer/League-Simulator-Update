@@ -26,23 +26,10 @@ source("../../RCode/update_all_leagues_loop.R")
 # runs this file with the working directory set to tests/testthat. Run the
 # call under test with cwd temporarily switched to the repo root, mirroring
 # the with_repo_root() helper in test-rust-required.R.
-# Erwartungswerte folgen der Ligazahl, nicht festen Zahlen: Sobald eine
-# weitere Liga aktiv geschaltet wird, muessen diese Tests weiterhin gelten --
-# sie pruefen das GATING, nicht wie viele Ligen es gibt.
-n_ligen <- function() {
-  env <- new.env()
-  source(file.path("..", "..", "RCode", "league_registry.R"), local = env)
-  length(env$league_ids())
-}
-
-# Simulationen je Runde: eine je Liga, plus ein zweiter Lauf fuer jede Liga,
-# aus der Zweitvertretungen nicht aufsteigen duerfen (3. Liga, 2. Frauen-BL).
-n_sims_pro_runde <- function() {
-  env <- new.env()
-  source(file.path("..", "..", "RCode", "league_registry.R"), local = env)
-  ids <- env$league_ids()
-  length(ids) + sum(vapply(ids, env$has_promotion_restriction, logical(1)))
-}
+# Erwartungswerte folgen der Ligazahl, nicht festen Zahlen (n_ligen(),
+# n_sims_pro_runde() aus helper-fixtures.R): Sobald eine weitere Liga aktiv
+# geschaltet wird, muessen diese Tests weiterhin gelten -- sie pruefen das
+# GATING, nicht wie viele Ligen es gibt.
 
 # fake_fixtures() und fake_transformed() stehen in helper-fixtures.R.
 

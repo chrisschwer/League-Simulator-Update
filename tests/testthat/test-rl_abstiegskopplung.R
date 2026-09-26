@@ -79,17 +79,7 @@ library(testthat)
 #     Spalte "Abstieg" -- fuer Bayern die ZWEI Spalten "Relegation" und
 #     "Abstieg", nicht verrechnet.
 
-# Holt eine Funktion aus der Umgebung und meldet klar, wenn sie fehlt --
-# statt des kryptischen "attempt to apply non-function" bei env$name().
-fn <- function(env, name) {
-  if (!exists(name, envir = env, inherits = FALSE)) {
-    stop(sprintf(
-      "Funktion '%s' nicht gefunden -- erwartet in RCode/rl_abstiegskopplung.R",
-      name
-    ), call. = FALSE)
-  }
-  get(name, envir = env, inherits = FALSE)
-}
+# fn(env, name) steht in helper-source.R.
 
 # STAFFELN_ERWARTET, N_ITER, K_DRITTE_LIGA, zaehlung(), zaehlung_nordost89()
 # und prognose_zeile() stehen in helper-fixtures.R.
@@ -826,10 +816,7 @@ test_that("Nords Meisteraufstieg senkt auch die PLATZ-Wahrscheinlichkeiten", {
 
 # --- aus test-phase5-regionalligen.R ---
 
-# Die fuenf RL in Registry-Reihenfolge. Sie ist Vertrag (Fetch-Reihenfolge
-# und Navigation), deshalb hier einmal ausgeschrieben.
-RL_SCHLUESSEL <- c("rl_nord", "rl_nordost", "rl_west", "rl_suedwest",
-                   "rl_bayern")
+# RL_SCHLUESSEL (die fuenf RL in Registry-Reihenfolge) steht in helper-fixtures.R.
 
 test_that("die Abstiegsspalten heissen wie die Spalten von rl_abstiegsprognose", {
   # Der Vertrag zwischen Phase 6 und der View: rl_abstiegsprognose()

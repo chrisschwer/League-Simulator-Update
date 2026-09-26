@@ -69,15 +69,7 @@ library(testthat)
 #   Ligagroesse und ist strukturell anders. Fuer diese vier darf das
 #   Argument NICHTS aendern.
 
-fn <- function(env, name) {
-  if (!exists(name, envir = env, inherits = FALSE)) {
-    stop(sprintf(
-      "Funktion '%s' nicht gefunden -- erwartet in RCode/rl_abstiegskopplung.R",
-      name
-    ), call. = FALSE)
-  }
-  get(name, envir = env, inherits = FALSE)
-}
+# fn(env, name) steht in helper-source.R.
 
 # STAFFELN_ERWARTET, N_ITER, K_DRITTE_LIGA, zaehlung(), zaehlung_nordost89()
 # und prognose_zeile() stehen in helper-fixtures.R.

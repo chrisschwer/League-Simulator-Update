@@ -59,15 +59,7 @@ library(testthat)
 #     Ausgabe: data.frame rownames = Teams, Spalte "Aufstieg".
 #     Playoff-Staffel ohne p_sieg -> Fehler; keine erfundene Gewinnquote.
 
-fn <- function(env, name) {
-  if (!exists(name, envir = env, inherits = FALSE)) {
-    stop(sprintf(
-      "Funktion '%s' nicht gefunden -- erwartet in RCode/rl_aufstieg.R (abstiegsplaetze: rl_abstiegskopplung.R)",
-      name
-    ), call. = FALSE)
-  }
-  get(name, envir = env, inherits = FALSE)
-}
+# fn(env, name) steht in helper-source.R.
 
 # prognose_aus_meister(), das Rechenbeispiel meister_nord / meister_bayern /
 # sieg_nord_gegen_bayern und prognosen_2026() stehen in helper-fixtures.R.

@@ -126,15 +126,7 @@ library(testthat)
 # aufstiegskopplung.R, test-rl-abstiegskopplung.R) bleiben unveraendert und
 # muessen gruen bleiben.
 
-fn <- function(env, name) {
-  if (!exists(name, envir = env, inherits = FALSE)) {
-    stop(sprintf(
-      "Funktion '%s' nicht gefunden -- erwartet in RCode/aufstiegsspiele.R (Client: rust_integration.R)",
-      name
-    ), call. = FALSE)
-  }
-  get(name, envir = env, inherits = FALSE)
-}
+# fn(env, name) steht in helper-source.R.
 
 # --- Fixtures: Tor-Raten, wie /match-preview sie liefert ---------------------
 #
