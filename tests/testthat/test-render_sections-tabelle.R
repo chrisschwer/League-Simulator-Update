@@ -3,11 +3,6 @@
 # angereicherte tabelle; ohne league_data bleibt die Seite exakt auf
 # Phase-3-Stand (Degradation).
 
-source_generator <- function() {
-  source(test_path("..", "..", "RCode", "generate_static_site.R"), local = TRUE)
-  environment()
-}
-
 mk_tabelle <- function() {
   data.frame(
     platz = 1:3,
@@ -27,7 +22,7 @@ mk_tabelle <- function() {
 league_entry <- function() list(tabelle = mk_tabelle())
 
 test_that("render_liga_tabelle baut die sortierbare Tabelle nach Mock-up", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   html <- gen$render_liga_tabelle(mk_tabelle())
 
   expect_match(html, 'id="ligatabelle"', fixed = TRUE)
@@ -46,7 +41,7 @@ test_that("render_liga_tabelle baut die sortierbare Tabelle nach Mock-up", {
 })
 
 test_that("Zahlenformate: Komma-Dezimal, echtes Minus, ±0,0; data-Attribute mit Punkt", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   html <- gen$render_liga_tabelle(mk_tabelle())
 
   # ELO mit einer Nachkommastelle und Komma
@@ -63,7 +58,7 @@ test_that("Zahlenformate: Komma-Dezimal, echtes Minus, ±0,0; data-Attribute mit
 })
 
 test_that("Sp. und Tordiff. sind als optionale Mobil-Spalten markiert", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   html <- gen$render_liga_tabelle(mk_tabelle())
 
   # je Zeile zwei opt-Zellen (Sp., Tordiff.) plus zwei opt-Spaltenköpfe
@@ -74,7 +69,7 @@ test_that("Sp. und Tordiff. sind als optionale Mobil-Spalten markiert", {
 })
 
 test_that("Tordifferenz wird mit Vorzeichen gesetzt", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   html <- gen$render_liga_tabelle(mk_tabelle())
 
   expect_match(html, ">+2<", fixed = TRUE)
@@ -82,7 +77,7 @@ test_that("Tordifferenz wird mit Vorzeichen gesetzt", {
 })
 
 test_that("Teamnamen werden HTML-escaped", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   tab <- mk_tabelle()
   tab$name[1] <- "A & B <FC>"
   html <- gen$render_liga_tabelle(tab)
@@ -92,7 +87,7 @@ test_that("Teamnamen werden HTML-escaped", {
 })
 
 test_that("die Liga-Seite bindet die Sektion samt Sortier-Skript ein", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   env <- make_data_env()
 
@@ -117,7 +112,7 @@ test_that("die Liga-Seite bindet die Sektion samt Sortier-Skript ein", {
 })
 
 test_that("ohne league_entry bleibt die Seite auf Phase-3-Stand", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   env <- make_data_env()
 
@@ -132,7 +127,7 @@ test_that("ohne league_entry bleibt die Seite auf Phase-3-Stand", {
 })
 
 test_that("generate_static_site verteilt league_data je Liga", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   env <- make_data_env()
 
@@ -150,7 +145,7 @@ test_that("generate_static_site verteilt league_data je Liga", {
 })
 
 test_that("ein NULL-Eintrag in league_data ist gleichbedeutend mit fehlend", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   env <- make_data_env()
 

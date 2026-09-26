@@ -609,7 +609,7 @@ Push, PR (Draft → nach grüner CI ready). PR-Text: Umgebung (Task 3), Zahlen a
 
 Erst jetzt werden Erwartungen angefasst — und nur mit Christophs Wort je PR. Reihenfolge nach Nutzen; die Cluster-Nummern verweisen auf Issue #211.
 
-**Vorab, PR 3.0 (entschieden 26.09.):** die flächige Umstellung der reinen Sourcing-Helfer auf `source_module()` (~345 Aufrufstellen, zwölf Helfernamen), die aus Stufe 2 herausgenommen wurde. Reines Refactoring ohne Erwartungsänderung, Nachweis per identischer Multimenge wie Task 7; danach gilt der README-Satz „sourct … mit `source_module()`" wieder wörtlich. Läuft direkt nach dem Merge von Stufe 2, vor 3.1.
+**Vorab, PR 3.0 (entschieden 26.09.):** die flächige Umstellung der reinen Sourcing-Helfer auf `source_module()` (elf Helfernamen ersetzt, 320 Aufrufstellen; zehn Definitionen entfallen vollständig, `source_zuordnung` bleibt nur in `test-scripts-zuordnung_tests.R` erhalten, weil dort ein Skript geladen wird, keine RCode-Einheit), die aus Stufe 2 herausgenommen wurde. Reines Refactoring ohne Erwartungsänderung, Nachweis per identischer Multimenge wie Task 7; danach gilt der README-Satz „sourct … mit `source_module()`" wieder wörtlich. Läuft direkt nach dem Merge von Stufe 2, vor 3.1. **Erledigt 26.09., PR #245.**
 
 | PR | Cluster (aus #211) | Was bleibt | Was fällt (Vorschlag) |
 |---|---|---|---|

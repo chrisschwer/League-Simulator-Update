@@ -1,11 +1,5 @@
 library(testthat)
 
-source_round_filter <- function() {
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "round_filter.R"), local = env)
-  env
-}
-
 # ===========================================================================
 # 6. Rundenfilter an den echten RL-Spielplaenen
 # ===========================================================================
@@ -22,7 +16,7 @@ source_round_filter <- function() {
 # Regressionsschutz fuer den Livegang.
 
 test_that("der Rundenfilter behaelt alle Hauptrundenspiele der fuenf RL", {
-  rf <- source_round_filter()
+  rf <- source_module("round_filter")
 
   # Gemessen an den committeten Spielplaenen: 34 Spieltage, 18 Teams.
   erwartet_spieltage <- 34L
@@ -47,7 +41,7 @@ test_that("Liga 84 ueberlebt den Sprachwechsel Nord -> North", {
   # 2024 hiess der Spieltag "Nord - 12", 2025 "North - 12". Beide muessen
   # durchkommen; eine Positivliste haette beim Wechsel lautlos eine leere
   # Liga erzeugt.
-  rf <- source_round_filter()
+  rf <- source_module("round_filter")
 
   for (saison in c(2024, 2025)) {
     pfad <- test_path("fixtures", "fixture_cache",
@@ -70,7 +64,7 @@ test_that("Liga 84 ueberlebt den Sprachwechsel Nord -> North", {
 })
 
 test_that("Liga 86 ueberlebt den Umlaut in Suedwest", {
-  rf <- source_round_filter()
+  rf <- source_module("round_filter")
   pfad <- test_path("fixtures", "fixture_cache", "86_2025.json")
   skip_if_not(file.exists(pfad))
 
@@ -84,7 +78,7 @@ test_that("Liga 83 verwirft die Relegationsrunde und behaelt den Rest", {
   # Bayern 2025 enthaelt eine "Relegation Round". Sie MUSS raus -- sie ist
   # kein Hauptrundenspiel und wuerde die Tabelle verfaelschen. Alles andere
   # bleibt.
-  rf <- source_round_filter()
+  rf <- source_module("round_filter")
   pfad <- test_path("fixtures", "fixture_cache", "83_2025.json")
   skip_if_not(file.exists(pfad))
 
@@ -99,7 +93,7 @@ test_that("assert_rounds_kept schuetzt jede der fuenf neuen Ligen", {
   # Das Schutznetz aus Phase 0, jetzt scharf: Wuerde eine kuenftige
   # Schreibweise am Filter scheitern, bricht der Lauf mit den beobachteten
   # Labels ab -- statt eine leere Liga zu simulieren.
-  rf <- source_round_filter()
+  rf <- source_module("round_filter")
 
   expect_error(
     rf$assert_rounds_kept(306, 0, c("Bayern - 1", "Bayern - 2"),

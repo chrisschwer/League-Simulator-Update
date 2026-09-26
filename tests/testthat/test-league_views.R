@@ -2,11 +2,6 @@
 # table comes from Ergebnis3_Aufstieg while its relegation table and heatmap
 # come from Ergebnis3. These assertions pin that down.
 
-source_league_views <- function() {
-  source(test_path("..", "..", "RCode", "league_views.R"), local = TRUE)
-  environment()$league_views
-}
-
 test_that("league_views defines the live leagues in registry order", {
   # Seit Phase 5a sind die beiden Frauen-Bundesligen dabei. Die Reihenfolge
   # ist Vertrag: Sie haelt league_views() und die Registry deckungsgleich
@@ -30,7 +25,7 @@ test_that("league_views defines the live leagues in registry order", {
   # Reihenfolge folgt weiterhin der Registry -- Herren, Frauen,
   # Regionalliga; innerhalb der Regionalligen Nord, Nordost, West,
   # SuedWest, Bayern.
-  views <- source_league_views()()
+  views <- source_module("league_views")$league_views()
   expect_named(views, c("bundesliga", "zweite_bundesliga", "dritte_liga",
                         "frauen_bundesliga", "zweite_frauen_bundesliga",
                         "rl_nord", "rl_nordost", "rl_west", "rl_suedwest",
@@ -38,7 +33,7 @@ test_that("league_views defines the live leagues in registry order", {
 })
 
 test_that("Bundesliga is the canonical index page", {
-  v <- source_league_views()()$bundesliga
+  v <- source_module("league_views")$league_views()$bundesliga
   expect_equal(v$slug, "index")
   expect_equal(v$nav_label, "Bundesliga")
   expect_equal(v$plot_source, "Ergebnis")
@@ -52,7 +47,7 @@ test_that("Bundesliga is the canonical index page", {
 })
 
 test_that("2. Bundesliga uses Ergebnis2 for every panel", {
-  v <- source_league_views()()$zweite_bundesliga
+  v <- source_module("league_views")$league_views()$zweite_bundesliga
   expect_equal(v$slug, "2-bundesliga")
   expect_equal(v$plot_source, "Ergebnis2")
   expect_equal(v$top$source, "Ergebnis2")
@@ -62,7 +57,7 @@ test_that("2. Bundesliga uses Ergebnis2 for every panel", {
 })
 
 test_that("3. Liga draws its top table from Ergebnis3_Aufstieg but its bottom from Ergebnis3", {
-  v <- source_league_views()()$dritte_liga
+  v <- source_module("league_views")$league_views()$dritte_liga
   expect_equal(v$slug, "3-liga")
   expect_equal(v$teams, 20)
   expect_equal(v$plot_source, "Ergebnis3")
@@ -89,7 +84,7 @@ test_that("group matrices have two rows and one column per non-computed label", 
   # den Labels --, jetzt aber nur fuer die Labels, die wirklich eine
   # Platzgruppe sind. Ein Panel ganz OHNE groups muss dafuer vollstaendig
   # als berechnet ausgewiesen sein; sonst faellt es hier durch.
-  views <- source_league_views()()
+  views <- source_module("league_views")$league_views()
   for (nm in names(views)) {
     v <- views[[nm]]
     for (panel in c("top", "bottom")) {
@@ -173,11 +168,6 @@ test_that("die drei Altligen bleiben unveraendert", {
 })
 
 # --- aus test-phase5-regionalligen.R ---
-source_views <- function() {
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "league_views.R"), local = env)
-  env
-}
 
 # Die fuenf RL in Registry-Reihenfolge. Sie ist Vertrag (Fetch-Reihenfolge
 # und Navigation), deshalb hier einmal ausgeschrieben.
@@ -189,7 +179,7 @@ RL_SCHLUESSEL <- c("rl_nord", "rl_nordost", "rl_west", "rl_suedwest",
 # ===========================================================================
 
 test_that("league_views kennt zehn Ligen in Registry-Reihenfolge", {
-  env <- source_views()
+  env <- source_module("league_views")
   views <- env$league_views()
 
   expect_named(
@@ -200,7 +190,7 @@ test_that("league_views kennt zehn Ligen in Registry-Reihenfolge", {
 })
 
 test_that("die Regionalliga-Slugs und nav_labels sind die der Registry", {
-  views <- source_views()$league_views()
+  views <- source_module("league_views")$league_views()
 
   expect_identical(
     unname(vapply(views[RL_SCHLUESSEL], function(v) v$slug, character(1))),
@@ -217,7 +207,7 @@ test_that("jede Regionalliga liest Heatmap und Panels aus eigenen Objekten", {
   # Der Generator loest ueber diese Namen auf. Zwei Ligen, die versehentlich
   # dasselbe Objekt lesen, zeigen dieselben Zahlen unter verschiedenen
   # Ueberschriften -- und nichts schlaegt fehl.
-  views <- source_views()$league_views()
+  views <- source_module("league_views")$league_views()
 
   plot_quellen <- vapply(views[RL_SCHLUESSEL],
                          function(v) v$plot_source, character(1))
@@ -234,7 +224,7 @@ test_that("Nord und Bayern zeigen oben Meister UND Aufstieg getrennt", {
   # "Meister = Aufsteiger" -- und die ist fuer diese beiden falsch. Der
   # Aufstiegswert steht als EXTRA-Wert rechts neben der
   # Meisterwahrscheinlichkeit.
-  views <- source_views()$league_views()
+  views <- source_module("league_views")$league_views()
 
   for (key in RL_AUFSTIEGSSPIELE) {
     v <- views[[key]]
@@ -247,7 +237,7 @@ test_that("bei Nord und Bayern ist nur die Aufstiegsspalte berechnet", {
   # die Aufstiegsspalte kommt aus der Doppelsumme. `computed` traegt
   # deshalb einen Eintrag je Label -- steht dort ein einzelnes TRUE, waere
   # auch die Meisterspalte vorberechnet und die Platzgruppe wirkungslos.
-  views <- source_views()$league_views()
+  views <- source_module("league_views")$league_views()
 
   for (key in RL_AUFSTIEGSSPIELE) {
     v <- views[[key]]
@@ -290,7 +280,7 @@ test_that("keine Regionalliga stellt den Abstieg als feste Platzgruppe dar", {
   # Hier stand zuvor "vier der fuenf ... (3-5 / 1-2 / 3-7 / 4-0)". Das
   # "4-0" beschrieb die gegenlaeufige West-Kopplung, die in babc828
   # verworfen wurde.
-  views <- source_views()$league_views()
+  views <- source_module("league_views")$league_views()
 
   for (key in RL_SCHLUESSEL) {
     v <- views[[key]]
@@ -303,7 +293,7 @@ test_that("keine Regionalliga stellt den Abstieg als feste Platzgruppe dar", {
 test_that("die Altligen und Frauen-Ligen behalten ihre Platzgruppen", {
   # Gegenprobe: `computed` ist eine Ausnahme fuer die RL, keine stille
   # Verhaltensaenderung der uebrigen fuenf Ligen.
-  views <- source_views()$league_views()
+  views <- source_module("league_views")$league_views()
   alt <- c("bundesliga", "zweite_bundesliga", "dritte_liga",
            "frauen_bundesliga", "zweite_frauen_bundesliga")
 
@@ -318,7 +308,7 @@ test_that("die Altligen und Frauen-Ligen behalten ihre Platzgruppen", {
 })
 
 test_that("vier Staffeln weisen unten nur den Abstieg aus", {
-  views <- source_views()$league_views()
+  views <- source_module("league_views")$league_views()
 
   for (key in setdiff(RL_SCHLUESSEL, "rl_bayern")) {
     expect_identical(views[[key]]$bottom$labels, "Abstieg", info = key)
@@ -333,7 +323,7 @@ test_that("Bayern weist unten zwei getrennte Baender aus", {
   # Die Relegation wird NICHT in eine Abstiegswahrscheinlichkeit
   # aufgeloest: Wir simulieren die Bayernligen nicht, jede Gewinnquote
   # waere erfunden. Deshalb zwei Spalten, nicht eine Summe.
-  views <- source_views()$league_views()
+  views <- source_module("league_views")$league_views()
   v <- views$rl_bayern
 
   expect_identical(v$bottom$labels, c("Relegation", "Abstieg"))
@@ -344,7 +334,7 @@ test_that("Bayern weist unten zwei getrennte Baender aus", {
 test_that("die Aufstiegstabelle traegt genau vier Spalten", {
   # Team, P(Meister), P(Aufstieg), Siegquote. Nicht mehr -- die
   # Paarungsmatrix ist bewusst nicht Teil dieser Seite.
-  views <- source_views()$league_views()
+  views <- source_module("league_views")$league_views()
   v <- views[[AUFSTIEGSSEITE_SLUG]]
 
   expect_identical(v$columns, c("Meister", "Aufstieg", "Siegquote"))
@@ -353,7 +343,7 @@ test_that("die Aufstiegstabelle traegt genau vier Spalten", {
 test_that("die Aufstiegsseite deckt alle fuenf Staffeln ab", {
   # Auch die drei Direktaufsteiger stehen dort -- die Seite zeigt den
   # ganzen Weg in die 3. Liga, nicht nur die Aufstiegsspiele.
-  views <- source_views()$league_views()
+  views <- source_module("league_views")$league_views()
   v <- views[[AUFSTIEGSSEITE_SLUG]]
 
   expect_identical(v$staffeln, c("Nord", "Nordost", "West", "SuedWest",

@@ -8,15 +8,10 @@
 # (tabelle$kuerzel -> tabelle$name), damit der Tooltip denselben Namen zeigt
 # wie die Tabelle darunter.
 
-source_generator <- function() {
-  source(test_path("..", "..", "RCode", "generate_static_site.R"), local = TRUE)
-  environment()
-}
-
 # --- Umgekehrt: Ligatabelle zeigt beim Namen das Kuerzel --------------------
 
 test_that("die Ligatabelle zeigt zum Vereinsnamen das Kuerzel als Tooltip", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   tab <- data.frame(
     platz = 1:2, team_id = 1:2, kuerzel = c("ALP", "BET"),
     name = c("FC Alpha", "A & B"), spiele = 0, tordifferenz = 0, punkte = 0,
@@ -31,7 +26,7 @@ test_that("die Ligatabelle zeigt zum Vereinsnamen das Kuerzel als Tooltip", {
 })
 
 test_that("ohne Kuerzel-Spalte bleibt der Name in der Ligatabelle schlicht", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   tab <- data.frame(
     platz = 1L, team_id = 1L, name = "FC Alpha", spiele = 0,
     tordifferenz = 0, punkte = 0, elo = 1500, delta_elo = 0,

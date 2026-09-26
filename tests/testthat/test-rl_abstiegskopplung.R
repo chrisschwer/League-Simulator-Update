@@ -79,15 +79,6 @@ library(testthat)
 #     Spalte "Abstieg" -- fuer Bayern die ZWEI Spalten "Relegation" und
 #     "Abstieg", nicht verrechnet.
 
-source_kopplung <- function() {
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
-  source(test_path("..", "..", "RCode", "staffel_zuordnung.R"), local = env)
-  datei <- test_path("..", "..", "RCode", "rl_abstiegskopplung.R")
-  if (file.exists(datei)) source(datei, local = env)
-  env
-}
-
 # Holt eine Funktion aus der Umgebung und meldet klar, wenn sie fehlt --
 # statt des kryptischen "attempt to apply non-function" bei env$name().
 fn <- function(env, name) {
@@ -155,7 +146,7 @@ test_that("Kernformel: 30/30/20/10 auf den letzten vier Plaetzen ergibt 77,8 %",
   #
   # (Die Aufgabenstellung nannte 0.798 -- das ist ein Rechenfehler: 0.20 * 0.89
   # ist 0.178, nicht 0.198. Die Eingaben sind unveraendert, die Zahl stimmt.)
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   teams <- 18L
 
   prognose <- prognose_zeile(teams, plaetze = c(1, 15, 16, 17, 18),
@@ -174,7 +165,7 @@ test_that("Kernformel: ein um einen Platz verrutschtes Gewicht ergibt eine ander
   # (Viertletzter statt Drittletzter), muss 0.889 herauskommen, nicht
   # 0.778. Und wer den Gewichtsvektor von der falschen Seite liest
   # (rev), bekommt 0.189. Beides sind echte Zahlen, kein Strukturcheck.
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   teams <- 18L
   prognose <- prognose_zeile(teams, plaetze = c(1, 15, 16, 17, 18),
                              p = c(0.10, 0.10, 0.20, 0.30, 0.30))
@@ -190,7 +181,7 @@ test_that("Kernformel: ein um einen Platz verrutschtes Gewicht ergibt eine ander
 })
 
 test_that("Kernformel: Wahrscheinlichkeit exakt 0 und exakt 1 fuer einen Platz", {
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   f <- fn(env, "abstiegswahrscheinlichkeit")
   teams <- 6L
   gewichte <- c(0, 0, 0, 0, 1, 1)
@@ -210,7 +201,7 @@ test_that("Kernformel: Wahrscheinlichkeit exakt 0 und exakt 1 fuer einen Platz",
 })
 
 test_that("Kernformel rechnet mehrere Teams zeilenweise und benennt sie", {
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   f <- fn(env, "abstiegswahrscheinlichkeit")
 
   prognose <- rbind(
@@ -227,7 +218,7 @@ test_that("Kernformel rechnet mehrere Teams zeilenweise und benennt sie", {
 test_that("Kernformel lehnt einen Gewichtsvektor falscher Laenge ab", {
   # Ein zu kurzer Vektor wuerde in R still recycelt -- und die Zahlen
   # waeren falsch, ohne dass etwas auffaellt.
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   f <- fn(env, "abstiegswahrscheinlichkeit")
   prognose <- prognose_zeile(6, plaetze = 6, p = 1)
 
@@ -238,7 +229,7 @@ test_that("Kernformel lehnt einen Gewichtsvektor falscher Laenge ab", {
 # --- Verteilung aus der Zaehlmatrix ----------------------------------------
 
 test_that("absteiger_verteilung normiert je Zeile auf die Iterationszahl", {
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   v <- fn(env, "absteiger_verteilung")(zaehlung_nordost89())
 
   expect_equal(dim(v), c(5L, 5L))
@@ -254,7 +245,7 @@ test_that("absteiger_verteilung nimmt die Listenform der Engine-Antwort an", {
   # content(response, "parsed") liefert eine Liste von Listen, keine
   # Matrix. Genau diese Form muss ohne Umweg funktionieren -- sonst baut
   # sich jeder Aufrufer seine eigene Konvertierung.
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   m <- zaehlung_nordost89()
   als_liste <- lapply(seq_len(nrow(m)), function(i) as.list(m[i, ]))
 
@@ -268,7 +259,7 @@ test_that("absteiger_verteilung verlangt gleiche Zeilensummen", {
   # Zeilensumme = Iterationszahl ist die Invariante der Auszaehlung: Jede
   # Iteration traegt in JEDER Staffelzeile genau einen Zaehler bei. Eine
   # abweichende Zeile ist ein kaputtes Ergebnis, kein Rundungsproblem.
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   f <- fn(env, "absteiger_verteilung")
 
   kaputt <- zaehlung_nordost89()
@@ -286,7 +277,7 @@ test_that("absteiger_verteilung verlangt, dass die Absteiger ueber alle Staffeln
   # gehen genau K Drittligisten runter, jeder in genau eine Staffel. Also
   # ist SUMME ueber Staffeln von E[k] exakt K = ncol - 1. Nicht "ungefaehr":
   # Das ist eine Auszaehlung, keine Naeherung.
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   f <- fn(env, "absteiger_verteilung")
 
   # Alle Zeilen "immer 0 Absteiger": Summe der Erwartungswerte 0 statt 4.
@@ -303,7 +294,7 @@ test_that("absteiger_verteilung fuellt fehlende Staffelzeilen mit P(0) = 1 auf",
   # Zeilen. Fachlich heisst das: nach Bayern faellt sicher niemand --
   # P(0) = 1. Eine kuerzere Matrix darf also nicht abbrechen, aber auch
   # nicht die Zeilen verschieben.
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   m <- zaehlung(Nord = c(0, N_ITER, 0, 0, 0),
                 West = c(0, 0, 0, N_ITER, 0))[1:4, ]
 
@@ -316,7 +307,7 @@ test_that("absteiger_verteilung fuellt fehlende Staffelzeilen mit P(0) = 1 auf",
 })
 
 test_that("absteiger_verteilung lehnt mehr als fuenf Zeilen ab", {
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   m <- rbind(zaehlung_nordost89(), c(N_ITER, 0, 0, 0, 0))
   f <- fn(env, "absteiger_verteilung")
   expect_error(f(m), "Zeilen|Staffeln")
@@ -327,7 +318,7 @@ test_that("p_mindestens liest die richtige Zeile ueber den Staffelnamen", {
   # Verwechslung von Zeilenindex und Staffelname auffaellt.
   # Erwartungswerte: Nord 0.1+1.3 = 1.4, Nordost 0.2+0.6 = 0.8,
   # West 0.3+0.4 = 0.7, SuedWest 0.4+0.2 = 0.6, Bayern 0.5 -- Summe 4.
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   m <- zaehlung(
     Nord     = c(2500, 1000, 6500, 0, 0),
     Nordost  = c(5000, 2000, 3000, 0, 0),
@@ -352,7 +343,7 @@ test_that("p_mindestens liest die richtige Zeile ueber den Staffelnamen", {
 })
 
 test_that("p_mindestens bricht bei unbekannter Staffel ab", {
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   v <- fn(env, "absteiger_verteilung")(zaehlung_nordost89())
   f <- fn(env, "p_mindestens")
   expect_error(f(v, "Suedost", 1), "Suedost")
@@ -363,7 +354,7 @@ test_that("p_mindestens bricht bei unbekannter Staffel ab", {
 test_that("SuedWest: 3 + k, gedeckelt auf 5", {
   # RLSW-SpO Par. 47 Nr. 1 und Nr. 2 -- das Schema der Spielordnung fuer
   # Sollstaerke 18: k = 0..4 -> 3, 4, 5, 5, 5.
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   f <- fn(env, "abstiegsplaetze")
   expect_equal(f("SuedWest", 0:4), c(3L, 4L, 5L, 5L, 5L))
 })
@@ -373,7 +364,7 @@ test_that("Nordost: 1 + k, Schema nur bis 2", {
   # 2 bei einem Drittliga-Absteiger. Mehr sieht das Schema nicht vor
   # (Hansa Rostock ist der einzige NOFV-Drittligist); ANNAHME: jenseits
   # des Schemas bleibt es beim Deckel 2.
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   f <- fn(env, "abstiegsplaetze")
   expect_equal(f("Nordost", 0:2), c(1L, 2L, 2L))
 })
@@ -381,7 +372,7 @@ test_that("Nordost: 1 + k, Schema nur bis 2", {
 test_that("Nord: 3 + k, ohne Deckel", {
   # NFV-SpO Par. 6 Abs. 3 (drei Regelabsteiger) und Abs. 4 (Erhoehung, sobald
   # die Staffelstaerke durch Drittliga-Absteiger ueberschritten wird).
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   f <- fn(env, "abstiegsplaetze")
   expect_equal(f("Nord", 0:4), c(3L, 4L, 5L, 6L, 7L))
 })
@@ -397,7 +388,7 @@ test_that("West: feste 4, unabhaengig von der 3. Liga", {
   # Bilanzlogisch war 4 - k sogar verkehrt herum: Ein Drittliga-Absteiger
   # ERHOEHT die Teamzahl auf 19; der WDFV gleicht das ueber die
   # Aufstiegsseite und die Ligagroesse aus, nicht ueber weniger Absteiger.
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   f <- fn(env, "abstiegsplaetze")
   expect_equal(f("West", 0:4), rep(4L, 5))
   # Konstant -- keine Kopplung in irgendeine Richtung.
@@ -407,13 +398,13 @@ test_that("West: feste 4, unabhaengig von der 3. Liga", {
 test_that("Bayern: zwei Direktabsteiger, unabhaengig von k", {
   # BFV A&A II. Nr. 1. Die Relegation (II. Nr. 3) ist KEIN Abstiegsplatz
   # und taucht hier nicht auf.
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   f <- fn(env, "abstiegsplaetze")
   expect_equal(f("Bayern", 0:4), rep(2L, 5))
 })
 
 test_that("abstiegsplaetze bricht bei unbekannter Staffel ab", {
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   f <- fn(env, "abstiegsplaetze")
   expect_error(f("Sued", 0L), "Sued")
 })
@@ -425,7 +416,7 @@ test_that("Nordost-Gewichte aus der 89-%-Zaehlung: 1, 0.89, exakt 0", {
   # Basis 1 -> der Letzte steigt sicher ab, der Vorletzte zu 89 %, der
   # Drittletzte NIE -- rechnerisch kein weiterer Absteiger moeglich, also
   # Gewicht exakt 0, nicht 1e-17.
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   v <- fn(env, "absteiger_verteilung")(zaehlung_nordost89())
   w <- fn(env, "platz_gewichte")("Nordost", v, teams = 18L)
 
@@ -441,7 +432,7 @@ test_that("Nordost: Team mit 30/30/20/10 auf den letzten vier Plaetzen hat 56,7 
   # Dieselbe Teamzeile wie im Fixpunkt-Beispiel, aber die Gewichte kommen
   # jetzt aus der Zaehlung: 0.30 * 1 + 0.30 * 0.89 + 0.20 * 0 + 0.10 * 0
   # = 0.567. Ein anderes Ergebnis als 0.778, weil Nordost Basis 1 hat.
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   v <- fn(env, "absteiger_verteilung")(zaehlung_nordost89())
   w <- fn(env, "platz_gewichte")("Nordost", v, teams = 18L)
   prognose <- prognose_zeile(18L, plaetze = c(1, 15, 16, 17, 18),
@@ -454,7 +445,7 @@ test_that("Nordost: Team mit 30/30/20/10 auf den letzten vier Plaetzen hat 56,7 
 test_that("SuedWest: Deckel 5 -- bei vier Drittliga-Absteigern bleibt Platz 13 sicher", {
   # P(k = 4) = 1. Ohne Deckel waeren es 7 Absteiger (Plaetze 12-18); mit
   # Deckel 5 sind es die Plaetze 14-18, und Platz 13 hat Gewicht exakt 0.
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   v <- fn(env, "absteiger_verteilung")(
     zaehlung(SuedWest = c(0, 0, 0, 0, N_ITER))
   )
@@ -475,7 +466,7 @@ test_that("SuedWest: gemischte Zaehlung gewichtet Platz 15 und 14 unterschiedlic
   #   Platz 15:    bei k >= 1       -> 0.5
   #   Platz 14:    bei k >= 2       -> 0.2
   #   Platz 13:    nie              -> 0
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   v <- fn(env, "absteiger_verteilung")(zaehlung(
     SuedWest = c(5000, 3000, 2000, 0, 0),
     Nord     = c(0, 0, 0, N_ITER, 0),
@@ -494,7 +485,7 @@ test_that("West: die Zaehlung der 3. Liga aendert die Abstiegsplaetze nicht", {
   # egal wie viele Drittligisten in die Staffel fallen. Das ist die
   # Gegenprobe -- zwei voellig verschiedene Zaehlungen, identische
   # Gewichte.
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   f <- fn(env, "absteiger_verteilung")
   g <- fn(env, "platz_gewichte")
 
@@ -515,7 +506,7 @@ test_that("West: die Zaehlung der 3. Liga aendert die Abstiegsplaetze nicht", {
 })
 
 test_that("Nord: 3 + k ohne Deckel -- zwei Drittliga-Absteiger machen fuenf Plaetze", {
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   v <- fn(env, "absteiger_verteilung")(zaehlung(
     Nord = c(0, 0, N_ITER, 0, 0),
     West = c(0, 0, N_ITER, 0, 0)
@@ -528,7 +519,7 @@ test_that("Nord: 3 + k ohne Deckel -- zwei Drittliga-Absteiger machen fuenf Plae
 
 test_that("Bayern: genau die zwei Letzten, egal was die 3. Liga tut", {
   # Zwei voellig verschiedene Zaehlungen -- dieselben Gewichte.
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   f <- fn(env, "absteiger_verteilung")
   g <- fn(env, "platz_gewichte")
 
@@ -549,7 +540,7 @@ test_that("Platzgewichte sind ueber die Ligagroesse aufgeloest, nicht als negati
   # wird hier der WERT an Positionen geprueft, bei einer kleinen Liga, wo
   # die Verwechslung sofort sichtbar waere: Bei 6 Teams und Basis 1
   # (Nordost, k = 0 sicher) darf nur Platz 6 Gewicht 1 haben.
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   v <- fn(env, "absteiger_verteilung")(zaehlung(
     Nord = c(0, 0, 0, 0, N_ITER)
   ))
@@ -563,7 +554,7 @@ test_that("Platzgewichte sind ueber die Ligagroesse aufgeloest, nicht als negati
 })
 
 test_that("Platzgewichte steigen zum Tabellenende hin monoton -- in allen fuenf Staffeln", {
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   v <- fn(env, "absteiger_verteilung")(zaehlung(
     Nord     = c(2500, 1000, 6500, 0, 0),
     Nordost  = c(5000, 2000, 3000, 0, 0),
@@ -587,7 +578,7 @@ test_that("Erwartete Absteigerzahl = Summe der Platzgewichte = Summe ueber Teams
   # Abstiegswahrscheinlichkeiten ueber alle Teams gleich der Summe der
   # Platzgewichte -- und die ist E[abstiegsplaetze(k)]. Keine Toleranz
   # noetig, das ist Algebra.
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   v <- fn(env, "absteiger_verteilung")(zaehlung(
     SuedWest = c(5000, 3000, 2000, 0, 0),
     Nord     = c(0, 0, 0, N_ITER, 0),
@@ -613,7 +604,7 @@ test_that("Erwartete Absteigerzahl = Summe der Platzgewichte = Summe ueber Teams
 # --- Die ganze Kette: rl_abstiegsprognose -----------------------------------
 
 test_that("rl_abstiegsprognose rechnet Nordost vom Zaehler bis zur Spalte durch", {
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   prognose <- rbind(
     prognose_zeile(18L, plaetze = c(1, 15, 16, 17, 18),
                    p = c(0.10, 0.10, 0.20, 0.30, 0.30), name = "A"),
@@ -632,7 +623,7 @@ test_that("rl_abstiegsprognose rechnet Nordost vom Zaehler bis zur Spalte durch"
 })
 
 test_that("rl_abstiegsprognose nimmt die Listenform der Engine-Antwort an", {
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   m <- zaehlung_nordost89()
   als_liste <- lapply(seq_len(nrow(m)), function(i) as.list(m[i, ]))
   prognose <- prognose_zeile(18L, plaetze = c(17, 18), p = c(0.5, 0.5))
@@ -651,7 +642,7 @@ test_that("Bayern: zwei getrennte Groessen, nicht zu einer Abstiegszahl verrechn
   # Waere die Relegation zu 50 % "aufgeloest" und dazugezaehlt, staende
   # 0.65 da; waere sie voll dazugezaehlt, 0.90. Beides ist falsch: Wir
   # simulieren keine Bayernligisten und erfinden keine Gewinnquote.
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   prognose <- rbind(
     prognose_zeile(19L, plaetze = 15:19, p = c(0.10, 0.20, 0.30, 0.25, 0.15),
                    name = "B"),
@@ -675,7 +666,7 @@ test_that("Bayern: zwei getrennte Groessen, nicht zu einer Abstiegszahl verrechn
 })
 
 test_that("Bayern: die Zaehlung der 3. Liga aendert das Ergebnis nicht", {
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   f <- fn(env, "rl_abstiegsprognose")
   prognose <- prognose_zeile(19L, plaetze = 15:19, p = c(0.10, 0.20, 0.30, 0.25, 0.15))
 
@@ -692,7 +683,7 @@ test_that("Bayern: Summe der Relegation ueber alle Teams ist exakt 2, Abstieg ex
   # Spaltensummen ueber eine vollstaendige Prognose muessen das exakt
   # treffen. Waere die Relegation in den Abstieg eingerechnet, laege die
   # Abstiegssumme zwischen 2 und 4.
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   n <- 19L
   ident <- diag(n)
   shift <- ident[c(2:n, 1), ]
@@ -707,7 +698,7 @@ test_that("Bayern: Summe der Relegation ueber alle Teams ist exakt 2, Abstieg ex
 })
 
 test_that("Nur Bayern bekommt eine Relegationsspalte", {
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   f <- fn(env, "rl_abstiegsprognose")
   prognose <- prognose_zeile(18L, plaetze = c(17, 18), p = c(0.5, 0.5))
   counts <- zaehlung_nordost89()
@@ -728,7 +719,7 @@ test_that("rl_abstiegsprognose: Nord und SuedWest liefern verschiedene Zahlen al
   #   Team A: 0.30 + 0.30 + 0.20 + 0.10 * 1 = 0.90
   # West (entkoppelt, immer 4 Plaetze -> 15 bis 18):
   #   Team A: 0.30 + 0.30 + 0.20 + 0.10 * 1 = 0.90
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   f <- fn(env, "rl_abstiegsprognose")
   prognose <- prognose_zeile(18L, plaetze = c(1, 15, 16, 17, 18),
                              p = c(0.10, 0.10, 0.20, 0.30, 0.30))
@@ -741,7 +732,7 @@ test_that("rl_abstiegsprognose: Nord und SuedWest liefern verschiedene Zahlen al
 })
 
 test_that("rl_abstiegsprognose bricht bei unbekannter Staffel ab, statt still zu raten", {
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   prognose <- prognose_zeile(18L, plaetze = 18, p = 1)
   f <- fn(env, "rl_abstiegsprognose")
   expect_error(f("Sued", prognose, zaehlung_nordost89()), "Sued")
@@ -762,7 +753,7 @@ test_that("rl_abstiegsprognose bricht bei unbekannter Staffel ab, statt still zu
 # Signatur unveraendert, und jeder vorhandene Aufrufer merkt nichts.
 
 test_that("rl_abstiegsprognose reicht P(Platz ist Abstiegsplatz) als Attribut durch", {
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   f <- fn(env, "rl_abstiegsprognose")
   gew <- fn(env, "platz_gewichte")
   verteilung <- fn(env, "absteiger_verteilung")
@@ -791,7 +782,7 @@ test_that("das Attribut laesst die bisherige Rueckgabe unveraendert", {
   # Absicherung der Entwurfsentscheidung: Ein Attribut darf den data.frame
   # nicht veraendern -- weder Spalten noch Zeilen noch Werte. Sonst haette
   # jeder bestehende Aufrufer eine stille Aenderung.
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   f <- fn(env, "rl_abstiegsprognose")
   prognose <- prognose_zeile(18L, plaetze = c(17, 18), p = c(0.5, 0.5))
   counts <- zaehlung_nordost89()
@@ -810,7 +801,7 @@ test_that("Bayern reicht Relegations- und Abstiegsplaetze GETRENNT durch", {
   # der ausdrueckliche Punkt 3 aus Issue #185): Die zwei Letzten steigen
   # direkt ab, die zwei davor spielen Relegation gegen die Bayernliga --
   # ein Ausgang, den wir nicht simulieren. Zwei Attribute, zwei Farben.
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   f <- fn(env, "rl_abstiegsprognose")
 
   prognose <- prognose_zeile(19L, plaetze = c(16, 17, 18, 19),
@@ -838,7 +829,7 @@ test_that("nur Bayern traegt ein Relegations-Attribut", {
   # mit lauter Nullen waere schlimmer als keines: Der Renderer muesste
   # raten, ob "alles 0" bedeutet "keine Relegation" oder "Relegation, aber
   # gerade unwahrscheinlich".
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   f <- fn(env, "rl_abstiegsprognose")
   prognose <- prognose_zeile(18L, plaetze = 18, p = 1)
 
@@ -854,7 +845,7 @@ test_that("Nords Meisteraufstieg senkt auch die PLATZ-Wahrscheinlichkeiten", {
   # wirkt schon auf die Team-Zahl (Test weiter oben) -- der Platzvektor muss
   # dieselbe Mischung tragen, sonst widersprechen sich Linie und Fussnote
   # auf derselben Seite.
-  env <- source_kopplung()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   f <- fn(env, "rl_abstiegsprognose")
   gew <- fn(env, "platz_gewichte")
   verteilung <- fn(env, "absteiger_verteilung")
@@ -873,11 +864,6 @@ test_that("Nords Meisteraufstieg senkt auch die PLATZ-Wahrscheinlichkeiten", {
 })
 
 # --- aus test-phase5-regionalligen.R ---
-source_views <- function() {
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "league_views.R"), local = env)
-  env
-}
 
 # Die fuenf RL in Registry-Reihenfolge. Sie ist Vertrag (Fetch-Reihenfolge
 # und Navigation), deshalb hier einmal ausgeschrieben.
@@ -889,7 +875,7 @@ test_that("die Abstiegsspalten heissen wie die Spalten von rl_abstiegsprognose",
   # liefert einen data.frame mit rownames = Teams und genau diesen
   # Spalten. Laufen die Namen auseinander, faellt die Spalte beim Rendern
   # aus -- oder es steht die falsche unter der falschen Ueberschrift.
-  views <- source_views()$league_views()
+  views <- source_module("league_views")$league_views()
 
   rl <- new.env()
   source(test_path("..", "..", "RCode", "staffel_zuordnung.R"), local = rl)

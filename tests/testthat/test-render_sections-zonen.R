@@ -26,11 +26,6 @@
 
 library(testthat)
 
-source_generator <- function() {
-  source(test_path("..", "..", "RCode", "generate_static_site.R"), local = TRUE)
-  environment()
-}
-
 # Achtzehn Plaetze, damit die Zonen realistisch liegen.
 mk_rl_tabelle <- function(n = 18L) {
   data.frame(
@@ -86,7 +81,7 @@ test_that("ohne Zonen rendert die Tabelle exakt wie bisher", {
   # Die fuenf Nicht-RL-Ligen rufen den Renderer weiterhin ohne Zonen auf.
   # Sie duerfen sich um kein Zeichen aendern -- sonst waere dieses Feature
   # ein Umbau aller zehn Seiten statt einer Ergaenzung von fuenfen.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
 
   expect_identical(
     gen$render_liga_tabelle(mk_rl_tabelle()),
@@ -97,7 +92,7 @@ test_that("ohne Zonen rendert die Tabelle exakt wie bisher", {
 })
 
 test_that("die Abstiegslinie folgt P -- voll, abgestuft, gar nicht", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   abstieg <- numeric(18)
   abstieg[18] <- 1.00 # sicher
   abstieg[17] <- 0.80 # sehr wahrscheinlich
@@ -122,7 +117,7 @@ test_that("jedes P groesser null bleibt sichtbar (Mindestdeckkraft)", {
   # Der Kern des Wunsches: "kann noch passieren" darf nicht wie
   # "ausgeschlossen" aussehen. Ein Prozent ist optisch nichts -- deshalb
   # eine Untergrenze, unterhalb derer nicht weiter abgeblendet wird.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   abstieg <- numeric(18)
   abstieg[17] <- 0.01
   abstieg[18] <- 1
@@ -153,7 +148,7 @@ test_that("Bayern faerbt Relegation gelb und Abstieg rot, ohne sie zu verrechnen
   # Punkt 3 aus Issue #185: Die zwei Groessen duerfen nicht zu einer Zahl
   # addiert werden. Die Relegation gegen die Bayernliga wird bewusst nicht
   # aufgeloest -- wir simulieren diese Ligen nicht.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   n <- 19L
   abstieg <- numeric(n); abstieg[c(18, 19)] <- 1
   relegation <- numeric(n); relegation[c(16, 17)] <- 1
@@ -173,7 +168,7 @@ test_that("der Aufstiegsplatz ist gruen -- fest oder abgestuft", {
   # Nordost, West, SuedWest stellen je einen direkten Aufsteiger: Platz 1
   # ist sicher. Nord und Bayern kommen nur ueber das Aufstiegsspiel hoch;
   # dort traegt Platz 1 die Gewinnwahrscheinlichkeit.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
 
   fest <- numeric(18); fest[1] <- 1
   html_fest <- gen$render_liga_tabelle(mk_rl_tabelle(),
@@ -199,7 +194,7 @@ test_that("die Linien sind an den Tabellenplatz gebunden, nicht an die Zeile", {
   # setzt; jede andere Sortierung blendet die Linien aus. Das ist zugleich
   # robust gegen kuenftige Sortierspalten: Sie sind dann automatisch aus,
   # statt still falsch zu liegen.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   abstieg <- numeric(18); abstieg[18] <- 1
 
   html <- gen$render_liga_tabelle(mk_rl_tabelle(),
@@ -217,7 +212,7 @@ test_that("das Kleingedruckte nennt die Regel und die Zahlen je Platz", {
   # Fuer die Nerds, die es genau wissen wollen -- unter der Tabelle, nicht
   # in ihr. Die Regel erklaert, WARUM die Zahl schwankt; ohne sie wirken
   # abgestufte Linien wie Messfehler.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   abstieg <- numeric(18)
   abstieg[18] <- 1
   abstieg[17] <- 0.89
@@ -304,14 +299,14 @@ test_that("rl_zonen liefert NULL fuer Ligen ohne Zonen", {
   # Die fuenf Nicht-RL-Ligen rufen denselben Seitenaufbau. Sie duerfen kein
   # halbes zonen-Objekt bekommen, sondern gar keines -- dann rendert die
   # Tabelle zeichengleich wie vor #185.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
 
   expect_null(gen$rl_zonen("bundesliga", mk_env()))
   expect_null(gen$rl_zonen("frauen_bundesliga", mk_env()))
 })
 
 test_that("rl_zonen liest die Abstiegsgewichte aus dem Attribut", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   ab <- numeric(18); ab[18] <- 1; ab[17] <- 0.89; ab[16] <- 0.35
 
   zonen <- gen$rl_zonen("rl_nordost", mk_env(
@@ -324,7 +319,7 @@ test_that("rl_zonen liest die Abstiegsgewichte aus dem Attribut", {
 test_that("Nordost, West und SuedWest bekommen Platz 1 als sicheren Aufstieg", {
   # promotion_slots = 1: ein direkter Aufsteiger, keine Wahrscheinlichkeit
   # im Spiel. Die Zahl kommt aus der Registry, nicht aus einer Simulation.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
 
   for (key in c("rl_nordost", "rl_west", "rl_suedwest")) {
     objekt <- paste0("Ergebnis_", key, "_abstieg")
@@ -341,7 +336,7 @@ test_that("Nord und Bayern tragen die Gewinnquote des Aufstiegsspiels", {
   # promotion_slots = 0, playoff_slots = 1: Sie kommen nur ueber das
   # Aufstiegsspiel hoch. Platz 1 ist dort KEIN sicherer Aufstieg -- genau
   # das soll die abgestufte Linie zeigen.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
 
   zonen <- gen$rl_zonen("rl_nord", mk_env(
     Ergebnis_rl_nord_abstieg = mk_abstieg(18L),
@@ -359,7 +354,7 @@ test_that("Nord und Bayern tragen die Gewinnquote des Aufstiegsspiels", {
 test_that("nur Bayern traegt Relegationsgewichte", {
   # Die anderen vier Staffeln kennen keine Abstiegsrelegation. NULL heisst
   # "gibt es nicht" -- ein Nullvektor hiesse "moeglich, gerade null".
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   rel <- numeric(19); rel[c(16, 17)] <- 1
 
   zonen_by <- gen$rl_zonen("rl_bayern", mk_env(
@@ -379,7 +374,7 @@ test_that("fehlt das Abstiegsobjekt, gibt es gar keine Zonen", {
   # ohne Zaehlung der 3. Liga) -- dokumentiertes Verhalten. Dann darf die
   # Seite keine halben Zonen zeigen: Eine Liga ohne Linien ist besser als
   # eine mit Linien, die nur die halbe Wahrheit tragen.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
 
   expect_null(gen$rl_zonen("rl_nordost", mk_env()))
 })
@@ -388,7 +383,7 @@ test_that("fehlt bei Nord die Aufstiegsspalte, bleiben die Abstiegslinien", {
   # Gegenprobe zum Test darueber: Das Abstiegsobjekt ist die tragende
   # Quelle. Fehlt nur die Aufstiegsspalte, waere es falsch, deswegen auch
   # die Abstiegslinien wegzulassen -- sie sind vollstaendig da.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   ab <- numeric(18); ab[18] <- 1
 
   zonen <- gen$rl_zonen("rl_nord", mk_env(
@@ -420,7 +415,7 @@ test_that("fehlt bei Nord die Aufstiegsspalte, bleiben die Abstiegslinien", {
 # der Liste; ueber die Absteigerzahl gerechnet summiert es sich richtig.
 
 test_that("absteigerzahl_verteilung gewinnt die Verteilung aus dem Platzvektor", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
 
   # Nord-Fall: 3 Absteiger sicher, der 4. mit 80 %, der 5. mit 30 %.
   g <- numeric(18)
@@ -439,7 +434,7 @@ test_that("absteigerzahl_verteilung gewinnt die Verteilung aus dem Platzvektor",
 test_that("eine feste Absteigerzahl ergibt genau einen Eintrag mit 100 Prozent", {
   # West koppelt nicht: vier Absteiger, Punkt. Die Fussnote soll das als
   # eine Zeile zeigen, nicht als Verteilung ueber einen einzigen Wert.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   g <- numeric(18); g[15:18] <- 1
 
   v <- gen$absteigerzahl_verteilung(g)
@@ -451,7 +446,7 @@ test_that("eine feste Absteigerzahl ergibt genau einen Eintrag mit 100 Prozent",
 test_that("Plaetze mit Wahrscheinlichkeit null tauchen nicht auf", {
   # Sonst stuenden in der Liste 14 Eintraege mit "0 %", die die drei
   # interessanten Zahlen zudecken.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   g <- numeric(18); g[18] <- 1; g[17] <- 0.5
 
   v <- gen$absteigerzahl_verteilung(g)
@@ -462,7 +457,7 @@ test_that("Plaetze mit Wahrscheinlichkeit null tauchen nicht auf", {
 test_that("die Fussnote nennt die Zahl der Absteiger VOR den Platz-Zahlen", {
   # Reihenfolge ist Aussage: Erst warum die Zahl schwankt, dann was daraus
   # je Platz folgt. Andersherum stuenden die Platzzahlen unerklaert da.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   ab <- numeric(18)
   ab[18] <- 1; ab[17] <- 1; ab[16] <- 0.4
 
@@ -480,7 +475,7 @@ test_that("die Fussnote nennt die Zahl der Absteiger VOR den Platz-Zahlen", {
 test_that("bei fester Absteigerzahl entfaellt der Verteilungssatz", {
   # West und Bayern haben nichts zu erklaeren -- ein Satz "4 Absteiger mit
   # 100 %" waere Fuellmaterial und saehe aus, als gaebe es eine Unsicherheit.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   ab <- numeric(18); ab[15:18] <- 1
 
   html <- gen$render_zonen_fussnote(
@@ -498,7 +493,7 @@ test_that("die RL-Seite traegt Zonenlinien und Fussnote", {
   # Der Endpunkt: Was #191 gebaut hat, muss auf der Seite ankommen. Ohne
   # diesen Test bliebe die Verdrahtung unbewiesen -- genau der Zustand, den
   # dieser PR beendet.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   ab <- numeric(18); ab[18] <- 1; ab[17] <- 0.5
 
   env <- mk_env(

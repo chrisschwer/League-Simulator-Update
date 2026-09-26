@@ -19,16 +19,10 @@ library(mockery)
 # test-league-views.R muss unveraendert gruen bleiben, ausser der einen
 # Zeile, die "exakt drei Ligen" pinnt.
 
-source_registry <- function() {
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
-  env
-}
-
 # --- Struktur ---------------------------------------------------------------
 
 test_that("league_registry kennt alle zehn Ligen", {
-  reg <- source_registry()$league_registry()
+  reg <- source_module("league_registry")$league_registry()
 
   expect_length(reg, 10)
   expect_setequal(
@@ -45,7 +39,7 @@ test_that("seit Phase 5 sind alle zehn Ligen aktiv", {
   # Er prueft jetzt die Aussage, die ueber Phasen hinweg gilt: `active` und
   # league_ids() sagen dasselbe, und der Produktivpfad hat keine Liga
   # verloren. Die konkrete Liste pinnt test-phase5-regionalligen.R.
-  env <- source_registry()
+  env <- source_module("league_registry")
   reg <- env$league_registry()
   aktiv <- Filter(function(l) isTRUE(l$active), reg)
 
@@ -55,7 +49,7 @@ test_that("seit Phase 5 sind alle zehn Ligen aktiv", {
 })
 
 test_that("jede Liga traegt die Pflichtfelder", {
-  reg <- source_registry()$league_registry()
+  reg <- source_module("league_registry")$league_registry()
   pflicht <- c("api_id", "active", "family", "slug", "nav_label", "nav_group",
                "teams_range", "first_season")
 
@@ -69,7 +63,7 @@ test_that("api_id und slug sind eindeutig", {
   # Beide sind Primaerschluessel: api_id gegenueber der API, slug als
   # Dateiname der erzeugten Seite. Ein Duplikat wuerde eine Liga
   # stillschweigend ueberschreiben.
-  reg <- source_registry()$league_registry()
+  reg <- source_module("league_registry")$league_registry()
 
   expect_false(any(duplicated(vapply(reg, function(l) l$api_id, character(1)))))
   expect_false(any(duplicated(vapply(reg, function(l) l$slug, character(1)))))
@@ -78,7 +72,7 @@ test_that("api_id und slug sind eindeutig", {
 test_that("teams_range ist eine plausible Spanne, keine Gleichheit", {
   # Teamzahlen schwanken je Saison -- Frauen-BL 12 bis 14, RL Nord 18 bis 22
   # (an den Spielplaenen 2019-2025 gemessen). Eine feste Zahl waere falsch.
-  reg <- source_registry()$league_registry()
+  reg <- source_module("league_registry")$league_registry()
 
   for (key in names(reg)) {
     r <- reg[[key]]$teams_range
@@ -94,7 +88,7 @@ test_that("teams_range ist eine plausible Spanne, keine Gleichheit", {
 test_that("die Ligen verteilen sich auf genau zwei Wechselgemeinschaften", {
   # ADR 0004: Herren (78, 79, 80, 83-87) und Frauen (82, 1034). ELO und
   # Tormodell sind nur innerhalb einer Wechselgemeinschaft vergleichbar.
-  reg <- source_registry()$league_registry()
+  reg <- source_module("league_registry")$league_registry()
   fam <- vapply(reg, function(l) l$family, character(1))
 
   expect_setequal(unique(fam), c("herren", "frauen"))
@@ -107,7 +101,7 @@ test_that("die Ligen verteilen sich auf genau zwei Wechselgemeinschaften", {
 test_that("nur die Frauen-Ligen tragen ein eigenes Tormodell", {
   # Die Herren-Ligen benutzen die Rust-Defaults; ein Wert in R waere eine
   # zweite Quelle, die auseinanderlaufen kann (ADR 0002).
-  reg <- source_registry()$league_registry()
+  reg <- source_module("league_registry")$league_registry()
 
   for (key in names(reg)) {
     l <- reg[[key]]
@@ -125,7 +119,7 @@ test_that("die Regionalligen tragen ihre Staffel und kein eigenes Tormodell", {
   # Sie tauschen Teams mit der 3. Liga, gehoeren also zur Wechselgemeinschaft
   # Herren -- ein staffelweiser Intercept wuerde jeden Auf- und Absteiger
   # stillschweigend umskalieren (ADR 0004).
-  reg <- source_registry()$league_registry()
+  reg <- source_module("league_registry")$league_registry()
   rl <- Filter(function(l) l$api_id %in% c("83", "84", "85", "86", "87"), reg)
 
   expect_length(rl, 5)
@@ -147,7 +141,7 @@ test_that("league_ids liefert standardmaessig nur die aktiven Ligen", {
   # weil sie die Fetch-Reihenfolge im Update-Loop bestimmt. Seit Phase 5
   # sind alle zehn Ligen aktiv; `active_only = FALSE` bleibt trotzdem
   # gepinnt, damit ein spaeteres Deaktivieren hier auffaellt.
-  env <- source_registry()
+  env <- source_module("league_registry")
 
   expect_equal(env$league_ids(),
                c("78", "79", "80", "82", "1034", "84", "85", "87", "86", "83"))
@@ -155,7 +149,7 @@ test_that("league_ids liefert standardmaessig nur die aktiven Ligen", {
 })
 
 test_that("league_by_id findet eine Liga und meldet Unbekanntes", {
-  env <- source_registry()
+  env <- source_module("league_registry")
 
   expect_equal(env$league_by_id("78")$nav_label, "Bundesliga")
   expect_equal(env$league_by_id(78)$nav_label, "Bundesliga") # numerisch auch
@@ -166,7 +160,7 @@ test_that("league_name liefert die Anzeigenamen der Altligen unveraendert", {
   # Ersetzt die zwei duplizierten Namens-Maps in api_service.R. Die Namen
   # sind Teil der Ausgabe (Logs, Saisonwechsel-Dialoge) und duerfen sich
   # nicht aendern.
-  env <- source_registry()
+  env <- source_module("league_registry")
 
   expect_equal(env$league_name("78"), "Bundesliga")
   expect_equal(env$league_name("79"), "2. Bundesliga")
@@ -175,7 +169,7 @@ test_that("league_name liefert die Anzeigenamen der Altligen unveraendert", {
 
 test_that("goal_model liefert die Tormodell-Parameter je Liga", {
   # NULL fuer die Herren heisst: nichts senden, Rust-Defaults greifen.
-  env <- source_registry()
+  env <- source_module("league_registry")
 
   expect_null(env$goal_model("78"))
   expect_equal(env$goal_model("82")$tore_slope, 0.0024058833)
@@ -193,7 +187,7 @@ test_that("league_views wird aus der Registry abgeleitet", {
   source(test_path("..", "..", "RCode", "league_views.R"), local = env)
   views <- env$league_views()
 
-  expect_named(views, names(source_registry()$league_registry()))
+  expect_named(views, names(source_module("league_registry")$league_registry()))
   expect_equal(views$bundesliga$slug, "index")
   expect_equal(views$dritte_liga$teams, 20)
 })
@@ -327,7 +321,7 @@ test_that("build_league_details_payload traegt das Tormodell", {
 test_that("goal_model_args liefert die Argumente fuer beide Endpunkte", {
   # Eine Quelle fuer beide Aufrufpfade -- damit ist strukturell
   # ausgeschlossen, dass sie auseinanderlaufen.
-  env <- source_registry()
+  env <- source_module("league_registry")
 
   expect_equal(env$goal_model_args("78"), list())
   expect_equal(
@@ -699,20 +693,6 @@ test_that("die Registry weiss, welche Liga einen Aufstiegslauf braucht", {
 #
 # ===========================================================================
 
-# --- Quellen ----------------------------------------------------------------
-
-source_views <- function() {
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "league_views.R"), local = env)
-  env
-}
-
-source_round_filter <- function() {
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "round_filter.R"), local = env)
-  env
-}
-
 # Die fuenf RL in Registry-Reihenfolge. Sie ist Vertrag (Fetch-Reihenfolge
 # und Navigation), deshalb hier einmal ausgeschrieben.
 RL_SCHLUESSEL <- c("rl_nord", "rl_nordost", "rl_west", "rl_suedwest",
@@ -743,7 +723,7 @@ test_that("league_ids liefert zehn Ligen in Registry-Reihenfolge", {
   # Die Reihenfolge bestimmt, in welcher Folge der Loop abruft und in
   # welcher Reihenfolge die Navigation baut -- sie darf sich nicht
   # unbemerkt aendern. Deshalb der exakte Vektor, nicht nur die Laenge.
-  env <- source_registry()
+  env <- source_module("league_registry")
 
   expect_identical(
     env$league_ids(),
@@ -753,7 +733,7 @@ test_that("league_ids liefert zehn Ligen in Registry-Reihenfolge", {
 })
 
 test_that("active_league_keys nennt die fuenf Regionalligen mit", {
-  env <- source_registry()
+  env <- source_module("league_registry")
 
   expect_identical(
     env$active_league_keys(),
@@ -764,7 +744,7 @@ test_that("active_league_keys nennt die fuenf Regionalligen mit", {
 })
 
 test_that("jede Regionalliga traegt active = TRUE", {
-  env <- source_registry()
+  env <- source_module("league_registry")
   reg <- env$league_registry()
 
   for (key in RL_SCHLUESSEL) {
@@ -774,7 +754,7 @@ test_that("jede Regionalliga traegt active = TRUE", {
 
 test_that("die nav_group ordnet die zehn Ligen drei Gruppen zu", {
   # Werte, nicht Vorhandensein: Jede Liga bekommt ihre Gruppe genannt.
-  env <- source_registry()
+  env <- source_module("league_registry")
   reg <- env$league_registry()
 
   gruppen <- vapply(reg, function(l) l$nav_group %||% NA_character_,
@@ -791,7 +771,7 @@ test_that("die Regionalligen behalten das Herren-Tormodell", {
   # Wechselgemeinschaft Herren (ADR 0004). goal_model() muss NULL liefern:
   # nichts senden, der Rust-Default greift. Ein eigener Intercept wuerde
   # jeden Auf- und Absteiger stillschweigend umskalieren.
-  env <- source_registry()
+  env <- source_module("league_registry")
 
   for (id in RL_IDS) {
     expect_null(env$goal_model(id), info = id)
@@ -802,7 +782,7 @@ test_that("die Regionalligen behalten das Herren-Tormodell", {
 test_that("aus den Regionalligen duerfen Zweitvertretungen nicht aufsteigen", {
   # Wie in der 3. Liga: Die Aufstiegstabelle braucht einen zweiten Lauf mit
   # -50-Malus. has_promotion_restriction() steuert das.
-  env <- source_registry()
+  env <- source_module("league_registry")
 
   for (id in RL_IDS) {
     expect_true(env$has_promotion_restriction(id), info = id)
@@ -814,7 +794,7 @@ test_that("Registry und AUFSTIEGSROTATION sagen dasselbe ueber 2026/27", {
   # massgebliche Quelle ist AUFSTIEGSROTATION in RCode/rl_aufstieg.R. Wenn
   # beide auseinanderlaufen, zeigt die Seite einen anderen Modus als die
   # Rechnung -- ohne dass etwas fehlschlaegt.
-  env <- source_registry()
+  env <- source_module("league_registry")
   auf <- new.env()
   source(test_path("..", "..", "RCode", "staffel_zuordnung.R"), local = auf)
   source(test_path("..", "..", "RCode", "rl_aufstieg.R"), local = auf)
@@ -832,7 +812,7 @@ test_that("Registry und AUFSTIEGSROTATION sagen dasselbe ueber 2026/27", {
 test_that("Nord und Bayern haben 2026/27 exakt null Direktaufstiegsplaetze", {
   # Rechnerisch nicht moeglich heisst exakt 0, nicht "klein". Wo das kippt,
   # zeigte die Seite einen Direktaufstieg, den es nicht gibt.
-  env <- source_registry()
+  env <- source_module("league_registry")
   reg <- env$league_registry()
 
   for (key in RL_AUFSTIEGSSPIELE) {
@@ -848,7 +828,7 @@ test_that("Nord und Bayern haben 2026/27 exakt null Direktaufstiegsplaetze", {
 test_that("nur Bayern traegt Relegationsplaetze nach unten", {
   # playoff_slots ist richtungslos; Bayern braucht das eigene Feld
   # relegation_playoff_slots, weil es BEIDES hat.
-  env <- source_registry()
+  env <- source_module("league_registry")
   reg <- env$league_registry()
 
   expect_identical(reg$rl_bayern$relegation_playoff_slots, 2L)
@@ -860,8 +840,8 @@ test_that("nur Bayern traegt Relegationsplaetze nach unten", {
 test_that("league_views und Registry stimmen in Schluesseln und Slugs ueberein", {
   # Ueber die Schluessel sind Loop, Registry und Generator verbunden; ueber
   # die Slugs entstehen die Dateinamen. Zwei Quellen, eine Aussage.
-  reg <- source_registry()$league_registry()
-  views <- source_views()$league_views()
+  reg <- source_module("league_registry")$league_registry()
+  views <- source_module("league_views")$league_views()
 
   expect_identical(names(views), names(reg))
   expect_identical(
@@ -877,8 +857,8 @@ test_that("die Anzeigereihenfolge laesst die Abrufreihenfolge unberuehrt", {
   # test-league-views.R) und darf sich durch eine Darstellungsfrage nicht
   # mitbewegen. Ohne diesen Test faellt eine solche Kopplung erst im
   # Betrieb auf.
-  reg <- source_registry()
-  views <- source_views()$league_views()
+  reg <- source_module("league_registry")
+  views <- source_module("league_views")$league_views()
 
   expect_identical(
     reg$league_ids(),
@@ -910,7 +890,7 @@ rl_fixture_teams <- function(liga, saison = 2025) {
   skip_if_not(file.exists(pfad), paste("Fixture fehlt:", basename(pfad)))
 
   x <- jsonlite::fromJSON(pfad)
-  rf <- source_round_filter()
+  rf <- source_module("round_filter")
   keep <- rf$is_regular_season_round(x$round)
   unique(c(x$teams_home_name[keep], x$teams_away_name[keep]))
 }
@@ -918,7 +898,7 @@ rl_fixture_teams <- function(liga, saison = 2025) {
 test_that("die echten RL-Spielplaene 2025 liegen in der teams_range", {
   # 2025 spielten alle fuenf Staffeln mit 18 Teams. Der Wert wird gemessen,
   # nicht angenommen -- er kommt aus dem committeten Spielplan.
-  env <- source_registry()
+  env <- source_module("league_registry")
 
   for (i in seq_along(RL_IDS)) {
     id <- RL_IDS[[i]]
@@ -935,7 +915,7 @@ test_that("die TeamList fuehrt weit mehr Eintraege als eine Staffel Teams hat", 
   # Der Grund, warum die Validierung NICHT gegen die TeamList laufen darf.
   # Geprueft wird der Abstand, nicht nur die Ungleichheit: Er ist gross und
   # strukturell, nicht ein Rundungsfehler.
-  env <- source_registry()
+  env <- source_module("league_registry")
   tl <- utils::read.csv(
     test_path("..", "..", "RCode", "TeamList_2026.csv"),
     sep = ";", stringsAsFactors = FALSE
@@ -954,7 +934,7 @@ test_that("die teams_range traegt jede belegte RL-Saison seit 2019", {
   # Der Cache reicht von 2019 bis 2025 und enthaelt Staffeln mit 17 bis 22
   # Teams (Corona-Jahrgaenge). Eine zu enge Spanne faellt hier auf, bevor
   # sie im Betrieb einen Saisonwechsel blockiert.
-  env <- source_registry()
+  env <- source_module("league_registry")
   verzeichnis <- test_path("fixtures", "fixture_cache")
   skip_if_not(dir.exists(verzeichnis))
 
@@ -979,7 +959,7 @@ test_that("keine Regionalliga sendet ein eigenes Tormodell", {
   # ADR 0004: Die RL gehoeren zur Wechselgemeinschaft Herren. Ein
   # staffelweiser Intercept wuerde jeden Auf- und Absteiger stillschweigend
   # umskalieren -- und test-modellkonstanten-nur-in-rust.R rot faerben.
-  env <- source_registry()
+  env <- source_module("league_registry")
 
   for (id in RL_IDS) {
     expect_identical(env$goal_model_args(id), list(), info = id)
