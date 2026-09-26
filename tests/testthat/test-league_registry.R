@@ -459,3 +459,67 @@ test_that("beide Frauen-Ligen tragen das Frauen-Tormodell", {
     expect_null(env$goal_model(id), info = id)
   }
 })
+
+# --- aus test-n-ligen-entflechtung.R ---
+# Phase 2 des Ligen-Ausbaus: Update-Loop und Seitengenerator von "genau drei
+# Ligen" auf "n Ligen" entflechten, gesteuert über die Liga-Registry.
+#
+# Diese Phase ist VERHALTENSNEUTRAL. Solange league_ids() nur die drei
+# Altligen liefert, muss alles beim Alten bleiben -- insbesondere bleibt
+# test-update-loop-gating.R (526 Zeilen, 12 Tests) unverändert grün. Diese
+# Datei prüft, dass die Mechanik darüber hinaus n-fähig ist.
+#
+# Zwei Randbedingungen, an denen der Umbau scheitern würde:
+#
+#  1. mockery::stub() bindet an die Funktionsumgebung von
+#     update_all_leagues_loop(). Verifiziert: Wandert ein Aufruf in eine
+#     separate Top-Level-Funktion, greift der Stub NICHT mehr -- zehn Tests
+#     bräche das auf einen Schlag. Der lapply-Umbau muss INLINE bleiben.
+#  2. Die Aufrufe müssen weiterhin BENANNT erfolgen
+#     (retrieveResults(league =, season =), generate_static_site(output_dir =,
+#     league_data =)), weil die Stubs auf diese Namen hören.
+
+# --- Registry-Helfer für die Verdrahtung ------------------------------------
+
+test_that("die Registry liefert Schluessel in Fetch-Reihenfolge", {
+  # league_data und league_views() sind über diese Schlüssel verbunden; der
+  # Loop baut sie, der Generator indiziert damit. Die Reihenfolge bestimmt
+  # zudem, in welcher Folge die Ligen abgerufen werden -- sie darf sich nicht
+  # unbemerkt ändern (test-update-loop-league-data.R pinnt SENTINEL-1/2/3).
+  env <- new.env()
+  source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
+
+  # ANGEPASST in Phase 5: Die Aufzaehlung wuchs mit jedem Livegang mit. Die
+  # Aussage dieses Tests ist die REIHENFOLGE -- dass sie die der Registry
+  # ist, nicht welche Ligen es gerade sind. Die konkrete Liste pinnt
+  # test-phase5-regionalligen.R.
+  expect_equal(env$active_league_keys(),
+               names(Filter(function(l) isTRUE(l$active), env$league_registry())))
+  expect_equal(env$active_league_keys(), names(env$active_leagues()))
+  expect_equal(head(env$active_league_keys(), 3),
+               c("bundesliga", "zweite_bundesliga", "dritte_liga"))
+})
+
+test_that("active_leagues liefert die vollstaendigen Eintraege", {
+  env <- new.env()
+  source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
+
+  aktiv <- env$active_leagues()
+  expect_length(aktiv, length(env$league_ids()))
+  expect_equal(aktiv$bundesliga$api_id, "78")
+  expect_equal(aktiv$dritte_liga$api_id, "80")
+  expect_true(all(vapply(aktiv, function(l) isTRUE(l$active), logical(1))))
+})
+
+test_that("die Registry weiss, welche Liga einen Aufstiegslauf braucht", {
+  # Der -50-Malus für Zweitvertretungen ist heute für Liga 3 hartkodiert. Er
+  # hängt an einer Liga-Eigenschaft, nicht an einer ID -- und gilt künftig
+  # auch für die Regionalligen, deren Zweitvertretungen ebenfalls nicht in
+  # die 3. Liga aufsteigen dürfen.
+  env <- new.env()
+  source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
+
+  expect_true(env$has_promotion_restriction("80"))
+  expect_false(env$has_promotion_restriction("78"))
+  expect_false(env$has_promotion_restriction("79"))
+})

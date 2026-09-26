@@ -101,3 +101,132 @@ test_that("NULL aus build_league_page_data verhindert das Rendern nicht", {
   expect_null(capture$league_data$bundesliga)
   expect_null(capture$league_data$dritte_liga)
 })
+
+# --- aus test-n-ligen-entflechtung.R ---
+# --- Update-Loop: n Ligen statt drei Variablen ------------------------------
+
+fake_fixtures_min <- function(statuses = c("FT", "NS"), ids = c(1L, 2L)) {
+  list(
+    fixture = list(
+      id = ids,
+      date = rep("2026-08-01T13:00:00+00:00", length(ids)),
+      status = list(short = statuses, elapsed = rep(NA, length(ids)))
+    ),
+    goals = list(home = rep(0L, length(ids)), away = rep(0L, length(ids)))
+  )
+}
+
+fake_transformed_min <- function() {
+  data.frame(
+    TeamHeim = "AAA", TeamGast = "BBB", ToreHeim = 1, ToreGast = 0,
+    AAA = 1500, BBB = 1500
+  )
+}
+
+#' Führt einen Loop-Durchlauf aus und protokolliert die Kollaborateur-Aufrufe.
+run_loop_capturing <- function() {
+  cap <- new.env()
+  cap$fetched <- character()
+  cap$sim_frames <- 0L
+  cap$league_data <- NULL
+  cap$ergebnisse <- NULL
+
+  stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
+  stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
+    cap$fetched <- c(cap$fetched, league)
+    fake_fixtures_min()
+  })
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) integer(0))
+  stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed_min())
+  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) {
+    cap$sim_frames <- cap$sim_frames + 1L
+    matrix(1 / 18, nrow = 18, ncol = 18)
+  })
+  stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
+  stub(update_all_leagues_loop, "generate_static_site", function(...) {
+    args <- list(...)
+    cap$league_data <- args$league_data
+    cap$ergebnisse <- args$ergebnisse
+    invisible(NULL)
+  })
+
+  with_repo_root({
+    update_all_leagues_loop(
+      duration = 0, loops = 1, initial_wait = 0, n = 10, saison = "2024",
+      TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
+      static_site_dir = tempdir()
+    )
+  })
+  cap
+}
+
+test_that("der Loop holt die Ligen aus der Registry, in Registry-Reihenfolge", {
+  # Vorher standen die drei retrieveResults-Aufrufe einzeln im Code. Jetzt
+  # iteriert der Loop -- die Reihenfolge muss dieselbe bleiben, weil
+  # test-update-loop-league-data.R sie über SENTINEL-1/2/3 pinnt.
+  cap <- run_loop_capturing()
+
+  reg <- new.env()
+  source(test_path("..", "..", "RCode", "league_registry.R"), local = reg)
+  expect_equal(cap$fetched, reg$league_ids())
+})
+
+test_that("der Loop uebergibt die Ergebnisse als benannte Liste", {
+  # Die neue Form. Der Aufstiegslauf der 3. Liga hat einen eigenen Schlüssel.
+  cap <- run_loop_capturing()
+
+  expect_type(cap$ergebnisse, "list")
+  # Je aktive Liga ein Eintrag, plus ein Aufstiegslauf je Liga, aus der
+  # Zweitvertretungen nicht aufsteigen duerfen.
+  #
+  # ANGEPASST in Phase 5: Der Schluessel des Aufstiegslaufs war "<key>_aufstieg".
+  # Bei den Regionalligen ist dieser Name jetzt von der BERECHNETEN
+  # Aufstiegsspalte belegt (rl_aufstiegsprognose()); der Simulationslauf heisst
+  # dort "<key>_aufstiegstabelle". Massgeblich ist die View: Liest ihr oberes
+  # Panel aus "<key>_aufstieg", landet der Lauf dort, sonst daneben.
+  reg <- new.env()
+  source(test_path("..", "..", "RCode", "league_registry.R"), local = reg)
+  source(test_path("..", "..", "RCode", "league_views.R"), local = reg)
+  source(test_path("..", "..", "RCode", "generate_static_site.R"), local = reg)
+
+  mit_lauf <- Filter(
+    function(k) reg$has_promotion_restriction(reg$league_registry()[[k]]$api_id),
+    reg$active_league_keys()
+  )
+  erwartet <- c(reg$active_league_keys(), vapply(mit_lauf, function(k) {
+    schluessel <- paste0(k, "_aufstieg")
+    if (identical(reg$league_views()[[k]]$top$source,
+                  reg$.ergebnis_objektname(schluessel))) {
+      schluessel
+    } else {
+      paste0(k, "_aufstiegstabelle")
+    }
+  }, character(1)))
+
+  expect_setequal(names(cap$ergebnisse), erwartet)
+  expect_false(any(vapply(cap$ergebnisse, is.null, logical(1))))
+})
+
+test_that("league_data behaelt seine Schluessel und Reihenfolge", {
+  # Der Generator indiziert league_data[[key]] mit den league_views()-
+  # Schlüsseln. Weicht die Benennung ab, bekommt jede Liga stillschweigend
+  # keine Tabellendaten -- die Seite degradiert, ohne zu scheitern.
+  cap <- run_loop_capturing()
+
+  reg <- new.env()
+  source(test_path("..", "..", "RCode", "league_registry.R"), local = reg)
+  expect_equal(names(cap$league_data), reg$active_league_keys())
+})
+
+test_that("Loop 1 simuliert jede Liga plus den Aufstiegslauf", {
+  # Drei Ligen + ein Aufstiegslauf = 4. Die Zahl folgt der Registry, nicht
+  # einer festen Annahme -- test-update-loop-gating.R pinnt sie als 4 bzw. 8.
+  cap <- run_loop_capturing()
+
+  reg <- new.env()
+  source(test_path("..", "..", "RCode", "league_registry.R"), local = reg)
+  ids <- reg$league_ids()
+  erwartet <- length(ids) + sum(vapply(ids, reg$has_promotion_restriction, logical(1)))
+
+  expect_equal(cap$sim_frames, erwartet)
+})

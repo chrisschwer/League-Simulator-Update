@@ -837,3 +837,122 @@ test_that("generate_static_site rendert sechs Seiten", {
     expect_true(file.exists(file.path(out, f)), info = f)
   }
 })
+
+# --- aus test-n-ligen-entflechtung.R ---
+# --- generate_static_site: Liste statt vier Argumente -----------------------
+
+make_ergebnis <- function(teams, n = teams) {
+  m <- matrix(1 / n, nrow = teams, ncol = n,
+              dimnames = list(paste0("T", seq_len(teams)), as.character(seq_len(n))))
+  as.table(m)
+}
+
+test_that("generate_static_site nimmt eine benannte Ergebnisliste", {
+  # Die neue Form. Schlüssel sind die Registry-/league_views()-Schlüssel;
+  # der Aufstiegslauf der 3. Liga bekommt einen EIGENEN Schlüssel, weil er
+  # ein zweiter Lauf derselben Liga ist und league_views() ihn über den
+  # Namen "Ergebnis3_Aufstieg" auflöst.
+  gen <- source_generator()
+  out <- withr::local_tempdir()
+
+  paths <- gen$generate_static_site(
+    output_dir = out,
+    now = as.POSIXct("2026-08-01 12:00", tz = "Europe/Berlin"),
+    ergebnisse = list(
+      bundesliga = make_ergebnis(18),
+      zweite_bundesliga = make_ergebnis(18),
+      dritte_liga = make_ergebnis(20),
+      dritte_liga_aufstieg = make_ergebnis(20)
+    )
+  )
+
+  expect_length(paths, 4)
+  expect_true(file.exists(file.path(out, "index.html")))
+  expect_true(file.exists(file.path(out, "3-liga.html")))
+})
+
+test_that("die alte Aufrufform funktioniert unveraendert weiter", {
+  # Kompatibilitätspfad: scripts/preview_site.R und sieben Testaufrufe rufen
+  # mit den vier Einzelargumenten auf -- teils positional. Sie müssen ohne
+  # Änderung weiterlaufen, sonst ist der Umbau nicht verhaltensneutral.
+  gen <- source_generator()
+  out <- withr::local_tempdir()
+
+  paths <- gen$generate_static_site(
+    make_ergebnis(18), make_ergebnis(18), make_ergebnis(20), make_ergebnis(20),
+    output_dir = out,
+    now = as.POSIXct("2026-08-01 12:00", tz = "Europe/Berlin")
+  )
+
+  expect_length(paths, 4)
+  expect_true(file.exists(file.path(out, "index.html")))
+})
+
+test_that("beide Aufrufformen erzeugen dieselben Seiten", {
+  # Der schärfste Nachweis der Verhaltensneutralität: byteweise identisch.
+  gen <- source_generator()
+  now <- as.POSIXct("2026-08-01 12:00", tz = "Europe/Berlin")
+  e <- list(bl = make_ergebnis(18), bl2 = make_ergebnis(18),
+            l3 = make_ergebnis(20), l3a = make_ergebnis(20))
+
+  alt_dir <- withr::local_tempdir()
+  gen$generate_static_site(e$bl, e$bl2, e$l3, e$l3a,
+                           output_dir = alt_dir, now = now)
+
+  neu_dir <- withr::local_tempdir()
+  gen$generate_static_site(
+    output_dir = neu_dir, now = now,
+    ergebnisse = list(bundesliga = e$bl, zweite_bundesliga = e$bl2,
+                      dritte_liga = e$l3, dritte_liga_aufstieg = e$l3a)
+  )
+
+  for (f in c("index.html", "2-bundesliga.html", "3-liga.html", "methodik.html")) {
+    expect_identical(
+      readLines(file.path(alt_dir, f), warn = FALSE),
+      readLines(file.path(neu_dir, f), warn = FALSE),
+      info = f
+    )
+  }
+})
+
+test_that("die Fallback-Seite greift bei leerer Ergebnisliste", {
+  # Bisher prüfte der Guard drei hartkodierte Objekte auf NULL. Generisch
+  # muss er erkennen, dass keine Prognose vorliegt -- in beiden Aufrufformen.
+  gen <- source_generator()
+
+  out_alt <- withr::local_tempdir()
+  p_alt <- gen$generate_static_site(NULL, NULL, NULL, NULL, output_dir = out_alt)
+  expect_length(p_alt, 1)
+  expect_match(paste(readLines(p_alt, warn = FALSE), collapse = " "),
+               "Noch keine Prognosedaten")
+
+  out_neu <- withr::local_tempdir()
+  p_neu <- gen$generate_static_site(output_dir = out_neu, ergebnisse = list())
+  expect_length(p_neu, 1)
+})
+
+test_that("eine fehlende Liga wird uebersprungen und benannt", {
+  # Ursprünglich verlangte dieser Test einen Abbruch. Mit Phase 5a wurde das
+  # zum Zielkonflikt: scripts/preview_site.R lädt eine Fixture, die nur die
+  # drei Altligen kennt, und muss trotzdem eine Vorschau erzeugen.
+  #
+  # Entschieden (Christoph): überspringen, aber laut. Fällt im Betrieb die
+  # Simulation einer Liga aus, ist eine Seite ohne sie besser als gar keine
+  # Seite -- der stille Fehler, den der Test verhindern soll, bleibt aber
+  # ausgeschlossen, weil die übersprungene Liga in der Meldung steht.
+  gen <- source_generator()
+  out <- withr::local_tempdir()
+
+  msgs <- capture_messages(
+    paths <- gen$generate_static_site(
+      output_dir = out,
+      ergebnisse = list(bundesliga = make_ergebnis(18),
+                        zweite_bundesliga = make_ergebnis(18))
+    )
+  )
+
+  expect_match(paste(msgs, collapse = " "), "dritte_liga")
+  # Die vorhandenen Ligen werden gerendert.
+  expect_true(file.exists(file.path(out, "index.html")))
+  expect_false(file.exists(file.path(out, "3-liga.html")))
+})
