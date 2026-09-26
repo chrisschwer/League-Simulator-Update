@@ -933,8 +933,6 @@ test_that("eine fehlende Liga wird uebersprungen und benannt", {
 })
 
 # --- aus test-phase5-regionalligen.R ---
-# Gleichverteilte Prognose: jeder Platz traegt 1/n. Damit sind die
-# erwarteten Prozentwerte der Panels exakt bekannt.
 
 # Die fuenf RL in Registry-Reihenfolge. Sie ist Vertrag (Fetch-Reihenfolge
 # und Navigation), deshalb hier einmal ausgeschrieben.
