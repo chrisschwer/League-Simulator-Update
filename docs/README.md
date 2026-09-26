@@ -39,6 +39,7 @@
 - `scripts/install_test_packages.R` - Installs production + test R dependencies for local development (production images use `packagelist.txt` only)
 - `scripts/dev/zuordnung_tests.R` - Schlägt je `test_that`-Block die geprüfte `RCode/`-Einheit vor (Testsuite-Umbau #211); Regel in [`tests/testthat/README.md`](../tests/testthat/README.md)
 - `scripts/dev/ergebnisse_tests.R` - Schreibt die Einzelergebnisse der Testsuite je Block als CSV, Grundlage für Vorher/Nachher-Vergleiche
+- `scripts/dev/blockmenge_tests.R` - Vergleicht die Multimenge aller `test_that()`-Blocktexte zweier Testverzeichnisse, Nachweis für reine Refactoring-PRs des Testsuite-Umbaus (#211)
 
 ### ⚽ Spielbetrieb (Regelwerk)
 - [Auf- und Abstieg der Regionalligen 2026/2027](abstieg_aufstieg_RL_2026_2027.md) - Die amtlichen Auf-/Abstiegsregeln aller fünf Staffeln; Grundlage der Abstiegskopplung an die 3. Liga

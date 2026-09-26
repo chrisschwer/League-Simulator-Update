@@ -92,3 +92,4 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 
 - `scripts/dev/zuordnung_tests.R` schlägt je Block eine Einheit vor (Aufrufe, `source()`-Köpfe, `stub()`-Ziele) und schreibt die CSV.
 - `scripts/dev/ergebnisse_tests.R` schreibt die Einzelergebnisse je Block als CSV — Grundlage des Vorher/Nachher-Vergleichs.
+- `scripts/dev/blockmenge_tests.R` vergleicht die Multimenge aller `test_that()`-Blocktexte zweier Testverzeichnisse — Nachweis für reine Refactoring-PRs (`Rscript scripts/dev/blockmenge_tests.R <dirA> <dirB>`).
