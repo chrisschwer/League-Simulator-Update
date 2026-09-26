@@ -59,17 +59,6 @@ library(testthat)
 #     Ausgabe: data.frame rownames = Teams, Spalte "Aufstieg".
 #     Playoff-Staffel ohne p_sieg -> Fehler; keine erfundene Gewinnquote.
 
-source_aufstieg <- function() {
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
-  source(test_path("..", "..", "RCode", "staffel_zuordnung.R"), local = env)
-  for (datei in c("rl_abstiegskopplung.R", "rl_aufstieg.R")) {
-    pfad <- test_path("..", "..", "RCode", datei)
-    if (file.exists(pfad)) source(pfad, local = env)
-  }
-  env
-}
-
 fn <- function(env, name) {
   if (!exists(name, envir = env, inherits = FALSE)) {
     stop(sprintf(
@@ -105,7 +94,7 @@ sieg_nord_gegen_bayern <- matrix(c(0.5, 0.8,
 # --- Doppelsumme --------------------------------------------------------------
 
 test_that("Doppelsumme: das Rechenbeispiel Nord gegen Bayern", {
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   f <- fn(env, "aufstiegswahrscheinlichkeit")
 
   p_nord <- f(meister_nord, meister_bayern, sieg_nord_gegen_bayern)
@@ -121,7 +110,7 @@ test_that("Doppelsumme: das Rechenbeispiel Nord gegen Bayern", {
 })
 
 test_that("Doppelsumme: Muenzwurf halbiert die Meisterwahrscheinlichkeit", {
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   f <- fn(env, "aufstiegswahrscheinlichkeit")
   muenze <- matrix(0.5, nrow = 2, ncol = 2,
                    dimnames = list(c("A", "B"), c("C", "D")))
@@ -130,7 +119,7 @@ test_that("Doppelsumme: Muenzwurf halbiert die Meisterwahrscheinlichkeit", {
 })
 
 test_that("Doppelsumme: Wahrscheinlichkeit exakt 0 und exakt 1", {
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   f <- fn(env, "aufstiegswahrscheinlichkeit")
 
   # A ist sicher Meister und gewinnt sicher gegen jeden -> exakt 1.
@@ -150,7 +139,7 @@ test_that("Doppelsumme ordnet ueber Namen zu, nicht ueber die Position", {
   # (C, D). Eine Positionszuordnung rechnete fuer A:
   #   0.6 * (0.3 * 0.5 + 0.7 * 0.8) = 0.426  -- falsch.
   # Richtig bleibt 0.354.
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   f <- fn(env, "aufstiegswahrscheinlichkeit")
 
   p <- f(meister_nord, c(D = 0.3, C = 0.7), sieg_nord_gegen_bayern)
@@ -164,7 +153,7 @@ test_that("Doppelsumme ordnet ueber Namen zu, nicht ueber die Position", {
 })
 
 test_that("Doppelsumme bricht ohne Namen oder mit fehlender Paarung ab", {
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   f <- fn(env, "aufstiegswahrscheinlichkeit")
 
   ohne_namen <- unname(sieg_nord_gegen_bayern)
@@ -185,7 +174,7 @@ test_that("aufstiegsmodus 2026: Nordost direkt, Nord gegen Bayern", {
   # Amtlich: BFV A&A-Regelung 2026/27, I. Nr. 1 -- und daraus zwingend
   # Nordost als dritter Direktaufsteiger. NICHT die Wikipedia-Tabelle
   # (Bayern direkt, Nord-Nordost), die ist um ein Jahr verschoben.
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   modus <- fn(env, "aufstiegsmodus")(2026)
 
   expect_setequal(modus$direkt, c("West", "SuedWest", "Nordost"))
@@ -196,7 +185,7 @@ test_that("aufstiegsmodus 2026: Nordost direkt, Nord gegen Bayern", {
 })
 
 test_that("aufstiegsmodus akzeptiert die Saison als Integer und als Double", {
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   f <- fn(env, "aufstiegsmodus")
   expect_equal(f(2026L), f(2026))
 })
@@ -204,7 +193,7 @@ test_that("aufstiegsmodus akzeptiert die Saison als Integer und als Double", {
 test_that("aufstiegsmodus: West und SuedWest sind in jeder belegten Saison direkt", {
   # Par. 55b Nr. 2: Dauerplaetze. Was auch immer in der Rotationstabelle
   # steht -- diese beiden rotieren nie.
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   rotation <- get("AUFSTIEGSROTATION", envir = env)
   f <- fn(env, "aufstiegsmodus")
 
@@ -223,7 +212,7 @@ test_that("aufstiegsmodus: eine unbekannte Saison ist ein Fehler, kein Default",
   # Die Reihenfolge ueber 2026/27 hinaus ist nirgends niedergelegt
   # (Doku 3.3). Wer 2027 fragt, muss recherchieren -- nicht die 2026er
   # Zuordnung stillschweigend weiterbenutzen.
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   f <- fn(env, "aufstiegsmodus")
   err <- expect_error(f(2027))
   expect_match(conditionMessage(err), "2027")
@@ -232,7 +221,7 @@ test_that("aufstiegsmodus: eine unbekannte Saison ist ein Fehler, kein Default",
 test_that("aufstiegsmodus ist ueber die Rotationstabelle konfigurierbar", {
   # Der Nachweis, dass die Zuordnung Daten sind und keine Konstante: Eine
   # hypothetische Tabelle fuer eine andere Saison dreht das Ergebnis.
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   f <- fn(env, "aufstiegsmodus")
 
   modus <- f(2031, rotation = c("2031" = "Bayern"))
@@ -246,14 +235,14 @@ test_that("aufstiegsmodus ist ueber die Rotationstabelle konfigurierbar", {
 
 test_that("aufstiegsmodus lehnt eine Dauerplatz-Staffel als Rotationswert ab", {
   # West rotiert nicht; ein solcher Eintrag ist ein Konfigurationsfehler.
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   f <- fn(env, "aufstiegsmodus")
   expect_error(f(2031, rotation = c("2031" = "West")), "West")
   expect_error(f(2031, rotation = c("2031" = "Suedost")), "Suedost")
 })
 
 test_that("rl_aufstiegs_slots 2026 folgt dem Modus", {
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   f <- fn(env, "rl_aufstiegs_slots")
 
   for (staffel in c("West", "SuedWest", "Nordost")) {
@@ -272,7 +261,7 @@ test_that("rl_aufstiegs_slots 2026 folgt dem Modus", {
 
 test_that("Registry: Nord und Bayern haben keinen Direktplatz, sondern ein Aufstiegsspiel", {
   # Heute steht dort promotion_slots = 1 -- das ist fuer 2026/27 falsch.
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   reg <- env$league_registry()
 
   expect_equal(reg$rl_nord$promotion_slots, 0L)
@@ -283,7 +272,7 @@ test_that("Registry: Nord und Bayern haben keinen Direktplatz, sondern ein Aufst
 
 test_that("Registry: Nordost ist Direktaufsteiger ohne Playoff", {
   # Heute steht dort playoff_slots = 1 -- fuer 2026/27 falsch.
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   reg <- env$league_registry()
 
   expect_equal(reg$rl_nordost$promotion_slots, 1L)
@@ -291,7 +280,7 @@ test_that("Registry: Nordost ist Direktaufsteiger ohne Playoff", {
 })
 
 test_that("Registry: West und SuedWest bleiben Direktaufsteiger", {
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   reg <- env$league_registry()
 
   for (key in c("rl_west", "rl_suedwest")) {
@@ -303,7 +292,7 @@ test_that("Registry: West und SuedWest bleiben Direktaufsteiger", {
 test_that("Registry: alle fuenf Regionalligen tragen relegation_slots (die Basis vor Kopplung)", {
   # Basis je Staffel (Doku 3.2): Nord 3, Nordost 1, West 4, SuedWest 3,
   # Bayern 2 Direktabsteiger. Heute fehlt das Feld ueberall.
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   reg <- env$league_registry()
 
   expect_equal(reg$rl_nord$relegation_slots, 3L)
@@ -318,7 +307,7 @@ test_that("Registry: Bayern fuehrt die Abstiegsrelegation getrennt vom Aufstiegs
   # Relegationsplaetze nach unten (BFV A&A II. Nr. 3) sind eine andere
   # Groesse und duerfen nicht in dasselbe Feld -- sonst waere "1" oder "3"
   # beides falsch.
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   reg <- env$league_registry()
 
   expect_equal(reg$rl_bayern$relegation_playoff_slots, 2L)
@@ -332,7 +321,7 @@ test_that("Registry-Slots der Regionalligen stimmen mit dem saisonabhaengigen Mo
   # Die Registry darf die 2026er Zuordnung tragen -- aber sie muss mit
   # aufstiegsmodus(2026) uebereinstimmen. Laufen beide auseinander, ist
   # eine Stelle fest verdrahtet.
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   reg <- env$league_registry()
   f <- fn(env, "rl_aufstiegs_slots")
 
@@ -346,7 +335,7 @@ test_that("Registry-Slots der Regionalligen stimmen mit dem saisonabhaengigen Mo
 test_that("Registry: relegation_slots ist die Basis von abstiegsplaetze(staffel, 0)", {
   # Bruecke zwischen Phase 6 und Registry: Ohne Drittliga-Absteiger muss
   # die Kopplung genau die Basis liefern.
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   reg <- env$league_registry()
   ap <- fn(env, "abstiegsplaetze")
 
@@ -368,7 +357,7 @@ prognosen_2026 <- function() {
 }
 
 test_that("rl_aufstiegsprognose: Direktaufsteiger bekommen P(Meister)", {
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   f <- fn(env, "rl_aufstiegsprognose")
   pr <- prognosen_2026()
 
@@ -385,7 +374,7 @@ test_that("rl_aufstiegsprognose: Direktaufsteiger bekommen P(Meister)", {
 })
 
 test_that("rl_aufstiegsprognose: Nord und Bayern rechnen die Doppelsumme gegeneinander", {
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   f <- fn(env, "rl_aufstiegsprognose")
   pr <- prognosen_2026()
 
@@ -405,7 +394,7 @@ test_that("rl_aufstiegsprognose: Nord und Bayern rechnen die Doppelsumme gegenei
 test_that("rl_aufstiegsprognose: Playoff-Staffel ohne Gewinnquoten bricht ab", {
   # Keine erfundene 50:50. Wer die Zweikampfquote nicht liefert, bekommt
   # keine Zahl.
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   f <- fn(env, "rl_aufstiegsprognose")
   expect_error(f("Nord", prognosen_2026(), season = 2026), "p_sieg")
   expect_error(f("Bayern", prognosen_2026(), season = 2026, p_sieg = NULL), "p_sieg")
@@ -415,7 +404,7 @@ test_that("rl_aufstiegsprognose: bei anderer Rotation wird Bayern zum Direktaufs
   # Dieselben Prognosen, eine andere Saisonkonfiguration: Bayern direkt,
   # Nord gegen Nordost. Dann ist P(C) = 0.7, nicht 0.406 -- und Nord
   # rechnet gegen E/F statt gegen C/D.
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   f <- fn(env, "rl_aufstiegsprognose")
   pr <- prognosen_2026()
   rotation <- c("2031" = "Bayern")
@@ -434,7 +423,7 @@ test_that("rl_aufstiegsprognose: bei anderer Rotation wird Bayern zum Direktaufs
 
 test_that("rl_aufstiegsprognose bricht bei fehlender Partnerprognose ab", {
   # Nord ist Playoff-Staffel; ohne die Bayern-Prognose fehlt Y.
-  env <- source_aufstieg()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   f <- fn(env, "rl_aufstiegsprognose")
   pr <- prognosen_2026()
   pr$Bayern <- NULL
