@@ -425,12 +425,15 @@ Expected: das Verhalten aus Task 3 Step 2, geprüft mit
 b <- "tests/testthat/_baseline/"; m <- read.csv(paste0(b, "vorher-mit.csv")); o <- read.csv(paste0(b, "vorher-ohne.csv"))
 stopifnot(sum(m$failed) == 0, !any(m$error), sum(o$failed) == 0, !any(o$error))
 nur_ohne <- unique(o$file[o$skipped & !(paste(o$file, o$test) %in% paste(m$file, m$test)[m$skipped])])
-rust <- vapply(nur_ohne, function(f) any(grepl("connect_rust_simulator|RUST_API_URL|start_rust_server|localhost:8080|league-simulator-rust",
+rust <- vapply(nur_ohne, function(f) any(grepl("connect_rust_simulator|RUST_API_URL|start_rust_server|localhost:8080|league-simulator-rust|skip_if_no_rust|rust_binary",
   readLines(file.path("tests/testthat", f), warn = FALSE))), logical(1))
 print(nur_ohne); stopifnot(all(rust))
 ```
 
-Zahlen (Blöcke, Erwartungen, Skips je Umgebung) in den PR-Text.
+Zahlen (Blöcke, Erwartungen, Skips je Umgebung) in den PR-Text. Seit Stufe 3.6 leben die
+RUST_API_URL-/localhost:8080-Literale selbst in `helper-rust.R`, nicht mehr in den einzelnen
+Testdateien — das Muster muss daher um die jetzt zentralen Helfernamen `skip_if_no_rust` und
+`rust_binary` ergänzt werden, sonst greift die Grep-Prüfung an den betroffenen Dateien ins Leere.
 
 - [ ] **Step 3: `_baseline/` in `.gitignore`, Commit des Werkzeugs**
 

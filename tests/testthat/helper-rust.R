@@ -29,9 +29,10 @@ skip_if_no_rust <- function(env) {
 # nach /usr/local/bin/. Das target/release/-Verzeichnis existiert in diesem
 # Image gar nicht -- der Rust-Build passiert in einer verworfenen Build-Stage.
 #
-# Folge: Die Datei, die dies nutzt, hat in der CI noch nie etwas geprueft. Sie
-# uebersprang sich still, und zwar mit einer Begruendung ("run `cargo build
-# --release`"), die im Image niemand befolgen kann.
+# Folge: test-update_all_leagues_loop-rust.R, die diese Suche nutzt, hat in
+# der CI noch nie etwas geprueft. Sie uebersprang sich still, und zwar mit
+# einer Begruendung ("run `cargo build --release`"), die im Image niemand
+# befolgen kann.
 rust_binary <- function() {
   kandidaten <- c(
     file.path("..", "..", "league-simulator-rust", "target", "release", "league-simulator-rust"),
