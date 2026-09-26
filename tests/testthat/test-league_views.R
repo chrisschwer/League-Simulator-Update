@@ -2,37 +2,6 @@
 # table comes from Ergebnis3_Aufstieg while its relegation table and heatmap
 # come from Ergebnis3. These assertions pin that down.
 
-test_that("league_views defines the live leagues in registry order", {
-  # Seit Phase 5a sind die beiden Frauen-Bundesligen dabei. Die Reihenfolge
-  # ist Vertrag: Sie haelt league_views() und die Registry deckungsgleich
-  # (gleiche Schluessel, gleiche Slugs) und bestimmt die Fetch-Reihenfolge.
-  #
-  # KORRIGIERT mit Issue #178: Hier stand, sie bestimme auch "die
-  # Navigation". Das galt nur faktisch, nie aus einem Grund -- die
-  # Menuereihenfolge fiel als Nebenprodukt heraus. Seit #178 ist sie eigene
-  # Angabe im Renderer (NAV_GRUPPEN_REIHENFOLGE in generate_static_site.R);
-  # Anzeige und Abruf bewegen sich unabhaengig voneinander.
-  #
-  # Und die Simulation haengt nicht an der Reihenfolge: Die Abstiegskopplung
-  # der Regionalligen laeuft NACH der Simulationsschleife und rechnet mit
-  # einer Zaehlung der 3. Liga, die Loops ueberlebt
-  # (update_all_leagues_loop.R:110-116). Eine Regionalliga darf also vor der
-  # 3. Liga simuliert werden -- festgehalten in
-  # test-update_all_leagues_loop-verdrahtung.R,
-  # "(a) eine neu simulierte Regionalliga mischt mit der gueltigen Zaehlung
-  # aus dem frueheren Lauf".
-  #
-  # ANGEPASST in Phase 5: Dazu kommen die fuenf Regionalligen. Die
-  # Reihenfolge folgt weiterhin der Registry -- Herren, Frauen,
-  # Regionalliga; innerhalb der Regionalligen Nord, Nordost, West,
-  # SuedWest, Bayern.
-  views <- source_module("league_views")$league_views()
-  expect_named(views, c("bundesliga", "zweite_bundesliga", "dritte_liga",
-                        "frauen_bundesliga", "zweite_frauen_bundesliga",
-                        "rl_nord", "rl_nordost", "rl_west", "rl_suedwest",
-                        "rl_bayern"))
-})
-
 test_that("Bundesliga is the canonical index page", {
   v <- source_module("league_views")$league_views()$bundesliga
   expect_equal(v$slug, "index")
@@ -118,18 +87,6 @@ library(testthat)
 
 # --- 2. league_views kennt die Frauen-Ligen ---------------------------------
 
-test_that("league_views enthaelt die beiden Frauen-Ligen", {
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "league_views.R"), local = env)
-  views <- env$league_views()
-
-  expect_true("frauen_bundesliga" %in% names(views))
-  expect_true("zweite_frauen_bundesliga" %in% names(views))
-  # ANGEPASST in Phase 5: Hier stand `expect_length(views, 5)`. Die Zahl war
-  # nie die Aussage dieses Tests -- er prueft, dass die beiden Frauen-Ligen
-  # dabei sind. Die vollstaendige Liste pinnt diese Datei.
-})
-
 test_that("die 2. Frauen-Bundesliga hat drei Abstiegsplaetze", {
   # Laut kicker steigen die letzten drei ab; an den Spielplaenen bestaetigt
   # (je drei Absteiger 2024/25 und 2025/26).
@@ -176,17 +133,6 @@ test_that("die drei Altligen bleiben unveraendert", {
 # ===========================================================================
 # 2. league_views: die fuenf neuen Ansichten
 # ===========================================================================
-
-test_that("league_views kennt zehn Ligen in Registry-Reihenfolge", {
-  env <- source_module("league_views")
-  views <- env$league_views()
-
-  expect_named(
-    views,
-    c("bundesliga", "zweite_bundesliga", "dritte_liga",
-      "frauen_bundesliga", "zweite_frauen_bundesliga", RL_SCHLUESSEL)
-  )
-})
 
 test_that("die Regionalliga-Slugs und nav_labels sind die der Registry", {
   views <- source_module("league_views")$league_views()

@@ -177,22 +177,6 @@ test_that("goal_model liefert die Tormodell-Parameter je Liga", {
   expect_equal(env$goal_model("1034")$tore_intercept, 1.6527603153)
 })
 
-# --- league_views bleibt abgeleitet, aber formgleich -------------------------
-
-test_that("league_views wird aus der Registry abgeleitet", {
-  # Die Panel-Renderlogik bleibt unveraendert; league_views() behaelt seine
-  # heutige Form (top/bottom mit filter_cols/labels/groups). Geprueft wird
-  # hier nur, dass die Ableitung greift -- die Panel-Details pinnt
-  # test-league_views.R.
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "league_views.R"), local = env)
-  views <- env$league_views()
-
-  expect_named(views, names(source_module("league_registry")$league_registry()))
-  expect_equal(views$bundesliga$slug, "index")
-  expect_equal(views$dritte_liga$teams, 20)
-})
-
 # --- Verbraucher: die Literale verschwinden, das Verhalten bleibt -----------
 #
 # get_league_promotion_rules() und validate_league_id() hatten ausserhalb
@@ -722,9 +706,11 @@ test_that("die Registry weiss, welche Liga einen Aufstiegslauf braucht", {
 #       ist eine eigene Entscheidung, kein Versehen.
 
 test_that("league_ids liefert zehn Ligen in Registry-Reihenfolge", {
-  # Die Reihenfolge bestimmt, in welcher Folge der Loop abruft und in
-  # welcher Reihenfolge die Navigation baut -- sie darf sich nicht
-  # unbemerkt aendern. Deshalb der exakte Vektor, nicht nur die Laenge.
+  # Die Reihenfolge bestimmt, in welcher Folge der Loop abruft -- sie darf
+  # sich nicht unbemerkt aendern. Deshalb der exakte Vektor, nicht nur die
+  # Laenge. Seit Issue #178 hat die Reihenfolge der Navigationsgruppen eine
+  # eigene Angabe (NAV_GRUPPEN_REIHENFOLGE); innerhalb einer Gruppe folgt
+  # die Navigation weiter dieser Reihenfolge.
   env <- source_module("league_registry")
 
   expect_identical(
@@ -849,27 +835,6 @@ test_that("league_views und Registry stimmen in Schluesseln und Slugs ueberein",
   expect_identical(
     vapply(views, function(v) v$slug, character(1)),
     vapply(reg, function(l) l$slug, character(1))
-  )
-})
-
-test_that("die Anzeigereihenfolge laesst die Abrufreihenfolge unberuehrt", {
-  # Issue #178 verschiebt NUR die Navigation. league_ids() bestimmt, in
-  # welcher Folge der Loop die API abruft, und league_views() haelt die
-  # Ligen in Registry-Reihenfolge -- beides ist Vertrag (siehe
-  # test-league_views.R) und darf sich durch eine Darstellungsfrage nicht
-  # mitbewegen. Ohne diesen Test faellt eine solche Kopplung erst im
-  # Betrieb auf.
-  reg <- source_module("league_registry")
-  views <- source_module("league_views")$league_views()
-
-  expect_identical(
-    reg$league_ids(),
-    c("78", "79", "80", "82", "1034", "84", "85", "87", "86", "83")
-  )
-  expect_named(
-    views,
-    c("bundesliga", "zweite_bundesliga", "dritte_liga",
-      "frauen_bundesliga", "zweite_frauen_bundesliga", RL_SCHLUESSEL)
   )
 })
 

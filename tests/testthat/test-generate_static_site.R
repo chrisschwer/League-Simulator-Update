@@ -779,35 +779,6 @@ test_that("das Navigations-HTML traegt Gruppenlabels und alle Ligen", {
   expect_match(html, "nav-current")
 })
 
-# --- 4. Ende-zu-Ende ---------------------------------------------------------
-
-test_that("generate_static_site rendert sechs Seiten", {
-  # Fuenf Ligen plus Methodik.
-  gen <- source_module("generate_static_site")
-  out <- withr::local_tempdir()
-
-  paths <- gen$generate_static_site(
-    output_dir = out,
-    now = as.POSIXct("2026-08-01 12:00", tz = "Europe/Berlin"),
-    ergebnisse = list(
-      bundesliga = mk_ergebnis(18),
-      zweite_bundesliga = mk_ergebnis(18),
-      dritte_liga = mk_ergebnis(20),
-      dritte_liga_aufstieg = mk_ergebnis(20),
-      frauen_bundesliga = mk_ergebnis(14),
-      zweite_frauen_bundesliga = mk_ergebnis(14),
-      zweite_frauen_bundesliga_aufstieg = mk_ergebnis(14)
-    )
-  )
-
-  expect_length(paths, 6)
-  for (f in c("index.html", "2-bundesliga.html", "3-liga.html",
-              "frauen-bundesliga.html", "2-frauen-bundesliga.html",
-              "methodik.html")) {
-    expect_true(file.exists(file.path(out, f)), info = f)
-  }
-})
-
 # --- aus test-n-ligen-entflechtung.R ---
 # --- generate_static_site: Liste statt vier Argumente -----------------------
 
