@@ -179,3 +179,30 @@ test_that("ohne Ausblick-Feld oder mit leerem Fenster entfällt die Sektion", {
   )
   expect_false(grepl(">Ausblick<", read_html(path2)))
 })
+
+# --- aus test-tbd-termin.R ---
+library(testthat)
+
+test_that("der Ausblick zeigt bei offener Anstoßzeit das Datum mit 'Zeit offen'", {
+  gen <- local({
+    source(test_path("..", "..", "RCode", "generate_static_site.R"), local = TRUE)
+    environment()
+  })
+  row <- data.frame(
+    fixture_id = 1584010, round = 7L,
+    kickoff = as.POSIXct("2026-09-25 17:00", tz = "UTC"),
+    status = "NS", zeit_offen = TRUE,
+    home_id = 1, away_id = 2,
+    home_name = "TSV Havelse", away_name = "Fortuna Köln",
+    goals_home = NA_real_, goals_away = NA_real_,
+    p_home_win = 0.4, p_draw = 0.3, p_away_win = 0.3,
+    elo_delta_home = NA_real_, nachholspiel = FALSE,
+    stringsAsFactors = FALSE
+  )
+  row$score_matrix <- list(matrix(1 / 49, 7, 7))
+
+  html <- gen$render_ausblick(row, runde = 7L)
+
+  expect_match(html, "Fr. 25.9., Zeit offen", fixed = TRUE)
+  expect_false(grepl("19:00", html, fixed = TRUE))
+})
