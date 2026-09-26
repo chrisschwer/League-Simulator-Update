@@ -984,15 +984,9 @@ test_that("Anbindung: gleiche Staerke ueberall -> die Doppelsumme halbiert die M
 # localhost:8080) und werden sonst uebersprungen -- wie in
 # test-staffel-zuordnung.R.
 
-source_mit_client <- function() {
-  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
-  source(test_path("..", "..", "RCode", "rust_integration.R"), local = env)
-  env
-}
-
 test_that("Integration: match_preview_rust liefert die Raten des Rust-Tormodells", {
   skip_if_not(nzchar(Sys.getenv("RUST_API_URL", "http://localhost:8080")))
-  env <- source_mit_client()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele", "rust_integration")
   skip_if_not(env$connect_rust_simulator(), "Rust-Server nicht erreichbar")
   f <- fn(env, "match_preview_rust")
 
@@ -1016,7 +1010,7 @@ test_that("Integration: match_preview_rust liefert die Raten des Rust-Tormodells
 
 test_that("Integration: zweikampf_paarungen_rust liefert das paarungen-data.frame", {
   skip_if_not(nzchar(Sys.getenv("RUST_API_URL", "http://localhost:8080")))
-  env <- source_mit_client()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele", "rust_integration")
   skip_if_not(env$connect_rust_simulator(), "Rust-Server nicht erreichbar")
   f <- fn(env, "zweikampf_paarungen_rust")
 
@@ -1044,7 +1038,7 @@ test_that("Integration: zweikampf_paarungen_rust liefert das paarungen-data.fram
 
 test_that("Integration: die ganze Kette -- Rust-Raten -> p_sieg_matrix -> rl_aufstiegsprognose", {
   skip_if_not(nzchar(Sys.getenv("RUST_API_URL", "http://localhost:8080")))
-  env <- source_mit_client()
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele", "rust_integration")
   skip_if_not(env$connect_rust_simulator(), "Rust-Server nicht erreichbar")
 
   pa <- fn(env, "zweikampf_paarungen_rust")(elos_2026$Nord, elos_2026$Bayern)
