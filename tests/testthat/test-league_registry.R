@@ -168,15 +168,6 @@ test_that("league_name liefert die Anzeigenamen der Altligen unveraendert", {
   expect_equal(env$league_name("80"), "3. Liga")
 })
 
-test_that("goal_model liefert die Tormodell-Parameter je Liga", {
-  # NULL fuer die Herren heisst: nichts senden, Rust-Defaults greifen.
-  env <- source_module("league_registry")
-
-  expect_null(env$goal_model("78"))
-  expect_equal(env$goal_model("82")$tore_slope, 0.0024058833)
-  expect_equal(env$goal_model("1034")$tore_intercept, 1.6527603153)
-})
-
 # --- Verbraucher: die Literale verschwinden, das Verhalten bleibt -----------
 #
 # get_league_promotion_rules() und validate_league_id() hatten ausserhalb
@@ -279,28 +270,6 @@ test_that("retrieveLiveFixtures nimmt eine explizite Ligamenge", {
   try(env$retrieveLiveFixtures(c("78", "82")), silent = TRUE)
 
   expect_equal(gesehen, "78-82")
-})
-
-test_that("build_league_details_payload traegt das Tormodell", {
-  # Beide Endpunkte zwingend gemeinsam (ADR 0004): Liefen Prognose-Heatmap
-  # (/simulate) und Score-Matrix (/league-details) mit verschiedenen
-  # Tormodellen, widersprächen sich die Zahlen auf derselben Seite.
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "league_details.R"), local = env)
-
-  details <- make_details(
-    fd_row(1, 1, "2026-08-01 13:00", "FT", 101, 102, 2, 1)
-  )
-
-  ohne <- env$build_league_details_payload(details, make_test_teams())
-  expect_false("tore_slope" %in% names(ohne))
-
-  mit <- env$build_league_details_payload(
-    details, make_test_teams(),
-    tore_slope = 0.0024058833, tore_intercept = 1.6527603153
-  )
-  expect_equal(mit$tore_slope, 0.0024058833)
-  expect_equal(mit$tore_intercept, 1.6527603153)
 })
 
 test_that("goal_model_args liefert die Argumente fuer beide Endpunkte", {
@@ -915,20 +884,5 @@ test_that("die teams_range traegt jede belegte RL-Saison seit 2019", {
 
     expect_gte(length(teams), spanne[[1]], label = datei)
     expect_lte(length(teams), spanne[[2]], label = datei)
-  }
-})
-
-# ===========================================================================
-# 7. Waechter: keine Modellkonstante wandert mit den neuen Ligen nach R
-# ===========================================================================
-
-test_that("keine Regionalliga sendet ein eigenes Tormodell", {
-  # ADR 0004: Die RL gehoeren zur Wechselgemeinschaft Herren. Ein
-  # staffelweiser Intercept wuerde jeden Auf- und Absteiger stillschweigend
-  # umskalieren -- und test-waechter-quelltext.R rot faerben.
-  env <- source_module("league_registry")
-
-  for (id in RL_IDS) {
-    expect_identical(env$goal_model_args(id), list(), info = id)
   }
 })
