@@ -232,6 +232,9 @@ prognosen_2026 <- function() {
 # (#211, Stufe 3.6).
 
 STAFFELN_ERWARTET <- c("Nord", "Nordost", "West", "SuedWest", "Bayern")
+# zaehlung() und zaehlung_nordost89() lesen N_ITER als freie Variable, und
+# Erwartungen in beiden Kopplungsdateien rechnen damit -- deshalb steht es
+# hier und nicht lokal. Die Loop-Verdrahtung hat ihr eigenes N_ITER_LOOP.
 N_ITER <- 10000
 K_DRITTE_LIGA <- 4L  # Absteiger der 3. Liga; Spalten 0..4
 
