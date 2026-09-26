@@ -4,11 +4,6 @@
 # .heat_style() in negative RGB-Kanäle — ungültiges CSS, die Zelle rendert
 # weiß auf weiß.
 
-source_generator <- function() {
-  source(test_path("..", "..", "RCode", "generate_static_site.R"), local = TRUE)
-  environment()
-}
-
 mk_ausblick_einzeilig <- function() {
   m <- matrix(0, nrow = 7, ncol = 7)
   m[2, 1] <- 0.135   # Spitzenzelle (1:0)
@@ -28,7 +23,7 @@ mk_ausblick_einzeilig <- function() {
 }
 
 test_that("die Spitzenzelle trägt die Mock-up-Färbung, kein ungültiges CSS", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   html <- gen$render_ausblick(mk_ausblick_einzeilig(), runde = 3L)
 
   # Niemals negative RGB-Kanäle (Browser verwerfen die ganze Deklaration)

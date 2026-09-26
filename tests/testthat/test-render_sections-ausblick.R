@@ -1,11 +1,6 @@
 # Ausblick-Sektion (Phase 4c) nach dem freigegebenen Mock-up: kommende
 # Spiele mit Termin, 1/X/2-Balken und aufklappbarer Ergebnis-Matrix.
 
-source_generator <- function() {
-  source(test_path("..", "..", "RCode", "generate_static_site.R"), local = TRUE)
-  environment()
-}
-
 mk_score_matrix <- function() {
   m <- matrix(0, nrow = 7, ncol = 7)
   m[1, 1] <- 0.123   # 0:0 -> "12,3"
@@ -35,7 +30,7 @@ mk_ausblick <- function() {
 }
 
 test_that("render_ausblick baut Überschrift und Spielzeilen", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   html <- gen$render_ausblick(mk_ausblick(), runde = 3L)
 
   expect_match(html, ">Ausblick<")            # Eyebrow
@@ -49,7 +44,7 @@ test_that("render_ausblick baut Überschrift und Spielzeilen", {
 })
 
 test_that("die Ergebnis-Matrix ist je Spiel aufklappbar", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   html <- gen$render_ausblick(mk_ausblick(), runde = 3L)
 
   expect_match(html, '<details class="mscore">', fixed = TRUE)
@@ -62,7 +57,7 @@ test_that("die Ergebnis-Matrix ist je Spiel aufklappbar", {
 })
 
 test_that("Matrixzellen tragen Komma-Prozente mit einer Nachkommastelle", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   html <- gen$render_ausblick(mk_ausblick(), runde = 3L)
 
   expect_match(html, ">12,3<")
@@ -72,7 +67,7 @@ test_that("Matrixzellen tragen Komma-Prozente mit einer Nachkommastelle", {
 })
 
 test_that("Zellen unter 0,1 Prozent bleiben leer", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   html <- gen$render_ausblick(mk_ausblick(), runde = 3L)
 
   expect_false(grepl(">0,0<", html, fixed = TRUE))
@@ -80,7 +75,7 @@ test_that("Zellen unter 0,1 Prozent bleiben leer", {
 })
 
 test_that("Nachholspiele im Ausblick sind gekennzeichnet", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   html <- gen$render_ausblick(mk_ausblick(), runde = 3L)
 
   expect_match(html, 'class="nachhol"', fixed = TRUE)
@@ -88,7 +83,7 @@ test_that("Nachholspiele im Ausblick sind gekennzeichnet", {
 })
 
 test_that("Teamnamen im Ausblick werden HTML-escaped", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   ab <- mk_ausblick()[1, ]
   ab$home_name <- "A & B <FC>"
   html <- gen$render_ausblick(ab, runde = 3L)
@@ -98,7 +93,7 @@ test_that("Teamnamen im Ausblick werden HTML-escaped", {
 })
 
 test_that("die Liga-Seite hängt den Ausblick ans Ende der Spielsektionen", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   env <- make_data_env()
 
@@ -137,7 +132,7 @@ test_that("die Liga-Seite hängt den Ausblick ans Ende der Spielsektionen", {
 })
 
 test_that("ohne Ausblick-Feld oder mit leerem Fenster entfällt die Sektion", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   env <- make_data_env()
 

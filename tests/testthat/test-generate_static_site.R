@@ -12,11 +12,6 @@
 # (stub() auf file.rename); der Rest der Datei kommt ohne Mocking aus.
 library(mockery)
 
-source_generator <- function() {
-  source(test_path("..", "..", "RCode", "generate_static_site.R"), local = TRUE)
-  environment()
-}
-
 # Der Block der Prognose-Heatmap einer Seite (erste table.heatmap).
 heatmap_block <- function(html) {
   m <- regmatches(html, regexpr('<table class="heatmap"(.|\n)*?</table>', html))
@@ -35,14 +30,14 @@ render_bundesliga <- function(gen, env, out,
 # ---------------------------------------------------------------------------
 
 test_that("footer_timestamp labels summer time MESZ", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   ts <- as.POSIXct("2026-07-26 14:30:00", tz = "Europe/Berlin")
   expect_match(gen$footer_timestamp(ts), "MESZ")
   expect_match(gen$footer_timestamp(ts), "26\\.07\\.2026 14:30")
 })
 
 test_that("footer_timestamp labels winter time MEZ", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   ts <- as.POSIXct("2026-01-15 14:30:00", tz = "Europe/Berlin")
   expect_match(gen$footer_timestamp(ts), "MEZ")
   expect_false(grepl("MESZ", gen$footer_timestamp(ts)))
@@ -53,7 +48,7 @@ test_that("footer_timestamp labels winter time MEZ", {
 # ---------------------------------------------------------------------------
 
 test_that("render_panel_table emits one column per label", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   views <- gen$league_views()
   env <- make_data_env()
   html <- gen$render_panel_table(env$Ergebnis, views$bundesliga$top)
@@ -65,7 +60,7 @@ test_that("render_panel_table emits one column per label", {
 })
 
 test_that("render_panel_table keeps its shape for a single-label panel", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   views <- gen$league_views()
   env <- make_data_env()
   html <- gen$render_panel_table(env$Ergebnis3, views$dritte_liga$bottom)
@@ -74,7 +69,7 @@ test_that("render_panel_table keeps its shape for a single-label panel", {
 })
 
 test_that("3. Liga page is built from Ergebnis3_Aufstieg on top and Ergebnis3 below", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   env <- make_data_env()
 
@@ -96,7 +91,7 @@ test_that("3. Liga page is built from Ergebnis3_Aufstieg on top and Ergebnis3 be
 # ---------------------------------------------------------------------------
 
 test_that("render_league_page writes an HTML page and no PNG asset", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   env <- make_data_env()
 
@@ -108,7 +103,7 @@ test_that("render_league_page writes an HTML page and no PNG asset", {
 })
 
 test_that("the prognosis heatmap is an HTML table with one row per team", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   env <- make_data_env()
 
@@ -131,7 +126,7 @@ test_that("the prognosis heatmap is an HTML table with one row per team", {
 })
 
 test_that("heatmap cells use the prozent notation", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   env <- make_data_env()
 
@@ -159,7 +154,7 @@ test_that("heatmap cells use the prozent notation", {
 # ---------------------------------------------------------------------------
 
 test_that("pages carry the 30-Punkte masthead and identity", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   env <- make_data_env()
 
@@ -176,7 +171,7 @@ test_that("pages carry the 30-Punkte masthead and identity", {
 })
 
 test_that("every page links all leagues and the Methodik page", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   env <- make_data_env()
   now <- as.POSIXct("2026-07-26 14:30:00", tz = "Europe/Berlin")
@@ -211,7 +206,7 @@ test_that("every page links all leagues and the Methodik page", {
 })
 
 test_that("pages reference the shared stylesheet and favicon and load nothing external", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   env <- make_data_env()
 
@@ -232,7 +227,7 @@ test_that("pages reference the shared stylesheet and favicon and load nothing ex
 # ---------------------------------------------------------------------------
 
 test_that("generate_static_site ships stylesheet, self-hosted fonts and favicon", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   env <- make_data_env()
 
@@ -261,7 +256,7 @@ test_that("generate_static_site ships stylesheet, self-hosted fonts and favicon"
 # ---------------------------------------------------------------------------
 
 test_that("generate_static_site renders the Methodik page from the content file", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   env <- make_data_env()
 
@@ -290,7 +285,7 @@ test_that("generate_static_site renders the Methodik page from the content file"
 # ---------------------------------------------------------------------------
 
 test_that("the page embeds the generation time as ISO-8601 UTC", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   env <- make_data_env()
 
@@ -300,7 +295,7 @@ test_that("the page embeds the generation time as ISO-8601 UTC", {
 })
 
 test_that("the stale banner is embedded hidden and revealed by inline JS", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   env <- make_data_env()
 
@@ -327,7 +322,7 @@ test_that("generate_static_site rendert nur die Ligen, fuer die Daten vorliegen"
   # Statt die Zahl mitzufuehren, prueft der Test jetzt die AUSSAGE: Was
   # Daten hat, wird gerendert; was keine hat, taucht nicht auf. Diese Form
   # ueberlebt die naechste neue Liga.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   env <- make_data_env()
 
@@ -350,7 +345,7 @@ test_that("generate_static_site rendert nur die Ligen, fuer die Daten vorliegen"
 })
 
 test_that("generate_static_site writes the fallback page when data is missing", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
 
   paths <- gen$generate_static_site(
@@ -365,7 +360,7 @@ test_that("generate_static_site writes the fallback page when data is missing", 
 })
 
 test_that("generate_static_site output is deterministic for fixed inputs", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   env <- make_data_env()
   now <- as.POSIXct("2026-07-26 14:30:00", tz = "Europe/Berlin")
 
@@ -397,7 +392,7 @@ test_that("generate_static_site output is deterministic for fixed inputs", {
 # ---------------------------------------------------------------------------
 
 test_that(".write_atomically hinterlaesst keine .tmp-Datei und den Inhalt korrekt", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   ziel <- file.path(out, "seite.html")
 
@@ -409,7 +404,7 @@ test_that(".write_atomically hinterlaesst keine .tmp-Datei und den Inhalt korrek
 })
 
 test_that("generate_static_site hinterlaesst nach dem Rendern keine .tmp-Dateien", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   env <- make_data_env()
 
@@ -428,7 +423,7 @@ test_that("ein fehlschlagendes file.rename laesst die alte Seite unangetastet", 
   # Der alte Seiteninhalt muss danach noch vollstaendig lesbar sein --
   # .write_atomically() darf die alte Datei nicht vor dem erfolgreichen
   # Rename antasten.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   ziel <- file.path(out, "seite.html")
   writeLines("<html>ALT</html>", ziel)
@@ -457,7 +452,7 @@ test_that("ein fehlschlagendes file.rename laesst die alte Seite unangetastet", 
 # sein duerfen.
 
 test_that("footer_timestamp nennt den eingeschraenkten Takt, wenn er abweicht", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   ts <- as.POSIXct("2026-09-14 18:51:00", tz = "Europe/Berlin")
 
   zeile <- gen$footer_timestamp(ts, waittime = 83.1 * 60)
@@ -470,7 +465,7 @@ test_that("footer_timestamp nennt den eingeschraenkten Takt, wenn er abweicht", 
 test_that("footer_timestamp schweigt beim Normaltakt", {
   # Der Hinweis ist eine Ausnahmemeldung. Stuende er immer da, waere er
   # nach einer Woche unsichtbar -- und im Ausnahmefall wertlos.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   ts <- as.POSIXct("2026-09-14 18:51:00", tz = "Europe/Berlin")
 
   expect_false(grepl("Eingeschr", gen$footer_timestamp(ts, waittime = 120)))
@@ -483,7 +478,7 @@ test_that("footer_timestamp ohne Taktangabe ist unveraendert", {
   # Der Produktionsaufruf aus scripts/preview_site.R und alle bestehenden
   # Tests rufen mit EINEM Argument auf. Der Default darf die Zeile nicht
   # anfassen.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   ts <- as.POSIXct("2026-09-14 18:51:00", tz = "Europe/Berlin")
 
   expect_equal(gen$footer_timestamp(ts), gen$footer_timestamp(ts, waittime = NULL))
@@ -493,7 +488,7 @@ test_that("footer_timestamp ohne Taktangabe ist unveraendert", {
 test_that("generate_static_site traegt den Takt bis in den Seitenfuss", {
   # Der Weg vom Loop bis ins HTML: generate_static_site(waittime = ...)
   # muss auf JEDER gerenderten Seite ankommen, nicht nur auf der ersten.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   env <- make_data_env()
   out <- file.path(tempdir(), "fuss-takt")
   unlink(out, recursive = TRUE)
@@ -516,7 +511,7 @@ test_that("generate_static_site traegt den Takt bis in den Seitenfuss", {
 test_that("generate_static_site ohne Taktangabe laesst den Fuss unveraendert", {
   # Gegenprobe: Ohne das Argument darf nichts im Fuss stehen, was vorher
   # nicht da war -- sonst braeche der Default alle Bestandsseiten.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   env <- make_data_env()
   out <- file.path(tempdir(), "fuss-normal")
   unlink(out, recursive = TRUE)
@@ -543,7 +538,7 @@ test_that("generate_static_site ohne Taktangabe laesst den Fuss unveraendert", {
 # mindestens 1 % erreicht.
 
 test_that("ganz berechnetes Panel laesst Teams unter 1 % weg (#229)", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   panel <- list(labels = "Abstieg", computed = TRUE)
   obj <- data.frame(Abstieg = c(0.40, 0.01, 0.009, 0),
                     row.names = c("GEFAEHRDET", "GRENZE", "KNAPPDRUNTER", "SICHER"))
@@ -557,7 +552,7 @@ test_that("ganz berechnetes Panel laesst Teams unter 1 % weg (#229)", {
 })
 
 test_that("bei zwei berechneten Spalten zaehlt deren Summe (Bayern, #229)", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   panel <- list(labels = c("Relegation", "Abstieg"), computed = TRUE)
   obj <- data.frame(Relegation = c(0.006, 0.004),
                     Abstieg = c(0.006, 0.004),
@@ -570,7 +565,7 @@ test_that("bei zwei berechneten Spalten zaehlt deren Summe (Bayern, #229)", {
 })
 
 test_that("ganz berechnetes Panel ohne gefaehrdetes Team rendert leer wie die anderen (#229)", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   panel <- list(labels = "Abstieg", computed = TRUE)
   obj <- data.frame(Abstieg = c(0, 0.001), row.names = c("A", "B"))
 
@@ -583,7 +578,7 @@ test_that("ganz berechnetes Panel ohne gefaehrdetes Team rendert leer wie die an
 # goals-Felder zu befüllen. Der Zwischenstand darf dann nie "NA:NA" zeigen,
 # sondern einen Strich-Platzhalter.
 test_that("Live-Zwischenstand ohne Tore rendert Striche, nie NA", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   lv <- data.frame(
     fixture_id = 7001, round = 2L,
     kickoff = as.POSIXct("2026-08-30 15:30", tz = "UTC"), status = "1H",
@@ -631,7 +626,7 @@ library(testthat)
 test_that("negative Panel-Grenzen zaehlen von unten", {
   # -1 ist der letzte Platz, -2 der vorletzte. Damit beschreibt ein
   # Abstiegspanel "die letzten beiden" unabhaengig von der Ligagroesse.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
 
   expect_equal(gen$.resolve_bounds(cbind(c(-2, -1)), n = 14), cbind(c(13, 14)))
   expect_equal(gen$.resolve_bounds(cbind(c(-2, -1)), n = 18), cbind(c(17, 18)))
@@ -641,7 +636,7 @@ test_that("negative Panel-Grenzen zaehlen von unten", {
 })
 
 test_that("gemischte Grenzen werden korrekt aufgeloest", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
 
   expect_equal(gen$.resolve_bounds(cbind(c(-3, -1)), n = 14), cbind(c(12, 14)))
 })
@@ -653,7 +648,7 @@ test_that("render_panel_table rechnet mit den richtigen Spalten", {
   # Bei Gleichverteilung ueber 14 Plaetze waeren das 86 % statt 14 %.
   #
   # Der Test prueft deshalb den WERT, nicht nur die Existenz der Tabelle.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   panel <- list(source = "x", filter_cols = c(-2, -1),
                 labels = "Abstieg", groups = cbind(c(-2, -1)))
 
@@ -669,7 +664,7 @@ test_that("dieselbe Panel-Definition traegt 12 und 14 Teams", {
   # Die Frauen-Bundesliga wuchs 2025 von 12 auf 14. Eine Definition muss
   # beide Groessen ueberstehen, ohne dass jemand nachpflegt -- und in beiden
   # Faellen die letzten zwei Plaetze meinen.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   panel <- list(source = "x", filter_cols = c(-2, -1),
                 labels = "Abstieg", groups = cbind(c(-2, -1)))
 
@@ -681,7 +676,7 @@ test_that("dieselbe Panel-Definition traegt 12 und 14 Teams", {
 test_that("die Altligen rendern unveraendert", {
   # Verhaltensneutralitaet: Absolute Grenzen bleiben erlaubt und wirken wie
   # bisher.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   alt <- list(source = "x", filter_cols = 16:18, labels = c("Relegation", "Abstieg"),
               groups = cbind(c(16, 16), c(17, 18)))
 
@@ -702,7 +697,7 @@ test_that("die Frauen-Bundesliga zeigt Meister und CL-Qualifikation", {
   # "Der Meister erreicht direkt die Ligaphase der Champions League.
   # Vizemeister und Drittplatzierter erreichen die Qualifikation."
   # Zwei Gruppen, weil sich die Konsequenz unterscheidet.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   v <- gen$league_views()$frauen_bundesliga
 
   expect_equal(v$slug, "frauen-bundesliga")
@@ -718,7 +713,7 @@ test_that("die Frauen-Bundesliga zeigt Meister und CL-Qualifikation", {
 test_that("die Frauen-Bundesliga hat zwei Abstiegsplaetze", {
   # "Die letzten zwei Teams steigen ab" -- und zwar die letzten, egal ob die
   # Liga 12 oder 14 Teams hat. 2025 ist sie gewachsen.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   v <- gen$league_views()$frauen_bundesliga
 
   expect_equal(v$bottom$labels, "Abstieg")
@@ -733,7 +728,7 @@ test_that("das Abstiegspanel trifft wirklich die letzten Plaetze", {
   # Schaerfster Test der Aufloesung: eine Prognose, in der ein Team sicher
   # Letzter wird. Nur wenn -2:-1 auf die Plaetze 13-14 zeigt, steht dort
   # 100 % -- zeigte es auf 1-12, waere es 0 %.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   v <- gen$league_views()$frauen_bundesliga
 
   m <- matrix(0, nrow = 14, ncol = 14,
@@ -763,7 +758,7 @@ test_that("die Navigation gruppiert nach nav_group", {
   # Test gar nicht treffen wollte -- seit #178 steht "Regionalliga"
   # zwischen ihnen. Geprueft wird jetzt die Zugehoerigkeit, nicht die
   # Nachbarschaft; die Reihenfolge pinnt test-phase5-regionalligen.R.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   gruppen <- gen$.nav_groups()
 
   je_gruppe <- vapply(gruppen, function(g) g$group, character(1))
@@ -773,7 +768,7 @@ test_that("die Navigation gruppiert nach nav_group", {
 })
 
 test_that("das Navigations-HTML traegt Gruppenlabels und alle Ligen", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   html <- gen$.nav_html("index")
 
   expect_match(html, "Herren")
@@ -788,7 +783,7 @@ test_that("das Navigations-HTML traegt Gruppenlabels und alle Ligen", {
 
 test_that("generate_static_site rendert sechs Seiten", {
   # Fuenf Ligen plus Methodik.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
 
   paths <- gen$generate_static_site(
@@ -827,7 +822,7 @@ test_that("generate_static_site nimmt eine benannte Ergebnisliste", {
   # der Aufstiegslauf der 3. Liga bekommt einen EIGENEN Schlüssel, weil er
   # ein zweiter Lauf derselben Liga ist und league_views() ihn über den
   # Namen "Ergebnis3_Aufstieg" auflöst.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
 
   paths <- gen$generate_static_site(
@@ -850,7 +845,7 @@ test_that("die alte Aufrufform funktioniert unveraendert weiter", {
   # Kompatibilitätspfad: scripts/preview_site.R und sieben Testaufrufe rufen
   # mit den vier Einzelargumenten auf -- teils positional. Sie müssen ohne
   # Änderung weiterlaufen, sonst ist der Umbau nicht verhaltensneutral.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
 
   paths <- gen$generate_static_site(
@@ -865,7 +860,7 @@ test_that("die alte Aufrufform funktioniert unveraendert weiter", {
 
 test_that("beide Aufrufformen erzeugen dieselben Seiten", {
   # Der schärfste Nachweis der Verhaltensneutralität: byteweise identisch.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   now <- as.POSIXct("2026-08-01 12:00", tz = "Europe/Berlin")
   e <- list(bl = make_ergebnis(18), bl2 = make_ergebnis(18),
             l3 = make_ergebnis(20), l3a = make_ergebnis(20))
@@ -893,7 +888,7 @@ test_that("beide Aufrufformen erzeugen dieselben Seiten", {
 test_that("die Fallback-Seite greift bei leerer Ergebnisliste", {
   # Bisher prüfte der Guard drei hartkodierte Objekte auf NULL. Generisch
   # muss er erkennen, dass keine Prognose vorliegt -- in beiden Aufrufformen.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
 
   out_alt <- withr::local_tempdir()
   p_alt <- gen$generate_static_site(NULL, NULL, NULL, NULL, output_dir = out_alt)
@@ -915,7 +910,7 @@ test_that("eine fehlende Liga wird uebersprungen und benannt", {
   # Simulation einer Liga aus, ist eine Seite ohne sie besser als gar keine
   # Seite -- der stille Fehler, den der Test verhindern soll, bleibt aber
   # ausgeschlossen, weil die übersprungene Liga in der Meldung steht.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
 
   msgs <- capture_messages(
@@ -946,7 +941,7 @@ test_that("Nordost, West und SuedWest zeigen oben eine Aufstiegsspalte", {
   # zusammen. Eine Spalte genuegt, und sie ist eine echte Platzgruppe
   # (Platz 1). Geprueft wird der WERT der gerenderten Tabelle: Bei 18
   # gleichverteilten Teams traegt Platz 1 genau 1/18 = 6 %.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   views <- gen$league_views()
 
   for (key in RL_DIREKTAUFSTIEG) {
@@ -977,7 +972,7 @@ test_that(".nav_groups ordnet die Gruppen nach NAV_GRUPPEN_REIHENFOLGE", {
   # mehr die Registry-Reihenfolge: Die Registry bestimmt weiterhin die
   # Abrufreihenfolge (league_ids()), und die beiden duerfen sich
   # unabhaengig voneinander bewegen.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   gruppen <- gen$.nav_groups()
 
   expect_identical(vapply(gruppen, function(g) g$group, character(1)),
@@ -994,7 +989,7 @@ test_that("eine unbekannte nav_group faellt ans Ende, statt zu verschwinden", {
   # Liga eine Gruppe, die NAV_GRUPPEN_REIHENFOLGE nicht kennt, muss sie
   # sichtbar bleiben -- hinten, aber da. Ein Renderer, der sie weglaesst,
   # verlaere eine ganze Liga aus der Navigation, ohne dass etwas fehlschlaegt.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
 
   expect_identical(
     gen$.nav_gruppen_sortiert(c("Frauen", "Uebersee", "Herren")),
@@ -1006,7 +1001,7 @@ test_that("jede Liga steht in genau der Gruppe ihrer Registry", {
   # Gruppenzugehoerigkeit, nicht nur Vorhandensein der Links: Ein Test, der
   # nur prueft, dass "rl-nord.html" irgendwo im HTML steht, besteht auch,
   # wenn die Liga unter "Frauen" haengt.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   gruppen <- gen$.nav_groups()
 
   slugs_je_gruppe <- lapply(gruppen, function(g) {
@@ -1026,7 +1021,7 @@ test_that("das Navigations-HTML ordnet die RL-Links der Regionalliga-Zeile zu", 
   # Geprueft wird die gerenderte STRUKTUR: Die fuenf RL-Links muessen in
   # DERSELBEN nav-row stehen wie das Gruppenlabel "Regionalliga" -- und
   # keiner davon in der Herren- oder Frauen-Zeile.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   html <- gen$.nav_html("index")
 
   zeilen <- regmatches(
@@ -1063,7 +1058,7 @@ test_that("das Navigations-HTML ordnet die RL-Links der Regionalliga-Zeile zu", 
 })
 
 test_that("Methodik bleibt eine eigene, gruppenlose Zeile", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   html <- gen$.nav_html("methodik")
 
   zeilen <- regmatches(
@@ -1119,7 +1114,7 @@ alle_ergebnisse <- function() {
 }
 
 test_that("generate_static_site schreibt zehn Liga-Seiten und die Methodik", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
 
   paths <- gen$generate_static_site(
@@ -1141,7 +1136,7 @@ test_that("generate_static_site schreibt zehn Liga-Seiten und die Methodik", {
 test_that("jede Regionalliga-Seite traegt ihren eigenen Titel", {
   # Zehn Seiten aus einer Schleife: Ein vertauschter Index faellt sonst
   # nicht auf, weil alle Seiten gleich aussehen.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
 
   gen$generate_static_site(
@@ -1167,7 +1162,7 @@ test_that("die Bayern-Seite zeigt Relegation und Abstieg als zwei Spalten", {
   # Ende zu Ende: Die zwei Groessen duerfen nicht zu einer Zahl
   # verschmelzen. Gemessen an Werten, die sich unterscheiden -- waeren sie
   # gleich, bewiese die Tabelle nichts.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
 
   ergebnisse <- alle_ergebnisse()
@@ -1197,7 +1192,7 @@ test_that("die Nord-Seite zeigt oben Meister und Aufstieg nebeneinander", {
   # Platzsumme aus der Prognosematrix (1/18 = 6 %), die Aufstiegsspalte
   # unveraendert aus dem berechneten Objekt. Die Zahlen sind bewusst
   # verschieden, sonst bewiese die Tabelle nichts.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
 
   ergebnisse <- alle_ergebnisse()
@@ -1224,7 +1219,7 @@ test_that("die berechnete Abstiegsspalte landet unveraendert in der Tabelle", {
   # Platzspalten summiert werden. Bei einer gleichverteilten Prognose ueber
   # 18 Plaetze waere jede Platzsumme ein Vielfaches von 1/18 (6, 11, 17 %)
   # -- 41 % kann nur durchgereicht sein.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
 
   ergebnisse <- alle_ergebnisse()
@@ -1250,7 +1245,7 @@ test_that("die Aufstiegsseite steht in der Regionalliga-Gruppe der Navigation", 
   # ZUGEHOERIGKEIT, nicht nur das Vorhandensein des Links -- ein Test auf
   # "rl-aufstieg.html steht irgendwo im HTML" bestuende auch, wenn die
   # Seite unter "Frauen" haengt.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   gruppen <- gen$.nav_groups()
 
   namen <- vapply(gruppen, function(g) g$group, character(1))
@@ -1266,7 +1261,7 @@ test_that("die Aufstiegsseite steht in der Regionalliga-Gruppe der Navigation", 
 })
 
 test_that("die Aufstiegsseite wird mitgerendert und traegt ihren Titel", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
 
   gen$generate_static_site(
@@ -1288,7 +1283,7 @@ test_that("die Siegquote bleibt leer, wo es keine Meisterchance gibt", {
   # ueber die Spielstaerke, die aus den Daten nicht folgt -- das Team
   # erreicht das Aufstiegsspiel ja gar nicht. NaN waere ein sichtbarer
   # Rechenfehler auf einer veroeffentlichten Seite.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
 
   # 0/0 muss zur leeren Zelle werden, jeder definierte Wert bleibt.
   expect_identical(gen$.siegquote(0, 0), "")
@@ -1302,7 +1297,7 @@ test_that("die Siegquote bleibt leer, wo es keine Meisterchance gibt", {
 
 test_that("die gerenderte Seite laesst die Zelle ohne Meisterchance leer", {
   # Ende zu Ende: Weder "0" noch "NaN" noch "Inf" darf im HTML stehen.
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
 
   gen$generate_static_site(

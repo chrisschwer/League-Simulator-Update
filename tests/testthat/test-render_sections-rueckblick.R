@@ -3,11 +3,6 @@
 # gejointen Spiellisten; Live-Spiele werden berichtet, aber ohne Prognose
 # (Planergänzung 8a).
 
-source_generator <- function() {
-  source(test_path("..", "..", "RCode", "generate_static_site.R"), local = TRUE)
-  environment()
-}
-
 spielzeile <- function(kickoff, home, away, gh, ga, ph, px, pa, delta,
                        nachholspiel = FALSE, round = 2L) {
   data.frame(
@@ -50,7 +45,7 @@ mk_live <- function() {
 # ---------------------------------------------------------------- Rückblick --
 
 test_that("render_rueckblick baut Überschrift und Spielzeilen nach Mock-up", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   html <- gen$render_rueckblick(mk_rueckblick(), runden = c(1L, 2L))
 
   expect_match(html, ">Rückblick<")          # Eyebrow
@@ -67,7 +62,7 @@ test_that("render_rueckblick baut Überschrift und Spielzeilen nach Mock-up", {
 })
 
 test_that("die Überschrift eines einzelnen Spieltags trägt keine Doppelform", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   html <- gen$render_rueckblick(mk_rueckblick()[1, ], runden = 2L)
 
   expect_match(html, ">2. Spieltag<")
@@ -77,7 +72,7 @@ test_that("die Überschrift eines einzelnen Spieltags trägt keine Doppelform", 
 })
 
 test_that("der 1/X/2-Balken kodiert die ex-ante-Wahrscheinlichkeiten", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   html <- gen$render_rueckblick(mk_rueckblick(), runden = c(1L, 2L))
 
   expect_match(html, 'class="oddsbar"', fixed = TRUE)
@@ -91,7 +86,7 @@ test_that("der 1/X/2-Balken kodiert die ex-ante-Wahrscheinlichkeiten", {
 })
 
 test_that("die ELO-Anpassung erscheint als Heim/Gast-Paar mit echtem Minus", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   html <- gen$render_rueckblick(mk_rueckblick(), runden = c(1L, 2L))
 
   expect_match(html, "+7,5", fixed = TRUE)
@@ -101,7 +96,7 @@ test_that("die ELO-Anpassung erscheint als Heim/Gast-Paar mit echtem Minus", {
 })
 
 test_that("fehlende ELO-Anpassung wird als Strich gezeigt, nie als NA", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   html <- gen$render_rueckblick(mk_rueckblick(), runden = c(1L, 2L))
 
   expect_false(grepl(">NA<", html, fixed = TRUE))
@@ -110,7 +105,7 @@ test_that("fehlende ELO-Anpassung wird als Strich gezeigt, nie als NA", {
 })
 
 test_that("Nachholspiele sind als solche gekennzeichnet", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   html <- gen$render_rueckblick(mk_rueckblick(), runden = c(1L, 2L))
 
   expect_match(html, 'class="nachhol"', fixed = TRUE)
@@ -118,7 +113,7 @@ test_that("Nachholspiele sind als solche gekennzeichnet", {
 })
 
 test_that("die Legende erklärt die Balkenfarben", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   html <- gen$render_rueckblick(mk_rueckblick(), runden = c(1L, 2L))
 
   for (s in c("Sieg Heim", "Remis", "Sieg Gast")) {
@@ -128,7 +123,7 @@ test_that("die Legende erklärt die Balkenfarben", {
 })
 
 test_that("Teamnamen im Rückblick werden HTML-escaped", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   rb <- mk_rueckblick()[1, ]
   rb$home_name <- "A & B <FC>"
   html <- gen$render_rueckblick(rb, runden = 2L)
@@ -140,7 +135,7 @@ test_that("Teamnamen im Rückblick werden HTML-escaped", {
 # --------------------------------------------------------------------- Live --
 
 test_that("render_live berichtet Zwischenstände ohne Prognose", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   html <- gen$render_live(mk_live())
 
   expect_match(html, "Laufende Spiele", fixed = TRUE)
@@ -152,7 +147,7 @@ test_that("render_live berichtet Zwischenstände ohne Prognose", {
 })
 
 test_that("ohne laufende Spiele entfällt die Live-Sektion vollständig", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   expect_equal(gen$render_live(mk_live()[0, ]), "")
 })
 
@@ -172,7 +167,7 @@ league_entry_4b <- function() {
 }
 
 test_that("die Liga-Seite ordnet Tabelle, Rückblick und Live-Sektion", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   env <- make_data_env()
 
@@ -192,7 +187,7 @@ test_that("die Liga-Seite ordnet Tabelle, Rückblick und Live-Sektion", {
 })
 
 test_that("ein 4a-Entry ohne Rückblick-Felder rendert wie bisher", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   env <- make_data_env()
 
@@ -214,7 +209,7 @@ test_that("ein 4a-Entry ohne Rückblick-Felder rendert wie bisher", {
 })
 
 test_that("ein leeres Live-Fenster erzeugt keine Live-Sektion auf der Seite", {
-  gen <- source_generator()
+  gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
   env <- make_data_env()
 
