@@ -115,3 +115,59 @@ test_that("group matrices have two rows and one column per non-computed label", 
     }
   }
 })
+
+# --- aus test-frauen-ligen-live.R ---
+library(testthat)
+
+# --- 2. league_views kennt die Frauen-Ligen ---------------------------------
+
+test_that("league_views enthaelt die beiden Frauen-Ligen", {
+  env <- new.env()
+  source(test_path("..", "..", "RCode", "league_views.R"), local = env)
+  views <- env$league_views()
+
+  expect_true("frauen_bundesliga" %in% names(views))
+  expect_true("zweite_frauen_bundesliga" %in% names(views))
+  # ANGEPASST in Phase 5: Hier stand `expect_length(views, 5)`. Die Zahl war
+  # nie die Aussage dieses Tests -- er prueft, dass die beiden Frauen-Ligen
+  # dabei sind. Die vollstaendige Liste pinnt test-league-views.R.
+})
+
+test_that("die 2. Frauen-Bundesliga hat drei Abstiegsplaetze", {
+  # Laut kicker steigen die letzten drei ab; an den Spielplaenen bestaetigt
+  # (je drei Absteiger 2024/25 und 2025/26).
+  env <- new.env()
+  source(test_path("..", "..", "RCode", "league_views.R"), local = env)
+  v <- env$league_views()$zweite_frauen_bundesliga
+
+  expect_equal(v$top$labels, "Aufstieg")
+  expect_equal(v$bottom$labels, "Abstieg")
+  expect_equal(diff(as.vector(v$bottom$groups)) + 1, 3)
+})
+
+test_that("die 2. Frauen-Bundesliga zieht ihre Aufstiegstabelle aus dem Sonderlauf", {
+  # Ihre Zweitvertretungen duerfen nicht aufsteigen -- dieselbe Asymmetrie
+  # wie in der 3. Liga: Aufstiegstabelle aus dem Lauf mit -50-Malus,
+  # Heatmap und Abstieg aus der regulaeren Prognose.
+  env <- new.env()
+  source(test_path("..", "..", "RCode", "league_views.R"), local = env)
+  v <- env$league_views()$zweite_frauen_bundesliga
+
+  expect_equal(v$top$source, "Ergebnis_zweite_frauen_bundesliga_aufstieg")
+  expect_equal(v$plot_source, "Ergebnis_zweite_frauen_bundesliga")
+  expect_equal(v$bottom$source, "Ergebnis_zweite_frauen_bundesliga")
+})
+
+test_that("die drei Altligen bleiben unveraendert", {
+  # Der Kern der Verhaltensneutralitaet: test-league-views.R pinnt diese
+  # Werte weiterhin, hier noch einmal als Regression gegen den Umbau.
+  env <- new.env()
+  source(test_path("..", "..", "RCode", "league_views.R"), local = env)
+  views <- env$league_views()
+
+  expect_equal(views$bundesliga$slug, "index")
+  expect_equal(views$bundesliga$plot_source, "Ergebnis")
+  expect_equal(views$bundesliga$top$filter_cols, 1:6)
+  expect_equal(views$dritte_liga$top$source, "Ergebnis3_Aufstieg")
+  expect_equal(views$dritte_liga$bottom$filter_cols, 17:20)
+})

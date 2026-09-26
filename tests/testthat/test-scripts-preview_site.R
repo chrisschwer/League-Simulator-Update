@@ -181,3 +181,33 @@ test_that("eine fehlende Ergebnis-Datei bricht mit klarer Meldung ab, nicht mit 
   expect_match(meldung, "gibt-es-nicht.Rds", fixed = TRUE)
   expect_false(file.exists(file.path(out, "index.html")))
 })
+
+# --- aus test-frauen-ligen-live.R ---
+test_that("preview_site laeuft mit einer Fixture, die nur die Altligen kennt", {
+  # scripts/preview_site.R laedt ShinyApp/data/Ergebnis.Rds -- dort stehen
+  # nur die drei Altligen. Der Guard aus Phase 2 wuerde sonst abbrechen.
+  #
+  # processx::run statt system2(): Der Projektpfad enthaelt Leerzeichen
+  # ("Coding Projects/"), die system2() bei unquoted args zerlegt -- und im
+  # CI-Container scheitert system2() ganz ("Function not implemented").
+  # processx nutzt exec() direkt und ist eine testthat-Abhaengigkeit, also
+  # immer verfuegbar. Dasselbe Muster wie in
+  # test-season-transition-cleanup-wrapper.R.
+  project_root <- normalizePath(file.path(testthat::test_path(), "..", ".."))
+  skript <- file.path(project_root, "scripts", "preview_site.R")
+  fixture <- file.path(project_root, "ShinyApp", "data", "Ergebnis.Rds")
+  skip_if_not(file.exists(skript))
+  # Das Produktions-Image mountet nur tests/, scripts/ und die Paketliste --
+  # ShinyApp/ ist dort nicht vorhanden.
+  skip_if_not(file.exists(fixture), "Fixture ausserhalb des Container-Mounts")
+
+  out <- withr::local_tempdir()
+  p <- processx::run(
+    "Rscript",
+    args = c(skript, fixture, out),
+    error_on_status = FALSE
+  )
+
+  expect_true(file.exists(file.path(out, "index.html")),
+              info = paste(p$stdout, p$stderr, sep = "\n"))
+})
