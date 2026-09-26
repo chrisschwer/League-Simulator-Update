@@ -2,11 +2,6 @@
 # table comes from Ergebnis3_Aufstieg while its relegation table and heatmap
 # come from Ergebnis3. These assertions pin that down.
 
-source_league_views <- function() {
-  source(test_path("..", "..", "RCode", "league_views.R"), local = TRUE)
-  environment()$league_views
-}
-
 test_that("league_views defines the live leagues in registry order", {
   # Seit Phase 5a sind die beiden Frauen-Bundesligen dabei. Die Reihenfolge
   # ist Vertrag: Sie haelt league_views() und die Registry deckungsgleich
@@ -30,7 +25,7 @@ test_that("league_views defines the live leagues in registry order", {
   # Reihenfolge folgt weiterhin der Registry -- Herren, Frauen,
   # Regionalliga; innerhalb der Regionalligen Nord, Nordost, West,
   # SuedWest, Bayern.
-  views <- source_league_views()()
+  views <- source_module("league_views")$league_views()
   expect_named(views, c("bundesliga", "zweite_bundesliga", "dritte_liga",
                         "frauen_bundesliga", "zweite_frauen_bundesliga",
                         "rl_nord", "rl_nordost", "rl_west", "rl_suedwest",
@@ -38,7 +33,7 @@ test_that("league_views defines the live leagues in registry order", {
 })
 
 test_that("Bundesliga is the canonical index page", {
-  v <- source_league_views()()$bundesliga
+  v <- source_module("league_views")$league_views()$bundesliga
   expect_equal(v$slug, "index")
   expect_equal(v$nav_label, "Bundesliga")
   expect_equal(v$plot_source, "Ergebnis")
@@ -52,7 +47,7 @@ test_that("Bundesliga is the canonical index page", {
 })
 
 test_that("2. Bundesliga uses Ergebnis2 for every panel", {
-  v <- source_league_views()()$zweite_bundesliga
+  v <- source_module("league_views")$league_views()$zweite_bundesliga
   expect_equal(v$slug, "2-bundesliga")
   expect_equal(v$plot_source, "Ergebnis2")
   expect_equal(v$top$source, "Ergebnis2")
@@ -62,7 +57,7 @@ test_that("2. Bundesliga uses Ergebnis2 for every panel", {
 })
 
 test_that("3. Liga draws its top table from Ergebnis3_Aufstieg but its bottom from Ergebnis3", {
-  v <- source_league_views()()$dritte_liga
+  v <- source_module("league_views")$league_views()$dritte_liga
   expect_equal(v$slug, "3-liga")
   expect_equal(v$teams, 20)
   expect_equal(v$plot_source, "Ergebnis3")
@@ -89,7 +84,7 @@ test_that("group matrices have two rows and one column per non-computed label", 
   # den Labels --, jetzt aber nur fuer die Labels, die wirklich eine
   # Platzgruppe sind. Ein Panel ganz OHNE groups muss dafuer vollstaendig
   # als berechnet ausgewiesen sein; sonst faellt es hier durch.
-  views <- source_league_views()()
+  views <- source_module("league_views")$league_views()
   for (nm in names(views)) {
     v <- views[[nm]]
     for (panel in c("top", "bottom")) {
