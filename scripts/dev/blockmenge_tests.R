@@ -5,9 +5,13 @@
 #   dirA/dirB: Verzeichnisse mit test-*.R (z. B. ein Export von HEAD~1 und das Arbeitsverzeichnis)
 # Ausgabe: Zahl der Bloecke je Seite, dann jede Abweichung (Titel, Datei, Seite).
 # Blocktext = Quelltext des test_that()-Aufrufs (srcref), Leerraum normalisiert.
+# Zaehlt nur oberste (Top-Level-)`test_that()`-Aufrufe mit woertlichem Titel;
+# verschachtelte oder programmatisch erzeugte test_that()-Aufrufe werden nicht erfasst.
 # Exit 0 bei identischer Multimenge, sonst 1.
 args <- commandArgs(trailingOnly = TRUE)
 stopifnot(length(args) == 2)
+leer <- data.frame(datei = character(0), titel = character(0), text = character(0),
+                    stringsAsFactors = FALSE)
 bloecke <- function(dir) {
   out <- list()
   for (d in list.files(dir, pattern = "^test-.*\\.R$", full.names = TRUE)) {
@@ -22,7 +26,8 @@ bloecke <- function(dir) {
       }
     }
   }
-  do.call(rbind, out)
+  res <- do.call(rbind, out)
+  if (is.null(res)) leer else res
 }
 a <- bloecke(args[1]); b <- bloecke(args[2])
 cat(sprintf("A: %d Bloecke in %d Dateien; B: %d Bloecke in %d Dateien\n",
