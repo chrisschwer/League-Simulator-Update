@@ -4,19 +4,14 @@
 # display_result() was removed once the static site generator stopped
 # using ggplot2 (Phase 3); groupResultsDF/prozent are still in use.
 
-source_render_helpers <- function() {
-  source(test_path("..", "..", "RCode", "render_helpers.R"), local = TRUE)
-  environment()
-}
-
 test_that("render_helpers.R defines its primitives", {
-  env <- source_render_helpers()
+  env <- source_module("render_helpers")
   expect_true(is.function(env$prozent))
   expect_true(is.function(env$groupResultsDF))
 })
 
 test_that("prozent keeps its boundary behaviour after the move", {
-  env <- source_render_helpers()
+  env <- source_module("render_helpers")
   expect_equal(env$prozent(0), 0)
   expect_equal(env$prozent(0.5), 50)
   expect_equal(env$prozent(1), intToUtf8(0x2713))
@@ -26,7 +21,7 @@ test_that("prozent keeps its boundary behaviour after the move", {
 })
 
 test_that("groupResultsDF sums column ranges and preserves rownames", {
-  env <- source_render_helpers()
+  env <- source_module("render_helpers")
   m <- matrix(0.1, nrow = 2, ncol = 4,
               dimnames = list(c("AAA", "BBB"), NULL))
   out <- env$groupResultsDF(m, labels = c("first", "rest"),
