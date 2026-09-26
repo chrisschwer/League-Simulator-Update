@@ -265,3 +265,39 @@ prognose_zeile <- function(teams, plaetze, p, name = "A") {
   m[1, plaetze] <- p
   m
 }
+
+# --- Loop-Attrappen ------------------------------------------------------------
+# Gebraucht in test-update_all_leagues_loop-gating.R, -sicherheitsnetz.R und
+# (fake_transformed) test-update_all_leagues_loop.R (#211, Stufe 3.6).
+
+# Minimal stand-in for one league's raw fixture list. The loop reads
+# fixture$id + fixture$status$short (beendet-set per league, pending-set
+# resolution) and id/date/status/goals for the render signature.
+# transform_data() is mocked in the tests, so the rest of the shape is irrelevant.
+fake_fixtures <- function(statuses, ids = seq_along(statuses),
+                          goals_home = rep(NA_integer_, length(statuses)),
+                          goals_away = rep(NA_integer_, length(statuses))) {
+  list(
+    fixture = list(
+      id = ids,
+      date = rep("2026-08-29T15:30:00+02:00", length(statuses)),
+      status = list(
+        short = statuses,
+        elapsed = rep(NA_integer_, length(statuses))
+      )
+    ),
+    goals = list(home = goals_home, away = goals_away)
+  )
+}
+
+# Minimal stand-in for transform_data()'s output: leagueSimulatorRust() is
+# mocked in the tests and never inspects it, but the Liga3-second-team penalty
+# loop in the production code does `for (j in 5:dim(Liga3)[2])` and reads
+# `names(Liga3)[j]`, so the fake needs at least 5 columns with team-like
+# names in columns 5+.
+fake_transformed <- function() {
+  data.frame(
+    TeamHeim = "AAA", TeamGast = "BBB", ToreHeim = 1, ToreGast = 0,
+    AAA = 1500, BBB = 1500
+  )
+}

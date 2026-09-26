@@ -250,7 +250,7 @@ spielplan_von <- function(key) {
 # Rohe Fixture-Liste einer Liga, nur die Felder, die der Loop selbst liest
 # (beendet-Menge, Render-Signatur). `liga` ist der Schluessel fuer den
 # transform_data-Stub.
-fake_fixtures <- function(key, statuses) {
+fake_fixtures_je_liga <- function(key, statuses) {
   idx <- match(key, names(LIGA_GROESSE))
   n <- length(statuses)
   list(
@@ -497,7 +497,7 @@ lauf_ausfuehren <- function(loops = 1L, full_fetch_mindestens_alle = 3600,
     } else {
       c("FT", "NS")
     }
-    fake_fixtures(key, statuses)
+    fake_fixtures_je_liga(key, statuses)
   })
   uhr <- runden_uhr(takt = 120)
   stub(update_all_leagues_loop, "retrieveLiveFixtures",
@@ -1352,7 +1352,7 @@ lauf_mit_seitendaten <- function(build_fn, fixtures_echt = list(),
   stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
   stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
     key <- names(ids)[match(as.character(league), ids)]
-    if (!is.null(fixtures_echt[[key]])) fixtures_echt[[key]] else fake_fixtures(key, c("FT", "NS"))
+    if (!is.null(fixtures_echt[[key]])) fixtures_echt[[key]] else fake_fixtures_je_liga(key, c("FT", "NS"))
   })
   stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) integer(0))
   stub(update_all_leagues_loop, "transform_data", function(fixtures, teams) {

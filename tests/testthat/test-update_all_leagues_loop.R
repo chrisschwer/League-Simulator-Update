@@ -11,22 +11,17 @@ library(mockery)
 
 source("../../RCode/update_all_leagues_loop.R")
 
-fake_fixtures <- function(statuses) {
+# Nur fixture$status$short -- schmaler als fake_fixtures() aus
+# helper-fixtures.R (ohne id, date, goals). fake_transformed() steht dort.
+fake_fixtures_nur_status <- function(statuses) {
   list(fixture = list(status = list(short = statuses)))
-}
-
-fake_transformed <- function() {
-  data.frame(
-    TeamHeim = "AAA", TeamGast = "BBB", ToreHeim = 1, ToreGast = 0,
-    AAA = 1500, BBB = 1500
-  )
 }
 
 run_one_loop <- function(build_stub, capture_env) {
   stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
   stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
     capture_env$fetched_leagues <- c(capture_env$fetched_leagues, league)
-    fake_fixtures(c("FT", "NS"))
+    fake_fixtures_nur_status(c("FT", "NS"))
   })
   stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) integer(0))
   stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
