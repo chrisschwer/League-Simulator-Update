@@ -146,3 +146,22 @@ test_that("die Ausnahmen sind noch das, wofuer sie erklaert wurden", {
   reg_text <- paste(readLines(registry, warn = FALSE), collapse = "\n")
   expect_match(reg_text, "0.0024058833", fixed = TRUE)
 })
+
+# --- aus test-frauen-ligen-aktivierung.R ---
+test_that("die Fenstergrenzen stehen nur in den Konstanten", {
+  # Vorher standen 14:45 und 22:45 an neun Stellen in updateScheduler.R --
+  # als Zahl, in Kommentaren und in Meldungstexten. Eine Verschiebung musste
+  # alle treffen; eine vergessene Stelle waere nicht aufgefallen.
+  #
+  # Geprueft wird die AUSSAGE, nicht eine Anzahl: Die alten Uhrzeiten kommen
+  # nirgends mehr vor, und die neuen Grenzen stehen als benannte Konstanten.
+  code <- readLines(test_path("..", "..", "RCode", "updateScheduler.R"))
+
+  expect_false(any(grepl("14:45|22:45", code)))
+  expect_false(any(grepl("14 \\* 60|22 \\* 60", code)))
+
+  # Die Meldungstexte bauen die Uhrzeit aus den Konstanten, statt sie zu
+  # wiederholen.
+  konstanten <- grep("SCHEDULE_(START|END)_MINUTES *<-", code, value = TRUE)
+  expect_length(konstanten, 2)
+})

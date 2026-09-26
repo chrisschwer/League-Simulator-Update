@@ -406,3 +406,56 @@ test_that("die Nicht-RL-Ligen tragen keinen Regeltext", {
     expect_null(reg[[key]]$relegation_regel, info = key)
   }
 })
+
+# --- aus test-frauen-ligen-aktivierung.R ---
+# Livegang der beiden Frauen-Bundesligen: Der Scheduler ruft sie ab, und das
+# Zeitfenster wird auf ihre Anstosszeiten angepasst.
+#
+# Phase 5a hat den Renderer vorbereitet; hier wird scharfgeschaltet. Der
+# Schritt ist bewusst getrennt, weil er das Betriebsverhalten aendert: mehr
+# API-Requests, mehr Simulationen, ein laengerer Tag.
+
+# --- Registry: die Frauen-Ligen sind dabei ----------------------------------
+
+test_that("die Frauen-Ligen sind aktiv", {
+  # ANGEPASST in Phase 5: Die Aussage dieses Tests ist, dass die beiden
+  # Frauen-Bundesligen im Produktivpfad stehen -- nicht, wie viele Ligen es
+  # insgesamt sind. Die Gesamtliste stand hier als feste Aufzaehlung und
+  # wurde mit den Regionalligen falsch; sie ist ohnehin in
+  # test-phase5-regionalligen.R gepinnt.
+  env <- new.env()
+  source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
+
+  for (id in c("82", "1034")) {
+    expect_true(id %in% env$league_ids(), info = id)
+  }
+  for (key in c("frauen_bundesliga", "zweite_frauen_bundesliga")) {
+    expect_true(key %in% env$active_league_keys(), info = key)
+  }
+  # Und sie stehen hinter den Altligen, vor den Regionalligen -- die
+  # Reihenfolge ist die Fetch-Reihenfolge.
+  expect_equal(head(env$active_league_keys(), 5),
+               c("bundesliga", "zweite_bundesliga", "dritte_liga",
+                 "frauen_bundesliga", "zweite_frauen_bundesliga"))
+})
+
+# Der Test "die Regionalligen bleiben inaktiv" stand hier bis Phase 5. Er
+# entfaellt ersatzlos: Seine Aussage ist genau das, was Phase 5 aufhebt --
+# die fuenf Staffeln sind jetzt aktiv (test-phase5-regionalligen.R,
+# Abschnitt 1).
+
+test_that("beide Frauen-Ligen tragen das Frauen-Tormodell", {
+  # Ab jetzt wirksam: Der Loop sendet die Parameter an die Engine.
+  env <- new.env()
+  source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
+
+  for (id in c("82", "1034")) {
+    gm <- env$goal_model(id)
+    expect_equal(gm$tore_slope, 0.0024058833, info = id)
+    expect_equal(gm$tore_intercept, 1.6527603153, info = id)
+  }
+  # Die Herren-Ligen senden weiterhin nichts -- Rust haelt die Defaults.
+  for (id in c("78", "79", "80")) {
+    expect_null(env$goal_model(id), info = id)
+  }
+})

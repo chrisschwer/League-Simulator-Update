@@ -225,3 +225,22 @@ test_that("die fehlgeschlagene Probe meldet sich sofort, nicht erst beim Prozess
     expect_true(any(grepl("Resolving timed out", meldungen)))
   })
 })
+
+# --- aus test-frauen-ligen-aktivierung.R ---
+# --- Der Loop ruft die neuen Ligen ab ---------------------------------------
+
+test_that("checkAPILimits skaliert mit der Zahl der aktiven Ligen", {
+  # Ein Live-Poll deckt alle Ligen mit einem Request ab, dazu kommen die
+  # Vollabrufe. Der Default folgt der Ligazahl.
+  #
+  # ANGEPASST in Phase 5: Hier stand die 5 als Zahl. Mit den fuenf
+  # Regionalligen waeren es 10 -- und beim naechsten Livegang wieder eine
+  # andere Zahl. Sie kommt jetzt aus league_ids(), womit der Test dieselbe
+  # Aussage traegt, ohne mitgepflegt werden zu muessen.
+  env <- new.env()
+  source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
+  source(test_path("..", "..", "RCode", "checkAPILimits.R"), local = env)
+
+  expect_equal(eval(formals(env$checkAPILimits)$avg_calls_per_loop, envir = env),
+               1 + length(env$league_ids()) / 2)
+})

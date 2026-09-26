@@ -221,3 +221,19 @@ test_that("check_existing_files identifies existing files", {
   result <- check_existing_files("2025")
   expect_null(result)
 })
+
+# --- aus test-frauen-ligen-aktivierung.R ---
+# --- Saisonwechsel bleibt vorerst bei den Altligen --------------------------
+
+test_that("die Saisonvalidierung prueft nur die Altligen", {
+  # Der Saisonwechsel laeuft einmal jaehrlich im Juli und stuetzt sich auf
+  # aufgezeichnete API-Antworten ("Kassetten"), die es nur fuer 78/79/80
+  # gibt. Die Ausweitung auf zehn Ligen ist ein eigener Vorgang -- bis dahin
+  # bleibt die Validierung bewusst bei den drei Ligen, statt an fehlenden
+  # Kassetten zu scheitern.
+  env <- new.env()
+  source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
+  source(test_path("..", "..", "RCode", "season_validation.R"), local = env)
+
+  expect_equal(env$SEASON_TRANSITION_LEAGUES, c("78", "79", "80"))
+})
