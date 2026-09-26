@@ -6,6 +6,9 @@ library(mockery)
 
 # Source required files - handled by helper-test-setup.R
 
+# Lebte bis Stufe 2 nur von der Sourcing-Wand in helper-test-setup.R.
+source_module("season_processor", envir = environment())
+
 context("Regression Tests - Magical 1046 Issue")
 
 test_that("Liga3 baseline is NOT 1046 for all season transitions", {
