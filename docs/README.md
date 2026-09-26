@@ -37,6 +37,8 @@
 - [FAQ](user-guide/faq.md) - Frequently asked questions
 - `scripts/analyze_league_empirics.R` - Per-league/season empirics report (goals/match, H/D/A shares, implied home advantage) used to calibrate the goal model
 - `scripts/install_test_packages.R` - Installs production + test R dependencies for local development (production images use `packagelist.txt` only)
+- `scripts/dev/zuordnung_tests.R` - Schlägt je `test_that`-Block die geprüfte `RCode/`-Einheit vor (Testsuite-Umbau #211); Regel in [`tests/testthat/README.md`](../tests/testthat/README.md)
+- `scripts/dev/ergebnisse_tests.R` - Schreibt die Einzelergebnisse der Testsuite je Block als CSV, Grundlage für Vorher/Nachher-Vergleiche
 
 ### ⚽ Spielbetrieb (Regelwerk)
 - [Auf- und Abstieg der Regionalligen 2026/2027](abstieg_aufstieg_RL_2026_2027.md) - Die amtlichen Auf-/Abstiegsregeln aller fünf Staffeln; Grundlage der Abstiegskopplung an die 3. Liga
