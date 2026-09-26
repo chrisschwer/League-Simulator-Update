@@ -12,7 +12,7 @@
 # Er ist bewusst eine REINE Funktion: kein HTTP, kein Sys.time(), kein
 # Zustand zwischen den Aufrufen. Alles kommt als Argument herein, alles geht
 # als Wert hinaus. Der Loop bleibt die duenne Huelle, die misst und schlaeft;
-# die Entscheidung ist hier und ohne Netz pruefbar (test-rate-limit-takt.R).
+# die Entscheidung ist hier und ohne Netz pruefbar (test-rate_limit_takt.R).
 
 # Die Vorgabewerte. Sie stehen im Signaturausdruck und nicht als Konstanten
 # darueber, damit sie ueber formals() ablesbar sind -- die Tests lesen sie

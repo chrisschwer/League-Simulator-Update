@@ -46,7 +46,7 @@ einzige Variante, die *einen* Heimvorteil herstellt, war die Löschung.
 Gegenprobe an der laufenden Engine, 3:0 bei 1500 gegen 1480: Der Saisonwechsel rechnet jetzt
 +14,359 ELO — exakt der Wert für Heimvorteil 40 (mit 100 wären es 11,565 gewesen).
 
-Ein Wachhund-Test (`tests/testthat/test-ein-elo-walk.R`) hält die Abwesenheit beider
+Ein Wachhund-Test (`tests/testthat/test-waechter-quelltext.R`) hält die Abwesenheit beider
 Funktionen fest. Das ist kein Misstrauen gegen künftige Autoren, sondern folgt aus der
 Natur des Fehlers: Zwei ELO-Implementierungen widersprechen sich nur in den Zahlen, nie im
 Typ — ihr Auseinanderlaufen fällt im Betrieb nicht auf.

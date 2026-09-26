@@ -14,7 +14,7 @@ niemand wieder, wenn sich die Regel ändert — und die Zahlen ändern sich
 jährlich. Beim Saisonwechsel ist dieses Dokument die Checkliste.
 
 Stand: 2026-09-08, Phase 6/7/8 (PR #174, Nachtrag zur Entkopplung von West). Getestet in
-`tests/testthat/test-rl-abstiegskopplung.R` und `test-rl-aufstieg.R`.
+`tests/testthat/test-rl_abstiegskopplung.R` und `test-rl_aufstieg.R`.
 
 ---
 

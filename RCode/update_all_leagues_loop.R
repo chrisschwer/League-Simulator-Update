@@ -134,7 +134,7 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
   source("RCode/rl_verdrahtung.R")
 
   # Die Ligen dieses Laufs. Reihenfolge = Registry-Reihenfolge und damit
-  # Fetch-Reihenfolge; sie ist Vertrag (test-update-loop-league-data.R).
+  # Fetch-Reihenfolge; sie ist Vertrag (test-update_all_leagues_loop.R).
   liga_keys <- active_league_keys()
   liga_ids <- stats::setNames(
     vapply(active_leagues(), function(l) l$api_id, character(1)),
@@ -496,7 +496,7 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
       ok_keys <- liga_keys[!fetch_failed]
 
       # Scheitert der Abruf fuer ALLE Ligen zugleich, bleibt es beim alten
-      # Verhalten (test-update-loop-gating.R pinnt das ausdruecklich, z.B.
+      # Verhalten (test-update_all_leagues_loop-gating.R pinnt das ausdruecklich, z.B.
       # "a pending finished fixture survives a failed full fetch" und "ein
       # fehlgeschlagener Safety-Fetch setzt den Timer NICHT zurueck"): die
       # ganze Runde faellt aus, pending_finished_ids/beendet/Render bleiben
