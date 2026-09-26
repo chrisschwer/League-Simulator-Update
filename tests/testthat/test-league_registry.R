@@ -693,14 +693,6 @@ test_that("die Registry weiss, welche Liga einen Aufstiegslauf braucht", {
 #
 # ===========================================================================
 
-# --- Quellen ----------------------------------------------------------------
-
-source_round_filter <- function() {
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "round_filter.R"), local = env)
-  env
-}
-
 # Die fuenf RL in Registry-Reihenfolge. Sie ist Vertrag (Fetch-Reihenfolge
 # und Navigation), deshalb hier einmal ausgeschrieben.
 RL_SCHLUESSEL <- c("rl_nord", "rl_nordost", "rl_west", "rl_suedwest",
@@ -898,7 +890,7 @@ rl_fixture_teams <- function(liga, saison = 2025) {
   skip_if_not(file.exists(pfad), paste("Fixture fehlt:", basename(pfad)))
 
   x <- jsonlite::fromJSON(pfad)
-  rf <- source_round_filter()
+  rf <- source_module("round_filter")
   keep <- rf$is_regular_season_round(x$round)
   unique(c(x$teams_home_name[keep], x$teams_away_name[keep]))
 }
