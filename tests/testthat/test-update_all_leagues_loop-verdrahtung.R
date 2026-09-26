@@ -38,7 +38,7 @@
 # welche R-Funktion es abschickt.
 #
 # Die uebrigen Mitspieler (retrieveResults, transform_data, ...) bleiben wie
-# in test-update-loop-gating.R mockery-Stubs: Der Loop haelt diese Aufrufe
+# in test-update_all_leagues_loop-gating.R mockery-Stubs: Der Loop haelt diese Aufrufe
 # ausdruecklich INLINE (Kommentar dort), das ist Vertrag.
 #
 # ===========================================================================
@@ -116,7 +116,7 @@ source("../../RCode/update_all_leagues_loop.R")
 
 rcode <- function(datei) test_path("..", "..", "RCode", datei)
 
-# --- Registry-abgeleitete Zahlen (wie in test-update-loop-gating.R) --------
+# --- Registry-abgeleitete Zahlen (wie in test-update_all_leagues_loop-gating.R) --------
 
 registry_env <- function() {
   env <- new.env()
@@ -124,13 +124,7 @@ registry_env <- function() {
   env
 }
 
-n_ligen <- function() length(registry_env()$league_ids())
-
-n_sims_pro_runde <- function() {
-  env <- registry_env()
-  ids <- env$league_ids()
-  length(ids) + sum(vapply(ids, env$has_promotion_restriction, logical(1)))
-}
+# n_ligen() und n_sims_pro_runde() stehen in helper-fixtures.R.
 
 # --- Die Ligen des Fake-Betriebs --------------------------------------------
 #
@@ -250,7 +244,7 @@ spielplan_von <- function(key) {
 # Rohe Fixture-Liste einer Liga, nur die Felder, die der Loop selbst liest
 # (beendet-Menge, Render-Signatur). `liga` ist der Schluessel fuer den
 # transform_data-Stub.
-fake_fixtures <- function(key, statuses) {
+fake_fixtures_je_liga <- function(key, statuses) {
   idx <- match(key, names(LIGA_GROESSE))
   n <- length(statuses)
   list(
@@ -266,10 +260,10 @@ fake_fixtures <- function(key, statuses) {
 
 # --- Der Fake-Rust-Server ---------------------------------------------------
 
-N_ITER <- 10L
+N_ITER_LOOP <- 10L
 
 # Zaehlmatrizen der 3. Liga: Zeile = Staffel (STAFFELN-Reihenfolge), Spalte
-# = k Absteiger (0..4), Zelle = Iterationen. Jede Zeile summiert auf N_ITER,
+# = k Absteiger (0..4), Zelle = Iterationen. Jede Zeile summiert auf N_ITER_LOOP,
 # die Erwartungswerte ueber alle Staffeln auf exakt 4 (die Invariante von
 # absteiger_verteilung()).
 COUNTS_REGULAER <- matrix(c(
@@ -402,10 +396,10 @@ rust_fake <- function() {
         time_ms = 1L
       )
       if (!is.null(payload$group_of_team)) {
-        if (!identical(as.integer(payload$iterations), N_ITER)) {
+        if (!identical(as.integer(payload$iterations), N_ITER_LOOP)) {
           stop(sprintf(
             "Fake-Engine: die Zaehlmatrix ist auf %d Iterationen gebaut, angefragt waren %s",
-            N_ITER, payload$iterations
+            N_ITER_LOOP, payload$iterations
           ))
         }
         counts <- if (malus) COUNTS_MALUS else COUNTS_REGULAER
@@ -497,7 +491,7 @@ lauf_ausfuehren <- function(loops = 1L, full_fetch_mindestens_alle = 3600,
     } else {
       c("FT", "NS")
     }
-    fake_fixtures(key, statuses)
+    fake_fixtures_je_liga(key, statuses)
   })
   uhr <- runden_uhr(takt = 120)
   stub(update_all_leagues_loop, "retrieveLiveFixtures",
@@ -514,7 +508,7 @@ lauf_ausfuehren <- function(loops = 1L, full_fetch_mindestens_alle = 3600,
 
   msgs <- capture_messages(mit_rust_fake(fake, with_repo_root({
     update_all_leagues_loop(
-      duration = 0, loops = loops, initial_wait = 0, n = N_ITER,
+      duration = 0, loops = loops, initial_wait = 0, n = N_ITER_LOOP,
       saison = "2026", TeamList_file = teamlist,
       static_site_dir = tempdir(),
       full_fetch_mindestens_alle = full_fetch_mindestens_alle,
@@ -640,8 +634,10 @@ groesste_abweichung <- function(a, b) {
   max(abs(as.matrix(a[rownames(b), colnames(b), drop = FALSE]) - as.matrix(b)))
 }
 
-RL_SCHLUESSEL <- c(Nord = "rl_nord", Nordost = "rl_nordost", West = "rl_west",
-                   SuedWest = "rl_suedwest", Bayern = "rl_bayern")
+# Staffel -> Registry-Schluessel. Die unbenannte Fassung RL_SCHLUESSEL
+# (gleiche Reihenfolge) steht in helper-fixtures.R.
+RL_SCHLUESSEL_JE_STAFFEL <- c(Nord = "rl_nord", Nordost = "rl_nordost", West = "rl_west",
+                              SuedWest = "rl_suedwest", Bayern = "rl_bayern")
 
 # ===========================================================================
 # 1. Die 3. Liga sendet die Staffel-Zuordnung -- in Spielplan-Reihenfolge
@@ -725,8 +721,8 @@ test_that("jede Staffel bekommt ihre Abstiegsspalte aus der regulaeren Zaehlung 
     modell()$rl_abstiegsprognose("SuedWest", erg[["rl_suedwest"]], COUNTS_REGULAER)
   ), 1e-3)
 
-  for (staffel in names(RL_SCHLUESSEL)) {
-    key <- RL_SCHLUESSEL[[staffel]]
+  for (staffel in names(RL_SCHLUESSEL_JE_STAFFEL)) {
+    key <- RL_SCHLUESSEL_JE_STAFFEL[[staffel]]
     was <- paste0("Ergebnis_", key, "_abstieg")
     ist <- erg[[paste0(key, "_abstieg")]]
     expect_gleich(ist, abstieg_erwartet(staffel, key, erg), was)
@@ -831,8 +827,8 @@ test_that("Summe P(Abstieg) je Staffel ist E[Absteigerzahl] -- Nord um p_meister
     expect_lt(p_nord, 1)
   }
 
-  for (staffel in names(RL_SCHLUESSEL)) {
-    ist <- erg[[paste0(RL_SCHLUESSEL[[staffel]], "_abstieg")]]
+  for (staffel in names(RL_SCHLUESSEL_JE_STAFFEL)) {
+    ist <- erg[[paste0(RL_SCHLUESSEL_JE_STAFFEL[[staffel]], "_abstieg")]]
     expect_false(is.null(ist), info = sprintf("Abstiegsspalte %s fehlt", staffel))
     if (is.null(ist) || (identical(staffel, "Nord") && is.null(p_nord))) next
     soll <- e_absteiger(staffel) - if (identical(staffel, "Nord")) p_nord else 0
@@ -863,7 +859,7 @@ test_that("Nord und Bayern stellen zusammen genau einen Aufsteiger", {
 
 # --- Aufstiegs-Invarianten auf den VERDRAHTETEN Objekten -------------------
 #
-# test-phase5-regionalligen.R prueft dieselben Summen auf Modell-Ebene, an
+# test-rl_aufstieg.R prueft dieselben Summen auf Modell-Ebene, an
 # rl_aufstiegsprognose() direkt. Hier laufen sie ueber das, was der Loop in
 # `ergebnisse` ablegt -- denn dort brechen sie: falsche Rotation, falsche
 # ELO-Zuordnung, vertauschte Staffeln, doppelt gezaehlte Liga.
@@ -1081,7 +1077,7 @@ test_that("die Verdrahtung aendert die Zahl der Simulationen je Runde nicht", {
   expect_identical(n_ligen(), 10L)
   # Eine je Liga plus der Malus-Lauf jeder Liga mit Aufstiegsbeschraenkung
   # (3. Liga, 2. Frauen-BL, fuenf RL) -- dieselbe Formel wie in
-  # test-update-loop-gating.R. Die Abstiegs- und Aufstiegsspalten sind
+  # test-update_all_leagues_loop-gating.R. Die Abstiegs- und Aufstiegsspalten sind
   # Rechnungen auf vorhandenen Ergebnissen, keine weiteren Simulationen.
   expect_identical(lauf$sim_marken[[1]], n_sims_pro_runde())
   expect_length(lauf$simulate, n_sims_pro_runde())
@@ -1097,7 +1093,7 @@ test_that("die Verdrahtung aendert die Zahl der Simulationen je Runde nicht", {
 # ueber liga_keys fuer alle Ligen auf und reicht das Ergebnis als
 # league_data an generate_static_site() weiter; dort haengen die Abschnitte
 # an league_entry. Belegt war das bisher nur fuer die drei Altligen
-# (test-update-loop-league-data.R, test-ligatabelle-sektion.R). Dass es
+# (test-update_all_leagues_loop.R, test-render_sections-tabelle.R). Dass es
 # fuer zehn Ligen und fuer die Rundenlabels der Regionalligen ("North - 7")
 # ebenso laeuft, war Annahme. Diese Tests machen sie zur Zusicherung.
 #
@@ -1352,7 +1348,7 @@ lauf_mit_seitendaten <- function(build_fn, fixtures_echt = list(),
   stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
   stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
     key <- names(ids)[match(as.character(league), ids)]
-    if (!is.null(fixtures_echt[[key]])) fixtures_echt[[key]] else fake_fixtures(key, c("FT", "NS"))
+    if (!is.null(fixtures_echt[[key]])) fixtures_echt[[key]] else fake_fixtures_je_liga(key, c("FT", "NS"))
   })
   stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) integer(0))
   stub(update_all_leagues_loop, "transform_data", function(fixtures, teams) {
@@ -1369,7 +1365,7 @@ lauf_mit_seitendaten <- function(build_fn, fixtures_echt = list(),
 
   msgs <- capture_messages(mit_rust_fake(fake, with_repo_root({
     update_all_leagues_loop(
-      duration = 0, loops = 1L, initial_wait = 0, n = N_ITER,
+      duration = 0, loops = 1L, initial_wait = 0, n = N_ITER_LOOP,
       saison = "2026", TeamList_file = teamlist,
       static_site_dir = tempdir()
     )
@@ -1383,16 +1379,11 @@ lauf_mit_seitendaten <- function(build_fn, fixtures_echt = list(),
   )
 }
 
-generator_modul <- function() {
-  source(rcode("generate_static_site.R"), local = TRUE)
-  environment()
-}
-
 # Rendert das, was der Loop an generate_static_site() uebergeben hat, mit
 # dem echten Generator. Rueckgabe: Ausgabeverzeichnis und Meldungen.
 seite_rendern <- function(ergebnisse, league_data, out = NULL) {
   if (is.null(out)) out <- withr::local_tempdir(.local_envir = parent.frame())
-  gen <- generator_modul()
+  gen <- source_module("generate_static_site")
   msgs <- capture_messages(
     gen$generate_static_site(
       output_dir = out,
@@ -1402,10 +1393,6 @@ seite_rendern <- function(ergebnisse, league_data, out = NULL) {
     )
   )
   list(out = out, msgs = msgs)
-}
-
-html_lesen <- function(pfad) {
-  paste(readLines(pfad, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
 }
 
 # Der Ausschnitt <section id="..."> ... </section>; NA, wenn es ihn nicht gibt.
@@ -1672,7 +1659,7 @@ test_that("faellt build_league_page_data() fuer eine Regionalliga aus, rendert d
   }
 
   # Die Seite steht -- Prognose ja, die drei Abschnitte nein. Genau wie bei
-  # den Altligen ohne league_entry (test-ligatabelle-sektion.R).
+  # den Altligen ohne league_entry (test-render_sections-tabelle.R).
   for (slug in c("rl-nord", "index")) {
     html <- html_lesen(file.path(seite$out, paste0(slug, ".html")))
     expect_match(html, "<section id=\"prognose\">", fixed = TRUE, info = slug)

@@ -17,23 +17,7 @@ library(mockery)
 
 source("../../RCode/update_all_leagues_loop.R")
 
-fake_fixtures <- function(statuses) {
-  list(
-    fixture = list(
-      id = seq_along(statuses),
-      date = rep("2026-08-29T15:30:00+02:00", length(statuses)),
-      status = list(short = statuses,
-                    elapsed = rep(NA_integer_, length(statuses)))
-    ),
-    goals = list(home = rep(NA_integer_, length(statuses)),
-                 away = rep(NA_integer_, length(statuses)))
-  )
-}
-
-fake_transformed <- function() {
-  data.frame(TeamHeim = "AAA", TeamGast = "BBB", ToreHeim = 1, ToreGast = 0,
-             AAA = 1500, BBB = 1500)
-}
+# fake_fixtures() und fake_transformed() stehen in helper-fixtures.R.
 
 # Durchgehend leere Runden im Abstand `takt`; zurueck kommen die Runden, in
 # denen voll abgerufen wurde. Nur Loop 1 und das Netz koennen hier abrufen.

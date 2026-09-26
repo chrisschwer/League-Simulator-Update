@@ -3,8 +3,8 @@
 # deterministischen Rust-Endpoint POST /league-details.
 #
 # Phase 2, TDD: Die Signaturen stehen, die Implementierung folgt nach dem
-# Review der Tests (tests/testthat/test-fixture-details.R,
-# test-spieltag-logik.R, test-ligatabelle.R, test-league-details-client.R).
+# Review der Tests (tests/testthat/test-league_details.R,
+# test-league_details-client.R).
 # Die Tests definieren die Semantik; Kurzfassung:
 #
 # - Statusgruppen (api-football `fixture$status$short`):

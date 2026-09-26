@@ -389,7 +389,8 @@ fetch_league_results <- function(league, season) {
 # Wer eine ELO-Rechnung in R braucht, hat fast sicher ein anderes Problem:
 # Zwei Implementierungen widersprechen sich nur in den Zahlen, nie im Typ --
 # deshalb faellt ihr Auseinanderlaufen im Betrieb nicht auf. Der Wachhund in
-# tests/testthat/test-ein-elo-walk.R haelt die Abwesenheit fest.
+# tests/testthat/test-waechter-quelltext.R haelt die Abwesenheit fest
+# ("der zweite ELO-Walk existiert nicht mehr").
 
 
 # ZWEITER AUFRUFER von calculate_final_elos(), leicht zu uebersehen: Er steht

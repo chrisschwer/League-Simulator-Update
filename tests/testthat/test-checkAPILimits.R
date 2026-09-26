@@ -1,7 +1,7 @@
 # checkAPILimits() entscheidet einmal je Scheduler-Lauf, wie viele Runden das
 # Tagesbudget hergibt. Der Funktionskoerper war bis hierher voellig ungetestet
 # -- gedeckt war nur der Default-Ausdruck der Signatur
-# (test-frauen-ligen-aktivierung.R). Diese Datei holt das nach.
+# (weiter unten in dieser Datei). Diese Datei holt das nach.
 #
 # Anlass ist Issue #129, Punkt 1: Die Funktion trug einen Cache-Zweig, der die
 # von retrieveResults() aufgezeichneten Rate-Limit-Header wiederverwenden
@@ -28,7 +28,7 @@
 # httr-Objekt in der Ladeumgebung greift nicht, weil httr::GET am `::`
 # vorbeigeht. mockery::stub() schreibt den Aufruf innerhalb der Funktion um
 # und ist das Muster, mit dem diese Suite ohnehin arbeitet
-# (test-update-loop-gating.R).
+# (test-update_all_leagues_loop-gating.R).
 
 library(testthat)
 library(mockery)
@@ -175,7 +175,6 @@ test_that("faellt die Abfrage aus, greift die konservative Schaetzung aus der Re
   })
 })
 
-
 # --- Aus #204 mitgenommen (der dort geplante PR #216 wird von #190
 # --- abgeloest): zwei Randfaelle, die aus einem leeren oder kaputten
 # --- Kontingent eine ungueltige Rundenzahl machten.
@@ -202,7 +201,6 @@ test_that("ein erschoepftes Kontingent ergibt 0 Runden, nicht eine", {
 
   mit_api_key(expect_equal(f(360), 0))
 })
-
 
 test_that("die fehlgeschlagene Probe meldet sich sofort, nicht erst beim Prozessende", {
   # Issue #224: R sammelt Warnungen im Produktivlauf und gibt sie erst beim

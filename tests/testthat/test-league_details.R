@@ -7,7 +7,7 @@ source("../../RCode/league_details.R")
 # - abgeschlossen: >= 1 Spiel beendet, kein Spiel live, jedes Spiel beendet
 #   oder verschoben (PST/CANC/TBD/ABD). Verschobene halten nicht offen.
 #   TBD mit Termin heute oder später ist offen, nicht verschoben -- siehe
-#   test-tbd-termin.R (Issue #230).
+#   Abschnitt "aus test-tbd-termin.R" weiter unten (Issue #230).
 # - laufend: begonnen (>= 1 beendet/live), aber nicht abgeschlossen.
 # - ausstehend: noch nicht begonnen.
 # - aktueller Spieltag: der HÖCHSTE begonnene. Ein neu terminiertes
@@ -920,7 +920,6 @@ test_that("extract_fixture_details verhält sich bei Bundesliga unverändert", {
 # Staerkeschaetzung, ein gewertetes geht hinein. Ohne Fehlermeldung, ohne
 # Warnung, ohne dass irgendeine Spaltenpruefung anschlaegt. Der Test
 # "elo_neutral wandert mit" unten ist die einzige Stelle, die das faengt.
-
 
 # --- Fixture-Bau --------------------------------------------------------------
 #

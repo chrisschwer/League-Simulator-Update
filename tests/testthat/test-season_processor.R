@@ -519,7 +519,7 @@ test_that("validate_team_count rejects too many teams", {
   # Die Obergrenze folgt der Summe aller zehn Ligen (mit Reserve, weil die
   # TeamList alle je aufgetretenen Teams fuehrt) statt der festen 62. Die
   # echte TeamList_2026 mit 237 Teams muss durchgehen -- das prueft
-  # test-league-registry.R.
+  # test-league_registry.R.
   test_file <- tempfile(fileext = ".csv")
 
   n <- 2000

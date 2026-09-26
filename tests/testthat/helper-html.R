@@ -5,6 +5,15 @@
 
 read_html <- function(path) paste(readLines(path, warn = FALSE), collapse = "\n")
 
+# Wie read_html(), aber mit encoding = "UTF-8": markiert die Zeilen als UTF-8,
+# statt die Kodierung der Sitzung anzunehmen. In einer UTF-8-Sitzung gleich,
+# sonst nicht -- deshalb nicht mit read_html() zusammengelegt. Bisher kopiert
+# in test-scripts-preview_site.R und test-update_all_leagues_loop-verdrahtung.R
+# (#211, Stufe 3.6).
+html_lesen <- function(pfad) {
+  paste(readLines(pfad, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
+}
+
 # Build a data environment with the same object names and shapes as the
 # production ShinyApp/data/Ergebnis.Rds.
 make_data_env <- function() {

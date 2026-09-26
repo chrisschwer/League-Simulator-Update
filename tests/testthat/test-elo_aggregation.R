@@ -1,78 +1,21 @@
-# Issue #146, Teil 2: EIN ELO-Walk statt zweier.
-#
-# WORUM ES GEHT. Das Projekt rechnet ELO an zwei Stellen -- und zwar mit
-# verschiedenen Heimvorteilen:
-#
-#   Prognose   (Rust, /simulate und /league-details)  home_advantage = 40
-#   Saisonwechsel (R, calculate_elo_update)           home_advantage = 100
-#
-# Nachgeprueft im Design vom 12.09.2026: Die beiden Formeln sind sonst
-# MATHEMATISCH IDENTISCH -- dieselbe Clamp auf +/-400, dieselbe Wurzel der
-# Tordifferenz (Minimum 1), derselbe K-Faktor 20, dieselbe Erwartungsformel.
-# Sie unterscheiden sich in genau diesem einen Wert.
-#
-# Der R-Walk ist damit kein zweites Modell, sondern ein DUPLIKAT mit einem
-# abweichenden Parameter. Die Start-ELOs jeder neuen Saison entstehen auf
-# einer Physik, mit der anschliessend keine einzige Prognose rechnet.
-#
-# WARUM NICHT EINFACH 40 EINSETZEN. Weil die beiden Werte gar nicht
-# vergleichbar sind: In Rust wirkt der Heimvorteil ueber das Poisson-Tormodell
-# (tore_slope), in R ueber die ELO-Erwartungsformel. An den beobachteten
-# Anteilen geeicht laege der R-Wert bei ~25,8. Eine 25,8 einzutragen hiesse,
-# die zweite Physik zu konservieren -- mit einer Zahl, die niemand mehr mit
-# der 40 der Prognose in Beziehung setzen kann. Die einzige Variante, die
-# EINEN Heimvorteil herstellt, ist die Loeschung (Design, Abschnitt Context).
-#
-# WAS DIESE DATEI ABSICHERT. Die drei R-Funktionen calculate_final_elos(),
-# update_elos_for_match() und calculate_elo_update() entfallen; die End-ELOs
-# des Saisonwechsels kommen kuenftig ueber POST /league-details, also aus
-# demselben Rust-Walk, der auch jede Prognose rechnet. Damit erfuellt der
-# Saisonwechsel endlich, was ADR 0002 verlangt: keine Modelllogik in R.
-#
-# Die Tests sind ROT, solange die Umstellung nicht implementiert ist. Sie
-# beschreiben den Sollzustand, nicht den heutigen.
-#
-# ----------------------------------------------------------------------------
-# ZWEI ENTWURFSENTSCHEIDUNGEN, DIE DIESE TESTS FESTSCHREIBEN
-#
-# (1) ZWEI INJIZIERBARE SEAMS. Die Tests duerfen weder einen laufenden
-#     Rust-Server noch einen API-Schluessel brauchen. calculate_final_elos()
-#     bekommt deshalb zwei Parameter mit Produktions-Defaults, genau wie
-#     build_league_page_data() es vormacht (league_details.R:
-#     `fetch_fn = fetch_league_details`):
-#
-#       calculate_final_elos(season,
-#                            fetch_fn    = fetch_league_details,
-#                            fixtures_fn = retrieveResults)
-#
-#     WARUM ZWEI und nicht einer: extract_fixture_details() braucht die ROHEN
-#     api-football-Fixtures (verschachtelte fixture/league/teams/goals-Spalten).
-#     fetch_league_results() -- die Quelle des alten Walks -- liefert bereits
-#     ein FLACHGEKLOPFTES data.frame mit Spalten wie `teams_home_id`; das
-#     passt nicht in extract_fixture_details(). Der Fixture-Seam muss also
-#     retrieveResults()-Gestalt liefern, und der Endpoint-Seam ist davon
-#     unabhaengig.
-#
-#     Sollte die Implementierung die Parameter anders benennen, sind diese
-#     Tests entsprechend anzupassen -- die SACHE, die sie pruefen, bleibt:
-#     die End-ELOs kommen aus dem Endpoint, nicht aus einer R-Rechnung.
-#
-# (2) DIE MOCK-ANTWORT FOLGT DEM GESENDETEN PAYLOAD. Seit PR #200 sortiert
-#     extract_fixture_details() chronologisch; eine Mock-Antwort mit fest
-#     verdrahteter Reihenfolge wuerde deshalb still am Payload vorbeigehen.
-#     antwort_zum_payload() unten liest `elo_values` und `team_names` aus dem
-#     tatsaechlich gesendeten Payload und baut die Antwort daraus -- dasselbe
-#     Muster wie in test-league-page-data-*.R.
+# elo_aggregation.R, Issue #146 Teil 2: Die End-ELOs des Saisonwechsels
+# kommen ueber POST /league-details aus demselben Rust-Walk, der auch jede
+# Prognose rechnet (home_advantage 40) -- nicht mehr aus einem eigenen
+# R-Walk (calculate_elo_update(), home_advantage 100). calculate_final_elos()
+# holt current_elos per zwei injizierbaren Seams (fetch_fn, fixtures_fn),
+# damit die Tests ohne Rust-Server und API-Schluessel laufen; die
+# Mock-Antwort folgt dabei dem gesendeten Payload (wie test-league_details-
+# seitendaten.R).
 
 library(testthat)
 
 source("../../RCode/league_details.R")
 
-
 # --- Fixture-Bau -------------------------------------------------------------
 #
 # Genestetes Format (List-Columns einzeiliger data.frames), wie
-# test-elo-walk-reihenfolge.R und test-league-page-data.R es benutzen.
+# test-league_details.R/test-transform_data.R und
+# test-league_details-seitendaten.R es benutzen.
 # extract_fixture_details() unterstuetzt es ausdruecklich.
 
 eew_spiel <- function(fixture_id, datum, status, heim_id, gast_id,
@@ -114,14 +57,13 @@ eew_liga_fixtures <- function() {
   )
 }
 
-
 # --- TeamList ----------------------------------------------------------------
 #
 # Der Saisonwechsel liest die TeamList der ABLAUFENDEN Saison von Platte
 # (RCode/TeamList_<season>.csv bzw. die *_temp.csv-Dateien waehrend einer
 # laufenden Verarbeitung). Die Tests legen sie in einem tempdir() an und
 # setzen das Arbeitsverzeichnis dorthin -- so wie die bestehenden
-# Saisonwechsel-Tests (test-season-transition-regression.R) es tun. Kein Test
+# Saisonwechsel-Tests (test-season_processor-regression.R) es tun. Kein Test
 # fasst RCode/TeamList_2026.csv an.
 
 eew_teamlist <- function() {
@@ -151,7 +93,6 @@ eew_mit_teamlist <- function(season, teams, code) {
 
   force(code)
 }
-
 
 # --- Mock-Endpoint -----------------------------------------------------------
 #
@@ -194,7 +135,6 @@ antwort_zum_payload <- function(payload, elo_offsets = NULL) {
                 collapse = ", "),
           paste0('"', payload$team_names, '"', collapse = ", "))
 }
-
 
 # =============================================================================
 # 1. Die End-ELOs kommen aus /league-details -- nicht aus einer R-Rechnung
@@ -311,7 +251,6 @@ test_that("calculate_final_elos sendet den Spielplan chronologisch an den Endpoi
   expect_equal(heim_idx, c(1, 2, 3))
   expect_equal(gast_idx, c(2, 3, 4))
 })
-
 
 # =============================================================================
 # 2. Alle zehn Ligen -- und das Ueberspringen leerer Ligen
@@ -434,7 +373,6 @@ test_that("calculate_final_elos gibt bei durchweg spiellosen Ligen die Startwert
   expect_equal(ergebnis$FinalELO[order(ergebnis$TeamID)],
                eew_teamlist()$InitialELO[order(eew_teamlist()$TeamID)])
 })
-
 
 # =============================================================================
 # 3. Beide Aufrufer -- der zweite steht in derselben Datei

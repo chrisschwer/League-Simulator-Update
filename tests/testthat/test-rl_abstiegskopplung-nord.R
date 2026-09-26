@@ -60,7 +60,7 @@ library(testthat)
 #   steigt in die 3. Liga auf). Wird als fertige Zahl hineingereicht und
 #   NICHT intern aus rl_aufstieg.R geholt: Das haelt die Module getrennt und
 #   macht die Zahl im Test setzbar. Default 0 = Verhalten wie bisher, die
-#   118 Tests in test-rl-abstiegskopplung.R bleiben unveraendert gruen.
+#   118 Tests in test-rl_abstiegskopplung.R bleiben unveraendert gruen.
 #   Werte ausserhalb [0, 1], NA oder Vektoren der Laenge != 1 -> Fehler.
 #
 #   Nur Nord ist betroffen. West, SuedWest und Nordost sind Direktaufsteiger,
@@ -69,37 +69,10 @@ library(testthat)
 #   Ligagroesse und ist strukturell anders. Fuer diese vier darf das
 #   Argument NICHTS aendern.
 
-fn <- function(env, name) {
-  if (!exists(name, envir = env, inherits = FALSE)) {
-    stop(sprintf(
-      "Funktion '%s' nicht gefunden -- erwartet in RCode/rl_abstiegskopplung.R",
-      name
-    ), call. = FALSE)
-  }
-  get(name, envir = env, inherits = FALSE)
-}
+# fn(env, name) steht in helper-source.R.
 
-STAFFELN_ERWARTET <- c("Nord", "Nordost", "West", "SuedWest", "Bayern")
-N_ITER <- 10000
-K_DRITTE_LIGA <- 4L
-
-zaehlung <- function(...) {
-  m <- matrix(0, nrow = 5, ncol = K_DRITTE_LIGA + 1)
-  m[, 1] <- N_ITER
-  zeilen <- list(...)
-  for (staffel in names(zeilen)) {
-    m[match(staffel, STAFFELN_ERWARTET), ] <- zeilen[[staffel]]
-  }
-  m
-}
-
-prognose_zeile <- function(teams, plaetze, p, name = "A") {
-  stopifnot(abs(sum(p) - 1) < 1e-12)
-  m <- matrix(0, nrow = 1, ncol = teams,
-              dimnames = list(name, as.character(seq_len(teams))))
-  m[1, plaetze] <- p
-  m
-}
+# STAFFELN_ERWARTET, N_ITER, K_DRITTE_LIGA, zaehlung(), zaehlung_nordost89()
+# und prognose_zeile() stehen in helper-fixtures.R.
 
 # Fixture "Nord 30/50/20": P(k=0) = 0.3, P(k=1) = 0.5, P(k=2) = 0.2 -- also
 # P(k >= 1) = 0.7, P(k >= 2) = 0.2, P(k >= 3) = 0. E[k] = 0.9.
@@ -113,17 +86,9 @@ zaehlung_nord305020 <- function() {
   )
 }
 
-# Fixture "Nordost 89 %" aus der Bestandsdatei: Nord P(k=1) = 0.89,
-# P(k=2) = 0.11, also P(k >= 1) = 1, P(k >= 2) = 0.11. Mit p = 0 liefert die
-# Bestandsdatei fuer Nord und Team A den Wert 0.90.
-zaehlung_nordost89 <- function() {
-  zaehlung(
-    Nordost  = c(1100, 8900, 0, 0, 0),
-    Nord     = c(0, 8900, 1100, 0, 0),
-    West     = c(0, N_ITER, 0, 0, 0),
-    SuedWest = c(0, N_ITER, 0, 0, 0)
-  )
-}
+# Fixture "Nordost 89 %" (zaehlung_nordost89(), helper-fixtures.R): Nord
+# P(k=1) = 0.89, P(k=2) = 0.11, also P(k >= 1) = 1, P(k >= 2) = 0.11. Mit
+# p = 0 liefert test-rl_abstiegskopplung.R fuer Nord und Team A den Wert 0.90.
 
 # Fixture "Nord k = 2 sicher": beide Nord-Drittligisten (Havelse, Meppen)
 # steigen ab. West ebenfalls 2 sicher -> Summe 4.

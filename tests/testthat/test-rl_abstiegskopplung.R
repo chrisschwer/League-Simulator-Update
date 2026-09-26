@@ -79,59 +79,10 @@ library(testthat)
 #     Spalte "Abstieg" -- fuer Bayern die ZWEI Spalten "Relegation" und
 #     "Abstieg", nicht verrechnet.
 
-# Holt eine Funktion aus der Umgebung und meldet klar, wenn sie fehlt --
-# statt des kryptischen "attempt to apply non-function" bei env$name().
-fn <- function(env, name) {
-  if (!exists(name, envir = env, inherits = FALSE)) {
-    stop(sprintf(
-      "Funktion '%s' nicht gefunden -- erwartet in RCode/rl_abstiegskopplung.R",
-      name
-    ), call. = FALSE)
-  }
-  get(name, envir = env, inherits = FALSE)
-}
+# fn(env, name) steht in helper-source.R.
 
-STAFFELN_ERWARTET <- c("Nord", "Nordost", "West", "SuedWest", "Bayern")
-N_ITER <- 10000
-K_DRITTE_LIGA <- 4L  # Absteiger der 3. Liga; Spalten 0..4
-
-# Zaehlmatrix der 3. Liga bauen. Jede nicht genannte Staffel bekommt
-# "immer 0 Drittliga-Absteiger". ACHTUNG: In einer echten Zaehlung entfallen
-# in JEDER Iteration genau K Absteiger auf die fuenf Staffeln zusammen --
-# die Summe der Erwartungswerte ueber alle Zeilen muss also exakt K sein.
-# Alle Fixtures unten erfuellen das; ein Fixture, das es verletzt, muss die
-# Implementierung ablehnen (eigener Test).
-zaehlung <- function(...) {
-  m <- matrix(0, nrow = 5, ncol = K_DRITTE_LIGA + 1)
-  m[, 1] <- N_ITER
-  zeilen <- list(...)
-  for (staffel in names(zeilen)) {
-    m[match(staffel, STAFFELN_ERWARTET), ] <- zeilen[[staffel]]
-  }
-  m
-}
-
-# Fixture "Nordost 89 %": In 89 % der Iterationen faellt genau ein
-# Drittligist nach Nordost, nie zwei. Erwartungswerte: Nordost 0.89,
-# Nord 1.11, West 1, SuedWest 1, Bayern 0 -- Summe 4.
-zaehlung_nordost89 <- function() {
-  zaehlung(
-    Nordost  = c(1100, 8900, 0, 0, 0),
-    Nord     = c(0, 8900, 1100, 0, 0),
-    West     = c(0, N_ITER, 0, 0, 0),
-    SuedWest = c(0, N_ITER, 0, 0, 0)
-  )
-}
-
-# Prognosezeile eines Teams, das nur die genannten Plaetze erreichen kann.
-# `plaetze` sind absolute Plaetze, `p` die Wahrscheinlichkeiten dazu.
-prognose_zeile <- function(teams, plaetze, p, name = "A") {
-  stopifnot(abs(sum(p) - 1) < 1e-12)
-  m <- matrix(0, nrow = 1, ncol = teams,
-              dimnames = list(name, as.character(seq_len(teams))))
-  m[1, plaetze] <- p
-  m
-}
+# STAFFELN_ERWARTET, N_ITER, K_DRITTE_LIGA, zaehlung(), zaehlung_nordost89()
+# und prognose_zeile() stehen in helper-fixtures.R.
 
 # --- Kernformel: das verbindliche Zahlenbeispiel ----------------------------
 
@@ -865,10 +816,7 @@ test_that("Nords Meisteraufstieg senkt auch die PLATZ-Wahrscheinlichkeiten", {
 
 # --- aus test-phase5-regionalligen.R ---
 
-# Die fuenf RL in Registry-Reihenfolge. Sie ist Vertrag (Fetch-Reihenfolge
-# und Navigation), deshalb hier einmal ausgeschrieben.
-RL_SCHLUESSEL <- c("rl_nord", "rl_nordost", "rl_west", "rl_suedwest",
-                   "rl_bayern")
+# RL_SCHLUESSEL (die fuenf RL in Registry-Reihenfolge) steht in helper-fixtures.R.
 
 test_that("die Abstiegsspalten heissen wie die Spalten von rl_abstiegsprognose", {
   # Der Vertrag zwischen Phase 6 und der View: rl_abstiegsprognose()
@@ -932,7 +880,7 @@ test_that("die Abstiegsgrenze von Nord verschiebt sich mit der 3. Liga", {
 test_that("West bleibt bei jeder Auszaehlung der 3. Liga bei vier Absteigern", {
   # ACHTUNG, die haeufigste Fehlannahme in diesem Modell: Der
   # Registry-Kommentar bei rl_west spricht von "gegenlaeufig", die
-  # Implementierung (abstiegsplaetze) und test-rl-abstiegskopplung.R:389
+  # Implementierung (abstiegsplaetze) und test-rl_abstiegskopplung.R:389
   # setzen dagegen FESTE 4. Massgeblich ist die Implementierung -- die
   # Verminderungsgruende des WDFV haengen an den Oberligen und an der
   # Lizenzierung, nicht an der 3. Liga (Modellannahmen 2 und 5.3).

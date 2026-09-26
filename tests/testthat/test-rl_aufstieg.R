@@ -59,37 +59,10 @@ library(testthat)
 #     Ausgabe: data.frame rownames = Teams, Spalte "Aufstieg".
 #     Playoff-Staffel ohne p_sieg -> Fehler; keine erfundene Gewinnquote.
 
-fn <- function(env, name) {
-  if (!exists(name, envir = env, inherits = FALSE)) {
-    stop(sprintf(
-      "Funktion '%s' nicht gefunden -- erwartet in RCode/rl_aufstieg.R (abstiegsplaetze: rl_abstiegskopplung.R)",
-      name
-    ), call. = FALSE)
-  }
-  get(name, envir = env, inherits = FALSE)
-}
+# fn(env, name) steht in helper-source.R.
 
-# Prognosematrix (Teams x Plaetze) aus den Meisterwahrscheinlichkeiten; der
-# Rest der Masse liegt auf Platz 2, damit jede Zeile summiert.
-prognose_aus_meister <- function(p_meister, teams = 18L) {
-  m <- matrix(0, nrow = length(p_meister), ncol = teams,
-              dimnames = list(names(p_meister), as.character(seq_len(teams))))
-  m[, 1] <- p_meister
-  m[, 2] <- 1 - p_meister
-  m
-}
-
-# Das Rechenbeispiel fuer die Doppelsumme. X = Nord {A, B}, Y = Bayern {C, D}.
-#   P(A) = 0.6 * (0.7 * 0.5 + 0.3 * 0.8) = 0.6 * 0.59 = 0.354
-#   P(B) = 0.4 * (0.7 * 0.3 + 0.3 * 0.6) = 0.4 * 0.39 = 0.156
-#   P(C) = 0.7 * (0.6 * 0.5 + 0.4 * 0.7) = 0.7 * 0.58 = 0.406
-#   P(D) = 0.3 * (0.6 * 0.2 + 0.4 * 0.4) = 0.3 * 0.28 = 0.084
-# Summe ueber beide Staffeln: 1.000 -- genau einer steigt auf.
-meister_nord <- c(A = 0.6, B = 0.4)
-meister_bayern <- c(C = 0.7, D = 0.3)
-sieg_nord_gegen_bayern <- matrix(c(0.5, 0.8,
-                                   0.3, 0.6), nrow = 2, byrow = TRUE,
-                                 dimnames = list(c("A", "B"), c("C", "D")))
+# prognose_aus_meister(), das Rechenbeispiel meister_nord / meister_bayern /
+# sieg_nord_gegen_bayern und prognosen_2026() stehen in helper-fixtures.R.
 
 # --- Doppelsumme --------------------------------------------------------------
 
@@ -345,16 +318,6 @@ test_that("Registry: relegation_slots ist die Basis von abstiegsplaetze(staffel,
 })
 
 # --- Die ganze Kette: rl_aufstiegsprognose -------------------------------------
-
-prognosen_2026 <- function() {
-  list(
-    Nord     = prognose_aus_meister(meister_nord),
-    Nordost  = prognose_aus_meister(c(E = 0.9, F = 0.1)),
-    West     = prognose_aus_meister(c(G = 0.55, H = 0.45)),
-    SuedWest = prognose_aus_meister(c(I = 1.0, J = 0.0)),
-    Bayern   = prognose_aus_meister(meister_bayern, teams = 19L)
-  )
-}
 
 test_that("rl_aufstiegsprognose: Direktaufsteiger bekommen P(Meister)", {
   env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")

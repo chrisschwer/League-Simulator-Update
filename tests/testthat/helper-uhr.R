@@ -7,7 +7,7 @@
 #
 # Den Rundenwechsel erkennt sie am Live-Poll -- genau einmal je Runde und
 # vor dem Abruf; Loop 1 ruft ohne Poll voll ab (dieselbe Annahme wie
-# lauf_mit_safety_fetch() in test-update-loop-gating.R). `tick()` umhuellt
+# lauf_mit_safety_fetch() in test-update_all_leagues_loop-gating.R). `tick()` umhuellt
 # deshalb den Stub fuer retrieveLiveFixtures:
 #
 #   uhr <- runden_uhr(takt = 600)

@@ -17,7 +17,8 @@ test_that("league_views defines the live leagues in registry order", {
   # der Regionalligen laeuft NACH der Simulationsschleife und rechnet mit
   # einer Zaehlung der 3. Liga, die Loops ueberlebt
   # (update_all_leagues_loop.R:110-116). Eine Regionalliga darf also vor der
-  # 3. Liga simuliert werden -- festgehalten in test-rl-verdrahtung.R,
+  # 3. Liga simuliert werden -- festgehalten in
+  # test-update_all_leagues_loop-verdrahtung.R,
   # "(a) eine neu simulierte Regionalliga mischt mit der gueltigen Zaehlung
   # aus dem frueheren Lauf".
   #
@@ -78,7 +79,8 @@ test_that("group matrices have two rows and one column per non-computed label", 
   # Aufstiegswahrscheinlichkeit von Nord und Bayern ist eine Doppelsumme
   # ueber zwei Staffeln (Phase 7). Beides ist keine Summe von Platzspalten
   # und traegt deshalb `computed` statt `groups`. Begruendung ausfuehrlich
-  # im Kopf von test-phase5-regionalligen.R.
+  # beim Test "bei Nord und Bayern ist nur die Aufstiegsspalte berechnet"
+  # weiter unten.
   #
   # Der Test prueft weiterhin dieselbe Sache -- die Gruppenmatrix passt zu
   # den Labels --, jetzt aber nur fuer die Labels, die wirklich eine
@@ -125,7 +127,7 @@ test_that("league_views enthaelt die beiden Frauen-Ligen", {
   expect_true("zweite_frauen_bundesliga" %in% names(views))
   # ANGEPASST in Phase 5: Hier stand `expect_length(views, 5)`. Die Zahl war
   # nie die Aussage dieses Tests -- er prueft, dass die beiden Frauen-Ligen
-  # dabei sind. Die vollstaendige Liste pinnt test-league-views.R.
+  # dabei sind. Die vollstaendige Liste pinnt diese Datei.
 })
 
 test_that("die 2. Frauen-Bundesliga hat drei Abstiegsplaetze", {
@@ -154,7 +156,7 @@ test_that("die 2. Frauen-Bundesliga zieht ihre Aufstiegstabelle aus dem Sonderla
 })
 
 test_that("die drei Altligen bleiben unveraendert", {
-  # Der Kern der Verhaltensneutralitaet: test-league-views.R pinnt diese
+  # Der Kern der Verhaltensneutralitaet: diese Datei pinnt diese
   # Werte weiterhin, hier noch einmal als Regression gegen den Umbau.
   env <- new.env()
   source(test_path("..", "..", "RCode", "league_views.R"), local = env)
@@ -169,10 +171,7 @@ test_that("die drei Altligen bleiben unveraendert", {
 
 # --- aus test-phase5-regionalligen.R ---
 
-# Die fuenf RL in Registry-Reihenfolge. Sie ist Vertrag (Fetch-Reihenfolge
-# und Navigation), deshalb hier einmal ausgeschrieben.
-RL_SCHLUESSEL <- c("rl_nord", "rl_nordost", "rl_west", "rl_suedwest",
-                   "rl_bayern")
+# RL_SCHLUESSEL (die fuenf RL in Registry-Reihenfolge) steht in helper-fixtures.R.
 
 # ===========================================================================
 # 2. league_views: die fuenf neuen Ansichten

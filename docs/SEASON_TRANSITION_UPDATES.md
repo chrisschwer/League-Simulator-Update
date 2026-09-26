@@ -62,7 +62,7 @@ Rscript tests/run_season_transition_tests.R
 Individual test files:
 - `test-cli-arguments.R` - Tests command line parsing
 - `test-second-team-conversion.R` - Tests XXX2 format conversion
-- `test-team-count-validation.R` - Tests team count validation
+- `test-season_processor.R` (Abschnitt "aus test-team-count-validation.R") - Tests team count validation
 
 ## File Structure
 

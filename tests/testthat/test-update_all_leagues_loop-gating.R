@@ -14,7 +14,7 @@
 # mock anyway. mockery::stub() sidesteps both problems: it rewrites the
 # lookup inside update_all_leagues_loop()'s own function environment, so
 # it is immune to those later source() calls - already the pattern used
-# elsewhere in this suite (see test-season-processor.R).
+# elsewhere in this suite (see test-season_processor.R).
 
 library(testthat)
 library(mockery)
@@ -25,56 +25,13 @@ source("../../RCode/update_all_leagues_loop.R")
 # relative to the repo root (e.g. "RCode/rust_integration.R"), but testthat
 # runs this file with the working directory set to tests/testthat. Run the
 # call under test with cwd temporarily switched to the repo root, mirroring
-# the with_repo_root() helper in test-rust-required.R.
-# Erwartungswerte folgen der Ligazahl, nicht festen Zahlen: Sobald eine
-# weitere Liga aktiv geschaltet wird, muessen diese Tests weiterhin gelten --
-# sie pruefen das GATING, nicht wie viele Ligen es gibt.
-n_ligen <- function() {
-  env <- new.env()
-  source(file.path("..", "..", "RCode", "league_registry.R"), local = env)
-  length(env$league_ids())
-}
+# the with_repo_root() helper in test-update_all_leagues_loop-rust.R.
+# Erwartungswerte folgen der Ligazahl, nicht festen Zahlen (n_ligen(),
+# n_sims_pro_runde() aus helper-fixtures.R): Sobald eine weitere Liga aktiv
+# geschaltet wird, muessen diese Tests weiterhin gelten -- sie pruefen das
+# GATING, nicht wie viele Ligen es gibt.
 
-# Simulationen je Runde: eine je Liga, plus ein zweiter Lauf fuer jede Liga,
-# aus der Zweitvertretungen nicht aufsteigen duerfen (3. Liga, 2. Frauen-BL).
-n_sims_pro_runde <- function() {
-  env <- new.env()
-  source(file.path("..", "..", "RCode", "league_registry.R"), local = env)
-  ids <- env$league_ids()
-  length(ids) + sum(vapply(ids, env$has_promotion_restriction, logical(1)))
-}
-
-# Minimal stand-in for one league's raw fixture list. The loop reads
-# fixture$id + fixture$status$short (beendet-set per league, pending-set
-# resolution) and id/date/status/goals for the render signature.
-# transform_data() is mocked below, so the rest of the shape is irrelevant.
-fake_fixtures <- function(statuses, ids = seq_along(statuses),
-                          goals_home = rep(NA_integer_, length(statuses)),
-                          goals_away = rep(NA_integer_, length(statuses))) {
-  list(
-    fixture = list(
-      id = ids,
-      date = rep("2026-08-29T15:30:00+02:00", length(statuses)),
-      status = list(
-        short = statuses,
-        elapsed = rep(NA_integer_, length(statuses))
-      )
-    ),
-    goals = list(home = goals_home, away = goals_away)
-  )
-}
-
-# Minimal stand-in for transform_data()'s output: leagueSimulatorRust() is
-# mocked below and never inspects it, but the Liga3-second-team penalty
-# loop in the production code does `for (j in 5:dim(Liga3)[2])` and reads
-# `names(Liga3)[j]`, so the fake needs at least 5 columns with team-like
-# names in columns 5+.
-fake_transformed <- function() {
-  data.frame(
-    TeamHeim = "AAA", TeamGast = "BBB", ToreHeim = 1, ToreGast = 0,
-    AAA = 1500, BBB = 1500
-  )
-}
+# fake_fixtures() und fake_transformed() stehen in helper-fixtures.R.
 
 test_that("full fetch happens while fixtures are live and skips only when idle", {
   full_fetch_leagues <- character()
@@ -271,7 +228,6 @@ test_that("ein erfolgreicher Safety-Fetch setzt den Timer sehr wohl zurueck", {
   # bleibt still (480 - 360 = 120 < 360).
   expect_identical(lauf_mit_safety_fetch(fetch_faellt_aus = FALSE), c(1L, 4L))
 })
-
 
 # Shared harness for the site-generation gate: runs a short loop with every
 # collaborator stubbed and returns how often generate_static_site() fired.
@@ -641,7 +597,7 @@ test_that("update_all_leagues_loop has no machine-specific default output direct
 # Die Registry bleibt UNGESTUBBT: Alle zehn Ligen sind aktiv, retrieveResults()
 # wird fuer jede Liga einzeln aufgerufen (Parameter `league` = api_id), und
 # leagueSimulatorRust() faellt fuer jede Liga in Registry-Reihenfolge an --
-# genau wie in run_loop_capturing() aus test-n-ligen-entflechtung.R. Um einen
+# genau wie in run_loop_capturing() aus test-update_all_leagues_loop.R. Um einen
 # Aufruf seiner Liga zuzuordnen, wird die Aufrufreihenfolge an
 # active_league_keys() (plus, wo has_promotion_restriction() gilt, ein
 # zweiter Malus-Aufruf direkt danach) ausgerichtet -- leagueSimulatorRust()
@@ -1004,7 +960,6 @@ test_that("ein geworfener Fehler aus retrieveLiveFixtures() bricht den Loop nich
                 any(grepl("Resolving timed out", msgs, fixed = TRUE)))
   expect_gte(generated, 1L) # mindestens Loop 1 hat gerendert
 })
-
 
 # ===========================================================================
 # Der Zweitvertretungs-Malus kommt aus der Spalte Promotion (Issue #206/#196)
@@ -1386,7 +1341,6 @@ test_that("ein gefallenes Limit wird als Plan-Herabstufung gewarnt (issue #190, 
   expect_true(any(grepl("Limit", meldungen)))
 })
 
-
 # --- Das Zeitfenster schlaegt die Rundenzahl ---------------------------
 #
 # Bis hierher endete der Loop AUSSCHLIESSLICH daran, dass `seq_len(loops)`
@@ -1396,7 +1350,7 @@ test_that("ein gefallenes Limit wird als Plan-Herabstufung gewarnt (issue #190, 
 #
 # Mit dem nachgefuehrten Takt stimmt diese Rechnung nicht mehr. Der
 # Scheduler plant 361 Runden a 2 Minuten; streckt der Regler auf 90
-# Minuten (der freie Plan, s. test-rate-limit-takt.R), liefen dieselben 361
+# Minuten (der freie Plan, s. test-rate_limit_takt.R), liefen dieselben 361
 # Runden ueber drei Wochen statt bis 23:00. Ohne diese Abbruchbedingung
 # waere die Drosselung also nicht Budgetschonung, sondern eine Verschiebung
 # des Verbrauchs in die Folgetage.
@@ -1476,7 +1430,6 @@ test_that("ein Lauf, der ins Fenster passt, laeuft alle Runden durch", {
   expect_equal(lauf$runden, 3L)
   expect_false(any(grepl("Zeitfenster", lauf$meldungen)))
 })
-
 
 # --- Erschoepftes Kontingent: die Runde ruft gar nichts ab --------------
 #
@@ -1605,8 +1558,6 @@ test_that("die Reset-Wartezeit wird am Fenster-Ende gekappt", {
   # Nach dem Abbruch darf keine weitere Runde abgerufen haben.
   expect_false(2L %in% lauf$fetches)
 })
-
-
 
 # --- Takt-Erholung nach reduziertem Tagesplan (Issue #224) --------------
 #

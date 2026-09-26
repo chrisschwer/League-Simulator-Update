@@ -425,12 +425,15 @@ Expected: das Verhalten aus Task 3 Step 2, geprüft mit
 b <- "tests/testthat/_baseline/"; m <- read.csv(paste0(b, "vorher-mit.csv")); o <- read.csv(paste0(b, "vorher-ohne.csv"))
 stopifnot(sum(m$failed) == 0, !any(m$error), sum(o$failed) == 0, !any(o$error))
 nur_ohne <- unique(o$file[o$skipped & !(paste(o$file, o$test) %in% paste(m$file, m$test)[m$skipped])])
-rust <- vapply(nur_ohne, function(f) any(grepl("connect_rust_simulator|RUST_API_URL|start_rust_server|localhost:8080|league-simulator-rust",
+rust <- vapply(nur_ohne, function(f) any(grepl("connect_rust_simulator|RUST_API_URL|start_rust_server|localhost:8080|league-simulator-rust|skip_if_no_rust|rust_binary",
   readLines(file.path("tests/testthat", f), warn = FALSE))), logical(1))
 print(nur_ohne); stopifnot(all(rust))
 ```
 
-Zahlen (Blöcke, Erwartungen, Skips je Umgebung) in den PR-Text.
+Zahlen (Blöcke, Erwartungen, Skips je Umgebung) in den PR-Text. Seit Stufe 3.6 leben die
+RUST_API_URL-/localhost:8080-Literale selbst in `helper-rust.R`, nicht mehr in den einzelnen
+Testdateien — das Muster muss daher um die jetzt zentralen Helfernamen `skip_if_no_rust` und
+`rust_binary` ergänzt werden, sonst greift die Grep-Prüfung an den betroffenen Dateien ins Leere.
 
 - [ ] **Step 3: `_baseline/` in `.gitignore`, Commit des Werkzeugs**
 
@@ -618,7 +621,7 @@ Erst jetzt werden Erwartungen angefasst — und nur mit Christophs Wort je PR. R
 | 3.3 | `validate_team_count`-Grenze (Cluster 3) | ein Test mit der aktuellen Grenze (Christoph nennt sie) | die zwei anderen Werte |
 | 3.4 | `league_views()`-Form (Cluster 6) + Seitenzahl (Cluster 7) | ein Test gegen die Registry | vier Wiederholungen mit hart kodierten Listen |
 | 3.5 | Spieltag-Fensterung (Cluster 12) + Reihenfolge (Cluster 5) | spieltag-logik-Fassung | Join-Level-Wiederholungen |
-| 3.6 | Helfer vereinheitlichen: nicht-identische Varianten (`fake_fixtures` 4×, `with_repo_root` 3×, `read_html` 5×) zusammenführen, wo sie dasselbe tun; ein zentrales `skip_if_no_rust()` in `helper-rust.R` statt vier Skip-Varianten | — | — (keine Erwartung fällt; Skip-Bedingungen werden gleich, das wird per Multimenge belegt) |
+| 3.6 | Helfer vereinheitlichen: nicht-identische Varianten (`fake_fixtures` 4×, `with_repo_root` 3×, `read_html` 5×) zusammenführen, wo sie dasselbe tun; ein zentrales `skip_if_no_rust()` in `helper-rust.R` statt vier Skip-Varianten | — | — (keine Erwartung fällt; Skip-Bedingungen werden gleich, das wird per Multimenge belegt). **Erledigt 26.09., PR #246.** |
 | 3.7 | Vier-Argument-Pfad von `generate_static_site()` (`test-n-ligen-entflechtung.R:129,154`, `test-generate-static-site.R:392` — nach Stufe 2 in den neuen Dateien) | — | die drei Kompatibilitätstests samt Pfad, wenn Christoph zustimmt |
 | 3.8 | Rest (Cluster 4, 8–11, 13–15) | je Cluster die vollständigere Fassung | die andere |
 

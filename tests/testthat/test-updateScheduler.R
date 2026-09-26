@@ -7,7 +7,7 @@ source_scheduler <- function() {
   # calculate_loops() werden gebraucht -- deshalb alles bis main() auswerten.
   #
   # Unter dem Repo-Root, weil der Dateikopf die TeamList mit relativem Pfad
-  # sucht. Dasselbe Muster wie in test-update-loop-gating.R.
+  # sucht. Dasselbe Muster wie in test-update_all_leagues_loop-gating.R.
   old <- getwd()
   on.exit(setwd(old), add = TRUE)
   setwd(file.path(old, "..", ".."))

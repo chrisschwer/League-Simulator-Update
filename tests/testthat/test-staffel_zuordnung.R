@@ -114,10 +114,7 @@ test_that("Engine-Antwort und Staffelnamen passen zusammen", {
   # Zwei Teams aus "Nord" (Index 0) sind sicher die schlechtesten; die
   # Engine muss ihre Abstiege in Zeile 1 der Matrix zaehlen, nicht in einer
   # anderen.
-  skip_if_not(nzchar(Sys.getenv("RUST_API_URL", "http://localhost:8080")))
-  env <- source_module("league_registry", "staffel_zuordnung")
-  source(test_path("..", "..", "RCode", "rust_integration.R"), local = env)
-  skip_if_not(env$connect_rust_simulator(), "Rust-Server nicht erreichbar")
+  env <- skip_if_no_rust(source_module("league_registry", "staffel_zuordnung", "rust_integration"))
 
   # Vier Teams: AAA/BBB in Nord, CCC/DDD in Bayern. AAA und BBB verlieren
   # alles, sind also sicher die letzten beiden.

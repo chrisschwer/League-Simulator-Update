@@ -607,7 +607,6 @@ test_that("transform_data verhält sich bei Bundesliga-Fixtures unverändert", {
 # Warnung, ohne dass irgendeine Spaltenpruefung anschlaegt. Der Test
 # "elo_neutral wandert mit" unten ist die einzige Stelle, die das faengt.
 
-
 # --- Fixture-Bau --------------------------------------------------------------
 #
 # Bewusst im GENESTETEN Format (List-Columns einzeiliger data.frames), weil
@@ -623,7 +622,6 @@ test_that("transform_data verhält sich bei Bundesliga-Fixtures unverändert", {
 # Paarung je Zeile als "HEIM-GAST" -- kompakter zu lesen als zwei Vektoren,
 # und die Reihenfolge ist genau das, was diese Tests pruefen.
 ewr_paarungen <- function(df) paste(df$TeamHeim, df$TeamGast, sep = "-")
-
 
 # --- transform_data(): chronologische Sortierung ------------------------------
 
@@ -716,7 +714,6 @@ test_that("transform_data ist deterministisch: zwei Laeufe, dieselbe Reihenfolge
                c("TEA-TEB", "TEC-TEB", "TEA-TEC", "TEC-TED"))
 })
 
-
 # --- Rueckwaertskompatibilitaet: Fixtures ohne Anstosszeit --------------------
 #
 # Die geteilte Fixture create_test_fixtures_api() (helper-fixtures.R:64) traegt
@@ -800,7 +797,6 @@ test_that("transform_data sortiert bei teilweise fehlenden Anstosszeiten stabil"
   paarungen <- ewr_paarungen(lauf_a)
   expect_lt(match("TEA-TEC", paarungen), match("TEC-TED", paarungen))
 })
-
 
 # --- Die Kopplung: elo_neutral muss mitwandern --------------------------------
 
@@ -896,7 +892,6 @@ test_that("transform_data haelt elo_neutral auch bei gleicher Anstosszeit zeilen
   expect_equal(ewr_paarungen(ergebnis), c("TEC-TED", "TEA-TEC", "TEA-TEB"))
   expect_equal(attr(ergebnis, "elo_neutral"), c(FALSE, TRUE, FALSE))
 })
-
 
 # --- Der Vertrag nach aussen --------------------------------------------------
 

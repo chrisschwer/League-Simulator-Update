@@ -252,8 +252,9 @@ load_team_list <- function(file_path) {
 #' `df_final` direkt und den Vektor separat "von Hand" mit derselben Absicht,
 #' waere das Vergessen der zweiten Sortierung ein Tippfehler entfernt -- und
 #' liesse den ELO-Walk lautlos die falschen Spiele ueberspringen (siehe
-#' Testkommentar in test-elo-walk-reihenfolge.R). Dieser Helfer haengt
-#' `elo_neutral` stattdessen selbst als Spalte an, sortiert EIN Objekt, und
+#' Testkommentar in test-transform_data.R, Abschnitt "aus
+#' test-elo-walk-reihenfolge.R"). Dieser Helfer haengt `elo_neutral`
+#' stattdessen selbst als Spalte an, sortiert EIN Objekt, und
 #' trennt danach wieder. Das Vergessen ist damit konstruktiv ausgeschlossen,
 #' nicht bloss durch einen Test abgesichert.
 #'

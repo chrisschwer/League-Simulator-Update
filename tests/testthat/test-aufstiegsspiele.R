@@ -4,7 +4,7 @@ library(testthat)
 # Nord gegen Bayern wird aus dem Tormodell GERECHNET statt gefordert.
 #
 # Bis hierher war p_sieg in rl_aufstiegsprognose() ein reiner Eingang; ohne
-# ihn bricht die Funktion ab (test-rl-aufstieg.R, "Playoff-Staffel ohne
+# ihn bricht die Funktion ab (test-rl_aufstieg.R, "Playoff-Staffel ohne
 # Gewinnquoten bricht ab"). Das bleibt so -- ein expliziter p_sieg hat
 # Vorrang. Neu ist, dass die Matrix aus den Tor-Raten hergeleitet wird, die
 # der Rust-Server fuer jede Paarung liefert.
@@ -122,19 +122,11 @@ library(testthat)
 #     -> das paarungen-data.frame: je Paar drei Aufrufe (A heim, B heim,
 #        home_advantage = 0 fuer die Verlaengerung).
 #
-# Die drei bestehenden Testdateien (test-rl-aufstieg.R, test-rl-nord-
-# aufstiegskopplung.R, test-rl-abstiegskopplung.R) bleiben unveraendert und
-# muessen gruen bleiben.
+# Die drei bestehenden Testdateien (test-rl_aufstieg.R,
+# test-rl_abstiegskopplung-nord.R, test-rl_abstiegskopplung.R) bleiben
+# unveraendert und muessen gruen bleiben.
 
-fn <- function(env, name) {
-  if (!exists(name, envir = env, inherits = FALSE)) {
-    stop(sprintf(
-      "Funktion '%s' nicht gefunden -- erwartet in RCode/aufstiegsspiele.R (Client: rust_integration.R)",
-      name
-    ), call. = FALSE)
-  }
-  get(name, envir = env, inherits = FALSE)
-}
+# fn(env, name) steht in helper-source.R.
 
 # --- Fixtures: Tor-Raten, wie /match-preview sie liefert ---------------------
 #
@@ -839,30 +831,8 @@ test_that("p_sieg_matrix: andere Raten (Frauen-Tormodell) liefern andere Zahlen 
 
 # --- Anbindung: rl_aufstiegsprognose leitet p_sieg aus den Paarungen her ------
 
-# Wie in test-rl-aufstieg.R: Prognosematrix aus den Meisterwahrscheinlichkeiten.
-prognose_aus_meister <- function(p_meister, teams = 18L) {
-  m <- matrix(0, nrow = length(p_meister), ncol = teams,
-              dimnames = list(names(p_meister), as.character(seq_len(teams))))
-  m[, 1] <- p_meister
-  m[, 2] <- 1 - p_meister
-  m
-}
-
-meister_nord <- c(A = 0.6, B = 0.4)
-meister_bayern <- c(C = 0.7, D = 0.3)
-sieg_nord_gegen_bayern <- matrix(c(0.5, 0.8,
-                                   0.3, 0.6), nrow = 2, byrow = TRUE,
-                                 dimnames = list(c("A", "B"), c("C", "D")))
-
-prognosen_2026 <- function() {
-  list(
-    Nord     = prognose_aus_meister(meister_nord),
-    Nordost  = prognose_aus_meister(c(E = 0.9, F = 0.1)),
-    West     = prognose_aus_meister(c(G = 0.55, H = 0.45)),
-    SuedWest = prognose_aus_meister(c(I = 1.0, J = 0.0)),
-    Bayern   = prognose_aus_meister(meister_bayern, teams = 19L)
-  )
-}
+# prognose_aus_meister(), das Rechenbeispiel meister_nord / meister_bayern /
+# sieg_nord_gegen_bayern und prognosen_2026() stehen in helper-fixtures.R.
 
 elos_2026 <- list(Nord = c(A = 1520, B = 1480), Bayern = c(C = 1560, D = 1440))
 paarungen_2026 <- function() paarungen_aus(elos_2026$Nord, elos_2026$Bayern)
@@ -919,7 +889,7 @@ test_that("Anbindung: rl_aufstiegsprognose rechnet p_sieg aus paarungen, wenn ke
 })
 
 test_that("Anbindung: ein explizites p_sieg hat Vorrang vor der Herleitung aus paarungen", {
-  # Beides uebergeben: Es gilt das Rechenbeispiel aus test-rl-aufstieg.R
+  # Beides uebergeben: Es gilt das Rechenbeispiel aus test-rl_aufstieg.R
   # (0.354 / 0.156), nicht die Herleitung.
   env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   f <- fn(env, "rl_aufstiegsprognose")
@@ -933,7 +903,7 @@ test_that("Anbindung: ein explizites p_sieg hat Vorrang vor der Herleitung aus p
 })
 
 test_that("Anbindung: ohne p_sieg UND ohne paarungen bricht es weiter mit 'p_sieg' ab", {
-  # Das bestehende Verhalten (test-rl-aufstieg.R) bleibt: keine erfundene 50:50.
+  # Das bestehende Verhalten (test-rl_aufstieg.R) bleibt: keine erfundene 50:50.
   env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   f <- fn(env, "rl_aufstiegsprognose")
   expect_error(f("Nord", prognosen_2026(), season = 2026), "p_sieg")
@@ -969,7 +939,7 @@ test_that("Anbindung: Direktaufsteiger brauchen weder p_sieg noch paarungen", {
 
 test_that("Anbindung: gleiche Staerke ueberall -> die Doppelsumme halbiert die Meisterwahrscheinlichkeit", {
   # Mit lauter 0.5 in p_sieg ist P(Aufstieg) = P(Meister) / 2 -- der
-  # Muenzwurf-Test aus test-rl-aufstieg.R, jetzt ueber die Herleitung.
+  # Muenzwurf-Test aus test-rl_aufstieg.R, jetzt ueber die Herleitung.
   env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   f <- fn(env, "rl_aufstiegsprognose")
   pa <- paarungen_aus(c(A = 1500, B = 1500), c(C = 1500, D = 1500))
@@ -982,12 +952,10 @@ test_that("Anbindung: gleiche Staerke ueberall -> die Doppelsumme halbiert die M
 #
 # Diese Tests brauchen einen laufenden Rust-Server (RUST_API_URL, Default
 # localhost:8080) und werden sonst uebersprungen -- wie in
-# test-staffel-zuordnung.R.
+# test-staffel_zuordnung.R.
 
 test_that("Integration: match_preview_rust liefert die Raten des Rust-Tormodells", {
-  skip_if_not(nzchar(Sys.getenv("RUST_API_URL", "http://localhost:8080")))
-  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele", "rust_integration")
-  skip_if_not(env$connect_rust_simulator(), "Rust-Server nicht erreichbar")
+  env <- skip_if_no_rust(source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele", "rust_integration"))
   f <- fn(env, "match_preview_rust")
 
   # 1500 gegen 1400, Server-Defaults (Heimvorteil 40, Herren-Tormodell):
@@ -1009,9 +977,7 @@ test_that("Integration: match_preview_rust liefert die Raten des Rust-Tormodells
 })
 
 test_that("Integration: zweikampf_paarungen_rust liefert das paarungen-data.frame", {
-  skip_if_not(nzchar(Sys.getenv("RUST_API_URL", "http://localhost:8080")))
-  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele", "rust_integration")
-  skip_if_not(env$connect_rust_simulator(), "Rust-Server nicht erreichbar")
+  env <- skip_if_no_rust(source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele", "rust_integration"))
   f <- fn(env, "zweikampf_paarungen_rust")
 
   pa <- f(elos_2026$Nord, elos_2026$Bayern)
@@ -1037,9 +1003,7 @@ test_that("Integration: zweikampf_paarungen_rust liefert das paarungen-data.fram
 })
 
 test_that("Integration: die ganze Kette -- Rust-Raten -> p_sieg_matrix -> rl_aufstiegsprognose", {
-  skip_if_not(nzchar(Sys.getenv("RUST_API_URL", "http://localhost:8080")))
-  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele", "rust_integration")
-  skip_if_not(env$connect_rust_simulator(), "Rust-Server nicht erreichbar")
+  env <- skip_if_no_rust(source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele", "rust_integration"))
 
   pa <- fn(env, "zweikampf_paarungen_rust")(elos_2026$Nord, elos_2026$Bayern)
   M <- fn(env, "p_sieg_matrix")(pa)
