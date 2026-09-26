@@ -779,8 +779,6 @@ test_that("das Navigations-HTML traegt Gruppenlabels und alle Ligen", {
   expect_match(html, "nav-current")
 })
 
-# --- 4. Ende-zu-Ende ---------------------------------------------------------
-
 # --- aus test-n-ligen-entflechtung.R ---
 # --- generate_static_site: Liste statt vier Argumente -----------------------
 

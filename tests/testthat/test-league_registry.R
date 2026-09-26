@@ -177,8 +177,6 @@ test_that("goal_model liefert die Tormodell-Parameter je Liga", {
   expect_equal(env$goal_model("1034")$tore_intercept, 1.6527603153)
 })
 
-# --- league_views bleibt abgeleitet, aber formgleich -------------------------
-
 # --- Verbraucher: die Literale verschwinden, das Verhalten bleibt -----------
 #
 # get_league_promotion_rules() und validate_league_id() hatten ausserhalb
@@ -708,12 +706,11 @@ test_that("die Registry weiss, welche Liga einen Aufstiegslauf braucht", {
 #       ist eine eigene Entscheidung, kein Versehen.
 
 test_that("league_ids liefert zehn Ligen in Registry-Reihenfolge", {
-  # Die Reihenfolge bestimmt, in welcher Folge der Loop abruft und in
-  # welcher Reihenfolge die Navigation baut -- sie darf sich nicht
-  # unbemerkt aendern. Deshalb der exakte Vektor, nicht nur die Laenge.
-  # (Seit Issue #178 gilt das nur noch fuer den Abruf: Die Navigation hat
-  # eine eigene Angabe in NAV_GRUPPEN_REIHENFOLGE und bewegt sich
-  # unabhaengig von dieser Reihenfolge.)
+  # Die Reihenfolge bestimmt, in welcher Folge der Loop abruft -- sie darf
+  # sich nicht unbemerkt aendern. Deshalb der exakte Vektor, nicht nur die
+  # Laenge. Seit Issue #178 hat die Reihenfolge der Navigationsgruppen eine
+  # eigene Angabe (NAV_GRUPPEN_REIHENFOLGE); innerhalb einer Gruppe folgt
+  # die Navigation weiter dieser Reihenfolge.
   env <- source_module("league_registry")
 
   expect_identical(
