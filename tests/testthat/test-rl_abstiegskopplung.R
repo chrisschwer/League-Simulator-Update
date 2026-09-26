@@ -864,11 +864,6 @@ test_that("Nords Meisteraufstieg senkt auch die PLATZ-Wahrscheinlichkeiten", {
 })
 
 # --- aus test-phase5-regionalligen.R ---
-source_views <- function() {
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "league_views.R"), local = env)
-  env
-}
 
 # Die fuenf RL in Registry-Reihenfolge. Sie ist Vertrag (Fetch-Reihenfolge
 # und Navigation), deshalb hier einmal ausgeschrieben.
@@ -880,7 +875,7 @@ test_that("die Abstiegsspalten heissen wie die Spalten von rl_abstiegsprognose",
   # liefert einen data.frame mit rownames = Teams und genau diesen
   # Spalten. Laufen die Namen auseinander, faellt die Spalte beim Rendern
   # aus -- oder es steht die falsche unter der falschen Ueberschrift.
-  views <- source_views()$league_views()
+  views <- source_module("league_views")$league_views()
 
   rl <- new.env()
   source(test_path("..", "..", "RCode", "staffel_zuordnung.R"), local = rl)

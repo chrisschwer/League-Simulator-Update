@@ -695,12 +695,6 @@ test_that("die Registry weiss, welche Liga einen Aufstiegslauf braucht", {
 
 # --- Quellen ----------------------------------------------------------------
 
-source_views <- function() {
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "league_views.R"), local = env)
-  env
-}
-
 source_round_filter <- function() {
   env <- new.env()
   source(test_path("..", "..", "RCode", "round_filter.R"), local = env)
@@ -855,7 +849,7 @@ test_that("league_views und Registry stimmen in Schluesseln und Slugs ueberein",
   # Ueber die Schluessel sind Loop, Registry und Generator verbunden; ueber
   # die Slugs entstehen die Dateinamen. Zwei Quellen, eine Aussage.
   reg <- source_module("league_registry")$league_registry()
-  views <- source_views()$league_views()
+  views <- source_module("league_views")$league_views()
 
   expect_identical(names(views), names(reg))
   expect_identical(
@@ -872,7 +866,7 @@ test_that("die Anzeigereihenfolge laesst die Abrufreihenfolge unberuehrt", {
   # mitbewegen. Ohne diesen Test faellt eine solche Kopplung erst im
   # Betrieb auf.
   reg <- source_module("league_registry")
-  views <- source_views()$league_views()
+  views <- source_module("league_views")$league_views()
 
   expect_identical(
     reg$league_ids(),
