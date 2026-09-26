@@ -245,3 +245,35 @@ test_that("ein explizit uebergebener home_advantage landet im Payload", {
 
   expect_equal(captured$home_advantage, 40)
 })
+
+# --- aus test-league-registry.R ---
+# --- Tormodell: die Frauen-Werte erreichen beide Endpunkte ------------------
+
+test_that("simulate_league_rust sendet das Tormodell nur, wenn es abweicht", {
+  # ADR 0002: Modellkonstanten leben in Rust. Fuer die Herren-Ligen darf R
+  # nichts senden -- sonst gibt es zwei Quellen. Fuer die Frauen-Ligen MUSS
+  # R senden, weil Rust die Herren-Werte als Default haelt.
+  env <- new.env()
+  source(test_path("..", "..", "RCode", "rust_integration.R"), local = env)
+
+  fang <- function(...) {
+    captured <- NULL
+    mockery::stub(env$simulate_league_rust, "POST", function(url, body, ...) {
+      captured <<- jsonlite::fromJSON(body)
+      stop("abbruch nach payload-erfassung")
+    })
+    try(env$simulate_league_rust(
+      schedule = matrix(c(1, 2, NA, NA), nrow = 1),
+      elo_values = c(1500, 1500), team_names = c("AAA", "BBB"), ...
+    ), silent = TRUE)
+    captured
+  }
+
+  ohne <- fang()
+  expect_false("tore_slope" %in% names(ohne))
+  expect_false("tore_intercept" %in% names(ohne))
+
+  mit <- fang(tore_slope = 0.0024058833, tore_intercept = 1.6527603153)
+  expect_equal(mit$tore_slope, 0.0024058833)
+  expect_equal(mit$tore_intercept, 1.6527603153)
+})
