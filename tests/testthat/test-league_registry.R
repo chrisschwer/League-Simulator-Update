@@ -335,3 +335,74 @@ test_that("goal_model_args liefert die Argumente fuer beide Endpunkte", {
     list(tore_slope = 0.0024058833, tore_intercept = 1.6527603153)
   )
 })
+
+# --- aus test-rl-zonen-verdrahtung.R ---
+# Verdrahtung der Auf-/Abstiegszonen (Issue #185, zweite Haelfte).
+#
+# PR #191 hat die Bausteine gebaut: rl_abstiegsprognose() reicht den
+# Platzvektor als Attribut durch, render_liga_tabelle() nimmt ein
+# zonen-Argument, render_zonen_fussnote() setzt das Kleingedruckte. Auf der
+# Seite war davon nichts zu sehen -- niemand hat die Teile verbunden.
+#
+# Hier steht das fehlende Glied: rl_zonen() liest die Ergebnisobjekte des
+# laufenden Zyklus und baut daraus das zonen-Objekt.
+#
+# DREI QUELLEN, nicht eine:
+#   rot    attr(Ergebnis_<key>_abstieg, "platz_abstieg")
+#   gelb   attr(Ergebnis_<key>_abstieg, "platz_relegation") -- nur Bayern
+#   gruen  je nach Staffel verschieden (s. u.)
+#
+# Gruen ist der unangenehme Fall: Nordost, West und SuedWest stellen je
+# einen DIREKTEN Aufsteiger (promotion_slots = 1), dort ist Platz 1 sicher.
+# Nord und Bayern haben promotion_slots = 0 und kommen nur ueber das
+# Aufstiegsspiel hoch (playoff_slots = 1) -- dort traegt Platz 1 die
+# Gewinnwahrscheinlichkeit aus Ergebnis_<key>_aufstieg.
+
+# --- Der Regeltext ---------------------------------------------------------
+
+test_that("jede Regionalliga traegt einen Regeltext in der Registry", {
+  # Die Fussnote erklaert, WARUM die Zahl schwankt. Der Text stand bisher
+  # nur als Kommentar in der Registry und war damit nicht auslesbar.
+  env <- new.env()
+  source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
+  reg <- env$league_registry()
+
+  for (key in c("rl_nord", "rl_nordost", "rl_west", "rl_suedwest", "rl_bayern")) {
+    regel <- reg[[key]]$relegation_regel
+    expect_true(is.character(regel) && nzchar(regel), info = key)
+  }
+})
+
+test_that("Nord und West nennen ihre Besonderheit im Regeltext", {
+  # Zwei Faelle, die ohne Hinweis wie ein Fehler aussehen:
+  #
+  # Nord  -- steigt der Meister auf, hat Nord einen Abstiegsplatz weniger.
+  #          Gruen und Rot haengen dort zusammen; ohne Erklaerung wirken
+  #          die Zahlen inkonsistent.
+  # West  -- koppelt als einzige Staffel NICHT an die 3. Liga. Alle Linien
+  #          sind voll deckend, die Abstufung laeuft leer. Korrekt, sieht
+  #          aber neben den anderen vier Staffeln nach Defekt aus.
+  env <- new.env()
+  source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
+  reg <- env$league_registry()
+
+  # Nord nennt den Mechanismus, nicht das Wort "Meister": Christoph hat die
+  # laengere Fassung "Gewinnt Nord das Aufstiegsspiel" bewusst behalten,
+  # weil sie erklaert, WIE der Abstiegsplatz wegfaellt.
+  expect_match(reg$rl_nord$relegation_regel, "Aufstiegsspiel")
+  expect_match(reg$rl_west$relegation_regel, "ändert die 3. Liga diese Zahl nicht",
+               fixed = TRUE)
+})
+
+test_that("die Nicht-RL-Ligen tragen keinen Regeltext", {
+  # Sie haben feste Abstiegsplaetze und brauchen keine Erklaerung. Ein Text
+  # dort waere ein Versprechen auf eine Fussnote, die nicht kommt.
+  env <- new.env()
+  source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
+  reg <- env$league_registry()
+
+  for (key in c("bundesliga", "zweite_bundesliga", "dritte_liga",
+                "frauen_bundesliga", "zweite_frauen_bundesliga")) {
+    expect_null(reg[[key]]$relegation_regel, info = key)
+  }
+})
