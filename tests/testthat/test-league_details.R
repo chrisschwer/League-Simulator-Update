@@ -800,3 +800,82 @@ test_that("auch ein WO-Spiel bleibt aus dem ELO-Walk heraus", {
   expect_null(payload$schedule[[1]][[3]])
   expect_null(payload$schedule[[1]][[4]])
 })
+
+# --- aus test-rundenfilter-schutznetz.R ---
+# Flache Produktionsform (so kommt es real über jsonlite::fromJSON).
+rl_fixtures_flach <- function(rounds) {
+  n <- length(rounds)
+  fx <- data.frame(platzhalter = seq_len(n))
+
+  fixture <- data.frame(
+    id = 4000 + seq_len(n),
+    date = rep("2026-09-05T13:00:00+00:00", n)
+  )
+  fixture$status <- data.frame(
+    long = rep("Match Finished", n),
+    short = rep("FT", n),
+    elapsed = rep(90, n)
+  )
+  fx$fixture <- fixture
+
+  fx$league <- data.frame(
+    id = rep(84, n), season = rep(2025, n), round = rounds,
+    stringsAsFactors = FALSE
+  )
+
+  heim <- rep(c(201, 203), length.out = n)
+  gast <- rep(c(202, 204), length.out = n)
+  # paste() auf einem leeren Vektor liefert Laenge 1 ("Team "), nicht 0 --
+  # data.frame() wuerde dann "unterschiedliche Anzahl Zeilen" melden.
+  namen <- function(ids) if (length(ids) == 0) character(0) else paste("Team", ids)
+  teams <- data.frame(platzhalter = seq_len(n))
+  teams$home <- data.frame(id = heim, name = namen(heim),
+                           winner = rep(TRUE, n))
+  teams$away <- data.frame(id = gast, name = namen(gast),
+                           winner = rep(FALSE, n))
+  teams$platzhalter <- NULL
+  fx$teams <- teams
+
+  fx$goals <- data.frame(home = rep(1, n), away = rep(0, n))
+  fx$platzhalter <- NULL
+  fx
+}
+
+# --- extract_fixture_details ------------------------------------------------
+
+test_that("extract_fixture_details behält Regionalliga-Runden", {
+  details <- extract_fixture_details(rl_fixtures_flach(c("Nord - 12", "North - 13")))
+
+  expect_equal(nrow(details), 2)
+  # Die Spieltagsnummer muss trotz Staffelname korrekt geparst werden.
+  expect_equal(details$round, c(12L, 13L))
+})
+
+test_that("extract_fixture_details verwirft K.-o.-Runden bei Staffelnamen", {
+  details <- extract_fixture_details(
+    rl_fixtures_flach(c("Bayern - 33", "Relegation Round", "Bayern - 34"))
+  )
+
+  expect_equal(nrow(details), 2)
+  expect_equal(details$round, c(33L, 34L))
+})
+
+test_that("extract_fixture_details bricht ab, wenn der Filter alles entfernt", {
+  expect_error(
+    extract_fixture_details(rl_fixtures_flach(c("Final", "Semi-finals"))),
+    "Final"
+  )
+})
+
+test_that("extract_fixture_details lässt leere Eingabe unberührt durch", {
+  expect_error(extract_fixture_details(rl_fixtures_flach(character(0))), NA)
+})
+
+test_that("extract_fixture_details verhält sich bei Bundesliga unverändert", {
+  details <- extract_fixture_details(
+    rl_fixtures_flach(c("Regular Season - 12", "Regular Season - 13", "Final"))
+  )
+
+  expect_equal(nrow(details), 2)
+  expect_equal(details$round, c(12L, 13L))
+})
