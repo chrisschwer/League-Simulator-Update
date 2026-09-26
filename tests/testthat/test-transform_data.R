@@ -349,3 +349,82 @@ test_that("transform_data creates proper data structure", {
   expect_true(is.numeric(result$ToreHeim))
   expect_true(is.numeric(result$ToreGast))
 })
+
+# --- aus test-gewertete-spiele.R ---
+# --- Simulationspfad: transform_data ----------------------------------------
+# (eigene Datei-Sektion, weil transform_data.R separat gesourct wird)
+
+test_that("transform_data behaelt die Tore eines gewerteten Spiels", {
+  # Bisher setzte transform_data() alles ausser FT/AET/PEN auf NA -- die
+  # Simulation wuerfelte das Wertungsspiel in jedem Durchlauf neu aus, obwohl
+  # es sportrechtlich entschieden ist. Fuer die ENDTABELLE der Simulation
+  # muss das Ergebnis feststehen.
+  #
+  # Der ELO-Walk der Engine darf es trotzdem nicht sehen -- das leistet das
+  # Rust-Flag (siehe cargo-Tests), nicht diese Funktion.
+  source("../../RCode/transform_data.R", local = TRUE)
+
+  fixtures <- tibble::tibble(
+    league = data.frame(round = c("Regular Season - 1", "Regular Season - 1"),
+                        stringsAsFactors = FALSE),
+    teams = list(
+      data.frame(home = I(list(data.frame(id = 101, name = "A"))),
+                 away = I(list(data.frame(id = 102, name = "B")))),
+      data.frame(home = I(list(data.frame(id = 103, name = "C"))),
+                 away = I(list(data.frame(id = 104, name = "D"))))
+    ),
+    goals = list(data.frame(home = 2, away = 1), data.frame(home = 3, away = 0)),
+    fixture = list(
+      data.frame(id = 1, status = I(list(data.frame(short = "FT")))),
+      data.frame(id = 2, status = I(list(data.frame(short = "AWD"))))
+    )
+  )
+  teams <- data.frame(
+    TeamID = c(101, 102, 103, 104),
+    ShortText = c("AAA", "BBB", "CCC", "DDD"),
+    InitialELO = c(1500, 1500, 1500, 1500),
+    stringsAsFactors = FALSE
+  )
+
+  result <- transform_data(fixtures, teams)
+
+  expect_equal(result$ToreHeim, c(2, 3))
+  expect_equal(result$ToreGast, c(1, 0))
+})
+
+test_that("transform_data laesst offene und verschobene Spiele weiter offen", {
+  # Verhaltensneutralitaet: Nur AWD/WO kommt dazu, NS und PST bleiben NA.
+  source("../../RCode/transform_data.R", local = TRUE)
+
+  fixtures <- tibble::tibble(
+    league = data.frame(round = rep("Regular Season - 1", 3),
+                        stringsAsFactors = FALSE),
+    teams = list(
+      data.frame(home = I(list(data.frame(id = 101, name = "A"))),
+                 away = I(list(data.frame(id = 102, name = "B")))),
+      data.frame(home = I(list(data.frame(id = 103, name = "C"))),
+                 away = I(list(data.frame(id = 104, name = "D")))),
+      data.frame(home = I(list(data.frame(id = 101, name = "A"))),
+                 away = I(list(data.frame(id = 103, name = "C"))))
+    ),
+    goals = list(data.frame(home = 2, away = 1), data.frame(home = NA, away = NA),
+                 data.frame(home = NA, away = NA)),
+    fixture = list(
+      data.frame(id = 1, status = I(list(data.frame(short = "FT")))),
+      data.frame(id = 2, status = I(list(data.frame(short = "NS")))),
+      data.frame(id = 3, status = I(list(data.frame(short = "PST"))))
+    )
+  )
+  teams <- data.frame(
+    TeamID = c(101, 102, 103, 104),
+    ShortText = c("AAA", "BBB", "CCC", "DDD"),
+    InitialELO = c(1500, 1500, 1500, 1500),
+    stringsAsFactors = FALSE
+  )
+
+  result <- transform_data(fixtures, teams)
+
+  expect_equal(result$ToreHeim[1], 2)
+  expect_true(all(is.na(result$ToreHeim[2:3])))
+  expect_true(all(is.na(result$ToreGast[2:3])))
+})
