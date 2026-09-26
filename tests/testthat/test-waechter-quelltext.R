@@ -165,3 +165,11 @@ test_that("die Fenstergrenzen stehen nur in den Konstanten", {
   konstanten <- grep("SCHEDULE_(START|END)_MINUTES *<-", code, value = TRUE)
   expect_length(konstanten, 2)
 })
+
+# --- aus test-kuerzel-tooltip.R ---
+test_that("das Stylesheet kennt Kuerzel und Tipp-Label", {
+  css <- paste(readLines(test_path("..", "..", "RCode", "site_assets", "site.css")),
+               collapse = "\n")
+  expect_match(css, "abbr.kz", fixed = TRUE)
+  expect_match(css, ".kz-tip", fixed = TRUE)
+})

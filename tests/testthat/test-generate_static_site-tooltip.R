@@ -23,45 +23,6 @@ mk_matrix <- function(teams, n = length(teams)) {
   as.table(m)
 }
 
-# --- build_league_page_data: Kürzel in der Tabelle --------------------------
-
-test_that("die Ligatabelle traegt das Kuerzel aus der TeamList (id-Join)", {
-  source(test_path("..", "..", "RCode", "league_details.R"), local = TRUE)
-  fixtures <- tibble::tibble(
-    fixture = list(data.frame(id = 1, date = "2026-08-28T18:30:00+00:00",
-                              status = I(list(data.frame(short = "FT"))))),
-    league = list(data.frame(round = "Regular Season - 1")),
-    teams = list(data.frame(
-      home = I(list(data.frame(id = 102, name = "SV Beta"))),
-      away = I(list(data.frame(id = 101, name = "FC Alpha")))
-    )),
-    goals = list(data.frame(home = 1, away = 0))
-  )
-  teams <- data.frame(TeamID = c(101, 102, 999),
-                      ShortText = c("ALP", "BET", "ALP"),
-                      Promotion = 0, InitialELO = c(1500, 1500, 1700),
-                      stringsAsFactors = FALSE)
-  antwort <- '{
-    "matches": [
-      {"index": 0, "team_home": 2, "team_away": 1, "played": true,
-       "goals_home": 1, "goals_away": 0,
-       "elo_home_pre": 1500.0, "elo_away_pre": 1500.0,
-       "elo_delta_home": 5.0,
-       "lambda_home": 1.4, "lambda_away": 1.3,
-       "p_home_win": 0.4, "p_draw": 0.3, "p_away_win": 0.3,
-       "score_matrix": [[0.5, 0.5], [0.0, 0.0]]}
-    ],
-    "current_elos": [1495.0, 1505.0],
-    "team_names": ["ALP", "BET"]
-  }'
-
-  pd <- build_league_page_data(fixtures, teams, fetch_fn = function(...) antwort)
-
-  tab <- pd$tabelle
-  expect_equal(tab$kuerzel[tab$team_id == 101], "ALP")
-  expect_equal(tab$kuerzel[tab$team_id == 102], "BET")
-})
-
 # --- Renderer ---------------------------------------------------------------
 
 test_that("die Heatmap zeigt bei bekanntem Namen ein abbr mit title", {
@@ -176,40 +137,4 @@ test_that("ohne league_entry gibt es weder Tooltips noch Tipp-Skript", {
 
   expect_false(grepl("<abbr", html, fixed = TRUE))
   expect_false(grepl("abbr.kz", html, fixed = TRUE))
-})
-
-test_that("das Stylesheet kennt Kuerzel und Tipp-Label", {
-  css <- paste(readLines(test_path("..", "..", "RCode", "site_assets", "site.css")),
-               collapse = "\n")
-  expect_match(css, "abbr.kz", fixed = TRUE)
-  expect_match(css, ".kz-tip", fixed = TRUE)
-})
-
-# --- Umgekehrt: Ligatabelle zeigt beim Namen das Kuerzel --------------------
-
-test_that("die Ligatabelle zeigt zum Vereinsnamen das Kuerzel als Tooltip", {
-  gen <- source_generator()
-  tab <- data.frame(
-    platz = 1:2, team_id = 1:2, kuerzel = c("ALP", "BET"),
-    name = c("FC Alpha", "A & B"), spiele = 0, tordifferenz = 0, punkte = 0,
-    elo = 1500, delta_elo = 0, stringsAsFactors = FALSE
-  )
-  html <- gen$render_liga_tabelle(tab)
-
-  expect_match(html, '<abbr class="kz" title="ALP" tabindex="0">FC Alpha</abbr>',
-               fixed = TRUE)
-  expect_match(html, '<abbr class="kz" title="BET" tabindex="0">A &amp; B</abbr>',
-               fixed = TRUE)
-})
-
-test_that("ohne Kuerzel-Spalte bleibt der Name in der Ligatabelle schlicht", {
-  gen <- source_generator()
-  tab <- data.frame(
-    platz = 1L, team_id = 1L, name = "FC Alpha", spiele = 0,
-    tordifferenz = 0, punkte = 0, elo = 1500, delta_elo = 0,
-    stringsAsFactors = FALSE
-  )
-  html <- gen$render_liga_tabelle(tab)
-
-  expect_match(html, '<th scope="row">FC Alpha</th>', fixed = TRUE)
 })

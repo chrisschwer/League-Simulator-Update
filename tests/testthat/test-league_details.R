@@ -1051,3 +1051,43 @@ test_that("der an Rust gehende league-details-Payload ist chronologisch", {
   expect_equal(tore_heim, c(2, 1, 0))
   expect_equal(tore_gast, c(1, 1, 3))
 })
+
+# --- aus test-kuerzel-tooltip.R ---
+# --- build_league_page_data: Kürzel in der Tabelle --------------------------
+
+test_that("die Ligatabelle traegt das Kuerzel aus der TeamList (id-Join)", {
+  source(test_path("..", "..", "RCode", "league_details.R"), local = TRUE)
+  fixtures <- tibble::tibble(
+    fixture = list(data.frame(id = 1, date = "2026-08-28T18:30:00+00:00",
+                              status = I(list(data.frame(short = "FT"))))),
+    league = list(data.frame(round = "Regular Season - 1")),
+    teams = list(data.frame(
+      home = I(list(data.frame(id = 102, name = "SV Beta"))),
+      away = I(list(data.frame(id = 101, name = "FC Alpha")))
+    )),
+    goals = list(data.frame(home = 1, away = 0))
+  )
+  teams <- data.frame(TeamID = c(101, 102, 999),
+                      ShortText = c("ALP", "BET", "ALP"),
+                      Promotion = 0, InitialELO = c(1500, 1500, 1700),
+                      stringsAsFactors = FALSE)
+  antwort <- '{
+    "matches": [
+      {"index": 0, "team_home": 2, "team_away": 1, "played": true,
+       "goals_home": 1, "goals_away": 0,
+       "elo_home_pre": 1500.0, "elo_away_pre": 1500.0,
+       "elo_delta_home": 5.0,
+       "lambda_home": 1.4, "lambda_away": 1.3,
+       "p_home_win": 0.4, "p_draw": 0.3, "p_away_win": 0.3,
+       "score_matrix": [[0.5, 0.5], [0.0, 0.0]]}
+    ],
+    "current_elos": [1495.0, 1505.0],
+    "team_names": ["ALP", "BET"]
+  }'
+
+  pd <- build_league_page_data(fixtures, teams, fetch_fn = function(...) antwort)
+
+  tab <- pd$tabelle
+  expect_equal(tab$kuerzel[tab$team_id == 101], "ALP")
+  expect_equal(tab$kuerzel[tab$team_id == 102], "BET")
+})
