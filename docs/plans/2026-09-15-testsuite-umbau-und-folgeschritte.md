@@ -623,7 +623,7 @@ Erst jetzt werden Erwartungen angefasst — und nur mit Christophs Wort je PR. R
 | 3.5 | Spieltag-Fensterung (Cluster 12) + Reihenfolge (Cluster 5) | spieltag-logik-Fassung | Join-Level-Wiederholungen — **Erledigt 27.09., PR #250: 1 Block/6 Erwartungen (TD:239). Cluster 12 hat keine Doppel (Fensterfunktionen, Join und Render prüfen verschiedene Schichten); die Join-Tests bleiben.** |
 | 3.6 | Helfer vereinheitlichen: nicht-identische Varianten (`fake_fixtures` 4×, `with_repo_root` 3×, `read_html` 5×) zusammenführen, wo sie dasselbe tun; ein zentrales `skip_if_no_rust()` in `helper-rust.R` statt vier Skip-Varianten | — | — (keine Erwartung fällt; Skip-Bedingungen werden gleich, das wird per Multimenge belegt). **Erledigt 26.09., PR #246.** |
 | 3.7 | Vier-Argument-Pfad von `generate_static_site()` (`test-n-ligen-entflechtung.R:129,154`, `test-generate-static-site.R:392` — nach Stufe 2 in den neuen Dateien) | — | die drei Kompatibilitätstests samt Pfad, wenn Christoph zustimmt |
-| 3.8 | Rest (Cluster 4, 8–11, 13–15) | je Cluster die vollständigere Fassung | die andere |
+| 3.8 | Rest (Cluster 4, 8–11, 13–15) | je Cluster die vollständigere Fassung | die andere — **Erledigt 27.09., PR #252: 19 Blöcke/67 Erwartungen (A–K der Analyse); sechs Zweifelsfaelle (L–Q) bleiben auf Christophs Entscheidung, 15 Teil-Doppel bleiben.** |
 
 Je PR: Tabelle „Test X fällt, weil Test Y dieselbe Erwartung hält (Datei:Zeile)". Vorher/Nachher-Multimenge wie in Task 7, diesmal mit **erwarteter** Abnahme, die im PR-Text steht.
 
