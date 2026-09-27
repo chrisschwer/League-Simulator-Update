@@ -129,8 +129,10 @@ test_that("load_team_list akzeptiert die echte TeamList_2026", {
   }
 
   # Die harte Ausnahme gilt weiter: Nord, Nordost und Bayern bleiben
-  # untereinander frei, weil zwei von ihnen jaehrlich die Aufstiegsspiele
-  # bestreiten und die Doppelsumme ueber Namen zuordnet.
+  # untereinander frei -- der Grund ist Lesbarkeit auf der gemeinsamen
+  # Aufstiegsseite, nicht eine Verwechslungsgefahr in der Doppelsumme
+  # (KORRIGIERT, Issue #197: die beiden Staffeln liegen auf getrennten
+  # Achsen der p_sieg-Matrix).
   playoff <- teams$ShortText[teams$League %in% c(83, 84, 85)]
   expect_false(any(duplicated(playoff)))
 

@@ -17,7 +17,7 @@ library(mockery)
 #
 # Diese Phase ist ausdruecklich VERHALTENSNEUTRAL fuer die drei Altligen:
 # test-league_views.R muss unveraendert gruen bleiben, ausser der einen
-# Zeile, die "exakt drei Ligen" pinnt.
+# Zeile, die "alle zehn Ligen (fünf Regionalligen seit Phase 5)" pinnt.
 
 # --- Struktur ---------------------------------------------------------------
 
@@ -377,7 +377,7 @@ test_that("beide Frauen-Ligen tragen das Frauen-Tormodell", {
 #
 # Diese Phase ist VERHALTENSNEUTRAL. Solange league_ids() nur die drei
 # Altligen liefert, muss alles beim Alten bleiben -- insbesondere bleibt
-# test-update_all_leagues_loop-gating.R (526 Zeilen, 12 Tests) unverändert grün. Diese
+# test-update_all_leagues_loop-gating.R unverändert grün. Diese
 # Datei prüft, dass die Mechanik darüber hinaus n-fähig ist.
 #
 # Zwei Randbedingungen, an denen der Umbau scheitern würde:
@@ -626,13 +626,13 @@ test_that("die Registry weiss, welche Liga einen Aufstiegslauf braucht", {
 # absichtlich NICHT von hier aus mit erledigt, damit der Schritt sichtbar
 # blieb:
 #
-#   "die Regionalligen bleiben inaktiv" (Zeile 22)  -- entfaellt ersatzlos;
+#   "die Regionalligen bleiben inaktiv" -- entfaellt ersatzlos;
 #       ihre Aussage ist genau das, was Phase 5 aufhebt.
-#   "checkAPILimits skaliert mit fuenf Ligen" (Zeile 146) -- die Formel
+#   "checkAPILimits skaliert mit der Zahl der aktiven Ligen" -- die Formel
 #       1 + 5/2 wird zu 1 + 10/2. Der Default folgt der Ligazahl, also
 #       laesst sich das aus league_ids() ableiten, statt die Zahl zu
 #       wiederholen.
-#   "die Saisonvalidierung prueft nur die Altligen" (Zeile 131) -- bleibt
+#   "die Saisonvalidierung prueft nur die Altligen" -- bleibt
 #       gruen: SEASON_TRANSITION_LEAGUES ist bewusst bei 78/79/80, weil es
 #       fuer die neuen Ligen keine aufgezeichneten API-Antworten gibt. Das
 #       ist eine eigene Entscheidung, kein Versehen.

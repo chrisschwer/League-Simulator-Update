@@ -866,12 +866,12 @@ test_that("die Abstiegsgrenze von Nord verschiebt sich mit der 3. Liga", {
 })
 
 test_that("West bleibt bei jeder Auszaehlung der 3. Liga bei vier Absteigern", {
-  # ACHTUNG, die haeufigste Fehlannahme in diesem Modell: Der
-  # Registry-Kommentar bei rl_west spricht von "gegenlaeufig", die
-  # Implementierung (abstiegsplaetze) und test-rl_abstiegskopplung.R:389
-  # setzen dagegen FESTE 4. Massgeblich ist die Implementierung -- die
-  # Verminderungsgruende des WDFV haengen an den Oberligen und an der
-  # Lizenzierung, nicht an der 3. Liga (Modellannahmen 2 und 5.3).
+  # ACHTUNG, die haeufigste Fehlannahme in diesem Modell: Die
+  # Implementierung (abstiegsplaetze) und der Test "West: feste 4,
+  # unabhaengig von der 3. Liga" setzen FESTE 4. Massgeblich ist die
+  # Implementierung -- die Verminderungsgruende des WDFV haengen an den
+  # Oberligen und an der Lizenzierung, nicht an der 3. Liga
+  # (Modellannahmen 2 und 5.3).
   #
   # Der Test haelt genau das fest, damit die Seite nicht eines Tages einen
   # Abstieg zeigt, der mit k schrumpft.
