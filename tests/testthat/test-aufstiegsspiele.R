@@ -902,15 +902,6 @@ test_that("Anbindung: ein explizites p_sieg hat Vorrang vor der Herleitung aus p
   expect_false(isTRUE(all.equal(df["A", "Aufstieg"], orakel_aufstieg_nord()[["A"]])))
 })
 
-test_that("Anbindung: ohne p_sieg UND ohne paarungen bricht es weiter mit 'p_sieg' ab", {
-  # Das bestehende Verhalten (test-rl_aufstieg.R) bleibt: keine erfundene 50:50.
-  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
-  f <- fn(env, "rl_aufstiegsprognose")
-  expect_error(f("Nord", prognosen_2026(), season = 2026), "p_sieg")
-  expect_error(f("Bayern", prognosen_2026(), season = 2026, p_sieg = NULL,
-                 paarungen = NULL), "p_sieg")
-})
-
 test_that("Anbindung: fehlt ein Team in paarungen, nennt der Fehler das Team", {
   env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
   f <- fn(env, "rl_aufstiegsprognose")

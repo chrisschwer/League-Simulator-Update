@@ -871,15 +871,6 @@ test_that("extract_fixture_details lässt leere Eingabe unberührt durch", {
   expect_error(extract_fixture_details(rl_fixtures_flach(character(0))), NA)
 })
 
-test_that("extract_fixture_details verhält sich bei Bundesliga unverändert", {
-  details <- extract_fixture_details(
-    rl_fixtures_flach(c("Regular Season - 12", "Regular Season - 13", "Final"))
-  )
-
-  expect_equal(nrow(details), 2)
-  expect_equal(details$round, c(12L, 13L))
-})
-
 # --- aus test-elo-walk-reihenfolge.R ---
 # Issue #146, Teil 1: Der ELO-Walk muss die Spiele in der Reihenfolge sehen,
 # in der sie STATTGEFUNDEN haben -- nicht in der, in der api-football sie

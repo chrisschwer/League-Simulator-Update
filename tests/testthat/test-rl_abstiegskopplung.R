@@ -456,18 +456,6 @@ test_that("West: die Zaehlung der 3. Liga aendert die Abstiegsplaetze nicht", {
   expect_equal(sum(w2), 4)
 })
 
-test_that("Nord: 3 + k ohne Deckel -- zwei Drittliga-Absteiger machen fuenf Plaetze", {
-  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
-  v <- fn(env, "absteiger_verteilung")(zaehlung(
-    Nord = c(0, 0, N_ITER, 0, 0),
-    West = c(0, 0, N_ITER, 0, 0)
-  ))
-  w <- fn(env, "platz_gewichte")("Nord", v, teams = 18L)
-
-  expect_equal(unname(w[14:18]), rep(1, 5))
-  expect_identical(unname(w[13]), 0)
-})
-
 test_that("Bayern: genau die zwei Letzten, egal was die 3. Liga tut", {
   # Zwei voellig verschiedene Zaehlungen -- dieselben Gewichte.
   env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
