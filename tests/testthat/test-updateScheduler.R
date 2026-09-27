@@ -3,8 +3,9 @@ library(testthat)
 # --- Zeitfenster ------------------------------------------------------------
 
 source_scheduler <- function() {
-  # updateScheduler.R fuehrt beim Sourcen main() aus; nur die Konstanten und
-  # calculate_loops() werden gebraucht -- deshalb alles bis main() auswerten.
+  # updateScheduler.R fuehrt beim Sourcen main() aus; nur die Konstanten,
+  # plane_fenster() und calculate_loops() werden gebraucht -- deshalb alles
+  # bis main() auswerten.
   #
   # Unter dem Repo-Root, weil der Dateikopf die TeamList mit relativem Pfad
   # sucht. Dasselbe Muster wie in test-update_all_leagues_loop-gating.R.
