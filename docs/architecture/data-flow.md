@@ -165,9 +165,11 @@ Ergebnis[1:3, 1:3]
 
 Row and column names carry the team names and position numbers; there is no
 separate metadata or current-standings structure alongside the matrices.
-`RCode/generate_static_site.R::generate_static_site()` takes these four
-objects directly and renders the four-page static site (see
-[Static Site](../deployment/static-site.md)); it does not go through Shiny.
+`RCode/generate_static_site.R::generate_static_site()` takes a named list
+`ergebnisse` (one probability matrix per league key, plus
+`dritte_liga_aufstieg`) and renders the static site (twelve pages since
+September 2026; see [Static Site](../deployment/static-site.md)); it does
+not go through Shiny.
 
 ## Data Processing Pipeline
 
