@@ -140,7 +140,7 @@
 "test-frauen-ligen-aktivierung.R","league_registry updateScheduler season_validation checkAPILimits","die Fenstergrenzen stehen nur in den Konstanten",84,100,"","","waechter-quelltext","Fenstergrenzen nur in Konstanten (Quelltext)"
 "test-frauen-ligen-aktivierung.R","league_registry updateScheduler season_validation checkAPILimits","DURATION deckelt das Fenster nicht",102,116,"","","updateScheduler",""
 "test-frauen-ligen-aktivierung.R","league_registry updateScheduler season_validation checkAPILimits","ein gesetztes DURATION begrenzt weiterhin",118,125,"","","updateScheduler",""
-"test-frauen-ligen-aktivierung.R","league_registry updateScheduler season_validation checkAPILimits","calculate_loops rechnet mit dem neuen Fenster",127,132,"","","updateScheduler",""
+"test-frauen-ligen-aktivierung.R","league_registry updateScheduler season_validation checkAPILimits","calculate_loops rechnet mit dem neuen Fenster",127,132,"","","updateScheduler","gestrichen Stufe 4.2 (PR #256)"
 "test-frauen-ligen-aktivierung.R","league_registry updateScheduler season_validation checkAPILimits","die Saisonvalidierung prueft nur die Altligen",136,147,"","","season_validation","ABWEICHUNG Tabelle (nicht erfasst): prueft SEASON_TRANSITION_LEAGUES"
 "test-frauen-ligen-aktivierung.R","league_registry updateScheduler season_validation checkAPILimits","checkAPILimits skaliert mit der Zahl der aktiven Ligen",151,165,"league_ids","league_registry","checkAPILimits",""
 "test-frauen-ligen-live.R","generate_static_site league_views","negative Panel-Grenzen zaehlen von unten",41,51,".resolve_bounds","generate_static_site","generate_static_site",""
