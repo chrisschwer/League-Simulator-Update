@@ -33,7 +33,7 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 
 ## Zieldateien
 
-787 `test_that`-Blöcke aus 68 Quelldateien, Stand 25.09.2026, dazu 6 Wächterblöcke (793). Die Einzelzuordnung je Block steht in `docs/plans/2026-09-15-testsuite-zuordnung.csv` (Spalte `ziel_final`); „(n Bl.)" markiert Quelldateien, die aufgeteilt werden. Stufe 3 hat seither 35 Blöcke als Doppel gestrichen (PRs #247–#250, #252); die CSV führt sie in `bemerkung` als „gestrichen".
+787 `test_that`-Blöcke aus 68 Quelldateien, Stand 25.09.2026, dazu 6 Wächterblöcke (793). Die Einzelzuordnung je Block steht in `docs/plans/2026-09-15-testsuite-zuordnung.csv` (Spalte `ziel_final`); „(n Bl.)" markiert Quelldateien, die aufgeteilt werden. Stufe 3 hat seither 35 Blöcke als Doppel gestrichen (PRs #247–#250, #252) sowie zwei Kompatibilitätstests des Vier-Argument-Pfads (PR #253); die CSV führt sie in `bemerkung` als „gestrichen".
 
 | Zieldatei | Blöcke | nimmt auf |
 |---|---|---|
