@@ -1,6 +1,10 @@
 # Test Helper Infrastructure
 # This file is automatically loaded before any tests are run
 # It ensures all necessary components are available for testing
+#
+# Eine RCode-Datei, die sich nicht sourcen laesst, bricht die Suite hier ab
+# und nennt die Datei (Stufe 4.1, #212, Review-Fix) -- vorher verschluckte ein
+# tryCatch den Fehler als message() ohne die Suite zu stoppen.
 
 # Load required packages
 suppressPackageStartupMessages({
@@ -82,19 +86,19 @@ source_rcode_modules <- function() {
       tryCatch(
         source(file_path),
         error = function(e) {
-          message("Warning: Could not source ", file, ": ", e$message)
+          stop("RCode-Datei laesst sich nicht sourcen: ", file, "\n", conditionMessage(e), call. = FALSE)
         }
       )
     }
   }
-  
+
   # Source remaining files
   for (file in r_files) {
     if (!basename(file) %in% priority_files) {
       tryCatch(
         source(file),
         error = function(e) {
-          message("Warning: Could not source ", basename(file), ": ", e$message)
+          stop("RCode-Datei laesst sich nicht sourcen: ", basename(file), "\n", conditionMessage(e), call. = FALSE)
         }
       )
     }
@@ -127,17 +131,10 @@ cleanup_test_files <- function() {
 }
 
 # Execute setup
-tryCatch({
-  message("Setting up test environment...")
-  setup_test_directories()
-  
-  # Always use source method for tests to ensure all files are loaded
-  source_rcode_modules()
+setup_test_directories()
 
-  message("Test environment setup complete")
-}, error = function(e) {
-  message("Error during test setup: ", e$message)
-})
+# Always use source method for tests to ensure all files are loaded
+source_rcode_modules()
 
 # Register cleanup hook (skip if not in test environment)
 tryCatch({

@@ -633,6 +633,19 @@ Je PR: Tabelle „Test X fällt, weil Test Y dieselbe Erwartung hält (Datei:Zei
 
 Nach Stufe 3, in der neuen Struktur, je Punkt ein kleiner TDD-PR:
 
+**Reihenfolge (entschieden 27.09.2026, je ein Draft-PR; Beweis: Vorher-Multimenge ⊂ Nachher, neue Blöcke werden im PR benannt,
+Streichungen nur mit Freigabe):** 4.1 Sichtbarkeit = Punkt 7 + der `tryCatch` in `helper-test-setup.R` (aus Punkt 5) ·
+4.2 Scheduler = Punkt 1, dabei Punkt 2 nur verifizieren (`test-retrieveResults-rate-limit-header.R` hat seit #222 fünf Blöcke mit/ohne
+Header und Reset-Fenster) · 4.3 Seiten = Punkt 4 · 4.4 Hohle Tests = Rest von Punkt 5 plus die Stufe-3-Nebenbefunde aus dem
+#212-Kommentar vom 27.09. (hohle Tests, falsche Dateien, `Sys.setenv` ohne withr, veraltete Kommentare, NULL-Test) · 4.5 Einheiten
+ohne Tests = Punkt 6; Befund 27.09.: `Tabelle`, `input_handler`, `team_data_carryover` haben alle lebende Aufrufer, sind also zu
+testen, nicht zu löschen · 4.6 Client-JS = Punkt 3 · 4.7 Wächter-Erweiterung „kein Top-Level-Name in zwei Testdateien" (aufgeschoben
+aus 3.6).
+
+**4.1 erledigt 27.09.2026, PR #254:** `scripts/ci/testthat_ci.R` (TDD) ersetzt den Inline-`Rscript -e`-Block in `ci.yml`; listet
+alle Skip-Gründe, bricht mit `RUST_SKIPS_VERBOTEN=1` ab, sobald einer auf Rust verweist. `helper-test-setup.R` bricht bei
+Sourcing-Fehlern jetzt mit R-Fehler ab statt sie als `message()` zu verschlucken.
+
 1. `test-updateScheduler.R`: die drei Zweige von `calculate_loops()` mit gestubbtem `Sys.time`/`Sys.sleep` (reine Rechenfunktion herauslösen: Jetzt-Zeit → Loops, Startwartezeit, Dauer) — die Berlin-Zeit-Frage gleich mit.
 2. `.record_rate_limit_headers()`: prüfen, ob `test-retrieveResults-rate-limit-header.R` (aus #222) das schon abdeckt; nur Lücken schließen.
 3. Client-JS — **entschieden 25.09.: Node + jsdom mit Syntaxprüfung, Skripte bleiben inline.**
@@ -661,4 +674,4 @@ Nach Stufe 3, in der neuen Struktur, je Punkt ein kleiner TDD-PR:
 - Entschieden am 25.09.: Client-JS per Node + jsdom mit Syntaxprüfung, Skripte bleiben inline (Stufe 4 Punkt 3).
 - Entschieden am 26.09. (Review vor Stufe 2, vier Punkte): (1) keine flächige `source_module()`-Ersetzung in Stufe 2 — nur die 13 `source_aufstieg()`-Stellen aus Phase 5, Rest als PR 3.0 (Task 6 Regel 3); (2) der Wächter akzeptiert „nennt die Einheit oder einen ihrer Lader", damit die sechs `test-render_sections-*.R` bestehen (Task 5); (3) Zwischen-Definitionen folgen ihren Blöcken, einfassige Mehrfach-Helfer nach `helper-html.R`/`helper-repo.R`/`helper-fixtures.R` (Task 6 Regel 2); (4) der Wächter wird zuerst geschrieben, zuletzt committet (Task 5 Step 2). Dazu Ergänzung ohne Entscheidung: beide Aufnahmen in frischen Worktrees mit je einem frisch gebauten Binary (Task 3).
 - Geprüft am 26.09.: alle 68 Dateien laufen isoliert (je eigener R-Prozess) grün — 787 Blöcke, 0 Fehlschläge, 0 Fehler, 10 Skips ohne Rust; Voraussetzung für den Einzellauf je Commit (Task 6 Regel 5) ist damit erfüllt.
-- Offen für Christoph: Reihenfolge Stufe 3.1–3.8.
+- Entschieden am 26.09.: Reihenfolge Stufe 3 (3.6 → 3.1 → 3.4 → 3.2 → 3.5 → 3.3 → 3.8 → 3.7; 3.3 als #251 geparkt). Entschieden am 27.09.: Reihenfolge Stufe 4.1–4.7 (oben).
