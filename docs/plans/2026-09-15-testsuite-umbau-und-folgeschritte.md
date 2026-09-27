@@ -652,6 +652,13 @@ Prozess-Zeitzone); `calculate_loops(jetzt = Sys.time(), schlafen = Sys.sleep)` a
 unverändert, 200er-Deckel bleibt nur im Zweig „im" (Befund dazu: #255). Punkt 2 erledigt durch #222, verifiziert 27.09.
 (Stufe 4.2): `test-retrieveResults-rate-limit-header.R` deckt `.record_rate_limit_headers()` bereits mit und ohne Header ab.
 
+**4.3 erledigt 27.09.2026, PR #257:** Punkt 4 war seit dem Relaunch (Phase 3) weitgehend gedeckt (Methodik-Seite `:258`,
+Fallback-Seite `:347`, Assets `:229`); drei Lücken geschlossen: die Fallback-Seite liefert Stylesheet und Favicon mit und
+verweist darauf, ohne Liga- oder Methodik-Seiten zu erzeugen; `.copy_assets()` überschreibt veraltete Kopien und kopiert
+jede Schriftdatei der Quelle (Zählung dynamisch über `list.files()`, nicht als Literal); die Methodik-Seite trägt in
+Fußzeile und Veraltet-Hinweis den übergebenen Zeitstempel `mtime`, nicht `now`. TDD-Rot je Block per Mutation belegt
+(Produktivcode unverändert).
+
 1. `test-updateScheduler.R`: die drei Zweige von `calculate_loops()` mit gestubbtem `Sys.time`/`Sys.sleep` (reine Rechenfunktion herauslösen: Jetzt-Zeit → Loops, Startwartezeit, Dauer) — die Berlin-Zeit-Frage gleich mit.
 2. `.record_rate_limit_headers()`: prüfen, ob `test-retrieveResults-rate-limit-header.R` (aus #222) das schon abdeckt; nur Lücken schließen.
 3. Client-JS — **entschieden 25.09.: Node + jsdom mit Syntaxprüfung, Skripte bleiben inline.**
