@@ -83,96 +83,60 @@ if (!file.exists(team_list_file)) {
 source("RCode/update_all_leagues_loop.R")
 source("RCode/checkAPILimits.R")
 
-# Dynamic loop calculation based on current time
-calculate_loops <- function() {
-  current_time <- Sys.time()
-  current_hour <- as.numeric(format(current_time, "%H"))
-  current_minute <- as.numeric(format(current_time, "%M"))
+# Der Tagesplan als reine Rechnung (Stufe 4.2, #212): Zeitpunkt rein, Plan raus,
+# kein Schlafen, keine Meldung, kein API-Aufruf. Rechnet in Europe/Berlin,
+# unabhaengig von der Prozess-Zeitzone -- TZ setzt heute nur docker-compose,
+# nicht das Dockerfile.
+plane_fenster <- function(jetzt,
+                          start = SCHEDULE_START_MINUTES,
+                          ende = SCHEDULE_END_MINUTES,
+                          dauer_max = DURATION,
+                          tz = "Europe/Berlin") {
+  lokal <- as.POSIXlt(jetzt, tz = tz)
+  minuten <- lokal$hour * 60 + lokal$min
+  deckeln <- function(m) if (dauer_max > 0 && m > dauer_max) dauer_max else m
+  if (minuten < start) {
+    verfuegbar <- deckeln(ende - start)
+    list(zweig = "vor", wartezeit_s = (start - minuten) * 60,
+         verfuegbar = verfuegbar, ideal_loops = floor(verfuegbar / 2) + 1)
+  } else if (minuten > ende) {
+    verfuegbar <- deckeln(ende - start)
+    list(zweig = "nach", wartezeit_s = ((24 * 60 - minuten) + start) * 60,
+         verfuegbar = verfuegbar, ideal_loops = floor(verfuegbar / 2) + 1)
+  } else {
+    verfuegbar <- deckeln(ende - minuten)
+    # Deckel 200 nur in diesem Zweig -- heutiges Verhalten, siehe Issue #255.
+    list(zweig = "im", wartezeit_s = 0,
+         verfuegbar = verfuegbar, ideal_loops = min(floor(verfuegbar / 2) + 1, 200))
+  }
+}
 
-  # Convert to minutes since midnight
-  current_minutes <- current_hour * 60 + current_minute
+# Huelle um plane_fenster: schlafen, melden, Kontingent fragen. `jetzt`/
+# `schlafen` sind nur fuer Tests injizierbar, main() ruft ohne Argumente.
+calculate_loops <- function(jetzt = Sys.time(), schlafen = Sys.sleep) {
+  plan <- plane_fenster(jetzt)
 
-  target_minutes <- SCHEDULE_END_MINUTES
-  scheduled_start <- SCHEDULE_START_MINUTES
-
-  # If before scheduled time, wait and run full duration
-  if (current_minutes < scheduled_start) {
-    wait_seconds <- (scheduled_start - current_minutes) * 60
-    message(sprintf("Before %s - waiting %.1f hours for scheduled run time",
-                    .format_schedule_time(scheduled_start), wait_seconds / 3600))
-    Sys.sleep(wait_seconds)
-
-    # After waiting: the full window
-    minutes_available <- target_minutes - scheduled_start
-
-    # Cap at DURATION if specified
-    if (DURATION > 0 && minutes_available > DURATION) {
-      minutes_available <- DURATION
+  if (plan$wartezeit_s > 0) {
+    if (plan$zweig == "vor") {
+      message(sprintf("Before %s - waiting %.1f hours for scheduled run time",
+                      .format_schedule_time(SCHEDULE_START_MINUTES), plan$wartezeit_s / 3600))
+    } else {
+      message(sprintf("After %s - waiting %.1f hours until tomorrow's scheduled run",
+                      .format_schedule_time(SCHEDULE_END_MINUTES), plan$wartezeit_s / 3600))
     }
-
-    ideal_loops <- floor(minutes_available / 2) + 1 # Every 2 minutes with Rust
-
-    # Check API limits
-    loops <- checkAPILimits(ideal_loops)
-    message(sprintf("Planning to run %d loops (ideal: %d)", loops, ideal_loops))
-    message(sprintf("Time available: %.1f minutes", minutes_available))
-
-    return(list(loops = loops, initial_wait = 0, duration = minutes_available,
-                plan_reduziert = api_limits_plan_reduziert()))
+    schlafen(plan$wartezeit_s)
   }
 
-  # After the window: wait until tomorrow
-  if (current_minutes > target_minutes) {
-    # Wait until tomorrow's window start
-    minutes_until_midnight <- (24 * 60) - current_minutes
-    minutes_after_midnight <- scheduled_start
-    wait_minutes <- minutes_until_midnight + minutes_after_midnight
-
-    message(sprintf("After %s - waiting %.1f hours until tomorrow's scheduled run",
-                    .format_schedule_time(target_minutes), wait_minutes / 60))
-    Sys.sleep(wait_minutes * 60)
-
-    # After waiting: the full window
-    minutes_available <- target_minutes - scheduled_start
-
-    # Cap at DURATION if specified
-    if (DURATION > 0 && minutes_available > DURATION) {
-      minutes_available <- DURATION
-    }
-
-    ideal_loops <- floor(minutes_available / 2) + 1 # Every 2 minutes with Rust
-
-    # Check API limits
-    loops <- checkAPILimits(ideal_loops)
-    message(sprintf("Planning to run %d loops (ideal: %d)", loops, ideal_loops))
-    message(sprintf("Time available: %.1f minutes", minutes_available))
-
-    return(list(loops = loops, initial_wait = 0, duration = minutes_available,
-                plan_reduziert = api_limits_plan_reduziert()))
+  loops <- checkAPILimits(plan$ideal_loops)
+  message(sprintf("Planning to run %d loops (ideal: %d)", loops, plan$ideal_loops))
+  if (plan$zweig == "im") {
+    message(sprintf("Time remaining: %.1f minutes", plan$verfuegbar))
+  } else {
+    message(sprintf("Time available: %.1f minutes", plan$verfuegbar))
   }
 
-  # Remaining time in today's window
-  minutes_remaining <- target_minutes - current_minutes
-
-  # Cap at DURATION if specified (but use actual remaining time)
-  if (DURATION > 0 && minutes_remaining > DURATION) {
-    minutes_remaining <- DURATION
-  }
-
-  # With Rust engine, we can run more frequent updates (every 2 minutes instead of 5)
-  # due to 50-100x performance improvement
-  ideal_loops <- floor(minutes_remaining / 2) + 1 # More frequent with Rust!
-
-  # Cap at reasonable maximum
-  if (ideal_loops > 200) ideal_loops <- 200
-
-  # Check API limits and adjust loops if necessary
-  loops <- checkAPILimits(ideal_loops)
-  message(sprintf("Planning to run %d loops (ideal: %d)", loops, ideal_loops))
-  message(sprintf("Time remaining: %.1f minutes", minutes_remaining))
-
-  return(list(loops = loops, initial_wait = 0, duration = minutes_remaining,
-              plan_reduziert = api_limits_plan_reduziert()))
+  list(loops = loops, initial_wait = 0, duration = plan$verfuegbar,
+       plan_reduziert = api_limits_plan_reduziert())
 }
 
 # Main execution
