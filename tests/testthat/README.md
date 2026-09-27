@@ -44,7 +44,7 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 | `test-elo_aggregation.R` | 12 | ein-elo-walk (12 Bl.) |
 | `test-elo_calibration.R` | 30 | elo-calibration |
 | `test-fixture_cache.R` | 9 | fixture-cache |
-| `test-generate_static_site.R` | 61 | frauen-ligen-live (11 Bl.), generate-static-site, live-na-guard, n-ligen-entflechtung (5 Bl.), phase5-regionalligen (15 Bl.) |
+| `test-generate_static_site.R` | 64 | frauen-ligen-live (11 Bl.), generate-static-site, live-na-guard, n-ligen-entflechtung (5 Bl.), phase5-regionalligen (15 Bl.) |
 | `test-generate_static_site-tooltip.R` | 10 | kuerzel-tooltip (10 Bl.) |
 | `test-interactive_prompts.R` | 11 | interactive-prompts |
 | `test-league_details.R` | 49 | elo-walk-reihenfolge (3 Bl.), fixture-details-produktionsform, fixture-details, gewertete-spiele (11 Bl.), kuerzel-tooltip (1 Bl.), ligatabelle, rundenfilter-schutznetz (5 Bl.), spieltag-logik, tbd-termin (6 Bl.) |
