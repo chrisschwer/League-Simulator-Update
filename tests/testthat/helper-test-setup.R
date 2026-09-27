@@ -3,8 +3,8 @@
 # It ensures all necessary components are available for testing
 #
 # Eine RCode-Datei, die sich nicht sourcen laesst, bricht die Suite hier ab
-# (Stufe 4.1, #212) -- vorher verschluckte ein tryCatch den Fehler als
-# message().
+# und nennt die Datei (Stufe 4.1, #212, Review-Fix) -- vorher verschluckte ein
+# tryCatch den Fehler als message() ohne die Suite zu stoppen.
 
 # Load required packages
 suppressPackageStartupMessages({
@@ -83,14 +83,24 @@ source_rcode_modules <- function() {
   for (file in priority_files) {
     file_path <- file.path(RCODE_PATH, file)
     if (file.exists(file_path)) {
-      source(file_path)
+      tryCatch(
+        source(file_path),
+        error = function(e) {
+          stop("RCode-Datei laesst sich nicht sourcen: ", file, "\n", conditionMessage(e), call. = FALSE)
+        }
+      )
     }
   }
 
   # Source remaining files
   for (file in r_files) {
     if (!basename(file) %in% priority_files) {
-      source(file)
+      tryCatch(
+        source(file),
+        error = function(e) {
+          stop("RCode-Datei laesst sich nicht sourcen: ", basename(file), "\n", conditionMessage(e), call. = FALSE)
+        }
+      )
     }
   }
 }
