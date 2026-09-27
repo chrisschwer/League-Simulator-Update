@@ -132,7 +132,7 @@ test_that("generate_static_site verteilt league_data je Liga", {
   env <- make_data_env()
 
   gen$generate_static_site(
-    env$Ergebnis, env$Ergebnis2, env$Ergebnis3, env$Ergebnis3_Aufstieg,
+    ergebnisse = ergebnisse_aus_env(env),
     league_data = list(bundesliga = league_entry()),
     output_dir = out,
     now = as.POSIXct("2026-08-28 19:00:00", tz = "Europe/Berlin")
@@ -151,7 +151,7 @@ test_that("ein NULL-Eintrag in league_data ist gleichbedeutend mit fehlend", {
 
   expect_no_error(
     gen$generate_static_site(
-      env$Ergebnis, env$Ergebnis2, env$Ergebnis3, env$Ergebnis3_Aufstieg,
+      ergebnisse = ergebnisse_aus_env(env),
       league_data = list(bundesliga = NULL, zweite_bundesliga = NULL,
                          dritte_liga = NULL),
       output_dir = out,
