@@ -221,6 +221,9 @@ test_that("rl_aufstiegs_slots 2026 folgt dem Modus", {
 })
 
 # --- Registry: der korrekte Sollzustand 2026/27 --------------------------------
+# Die Aufstiegs-Slots der Registry pruefen die Tests "Nord und Bayern haben 2026/27 exakt null Direktaufstiegsplaetze",
+# "Registry und AUFSTIEGSROTATION sagen dasselbe ueber 2026/27" und "nur Bayern traegt Relegationsplaetze nach unten"
+# in test-league_registry.R.
 
 test_that("Registry: alle fuenf Regionalligen tragen relegation_slots (die Basis vor Kopplung)", {
   # Basis je Staffel (Doku 3.2): Nord 3, Nordost 1, West 4, SuedWest 3,

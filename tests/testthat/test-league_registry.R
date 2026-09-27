@@ -15,9 +15,10 @@ library(mockery)
 # echten Anforderungen erprobt ist (Staffeln, Wechselgemeinschaften,
 # schwankende Teamzahlen).
 #
-# Diese Phase ist ausdruecklich VERHALTENSNEUTRAL fuer die drei Altligen:
-# test-league_views.R muss unveraendert gruen bleiben, ausser der einen
-# Zeile, die "alle zehn Ligen (fünf Regionalligen seit Phase 5)" pinnt.
+# Diese Phase war ausdruecklich VERHALTENSNEUTRAL fuer die drei Altligen:
+# test-league_views.R musste unveraendert gruen bleiben, ausser der einen
+# Zeile, die damals "exakt drei Ligen" pinnte. Die Ligazahl pinnt heute
+# der Test "league_registry kennt alle zehn Ligen" in dieser Datei.
 
 # --- Struktur ---------------------------------------------------------------
 

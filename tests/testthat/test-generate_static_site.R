@@ -1184,6 +1184,8 @@ test_that("die berechnete Abstiegsspalte landet unveraendert in der Tabelle", {
 })
 
 # --- Die Seite existiert und haengt unter "Regionalliga" --------------------
+# Dass sie unter "Regionalliga" haengt, prueft "jede Liga steht in genau der
+# Gruppe ihrer Registry" (Abschnitt 3).
 
 test_that("die Aufstiegsseite wird mitgerendert und traegt ihren Titel", {
   gen <- source_module("generate_static_site")
