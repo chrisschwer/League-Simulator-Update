@@ -221,10 +221,11 @@ The Monte Carlo loop is a pure Rust function (`run_monte_carlo_simulation` in [`
 
 The Rust server returns one team-by-position probability matrix per league
 call. [`RCode/update_all_leagues_loop.R`](../../RCode/update_all_leagues_loop.R)
-collects the three (Bundesliga, 2. Bundesliga, 3. Liga) plus the separate
-3. Liga promotion-view matrix into the four bindings `Ergebnis`, `Ergebnis2`,
-`Ergebnis3`, `Ergebnis3_Aufstieg` and passes them **in memory, directly**,
-to `generate_static_site()` (`RCode/update_all_leagues_loop.R:162`) — there
+collects them into a named list `ergebnisse`, one entry per registry key,
+plus `dritte_liga_aufstieg` for the separate 3. Liga promotion-view matrix
+and the Regionalliga promotion/relegation extra columns, and passes it **in
+memory, directly**, to `generate_static_site()`
+(`RCode/update_all_leagues_loop.R:859`) — there
 is no persistence step in the production path. `ShinyApp/data/Ergebnis.Rds`
 is not written by this loop; see
 [Simulation Results (RDS)](#3-output-data) above for what that file

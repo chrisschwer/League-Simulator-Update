@@ -956,9 +956,9 @@ generate_static_site <- function(ergebnisse = NULL,
 
   views <- league_views()
 
-  # Nur Ligen rendern, fuer die Ergebnisse vorliegen. Der Kompatibilitaetspfad
-  # (scripts/preview_site.R, aeltere Fixtures) kennt nur die drei Altligen --
-  # er soll die Vorschau weiterhin erzeugen, nicht abbrechen.
+  # Nur Ligen rendern, fuer die Ergebnisse vorliegen. Alte Fixtures ueber
+  # scripts/preview_site.R kennen nur die drei Altligen -- die Vorschau soll
+  # trotzdem entstehen, nicht abbrechen.
   #
   # Ein Abbruch bliebe falsch: Faellt im Betrieb die Simulation einer Liga
   # aus, ist eine Seite ohne sie besser als gar keine Seite.
@@ -1012,8 +1012,9 @@ generate_static_site <- function(ergebnisse = NULL,
 
   # Die Aufstiegsseite entsteht nur, wenn wenigstens eine Regionalliga
   # gerendert wurde. Ohne Staffeln waere sie eine leere Seite in der
-  # Navigation -- schlechter als keine Seite (der Kompatibilitaetspfad
-  # rendert weiterhin genau vier Seiten).
+  # Navigation -- schlechter als keine Seite (alte Fixtures ueber
+  # scripts/preview_site.R rendern weiterhin genau vier Seiten, ohne
+  # Regionalliga).
   aufstiegsdaten <- .aufstiegsdaten(names(views), data_env, league_data)
   aufstiegs_path <- character(0)
   if (length(aufstiegsdaten) > 0) {
