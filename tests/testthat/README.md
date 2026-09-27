@@ -20,13 +20,13 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 
 | Datei | Inhalt |
 |---|---|
-| `helper-test-setup.R` | globales Sourcing (`source_rcode_modules`); wird in Stufe 4 auf „Fehler statt `message()`" umgestellt |
+| `helper-test-setup.R` | globales Sourcing (`source_rcode_modules`); seit Stufe 4.1 bricht ein Sourcing-Fehler die Suite mit R-Fehler ab statt als `message()` zu verschwinden |
 | `helper-fixtures.R` | Test-Saisons und API-Attrappen (`create_test_season`, ..., `mk_ergebnis`, `ewr_spiel`/`ewr_fixtures`/`ewr_teams`, `RL_IDS`/`RL_SLUGS`/`AUFSTIEGSSEITE_SLUG`/`RL_DIREKTAUFSTIEG`/`RL_AUFSTIEGSSPIELE`); seit Stufe 3.6 auch `RL_SCHLUESSEL`, Regionalliga-Aufstieg-Attrappen (`prognose_aus_meister`, `meister_nord`/`meister_bayern`, `sieg_nord_gegen_bayern`, `prognosen_2026`), Abstiegskopplung-Attrappen (`STAFFELN_ERWARTET`, `N_ITER`, `K_DRITTE_LIGA`, `zaehlung`, `zaehlung_nordost89`, `prognose_zeile`) und Loop-Attrappen (`n_ligen`, `n_sims_pro_runde`, `fake_fixtures`, `fake_transformed`) |
 | `helper-league-details.R` | `fd_row`, `make_details`, `make_test_teams` |
 | `helper-uhr.R` | `runden_uhr` (steuerbare Uhr für Loop-Tests) |
 | `helper-source.R` | seit Stufe 2: `source_module(...)`, lädt RCode-Einheiten in eine Umgebung; seit Stufe 3.6 `fn(env, name)` (holt eine Funktion daraus, klare Meldung, wenn sie fehlt) |
 | `helper-html.R` | seit Stufe 2: `read_html`, `make_data_env`; seit Stufe 3.6 `html_lesen` (wie `read_html`, aber mit `encoding = "UTF-8"`) |
-| `helper-rust.R` | seit Stufe 3.6: `skip_if_no_rust(env)` (skippt ohne erreichbaren Rust-Server), `rust_binary`, `start_rust_server`/`stop_rust_server` (eigenes Binary auf eigenem Port) |
+| `helper-rust.R` | seit Stufe 3.6: `skip_if_no_rust(env)` (skippt ohne erreichbaren Rust-Server), `rust_binary`, `start_rust_server`/`stop_rust_server` (eigenes Binary auf eigenem Port). Seit Stufe 4.1 gilt in der CI: `scripts/ci/testthat_ci.R` listet jeden Skip-Grund und bricht mit `RUST_SKIPS_VERBOTEN=1` ab, sobald ein Test trotz laufendem Rust-Server wegen Rust skippt — ein solcher Skip ist dort ein Fehler, kein grünes Ergebnis. |
 | `helper-repo.R` | seit Stufe 2: `with_repo_root` |
 | `helpers/season-transition-snapshot-runner.R` | explizit gesourcter Runner, kein Test |
 | `fixtures/` | Testdaten, u. a. `fixtures/fixture_cache/` (eingefrorene RL-Spielpläne, siehe README dort) |
@@ -70,6 +70,7 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 | `test-rust_integration.R` | 4 | home-advantage-single-source, league-registry (1 Bl.), tormodell-rust-durchreichung |
 | `test-scripts-preview_site.R` | 6 | frauen-ligen-live (1 Bl.), preview-site |
 | `test-scripts-season_transition.R` | 5 | season-transition-cleanup-wrapper, season-transition-csv-snapshot |
+| `test-scripts-testthat_ci.R` | 5 | — (neu in Stufe 4.1: `scripts/ci/testthat_ci.R`) |
 | `test-scripts-zuordnung_tests.R` | 8 | scripts-zuordnung_tests |
 | `test-season_processor.R` | 21 | saisonwechsel-schutzgrenzen, season-processor, season-transition-validators, team-count-validation |
 | `test-season_processor-regression.R` | 10 | season-transition-regression |

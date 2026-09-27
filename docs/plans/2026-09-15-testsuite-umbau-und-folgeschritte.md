@@ -642,6 +642,10 @@ ohne Tests = Punkt 6; Befund 27.09.: `Tabelle`, `input_handler`, `team_data_carr
 testen, nicht zu löschen · 4.6 Client-JS = Punkt 3 · 4.7 Wächter-Erweiterung „kein Top-Level-Name in zwei Testdateien" (aufgeschoben
 aus 3.6).
 
+**4.1 erledigt 27.09.2026, PR #254:** `scripts/ci/testthat_ci.R` (TDD) ersetzt den Inline-`Rscript -e`-Block in `ci.yml`; listet
+alle Skip-Gründe, bricht mit `RUST_SKIPS_VERBOTEN=1` ab, sobald einer auf Rust verweist. `helper-test-setup.R` bricht bei
+Sourcing-Fehlern jetzt mit R-Fehler ab statt sie als `message()` zu verschlucken.
+
 1. `test-updateScheduler.R`: die drei Zweige von `calculate_loops()` mit gestubbtem `Sys.time`/`Sys.sleep` (reine Rechenfunktion herauslösen: Jetzt-Zeit → Loops, Startwartezeit, Dauer) — die Berlin-Zeit-Frage gleich mit.
 2. `.record_rate_limit_headers()`: prüfen, ob `test-retrieveResults-rate-limit-header.R` (aus #222) das schon abdeckt; nur Lücken schließen.
 3. Client-JS — **entschieden 25.09.: Node + jsdom mit Syntaxprüfung, Skripte bleiben inline.**
