@@ -232,7 +232,7 @@ test_that("generate_static_site ships stylesheet, self-hosted fonts and favicon"
   env <- make_data_env()
 
   gen$generate_static_site(
-    env$Ergebnis, env$Ergebnis2, env$Ergebnis3, env$Ergebnis3_Aufstieg,
+    ergebnisse = ergebnisse_aus_env(env),
     output_dir = out,
     now = as.POSIXct("2026-07-26 14:30:00", tz = "Europe/Berlin")
   )
@@ -261,7 +261,7 @@ test_that("generate_static_site renders the Methodik page from the content file"
   env <- make_data_env()
 
   paths <- gen$generate_static_site(
-    env$Ergebnis, env$Ergebnis2, env$Ergebnis3, env$Ergebnis3_Aufstieg,
+    ergebnisse = ergebnisse_aus_env(env),
     output_dir = out,
     now = as.POSIXct("2026-07-26 14:30:00", tz = "Europe/Berlin")
   )
@@ -327,7 +327,7 @@ test_that("generate_static_site rendert nur die Ligen, fuer die Daten vorliegen"
   env <- make_data_env()
 
   paths <- gen$generate_static_site(
-    env$Ergebnis, env$Ergebnis2, env$Ergebnis3, env$Ergebnis3_Aufstieg,
+    ergebnisse = ergebnisse_aus_env(env),
     output_dir = out,
     now = as.POSIXct("2026-07-26 14:30:00", tz = "Europe/Berlin")
   )
@@ -349,7 +349,7 @@ test_that("generate_static_site writes the fallback page when data is missing", 
   out <- withr::local_tempdir()
 
   paths <- gen$generate_static_site(
-    NULL, NULL, NULL, NULL, output_dir = out,
+    output_dir = out,
     now = as.POSIXct("2026-07-26 14:30:00", tz = "Europe/Berlin")
   )
 
@@ -366,10 +366,8 @@ test_that("generate_static_site output is deterministic for fixed inputs", {
 
   out1 <- withr::local_tempdir()
   out2 <- withr::local_tempdir()
-  gen$generate_static_site(env$Ergebnis, env$Ergebnis2, env$Ergebnis3,
-                           env$Ergebnis3_Aufstieg, output_dir = out1, now = now)
-  gen$generate_static_site(env$Ergebnis, env$Ergebnis2, env$Ergebnis3,
-                           env$Ergebnis3_Aufstieg, output_dir = out2, now = now)
+  gen$generate_static_site(ergebnisse = ergebnisse_aus_env(env), output_dir = out1, now = now)
+  gen$generate_static_site(ergebnisse = ergebnisse_aus_env(env), output_dir = out2, now = now)
 
   for (f in c("index.html", "2-bundesliga.html", "3-liga.html", "methodik.html",
               file.path("assets", "site.css"))) {
@@ -409,7 +407,7 @@ test_that("generate_static_site hinterlaesst nach dem Rendern keine .tmp-Dateien
   env <- make_data_env()
 
   gen$generate_static_site(
-    env$Ergebnis, env$Ergebnis2, env$Ergebnis3, env$Ergebnis3_Aufstieg,
+    ergebnisse = ergebnisse_aus_env(env),
     output_dir = out,
     now = as.POSIXct("2026-07-26 14:30:00", tz = "Europe/Berlin")
   )
@@ -757,7 +755,7 @@ test_that("das Navigations-HTML traegt Gruppenlabels und alle Ligen", {
 })
 
 # --- aus test-n-ligen-entflechtung.R ---
-# --- generate_static_site: Liste statt vier Argumente -----------------------
+# --- generate_static_site: benannte Ergebnisliste ---------------------------
 
 make_ergebnis <- function(teams, n = teams) {
   m <- matrix(1 / n, nrow = teams, ncol = n,
@@ -789,60 +787,11 @@ test_that("generate_static_site nimmt eine benannte Ergebnisliste", {
   expect_true(file.exists(file.path(out, "3-liga.html")))
 })
 
-test_that("die alte Aufrufform funktioniert unveraendert weiter", {
-  # Kompatibilitätspfad: scripts/preview_site.R und sieben Testaufrufe rufen
-  # mit den vier Einzelargumenten auf -- teils positional. Sie müssen ohne
-  # Änderung weiterlaufen, sonst ist der Umbau nicht verhaltensneutral.
-  gen <- source_module("generate_static_site")
-  out <- withr::local_tempdir()
-
-  paths <- gen$generate_static_site(
-    make_ergebnis(18), make_ergebnis(18), make_ergebnis(20), make_ergebnis(20),
-    output_dir = out,
-    now = as.POSIXct("2026-08-01 12:00", tz = "Europe/Berlin")
-  )
-
-  expect_length(paths, 4)
-  expect_true(file.exists(file.path(out, "index.html")))
-})
-
-test_that("beide Aufrufformen erzeugen dieselben Seiten", {
-  # Der schärfste Nachweis der Verhaltensneutralität: byteweise identisch.
-  gen <- source_module("generate_static_site")
-  now <- as.POSIXct("2026-08-01 12:00", tz = "Europe/Berlin")
-  e <- list(bl = make_ergebnis(18), bl2 = make_ergebnis(18),
-            l3 = make_ergebnis(20), l3a = make_ergebnis(20))
-
-  alt_dir <- withr::local_tempdir()
-  gen$generate_static_site(e$bl, e$bl2, e$l3, e$l3a,
-                           output_dir = alt_dir, now = now)
-
-  neu_dir <- withr::local_tempdir()
-  gen$generate_static_site(
-    output_dir = neu_dir, now = now,
-    ergebnisse = list(bundesliga = e$bl, zweite_bundesliga = e$bl2,
-                      dritte_liga = e$l3, dritte_liga_aufstieg = e$l3a)
-  )
-
-  for (f in c("index.html", "2-bundesliga.html", "3-liga.html", "methodik.html")) {
-    expect_identical(
-      readLines(file.path(alt_dir, f), warn = FALSE),
-      readLines(file.path(neu_dir, f), warn = FALSE),
-      info = f
-    )
-  }
-})
-
 test_that("die Fallback-Seite greift bei leerer Ergebnisliste", {
   # Bisher prüfte der Guard drei hartkodierte Objekte auf NULL. Generisch
-  # muss er erkennen, dass keine Prognose vorliegt -- in beiden Aufrufformen.
+  # muss er erkennen, dass keine Prognose vorliegt -- auch wenn `ergebnisse`
+  # eine leere Liste ist, nicht NULL.
   gen <- source_module("generate_static_site")
-
-  out_alt <- withr::local_tempdir()
-  p_alt <- gen$generate_static_site(NULL, NULL, NULL, NULL, output_dir = out_alt)
-  expect_length(p_alt, 1)
-  expect_match(paste(readLines(p_alt, warn = FALSE), collapse = " "),
-               "Noch keine Prognosedaten")
 
   out_neu <- withr::local_tempdir()
   p_neu <- gen$generate_static_site(output_dir = out_neu, ergebnisse = list())

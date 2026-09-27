@@ -847,17 +847,11 @@ render_league_page <- function(view, data_env, output_dir,
 
 #' Rendert die statische Seite.
 #'
-#' Zwei Aufrufformen, absichtlich in dieser Reihenfolge:
-#'
-#'  - NEU: `ergebnisse` als benannte Liste, Schluessel = Registry-/
-#'    league_views()-Schluessel plus `dritte_liga_aufstieg` fuer den zweiten
-#'    Lauf der 3. Liga. Traegt beliebig viele Ligen.
-#'  - ALT: die vier Einzelargumente auf Position 1-4.
-#'
-#' `ergebnisse` steht ans ENDE der Signatur, nicht an den Anfang: Sieben
-#' bestehende Aufrufe uebergeben die vier Ergebnisse POSITIONAL. Stuende
-#' `ergebnisse` vorn, schluckte es das erste davon -- lautlos, weil beides
-#' `table`-Objekte sind.
+#' `ergebnisse`: benannte Liste, Schluessel = Registry-/league_views()-Schluessel
+#' plus `dritte_liga_aufstieg` fuer den zweiten Lauf der 3. Liga. Traegt
+#' beliebig viele Ligen. Die fruehere Vier-Argument-Form (Ergebnis, Ergebnis2,
+#' Ergebnis3, Ergebnis3_Aufstieg) fiel im September 2026 (#211, Stufe 3.7);
+#' ihr letzter Produktivaufrufer war seit der n-Ligen-Entflechtung verschwunden.
 #' Die Zahlen der Aufstiegsseite, je Staffel.
 #'
 #' Sammelt aus den gerenderten Ligen alles ein, was die Seite braucht: die
@@ -933,20 +927,16 @@ render_league_page <- function(view, data_env, output_dir,
   daten
 }
 
-generate_static_site <- function(Ergebnis = NULL, Ergebnis2 = NULL,
-                                 Ergebnis3 = NULL,
-                                 Ergebnis3_Aufstieg = Ergebnis3,
+generate_static_site <- function(ergebnisse = NULL,
                                  output_dir = Sys.getenv("STATIC_SITE_DIR",
                                                          "ShinyApp/public"),
                                  now = Sys.time(),
                                  league_data = NULL,
-                                 ergebnisse = NULL,
                                  waittime = NULL) {
   # Der aktuelle Update-Takt fuer den Seitenfuss (Issue #224). NULL = keine
-  # Angabe = Fuss unveraendert, damit scripts/preview_site.R und alle
-  # Bestandsaufrufe nichts davon merken. Gesetzt wird eine modulweite
-  # Variable, weil der Fussbauer tief in den Render-Funktionen sitzt --
-  # siehe Kommentar bei `.aktueller_takt`.
+  # Angabe = Fuss unveraendert, damit scripts/preview_site.R nichts davon
+  # merkt. Gesetzt wird eine modulweite Variable, weil der Fussbauer tief in
+  # den Render-Funktionen sitzt -- siehe Kommentar bei `.aktueller_takt`.
   #
   # on.exit: Der Wert gehoert zu DIESEM Aufruf. Bliebe er stehen, truege
   # ein spaeterer Aufruf ohne Taktangabe den Hinweis des vorigen weiter --
@@ -955,17 +945,6 @@ generate_static_site <- function(Ergebnis = NULL, Ergebnis2 = NULL,
   alter_takt <- .aktueller_takt
   .aktueller_takt <<- waittime
   on.exit(.aktueller_takt <<- alter_takt, add = TRUE)
-
-  # Alte Form in die neue uebersetzen, damit es intern nur einen Pfad gibt.
-  if (is.null(ergebnisse)) {
-    ergebnisse <- list(
-      bundesliga = Ergebnis,
-      zweite_bundesliga = Ergebnis2,
-      dritte_liga = Ergebnis3,
-      dritte_liga_aufstieg =
-        if (is.null(Ergebnis3_Aufstieg)) Ergebnis3 else Ergebnis3_Aufstieg
-    )
-  }
 
   # Keine Prognose vorhanden -> Fallback-Seite. Frueher pruefte der Guard drei
   # feste Objekte; jetzt zaehlt, ob ueberhaupt Ergebnisse vorliegen.
@@ -977,9 +956,9 @@ generate_static_site <- function(Ergebnis = NULL, Ergebnis2 = NULL,
 
   views <- league_views()
 
-  # Nur Ligen rendern, fuer die Ergebnisse vorliegen. Der Kompatibilitaetspfad
-  # (scripts/preview_site.R, aeltere Fixtures) kennt nur die drei Altligen --
-  # er soll die Vorschau weiterhin erzeugen, nicht abbrechen.
+  # Nur Ligen rendern, fuer die Ergebnisse vorliegen. Alte Fixtures ueber
+  # scripts/preview_site.R kennen nur die drei Altligen -- die Vorschau soll
+  # trotzdem entstehen, nicht abbrechen.
   #
   # Ein Abbruch bliebe falsch: Faellt im Betrieb die Simulation einer Liga
   # aus, ist eine Seite ohne sie besser als gar keine Seite.
@@ -1033,8 +1012,9 @@ generate_static_site <- function(Ergebnis = NULL, Ergebnis2 = NULL,
 
   # Die Aufstiegsseite entsteht nur, wenn wenigstens eine Regionalliga
   # gerendert wurde. Ohne Staffeln waere sie eine leere Seite in der
-  # Navigation -- schlechter als keine Seite (der Kompatibilitaetspfad
-  # rendert weiterhin genau vier Seiten).
+  # Navigation -- schlechter als keine Seite (alte Fixtures ueber
+  # scripts/preview_site.R rendern weiterhin genau vier Seiten, ohne
+  # Regionalliga).
   aufstiegsdaten <- .aufstiegsdaten(names(views), data_env, league_data)
   aufstiegs_path <- character(0)
   if (length(aufstiegsdaten) > 0) {

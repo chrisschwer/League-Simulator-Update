@@ -29,3 +29,10 @@ make_data_env <- function() {
   env$Ergebnis3_Aufstieg <- mk(20, 20)
   env
 }
+
+# Die vier Fixture-Objekte als benannte Ergebnisliste, wie generate_static_site()
+# sie seit der n-Ligen-Entflechtung erwartet.
+ergebnisse_aus_env <- function(env) {
+  list(bundesliga = env$Ergebnis, zweite_bundesliga = env$Ergebnis2,
+       dritte_liga = env$Ergebnis3, dritte_liga_aufstieg = env$Ergebnis3_Aufstieg)
+}

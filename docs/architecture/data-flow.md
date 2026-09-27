@@ -165,9 +165,11 @@ Ergebnis[1:3, 1:3]
 
 Row and column names carry the team names and position numbers; there is no
 separate metadata or current-standings structure alongside the matrices.
-`RCode/generate_static_site.R::generate_static_site()` takes these four
-objects directly and renders the four-page static site (see
-[Static Site](../deployment/static-site.md)); it does not go through Shiny.
+`RCode/generate_static_site.R::generate_static_site()` takes a named list
+`ergebnisse` (one probability matrix per league key, plus
+`dritte_liga_aufstieg`) and renders the static site (twelve pages since
+September 2026; see [Static Site](../deployment/static-site.md)); it does
+not go through Shiny.
 
 ## Data Processing Pipeline
 
@@ -219,10 +221,11 @@ The Monte Carlo loop is a pure Rust function (`run_monte_carlo_simulation` in [`
 
 The Rust server returns one team-by-position probability matrix per league
 call. [`RCode/update_all_leagues_loop.R`](../../RCode/update_all_leagues_loop.R)
-collects the three (Bundesliga, 2. Bundesliga, 3. Liga) plus the separate
-3. Liga promotion-view matrix into the four bindings `Ergebnis`, `Ergebnis2`,
-`Ergebnis3`, `Ergebnis3_Aufstieg` and passes them **in memory, directly**,
-to `generate_static_site()` (`RCode/update_all_leagues_loop.R:162`) — there
+collects them into a named list `ergebnisse`, one entry per registry key,
+plus `dritte_liga_aufstieg` for the separate 3. Liga promotion-view matrix
+and the Regionalliga promotion/relegation extra columns, and passes it **in
+memory, directly**, to `generate_static_site()`
+(`RCode/update_all_leagues_loop.R:859`) — there
 is no persistence step in the production path. `ShinyApp/data/Ergebnis.Rds`
 is not written by this loop; see
 [Simulation Results (RDS)](#3-output-data) above for what that file
