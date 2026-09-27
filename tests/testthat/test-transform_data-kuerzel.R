@@ -14,15 +14,15 @@ source("../../RCode/transform_data.R")
 # 237 Teams in zehn Ligen -- darunter rund 30 Zweitvertretungen -- sind
 # Kollisionen über Ligagrenzen hinweg der Normalfall.
 #
-# Maßgeblich ist dabei die WECHSELGEMEINSCHAFT (ADR 0004), nicht die gesamte
-# Liste: transform_data() wird je Liga aufgerufen, und Herren (78, 79, 80,
-# 83-87) und Frauen (82, 1034) tauschen nie Teams. Ein Kurzname, den beide
-# benutzen, kann nie in denselben Data-Frame geraten -- er ist sogar
-# erwünscht, damit die Frauenmannschaft eines Vereins dasselbe Kürzel trägt
-# wie die Herrenmannschaft.
+# Massgeblich ist dabei die LIGA (Regel 3, Issue #197), weder die ganze Liste
+# noch die Wechselgemeinschaft: transform_data() wird je Liga aufgerufen, nur
+# Teams derselben Liga werden Spalten desselben Data-Frames. Ueber Ligagrenzen
+# darf ein Kuerzel gleich sein (Frauen- wie Herrenteam; VFB = Stuttgart 78 und
+# Luebeck 84). Einzige Ausnahme: Nord, Nordost und Bayern (84, 85, 83) bleiben
+# untereinander eindeutig -- zwei von ihnen stehen gemeinsam auf der Aufstiegsseite.
 #
 # Geprüft wird load_team_list() -- die Ladefunktion, die read.csv() in
-# update_all_leagues_loop.R:87 ersetzt.
+# update_all_leagues_loop.R ersetzt.
 
 schreibe_teamlist <- function(zeilen) {
   pfad <- withr::local_tempfile(fileext = ".csv", .local_envir = parent.frame())
@@ -129,8 +129,10 @@ test_that("load_team_list akzeptiert die echte TeamList_2026", {
   }
 
   # Die harte Ausnahme gilt weiter: Nord, Nordost und Bayern bleiben
-  # untereinander frei, weil zwei von ihnen jaehrlich die Aufstiegsspiele
-  # bestreiten und die Doppelsumme ueber Namen zuordnet.
+  # untereinander frei -- der Grund ist Lesbarkeit auf der gemeinsamen
+  # Aufstiegsseite, nicht eine Verwechslungsgefahr in der Doppelsumme
+  # (KORRIGIERT, Issue #197: die beiden Staffeln liegen auf getrennten
+  # Achsen der p_sieg-Matrix).
   playoff <- teams$ShortText[teams$League %in% c(83, 84, 85)]
   expect_false(any(duplicated(playoff)))
 

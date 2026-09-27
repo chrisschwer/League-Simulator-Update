@@ -112,20 +112,6 @@ test_that("die 2. Frauen-Bundesliga zieht ihre Aufstiegstabelle aus dem Sonderla
   expect_equal(v$bottom$source, "Ergebnis_zweite_frauen_bundesliga")
 })
 
-test_that("die drei Altligen bleiben unveraendert", {
-  # Der Kern der Verhaltensneutralitaet: diese Datei pinnt diese
-  # Werte weiterhin, hier noch einmal als Regression gegen den Umbau.
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "league_views.R"), local = env)
-  views <- env$league_views()
-
-  expect_equal(views$bundesliga$slug, "index")
-  expect_equal(views$bundesliga$plot_source, "Ergebnis")
-  expect_equal(views$bundesliga$top$filter_cols, 1:6)
-  expect_equal(views$dritte_liga$top$source, "Ergebnis3_Aufstieg")
-  expect_equal(views$dritte_liga$bottom$filter_cols, 17:20)
-})
-
 # --- aus test-phase5-regionalligen.R ---
 
 # RL_SCHLUESSEL (die fuenf RL in Registry-Reihenfolge) steht in helper-fixtures.R.

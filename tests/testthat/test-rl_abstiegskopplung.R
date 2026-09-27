@@ -456,18 +456,6 @@ test_that("West: die Zaehlung der 3. Liga aendert die Abstiegsplaetze nicht", {
   expect_equal(sum(w2), 4)
 })
 
-test_that("Nord: 3 + k ohne Deckel -- zwei Drittliga-Absteiger machen fuenf Plaetze", {
-  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
-  v <- fn(env, "absteiger_verteilung")(zaehlung(
-    Nord = c(0, 0, N_ITER, 0, 0),
-    West = c(0, 0, N_ITER, 0, 0)
-  ))
-  w <- fn(env, "platz_gewichte")("Nord", v, teams = 18L)
-
-  expect_equal(unname(w[14:18]), rep(1, 5))
-  expect_identical(unname(w[13]), 0)
-})
-
 test_that("Bayern: genau die zwei Letzten, egal was die 3. Liga tut", {
   # Zwei voellig verschiedene Zaehlungen -- dieselben Gewichte.
   env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
@@ -878,12 +866,12 @@ test_that("die Abstiegsgrenze von Nord verschiebt sich mit der 3. Liga", {
 })
 
 test_that("West bleibt bei jeder Auszaehlung der 3. Liga bei vier Absteigern", {
-  # ACHTUNG, die haeufigste Fehlannahme in diesem Modell: Der
-  # Registry-Kommentar bei rl_west spricht von "gegenlaeufig", die
-  # Implementierung (abstiegsplaetze) und test-rl_abstiegskopplung.R:389
-  # setzen dagegen FESTE 4. Massgeblich ist die Implementierung -- die
-  # Verminderungsgruende des WDFV haengen an den Oberligen und an der
-  # Lizenzierung, nicht an der 3. Liga (Modellannahmen 2 und 5.3).
+  # ACHTUNG, die haeufigste Fehlannahme in diesem Modell: Die
+  # Implementierung (abstiegsplaetze) und der Test "West: feste 4,
+  # unabhaengig von der 3. Liga" setzen FESTE 4. Massgeblich ist die
+  # Implementierung -- die Verminderungsgruende des WDFV haengen an den
+  # Oberligen und an der Lizenzierung, nicht an der 3. Liga
+  # (Modellannahmen 2 und 5.3).
   #
   # Der Test haelt genau das fest, damit die Seite nicht eines Tages einen
   # Abstieg zeigt, der mit k schrumpft.

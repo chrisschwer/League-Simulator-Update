@@ -376,23 +376,6 @@ test_that("final TeamList_YYYY.csv files are created, not just temp files", {
   unlink(c(temp_file1, temp_file2))
 })
 
-test_that("file overwrite works in non-interactive mode", {
-  # Test Issue: confirm_overwrite returned FALSE in non-interactive mode
-  # Fix: Allow overwrite in non-interactive mode for season transition
-  
-  # Mock non-interactive mode
-  stub(confirm_overwrite, "check_interactive_mode", function() FALSE)
-  
-  # Test
-  result <- confirm_overwrite("existing_file.csv")
-  
-  # REGRESSION: Should allow overwrite in non-interactive mode
-  expect_true(result)
-  
-  # Should NOT block file creation
-  expect_false(result == FALSE)
-})
-
 context("Regression Tests - Duplicate Prompts Issue")
 
 test_that("teams are NOT prompted twice in multi-season processing", {

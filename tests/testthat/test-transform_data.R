@@ -321,20 +321,6 @@ test_that("transform_data drops non-regular-season rounds (relegation playoff)",
   expect_false("PLT" %in% colnames(result))
 })
 
-test_that("transform_data creates proper data structure", {
-  fixtures <- create_test_fixtures_api()
-  teams <- create_test_teams_api()
-  
-  result <- transform_data(fixtures, teams)
-  
-  # Should be a data frame or tibble
-  expect_true(is.data.frame(result) || tibble::is_tibble(result))
-  
-  # Check goal columns are numeric
-  expect_true(is.numeric(result$ToreHeim))
-  expect_true(is.numeric(result$ToreGast))
-})
-
 # --- aus test-gewertete-spiele.R ---
 # --- Simulationspfad: transform_data ----------------------------------------
 # (eigene Datei-Sektion, weil transform_data.R separat gesourct wird)

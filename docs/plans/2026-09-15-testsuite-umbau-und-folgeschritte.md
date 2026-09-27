@@ -618,12 +618,12 @@ Erst jetzt werden Erwartungen angefasst — und nur mit Christophs Wort je PR. R
 |---|---|---|---|
 | 3.1 | Kürzel-Vertrag (Cluster 1) — beide Quellen liegen in `test-transform_data-kuerzel.R` | die Fassung aus kuerzel-vertrag (vollständiger) | die Doppelungen aus teamlist-eindeutigkeit für „gleiche Liga bricht ab", „Nord/Nordost/Bayern", „TeamID doppelt", „VFB/FCH/RWE" — **Erledigt 26.09., PR #247: 7 Blöcke/18 Erwartungen (A:90, 161, 225, 245, 257, 272; B:448).** |
 | 3.2 | home_advantage/Tormodell nicht gesendet (Cluster 2) | je ein Test für `/simulate` und `/league-details` in test-rust_integration | Wiederholungen in league_registry und league_details — **Erledigt 26.09., PR #249: 2 Blöcke/8 Erwartungen (LR:171, 925); LR:284 → test-league_details-client.R. Die Endpunkt-Tests sind keine Doppel (je Zelle ein Block).** |
-| 3.3 | `validate_team_count`-Grenze (Cluster 3) | ein Test mit der aktuellen Grenze (Christoph nennt sie) | die zwei anderen Werte |
+| 3.3 | `validate_team_count`-Grenze (Cluster 3) | — | — **Nicht gestrichen. Christoph hat am 27.09. entschieden, den Check durch eine Prüfung „alle Ligen da" zu ersetzen — eigenes Vorhaben, Issue #251; die Tests bleiben bis dahin, wie sie sind.** |
 | 3.4 | `league_views()`-Form (Cluster 6) + Seitenzahl (Cluster 7) | ein Test gegen die Registry | vier Wiederholungen mit hart kodierten Listen — **Erledigt 26.09., PR #248: 6 Blöcke/16 Erwartungen (V:5, 121, 180; R:182, 870; G:784).** |
 | 3.5 | Spieltag-Fensterung (Cluster 12) + Reihenfolge (Cluster 5) | spieltag-logik-Fassung | Join-Level-Wiederholungen — **Erledigt 27.09., PR #250: 1 Block/6 Erwartungen (TD:239). Cluster 12 hat keine Doppel (Fensterfunktionen, Join und Render prüfen verschiedene Schichten); die Join-Tests bleiben.** |
 | 3.6 | Helfer vereinheitlichen: nicht-identische Varianten (`fake_fixtures` 4×, `with_repo_root` 3×, `read_html` 5×) zusammenführen, wo sie dasselbe tun; ein zentrales `skip_if_no_rust()` in `helper-rust.R` statt vier Skip-Varianten | — | — (keine Erwartung fällt; Skip-Bedingungen werden gleich, das wird per Multimenge belegt). **Erledigt 26.09., PR #246.** |
 | 3.7 | Vier-Argument-Pfad von `generate_static_site()` (`test-n-ligen-entflechtung.R:129,154`, `test-generate-static-site.R:392` — nach Stufe 2 in den neuen Dateien) | — | die drei Kompatibilitätstests samt Pfad, wenn Christoph zustimmt |
-| 3.8 | Rest (Cluster 4, 8–11, 13–15) | je Cluster die vollständigere Fassung | die andere |
+| 3.8 | Rest (Cluster 4, 8–11, 13–15) | je Cluster die vollständigere Fassung | die andere — **Erledigt 27.09., PR #252: 19 Blöcke/67 Erwartungen (A–K der Analyse); sechs Zweifelsfälle (L–Q) bleiben auf Christophs Entscheidung, 15 Teil-Doppel bleiben.** |
 
 Je PR: Tabelle „Test X fällt, weil Test Y dieselbe Erwartung hält (Datei:Zeile)". Vorher/Nachher-Multimenge wie in Task 7, diesmal mit **erwarteter** Abnahme, die im PR-Text steht.
 

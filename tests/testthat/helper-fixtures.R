@@ -173,7 +173,9 @@ RL_IDS <- c("84", "85", "87", "86", "83")
 RL_SLUGS <- c("rl-nord", "rl-nordost", "rl-west", "rl-suedwest", "rl-bayern")
 
 # Die fuenf RL in Registry-Reihenfolge. Sie ist Vertrag (Fetch-Reihenfolge
-# und Navigation), deshalb hier einmal ausgeschrieben. Bisher kopiert in
+# und Reihenfolge innerhalb der Navigationsgruppe; nur die Reihenfolge der
+# Gruppen steht seit #178 in NAV_GRUPPEN_REIHENFOLGE), deshalb hier einmal
+# ausgeschrieben. Bisher kopiert in
 # test-generate_static_site.R, test-league_registry.R, test-league_views.R
 # und test-rl_abstiegskopplung.R (#211, Stufe 3.6).
 RL_SCHLUESSEL <- c("rl_nord", "rl_nordost", "rl_west", "rl_suedwest",

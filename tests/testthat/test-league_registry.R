@@ -15,9 +15,10 @@ library(mockery)
 # echten Anforderungen erprobt ist (Staffeln, Wechselgemeinschaften,
 # schwankende Teamzahlen).
 #
-# Diese Phase ist ausdruecklich VERHALTENSNEUTRAL fuer die drei Altligen:
-# test-league_views.R muss unveraendert gruen bleiben, ausser der einen
-# Zeile, die "exakt drei Ligen" pinnt.
+# Diese Phase war ausdruecklich VERHALTENSNEUTRAL fuer die drei Altligen:
+# test-league_views.R musste unveraendert gruen bleiben, ausser der einen
+# Zeile, die damals "exakt drei Ligen" pinnte. Die Ligazahl pinnt heute
+# der Test "league_registry kennt alle zehn Ligen" in dieser Datei.
 
 # --- Struktur ---------------------------------------------------------------
 
@@ -135,19 +136,6 @@ test_that("die Regionalligen tragen ihre Staffel und kein eigenes Tormodell", {
 })
 
 # --- Zugriffshelfer ---------------------------------------------------------
-
-test_that("league_ids liefert standardmaessig nur die aktiven Ligen", {
-  # Der Produktivpfad fragt die Registry, nicht eine Literalliste. Die
-  # aktive Menge muss exakt herauskommen -- in der Registry-Reihenfolge,
-  # weil sie die Fetch-Reihenfolge im Update-Loop bestimmt. Seit Phase 5
-  # sind alle zehn Ligen aktiv; `active_only = FALSE` bleibt trotzdem
-  # gepinnt, damit ein spaeteres Deaktivieren hier auffaellt.
-  env <- source_module("league_registry")
-
-  expect_equal(env$league_ids(),
-               c("78", "79", "80", "82", "1034", "84", "85", "87", "86", "83"))
-  expect_length(env$league_ids(active_only = FALSE), 10)
-})
 
 test_that("league_by_id findet eine Liga und meldet Unbekanntes", {
   env <- source_module("league_registry")
@@ -363,30 +351,6 @@ test_that("die Nicht-RL-Ligen tragen keinen Regeltext", {
 # Schritt ist bewusst getrennt, weil er das Betriebsverhalten aendert: mehr
 # API-Requests, mehr Simulationen, ein laengerer Tag.
 
-# --- Registry: die Frauen-Ligen sind dabei ----------------------------------
-
-test_that("die Frauen-Ligen sind aktiv", {
-  # ANGEPASST in Phase 5: Die Aussage dieses Tests ist, dass die beiden
-  # Frauen-Bundesligen im Produktivpfad stehen -- nicht, wie viele Ligen es
-  # insgesamt sind. Die Gesamtliste stand hier als feste Aufzaehlung und
-  # wurde mit den Regionalligen falsch; sie ist ohnehin im Test
-  # "league_registry kennt alle zehn Ligen" oben gepinnt.
-  env <- new.env()
-  source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
-
-  for (id in c("82", "1034")) {
-    expect_true(id %in% env$league_ids(), info = id)
-  }
-  for (key in c("frauen_bundesliga", "zweite_frauen_bundesliga")) {
-    expect_true(key %in% env$active_league_keys(), info = key)
-  }
-  # Und sie stehen hinter den Altligen, vor den Regionalligen -- die
-  # Reihenfolge ist die Fetch-Reihenfolge.
-  expect_equal(head(env$active_league_keys(), 5),
-               c("bundesliga", "zweite_bundesliga", "dritte_liga",
-                 "frauen_bundesliga", "zweite_frauen_bundesliga"))
-})
-
 # Der Test "die Regionalligen bleiben inaktiv" stand hier bis Phase 5. Er
 # entfaellt ersatzlos: Seine Aussage ist genau das, was Phase 5 aufhebt --
 # die fuenf Staffeln sind jetzt aktiv (Abschnitt "1. Registry: alle fuenf
@@ -414,7 +378,7 @@ test_that("beide Frauen-Ligen tragen das Frauen-Tormodell", {
 #
 # Diese Phase ist VERHALTENSNEUTRAL. Solange league_ids() nur die drei
 # Altligen liefert, muss alles beim Alten bleiben -- insbesondere bleibt
-# test-update_all_leagues_loop-gating.R (526 Zeilen, 12 Tests) unverändert grün. Diese
+# test-update_all_leagues_loop-gating.R unverändert grün. Diese
 # Datei prüft, dass die Mechanik darüber hinaus n-fähig ist.
 #
 # Zwei Randbedingungen, an denen der Umbau scheitern würde:
@@ -663,13 +627,13 @@ test_that("die Registry weiss, welche Liga einen Aufstiegslauf braucht", {
 # absichtlich NICHT von hier aus mit erledigt, damit der Schritt sichtbar
 # blieb:
 #
-#   "die Regionalligen bleiben inaktiv" (Zeile 22)  -- entfaellt ersatzlos;
+#   "die Regionalligen bleiben inaktiv" -- entfaellt ersatzlos;
 #       ihre Aussage ist genau das, was Phase 5 aufhebt.
-#   "checkAPILimits skaliert mit fuenf Ligen" (Zeile 146) -- die Formel
+#   "checkAPILimits skaliert mit der Zahl der aktiven Ligen" -- die Formel
 #       1 + 5/2 wird zu 1 + 10/2. Der Default folgt der Ligazahl, also
 #       laesst sich das aus league_ids() ableiten, statt die Zahl zu
 #       wiederholen.
-#   "die Saisonvalidierung prueft nur die Altligen" (Zeile 131) -- bleibt
+#   "die Saisonvalidierung prueft nur die Altligen" -- bleibt
 #       gruen: SEASON_TRANSITION_LEAGUES ist bewusst bei 78/79/80, weil es
 #       fuer die neuen Ligen keine aufgezeichneten API-Antworten gibt. Das
 #       ist eine eigene Entscheidung, kein Versehen.
@@ -698,15 +662,6 @@ test_that("active_league_keys nennt die fuenf Regionalligen mit", {
       "frauen_bundesliga", "zweite_frauen_bundesliga", RL_SCHLUESSEL)
   )
   expect_identical(env$active_league_keys(), names(env$active_leagues()))
-})
-
-test_that("jede Regionalliga traegt active = TRUE", {
-  env <- source_module("league_registry")
-  reg <- env$league_registry()
-
-  for (key in RL_SCHLUESSEL) {
-    expect_true(isTRUE(reg[[key]]$active), info = key)
-  }
 })
 
 test_that("die nav_group ordnet die zehn Ligen drei Gruppen zu", {

@@ -181,16 +181,6 @@ test_that("aufstiegsmodus: West und SuedWest sind in jeder belegten Saison direk
   }
 })
 
-test_that("aufstiegsmodus: eine unbekannte Saison ist ein Fehler, kein Default", {
-  # Die Reihenfolge ueber 2026/27 hinaus ist nirgends niedergelegt
-  # (Doku 3.3). Wer 2027 fragt, muss recherchieren -- nicht die 2026er
-  # Zuordnung stillschweigend weiterbenutzen.
-  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
-  f <- fn(env, "aufstiegsmodus")
-  err <- expect_error(f(2027))
-  expect_match(conditionMessage(err), "2027")
-})
-
 test_that("aufstiegsmodus ist ueber die Rotationstabelle konfigurierbar", {
   # Der Nachweis, dass die Zuordnung Daten sind und keine Konstante: Eine
   # hypothetische Tabelle fuer eine andere Saison dreht das Ergebnis.
@@ -231,36 +221,9 @@ test_that("rl_aufstiegs_slots 2026 folgt dem Modus", {
 })
 
 # --- Registry: der korrekte Sollzustand 2026/27 --------------------------------
-
-test_that("Registry: Nord und Bayern haben keinen Direktplatz, sondern ein Aufstiegsspiel", {
-  # Heute steht dort promotion_slots = 1 -- das ist fuer 2026/27 falsch.
-  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
-  reg <- env$league_registry()
-
-  expect_equal(reg$rl_nord$promotion_slots, 0L)
-  expect_equal(reg$rl_nord$playoff_slots, 1L)
-  expect_equal(reg$rl_bayern$promotion_slots, 0L)
-  expect_equal(reg$rl_bayern$playoff_slots, 1L)
-})
-
-test_that("Registry: Nordost ist Direktaufsteiger ohne Playoff", {
-  # Heute steht dort playoff_slots = 1 -- fuer 2026/27 falsch.
-  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
-  reg <- env$league_registry()
-
-  expect_equal(reg$rl_nordost$promotion_slots, 1L)
-  expect_equal(reg$rl_nordost$playoff_slots, 0L)
-})
-
-test_that("Registry: West und SuedWest bleiben Direktaufsteiger", {
-  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
-  reg <- env$league_registry()
-
-  for (key in c("rl_west", "rl_suedwest")) {
-    expect_equal(reg[[key]]$promotion_slots, 1L, info = key)
-    expect_equal(reg[[key]]$playoff_slots, 0L, info = key)
-  }
-})
+# Die Aufstiegs-Slots der Registry pruefen die Tests "Nord und Bayern haben 2026/27 exakt null Direktaufstiegsplaetze",
+# "Registry und AUFSTIEGSROTATION sagen dasselbe ueber 2026/27" und "nur Bayern traegt Relegationsplaetze nach unten"
+# in test-league_registry.R.
 
 test_that("Registry: alle fuenf Regionalligen tragen relegation_slots (die Basis vor Kopplung)", {
   # Basis je Staffel (Doku 3.2): Nord 3, Nordost 1, West 4, SuedWest 3,
@@ -273,36 +236,6 @@ test_that("Registry: alle fuenf Regionalligen tragen relegation_slots (die Basis
   expect_equal(reg$rl_west$relegation_slots, 4L)
   expect_equal(reg$rl_suedwest$relegation_slots, 3L)
   expect_equal(reg$rl_bayern$relegation_slots, 2L)
-})
-
-test_that("Registry: Bayern fuehrt die Abstiegsrelegation getrennt vom Aufstiegsspiel", {
-  # playoff_slots = 1 ist das Aufstiegsspiel gegen Nord. Die zwei
-  # Relegationsplaetze nach unten (BFV A&A II. Nr. 3) sind eine andere
-  # Groesse und duerfen nicht in dasselbe Feld -- sonst waere "1" oder "3"
-  # beides falsch.
-  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
-  reg <- env$league_registry()
-
-  expect_equal(reg$rl_bayern$relegation_playoff_slots, 2L)
-  for (key in c("rl_nord", "rl_nordost", "rl_west", "rl_suedwest")) {
-    rps <- reg[[key]]$relegation_playoff_slots
-    expect_true(is.null(rps) || identical(rps, 0L), info = key)
-  }
-})
-
-test_that("Registry-Slots der Regionalligen stimmen mit dem saisonabhaengigen Modus ueberein", {
-  # Die Registry darf die 2026er Zuordnung tragen -- aber sie muss mit
-  # aufstiegsmodus(2026) uebereinstimmen. Laufen beide auseinander, ist
-  # eine Stelle fest verdrahtet.
-  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
-  reg <- env$league_registry()
-  f <- fn(env, "rl_aufstiegs_slots")
-
-  for (key in c("rl_nord", "rl_nordost", "rl_west", "rl_suedwest", "rl_bayern")) {
-    s <- f(reg[[key]]$staffel, 2026)
-    expect_equal(reg[[key]]$promotion_slots, s$promotion_slots, info = key)
-    expect_equal(reg[[key]]$playoff_slots, s$playoff_slots, info = key)
-  }
 })
 
 test_that("Registry: relegation_slots ist die Basis von abstiegsplaetze(staffel, 0)", {
@@ -719,32 +652,6 @@ test_that("ueber alle fuenf Staffeln steigen genau vier Teams auf", {
 })
 
 # --- Saisonabhaengigkeit: die Paarung ist nicht verdrahtet ------------------
-
-test_that("die Seite folgt einer injizierten Rotation statt der verdrahteten Paarung", {
-  # DIE FALLE: Nord gegen Bayern gilt fuer 2026/27 und NUR dafuer. Wer den
-  # dritten Direktplatz bekommt, beschliesst das DFB-Praesidium jaehrlich.
-  #
-  # Der Test injiziert eine ANDERE Rotation und verlangt eine andere
-  # Playoff-Paarung. Die injizierte Rotation ist Testeingabe, KEINE
-  # Behauptung darueber, wer 2027/28 wirklich dran ist -- deshalb eine
-  # Saison, die in AUFSTIEGSROTATION bewusst nicht steht.
-  auf <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "aufstiegsspiele", "rl_aufstieg")
-
-  # Stand 2026/27: Nordost direkt, Nord gegen Bayern.
-  modus_2026 <- auf$aufstiegsmodus(2026)
-  expect_setequal(modus_2026$direkt, c("West", "SuedWest", "Nordost"))
-  expect_setequal(modus_2026$playoff, c("Nord", "Bayern"))
-
-  # Injiziert: Nord traegt den Rotationsplatz -- dann spielen Nordost und
-  # Bayern.
-  modus_alt <- auf$aufstiegsmodus(2027, rotation = c("2027" = "Nord"))
-  expect_setequal(modus_alt$direkt, c("West", "SuedWest", "Nord"))
-  expect_setequal(modus_alt$playoff, c("Nordost", "Bayern"))
-
-  # Und der dritte Fall, damit nicht bloss zwei Zustaende geprueft sind.
-  modus_bayern <- auf$aufstiegsmodus(2027, rotation = c("2027" = "Bayern"))
-  expect_setequal(modus_bayern$playoff, c("Nord", "Nordost"))
-})
 
 test_that("die Aufstiegsprognose folgt der injizierten Rotation", {
   # Nicht nur der Modus, sondern die RECHNUNG: Unter einer Rotation, in der

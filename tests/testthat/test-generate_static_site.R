@@ -744,29 +744,6 @@ test_that("das Abstiegspanel trifft wirklich die letzten Plaetze", {
 
 # --- 3. Zweistufige Navigation ----------------------------------------------
 
-test_that("die Navigation gruppiert nach nav_group", {
-  # Fuenf Ligen sprengen die flache Zeile. Gruppen: Herren, Frauen --
-  # Methodik bleibt eigenstaendig.
-  #
-  # ANGEPASST in Phase 5: Dazu kommt die Gruppe "Regionalliga". Geprueft
-  # wird hier weiterhin nur die Aussage dieser Phase -- es gibt eine Gruppe
-  # "Herren" mit drei und eine Gruppe "Frauen" mit zwei Ligen.
-  #
-  # ANGEPASST mit Issue #178: Hier stand, Herren und Frauen seien die ersten
-  # BEIDEN Gruppen. Das war eine Aussage ueber die Reihenfolge, die dieser
-  # Test gar nicht treffen wollte -- seit #178 steht "Regionalliga"
-  # zwischen ihnen. Geprueft wird jetzt die Zugehoerigkeit, nicht die
-  # Nachbarschaft; die Reihenfolge pinnt der Test
-  # ".nav_groups ordnet die Gruppen nach NAV_GRUPPEN_REIHENFOLGE" weiter unten.
-  gen <- source_module("generate_static_site")
-  gruppen <- gen$.nav_groups()
-
-  je_gruppe <- vapply(gruppen, function(g) g$group, character(1))
-  expect_true(all(c("Herren", "Frauen") %in% je_gruppe))
-  expect_length(gruppen[[which(je_gruppe == "Herren")]]$items, 3)
-  expect_length(gruppen[[which(je_gruppe == "Frauen")]]$items, 2)
-})
-
 test_that("das Navigations-HTML traegt Gruppenlabels und alle Ligen", {
   gen <- source_module("generate_static_site")
   html <- gen$.nav_html("index")
@@ -1207,26 +1184,8 @@ test_that("die berechnete Abstiegsspalte landet unveraendert in der Tabelle", {
 })
 
 # --- Die Seite existiert und haengt unter "Regionalliga" --------------------
-
-test_that("die Aufstiegsseite steht in der Regionalliga-Gruppe der Navigation", {
-  # Entscheidung des Nutzers: keine eigene Gruppe. Geprueft wird die
-  # ZUGEHOERIGKEIT, nicht nur das Vorhandensein des Links -- ein Test auf
-  # "rl-aufstieg.html steht irgendwo im HTML" bestuende auch, wenn die
-  # Seite unter "Frauen" haengt.
-  gen <- source_module("generate_static_site")
-  gruppen <- gen$.nav_groups()
-
-  namen <- vapply(gruppen, function(g) g$group, character(1))
-  expect_true("Regionalliga" %in% namen)
-
-  rl_gruppe <- gruppen[[which(namen == "Regionalliga")]]
-  slugs <- vapply(rl_gruppe$items, function(i) i$slug, character(1))
-
-  expect_true(AUFSTIEGSSEITE_SLUG %in% slugs)
-  # Fuenf Staffeln plus die Aufstiegsseite, und die Seite steht hinter den
-  # Staffeln -- sie fasst sie zusammen, sie leitet sie nicht ein.
-  expect_identical(slugs, c(RL_SLUGS, AUFSTIEGSSEITE_SLUG))
-})
+# Dass sie unter "Regionalliga" haengt, prueft "jede Liga steht in genau der
+# Gruppe ihrer Registry" (Abschnitt 3).
 
 test_that("die Aufstiegsseite wird mitgerendert und traegt ihren Titel", {
   gen <- source_module("generate_static_site")
