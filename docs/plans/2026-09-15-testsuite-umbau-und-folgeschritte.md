@@ -646,6 +646,12 @@ aus 3.6).
 alle Skip-Gründe, bricht mit `RUST_SKIPS_VERBOTEN=1` ab, sobald einer auf Rust verweist. `helper-test-setup.R` bricht bei
 Sourcing-Fehlern jetzt mit R-Fehler ab statt sie als `message()` zu verschlucken.
 
+**4.2 erledigt 27.09.2026, PR #256:** `plane_fenster()` als reine Rechenfunktion aus `calculate_loops()` herausgelöst (die drei
+Zweige vor/im/nach dem Fenster, Berlin-Zeit explizit über `as.POSIXlt(..., tz = "Europe/Berlin")`, unabhängig von der
+Prozess-Zeitzone); `calculate_loops(jetzt = Sys.time(), schlafen = Sys.sleep)` als Hülle mit injizierbarer Uhr, Verhalten
+unverändert, 200er-Deckel bleibt nur im Zweig „im" (Befund dazu: #255). Punkt 2 erledigt durch #222, verifiziert 27.09.
+(Stufe 4.2): `test-retrieveResults-rate-limit-header.R` deckt `.record_rate_limit_headers()` bereits mit und ohne Header ab.
+
 1. `test-updateScheduler.R`: die drei Zweige von `calculate_loops()` mit gestubbtem `Sys.time`/`Sys.sleep` (reine Rechenfunktion herauslösen: Jetzt-Zeit → Loops, Startwartezeit, Dauer) — die Berlin-Zeit-Frage gleich mit.
 2. `.record_rate_limit_headers()`: prüfen, ob `test-retrieveResults-rate-limit-header.R` (aus #222) das schon abdeckt; nur Lücken schließen.
 3. Client-JS — **entschieden 25.09.: Node + jsdom mit Syntaxprüfung, Skripte bleiben inline.**
