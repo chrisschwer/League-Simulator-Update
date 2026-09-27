@@ -39,12 +39,21 @@ zusammenfassung <- function(df) {
           sum(df$failed > 0), sum(df$warning), sum(df$skipped), sum(df$nb))
 }
 
+# Review-Befund (Fix 1): testthat zaehlt einen Block, der mit einem
+# unbehandelten Fehler abbricht, als failed = 0, error = TRUE -- das alte
+# Exit-Kriterium any(df$failed > 0) uebersah das. test-scripts-preview_site.R:14
+# blieb deshalb in der CI unsichtbar rot (packagelist.txt fehlte als Mount).
+# Jetzt zaehlt ein Fehler-Block genauso als Abbruchgrund wie ein Fehlschlag.
+abbruch_noetig <- function(df) {
+  any(df$failed > 0 | df$error)
+}
+
 main <- function() {
   # Test-only Pakete nachinstallieren, wie zuvor im Inline-Rscript der CI.
   lib <- Sys.getenv("R_LIBS_CI", "/tmp/Rlib")
   dir.create(lib, recursive = TRUE, showWarnings = FALSE)
   .libPaths(c(lib, .libPaths()))
-  pkgs <- readLines("test_packagelist.txt")
+  pkgs <- readLines("test_packagelist.txt", warn = FALSE)
   pkgs <- pkgs[!grepl("^#|^[[:space:]]*$", pkgs)]
   pkgs <- trimws(pkgs)
   installiert <- rownames(installed.packages())
@@ -59,7 +68,11 @@ main <- function() {
 
   summary_pfad <- Sys.getenv("TESTTHAT_SUMMARY", "/out/testthat-summary.txt")
   dir.create(dirname(summary_pfad), recursive = TRUE, showWarnings = FALSE)
-  writeLines(capture.output(print(df)), summary_pfad)
+  # Nur atomare Spalten drucken -- df$result ist eine Listenspalte mit den
+  # vollstaendigen Bedingungsobjekten (inkl. srcref/Environment) und blaeht
+  # die Summary-Datei sonst auf Zeilen mit hunderttausenden Zeichen auf.
+  atomar <- vapply(df, is.atomic, logical(1))
+  writeLines(capture.output(print(df[, atomar])), summary_pfad)
 
   meldungen <- skip_meldungen(res)
   cat("\n--- skips ---\n")
@@ -71,16 +84,17 @@ main <- function() {
   }
 
   cat("\n--- summary ---\n")
-  cat(zusammenfassung(df), "\n")
+  cat(zusammenfassung(df), "\n", sep = "")
+  cat(sprintf("ERROR=%d\n", sum(df$error)))
 
-  if (any(df$failed > 0)) quit(status = 1)
+  if (abbruch_noetig(df)) quit(status = 1)
 
   if (Sys.getenv("RUST_SKIPS_VERBOTEN") == "1") {
-    rust <- rust_skips(meldungen$meldung)
-    if (length(rust) > 0) {
+    rust_zeilen <- meldungen[meldungen$meldung %in% rust_skips(meldungen$meldung), ]
+    if (nrow(rust_zeilen) > 0) {
       cat(sprintf("❌ %d Tests haben sich wegen Rust uebersprungen, obwohl der Server laufen soll:\n",
-                  length(rust)))
-      cat(rust, sep = "\n")
+                  nrow(rust_zeilen)))
+      cat(sprintf("%s | %s", rust_zeilen$test, rust_zeilen$meldung), sep = "\n")
       cat("\n")
       quit(status = 1)
     }

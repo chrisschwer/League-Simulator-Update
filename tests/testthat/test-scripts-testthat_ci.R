@@ -49,6 +49,29 @@ test_that("zusammenfassung zaehlt Fehlschlaege, Warnungen, Skips und Erwartungen
   expect_identical(z$zusammenfassung(df), "FAIL=1 WARN=2 SKIP=1 PASS=10")
 })
 
+test_that("abbruch_noetig erkennt Fehlschlaege UND Fehler-Bloecke (Review Fix 1)", {
+  # testthat zaehlt einen Block, der mit einem unbehandelten Fehler abbricht,
+  # als failed = 0, error = TRUE -- das alte Kriterium any(df$failed > 0)
+  # uebersah das (test-scripts-preview_site.R:14 blieb deshalb in der CI
+  # unsichtbar rot, siehe Review).
+  z <- source_testthat_ci()
+  nur_fehlschlag <- data.frame(failed = c(1L, 0L), error = c(FALSE, FALSE))
+  nur_fehler <- data.frame(failed = c(0L, 0L), error = c(FALSE, TRUE))
+  keins <- data.frame(failed = c(0L, 0L), error = c(FALSE, FALSE))
+  expect_true(z$abbruch_noetig(nur_fehlschlag))
+  expect_true(z$abbruch_noetig(nur_fehler))
+  expect_false(z$abbruch_noetig(keins))
+})
+
+test_that("ein Block mit unbehandeltem Fehler zaehlt als error = TRUE, nicht als failed -- und loest abbruch_noetig aus", {
+  z <- source_testthat_ci()
+  res <- testthat::test_file(test_path("fixtures", "ci-skips", "fehler-beispiel.R"), reporter = "silent")
+  df <- as.data.frame(res)
+  expect_identical(df$failed, 0L)
+  expect_true(df$error)
+  expect_true(z$abbruch_noetig(df))
+})
+
 test_that("das Skript startet beim Laden keine Testsuite", {
   ziel <- withr::local_tempfile(fileext = ".txt")
   withr::local_envvar(TESTTHAT_SUMMARY = ziel)
