@@ -359,6 +359,65 @@ test_that("generate_static_site writes the fallback page when data is missing", 
   expect_true(grepl("30punkte.wordpress.com", html, fixed = TRUE))
 })
 
+test_that("die Fallback-Seite liefert Stylesheet und Favicon mit und verweist auf das Stylesheet", {
+  gen <- source_module("generate_static_site")
+  out <- withr::local_tempdir()
+
+  gen$generate_static_site(
+    output_dir = out,
+    now = as.POSIXct("2026-07-26 14:30:00", tz = "Europe/Berlin")
+  )
+
+  expect_true(file.exists(file.path(out, "assets", "site.css")))
+  expect_true(file.exists(file.path(out, "assets", "favicon.svg")))
+  html <- read_html(file.path(out, "index.html"))
+  expect_true(grepl('href="assets/site.css"', html, fixed = TRUE))
+
+  # Keine Liga-Seite, keine Methodik-Seite -- nur die Fallback-Seite selbst.
+  expect_identical(list.files(out, pattern = "\\.html$"), "index.html")
+})
+
+test_that(".copy_assets ueberschreibt veraltete Kopien und kopiert jede Schriftdatei", {
+  gen <- source_module("generate_static_site")
+  out <- withr::local_tempdir()
+
+  dir.create(file.path(out, "assets"), recursive = TRUE)
+  writeLines("veraltet", file.path(out, "assets", "site.css"))
+
+  gen$.copy_assets(out)
+
+  src_css <- file.path("..", "..", "RCode", "site_assets", "site.css")
+  out_css <- file.path(out, "assets", "site.css")
+  expect_identical(readLines(out_css, warn = FALSE), readLines(src_css, warn = FALSE))
+
+  src_fonts <- list.files(file.path("..", "..", "RCode", "site_assets", "fonts"),
+                          pattern = "\\.woff2$")
+  out_fonts <- list.files(file.path(out, "assets", "fonts"), pattern = "\\.woff2$")
+  expect_length(out_fonts, length(src_fonts))
+
+  expect_no_error(gen$.copy_assets(out))
+})
+
+test_that("die Methodik-Seite traegt den uebergebenen Zeitstempel in Fusszeile und Veraltet-Hinweis", {
+  gen <- source_module("generate_static_site")
+  out <- withr::local_tempdir()
+  now <- as.POSIXct("2026-07-26 14:30:00", tz = "Europe/Berlin")
+  mtime <- now - 3600
+
+  pfad <- gen$.render_methodik_page(out, now = now, mtime = mtime)
+  html <- read_html(pfad)
+
+  # Fusszeilen-Format aus der Funktion selbst abgeleitet, statt es hier zu
+  # duplizieren.
+  expect_true(grepl(gen$.footer_html(mtime), html, fixed = TRUE))
+  # Derselbe Erwartungsrahmen wie "the page embeds the generation time as
+  # ISO-8601 UTC" oben -- hier fuer den uebergebenen Zeitstempel mtime, eine
+  # Stunde vor now.
+  expect_true(grepl('<time id="generated" datetime="2026-07-26T11:30:00Z"',
+                    html, fixed = TRUE))
+  expect_true(grepl('id="stale" hidden', html, fixed = TRUE))
+})
+
 test_that("generate_static_site output is deterministic for fixed inputs", {
   gen <- source_module("generate_static_site")
   env <- make_data_env()
