@@ -153,6 +153,10 @@ jobs:
               # Port 8080 ist der Default des Binaries (main.rs:16) UND der Default
               # von RUST_API_URL (rust_integration.R:10) -- die Tests finden den
               # Server daher ohne zusaetzliche Env-Variable.
+              #
+              # Seit Stufe 4.1 (#212) listet scripts/ci/testthat_ci.R jeden
+              # Skip-Grund und bricht ab, wenn sich ein Test wegen Rust
+              # ueberspringt.
               /usr/local/bin/league-simulator-rust --api &
               RUST_PID=$!
               trap "kill $RUST_PID 2>/dev/null || true" EXIT
@@ -170,24 +174,7 @@ jobs:
                 i=$((i + 1))
               done
 
-              Rscript -e '"'"'dir.create("/tmp/Rlib", recursive = TRUE, showWarnings = FALSE);
-                        .libPaths(c("/tmp/Rlib", .libPaths()));
-                        pkgs <- readLines("test_packagelist.txt");
-                        pkgs <- pkgs[!grepl("^#|^[[:space:]]*$", pkgs)];
-                        pkgs <- trimws(pkgs);
-                        installed <- rownames(installed.packages());
-                        to_install <- setdiff(pkgs, installed);
-                        if (length(to_install) > 0) {
-                          install.packages(to_install, repos = "https://cloud.r-project.org");
-                        }
-                        options(testthat.progress.max_fails = Inf);
-                        res <- testthat::test_dir("tests/testthat", stop_on_failure = FALSE, reporter = "summary");
-                        df <- as.data.frame(res);
-                        writeLines(capture.output(print(df)), "/out/testthat-summary.txt");
-                        cat("\n--- summary ---\n");
-                        cat(sprintf("FAIL=%d WARN=%d SKIP=%d PASS=%d\n",
-                                    sum(df$failed > 0), sum(df$warning), sum(df$skipped), sum(df$nb)));
-                        if (any(df$failed > 0)) quit(status = 1)'"'"'
+              RUST_SKIPS_VERBOTEN=1 Rscript scripts/ci/testthat_ci.R
             '
 
       - name: Upload testthat summary
