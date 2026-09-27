@@ -236,21 +236,6 @@ test_that("transform_data handles missing team in teams list", {
   expect_error(transform_data(fixtures, teams))
 })
 
-test_that("transform_data preserves fixture order", {
-  fixtures <- create_test_fixtures_api()
-  teams <- create_test_teams_api()
-  
-  result <- transform_data(fixtures, teams)
-  
-  # Check that fixtures appear in the same order
-  expect_equal(result$TeamHeim[1], "TEA")  # First fixture
-  expect_equal(result$TeamGast[1], "TEB")
-  expect_equal(result$TeamHeim[2], "TEC")  # Second fixture
-  expect_equal(result$TeamGast[2], "TED")
-  expect_equal(result$TeamHeim[3], "TEA")  # Third fixture
-  expect_equal(result$TeamGast[3], "TEC")
-})
-
 test_that("transform_data handles NULL goal values", {
   # Test fixture with NULL goals (different from NA)
   fixtures <- tibble::tibble(
@@ -722,8 +707,10 @@ test_that("transform_data ist deterministisch: zwei Laeufe, dieselbe Reihenfolge
 # vermutet.
 #
 # Das ist kein Randfall, sondern die Eingabe fast aller bestehenden
-# transform_data-Tests, darunter "transform_data preserves fixture order"
-# (test-transform_data.R:239), der die Eingabereihenfolge ausdruecklich pinnt.
+# transform_data-Tests, darunter "transform_data converts API response
+# correctly" (test-transform_data.R:4), der die Eingabereihenfolge ueber
+# TeamHeim/TeamGast pinnt (der frueher eigene Block "preserves fixture
+# order" fiel in Stufe 3.5 als wortgleiches Doppel).
 #
 # Eine Sortierung, die die Spalte blind anspricht (etwa arrange(fixture_date)),
 # stuerzt hier mit einem "object not found" ab -- sie wuerde die Reihenfolge
@@ -744,9 +731,8 @@ test_that("transform_data haelt ohne Anstosszeiten die Eingabereihenfolge", {
 
   ergebnis <- transform_data(fixtures, teams)
 
-  # Dieselbe Zusicherung wie "transform_data preserves fixture order"
-  # (test-transform_data.R:239), hier als ausdruecklicher Schutz der
-  # Sortier-Aenderung.
+  # Dieselbe Zusicherung wie "transform_data converts API response
+  # correctly" (:4), hier als ausdruecklicher Schutz der Sortier-Aenderung.
   expect_equal(ewr_paarungen(ergebnis), c("TEA-TEB", "TEC-TED", "TEA-TEC"))
 
   # Und die uebrigen Vertraege gelten unveraendert weiter.
