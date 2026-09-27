@@ -617,7 +617,7 @@ Erst jetzt werden Erwartungen angefasst — und nur mit Christophs Wort je PR. R
 | PR | Cluster (aus #211) | Was bleibt | Was fällt (Vorschlag) |
 |---|---|---|---|
 | 3.1 | Kürzel-Vertrag (Cluster 1) — beide Quellen liegen in `test-transform_data-kuerzel.R` | die Fassung aus kuerzel-vertrag (vollständiger) | die Doppelungen aus teamlist-eindeutigkeit für „gleiche Liga bricht ab", „Nord/Nordost/Bayern", „TeamID doppelt", „VFB/FCH/RWE" — **Erledigt 26.09., PR #247: 7 Blöcke/18 Erwartungen (A:90, 161, 225, 245, 257, 272; B:448).** |
-| 3.2 | home_advantage/Tormodell nicht gesendet (Cluster 2) | je ein Test für `/simulate` und `/league-details` in test-rust_integration | Wiederholungen in league_registry und league_details |
+| 3.2 | home_advantage/Tormodell nicht gesendet (Cluster 2) | je ein Test für `/simulate` und `/league-details` in test-rust_integration | Wiederholungen in league_registry und league_details — **Erledigt 26.09., PR #249: 2 Blöcke/8 Erwartungen (LR:171, 925); LR:284 → test-league_details-client.R. Die Endpunkt-Tests sind keine Doppel (je Zelle ein Block).** |
 | 3.3 | `validate_team_count`-Grenze (Cluster 3) | ein Test mit der aktuellen Grenze (Christoph nennt sie) | die zwei anderen Werte |
 | 3.4 | `league_views()`-Form (Cluster 6) + Seitenzahl (Cluster 7) | ein Test gegen die Registry | vier Wiederholungen mit hart kodierten Listen — **Erledigt 26.09., PR #248: 6 Blöcke/16 Erwartungen (V:5, 121, 180; R:182, 870; G:784).** |
 | 3.5 | Spieltag-Fensterung (Cluster 12) + Reihenfolge (Cluster 5) | spieltag-logik-Fassung | Join-Level-Wiederholungen |

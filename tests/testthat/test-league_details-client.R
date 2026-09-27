@@ -67,6 +67,30 @@ test_that("ein explizit übergebener home_advantage überschreibt den Server-Wer
   expect_equal(payload$home_advantage, 40)
 })
 
+# --- aus test-league_registry.R (Stufe 3.2, Zweifelsregel: Einheit league_details) ---
+
+test_that("build_league_details_payload traegt das Tormodell", {
+  # Beide Endpunkte zwingend gemeinsam (ADR 0004): Liefen Prognose-Heatmap
+  # (/simulate) und Score-Matrix (/league-details) mit verschiedenen
+  # Tormodellen, widersprächen sich die Zahlen auf derselben Seite.
+  env <- new.env()
+  source(test_path("..", "..", "RCode", "league_details.R"), local = env)
+
+  details <- make_details(
+    fd_row(1, 1, "2026-08-01 13:00", "FT", 101, 102, 2, 1)
+  )
+
+  ohne <- env$build_league_details_payload(details, make_test_teams())
+  expect_false("tore_slope" %in% names(ohne))
+
+  mit <- env$build_league_details_payload(
+    details, make_test_teams(),
+    tore_slope = 0.0024058833, tore_intercept = 1.6527603153
+  )
+  expect_equal(mit$tore_slope, 0.0024058833)
+  expect_equal(mit$tore_intercept, 1.6527603153)
+})
+
 # --- Antwort parsen -----------------------------------------------------------
 
 canned_response <- '{
