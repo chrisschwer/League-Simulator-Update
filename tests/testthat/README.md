@@ -39,11 +39,11 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 |---|---|---|
 | `test-api_service.R` | 3 | team-short-name |
 | `test-aufstiegsspiele.R` | 43 | aufstiegsspiele |
-| `test-checkAPILimits.R` | 10 | check-api-limits, frauen-ligen-aktivierung (1 Bl.) |
+| `test-checkAPILimits.R` | 11 (+1, Stufe 4.4a: `checkAPILimits meldet, ob die Planung aus einem Fallback kam`, aus `test-update_all_leagues_loop-gating.R`) | check-api-limits, frauen-ligen-aktivierung (1 Bl.) |
 | `test-csv_generation.R` | 23 | saisonwechsel-entwurf, saisonwechsel-format |
 | `test-elo_aggregation.R` | 12 | ein-elo-walk (12 Bl.) |
 | `test-elo_calibration.R` | 30 | elo-calibration |
-| `test-fixture_cache.R` | 9 | fixture-cache |
+| `test-fixture_cache.R` | 6 (−3, Stufe 4.4a: die drei `is_regular_season_round`-Blöcke nach `test-round_filter.R`) | fixture-cache |
 | `test-generate_static_site.R` | 64 | frauen-ligen-live (11 Bl.), generate-static-site, live-na-guard, n-ligen-entflechtung (5 Bl.), phase5-regionalligen (15 Bl.) |
 | `test-generate_static_site-tooltip.R` | 10 | kuerzel-tooltip (10 Bl.) |
 | `test-interactive_prompts.R` | 11 | interactive-prompts |
@@ -66,7 +66,7 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 | `test-rl_abstiegskopplung-nord.R` | 19 | rl-nord-aufstiegskopplung |
 | `test-rl_aufstieg.R` | 37 | phase5-regionalligen (13 Bl.), rl-aufstieg |
 | `test-rl_verdrahtung.R` | 2 | rl-verdrahtung (2 Bl.) |
-| `test-round_filter.R` | 5 | phase5-regionalligen (5 Bl.) |
+| `test-round_filter.R` | 8 (+3, Stufe 4.4a: `is_regular_season_round` aus `test-fixture_cache.R`) | phase5-regionalligen (5 Bl.) |
 | `test-rust_integration.R` | 4 | home-advantage-single-source, league-registry (1 Bl.), tormodell-rust-durchreichung |
 | `test-scripts-preview_site.R` | 6 | frauen-ligen-live (1 Bl.), preview-site |
 | `test-scripts-season_transition.R` | 5 | season-transition-cleanup-wrapper, season-transition-csv-snapshot |
@@ -81,7 +81,7 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 | `test-transform_data.R` | 30 | elo-walk-reihenfolge (10 Bl.), gewertete-spiele (2 Bl.), rundenfilter-schutznetz (7 Bl.), transform_data |
 | `test-transform_data-kuerzel.R` | 23 | kuerzel-vertrag, teamlist-eindeutigkeit |
 | `test-update_all_leagues_loop.R` | 6 | n-ligen-entflechtung (4 Bl.), update-loop-league-data |
-| `test-update_all_leagues_loop-gating.R` | 37 | update-loop-gating |
+| `test-update_all_leagues_loop-gating.R` | 36 (−1, Stufe 4.4a: `checkAPILimits meldet, ob die Planung aus einem Fallback kam` nach `test-checkAPILimits.R`) | update-loop-gating |
 | `test-update_all_leagues_loop-rust.R` | 2 | rust-required |
 | `test-update_all_leagues_loop-sicherheitsnetz.R` | 4 | sicherheitsnetz-zeit |
 | `test-update_all_leagues_loop-verdrahtung.R` | 21 | rl-verdrahtung (21 Bl.) |
