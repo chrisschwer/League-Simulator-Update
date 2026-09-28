@@ -9,55 +9,6 @@ source("../../RCode/input_handler.R")
 # interactive_prompts.R (vormals input_validation.R).
 source("../../RCode/interactive_prompts.R")
 
-# Mock helper functions that might not be available
-get_league_name <- function(league) {
-  switch(league,
-    "78" = "Bundesliga",
-    "79" = "2. Bundesliga", 
-    "80" = "3. Liga",
-    league
-  )
-}
-
-get_team_short_name <- function(team_name) {
-  # Simple implementation for testing
-  toupper(substr(gsub("[^A-Za-z]", "", team_name), 1, 3))
-}
-
-detect_second_teams <- function(team_name) {
-  grepl(" II$| 2$", team_name)
-}
-
-convert_second_team_short_name <- function(short_name, is_second, promotion_value) {
-  if (is_second && promotion_value == -50) {
-    # Convert last character to "2"
-    paste0(substr(short_name, 1, 2), "2")
-  } else {
-    short_name
-  }
-}
-
-get_initial_elo_for_new_team <- function(league, baseline = NULL) {
-  if (league == "80" && !is.null(baseline)) {
-    return(baseline)
-  }
-  switch(league,
-    "78" = 1300,
-    "79" = 1150,
-    "80" = 1046,
-    1000
-  )
-}
-
-# validate_team_short_name is now loaded from input_validation.R
-
-validate_elo_input <- function(elo) {
-  if (is.na(elo) || elo < 0 || elo > 3000) {
-    return(list(valid = FALSE, message = "ELO must be between 0 and 3000"))
-  }
-  list(valid = TRUE, message = "Valid")
-}
-
 test_that("prompt_for_team_info accepts valid input", {
   # Stub the direct collaborators of prompt_for_team_info so its own
   # orchestration logic (wiring collaborator outputs into the result,

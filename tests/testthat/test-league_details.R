@@ -213,8 +213,9 @@ test_that("Spieltag mit ausschließlich Live-Spielen gilt als laufend", {
 # --- aus test-fixture-details.R ---
 # extract_fixture_details() zieht aus der genesteten api-football-Struktur die
 # Angaben, die transform_data() bisher verwirft: Spieltag, Anstoßzeit, Status,
-# Team-IDs/-Namen und Tore. Eine Zeile je Spiel, API-Reihenfolge bleibt
-# erhalten (Positions-Alignment mit dem transform_data-Spielplan).
+# Team-IDs/-Namen und Tore. Eine Zeile je Spiel, chronologisch nach Anstoß
+# sortiert (#146), bei gleicher Anstoßzeit in API-Reihenfolge — dieselbe
+# Ordnung wie im transform_data-Spielplan (Positions-Alignment).
 
 make_nested_fixtures <- function() {
   tibble::tibble(
@@ -299,9 +300,10 @@ test_that("extract_fixture_details übernimmt Tore nur als Zahlen, NA für offen
 })
 
 test_that("extract_fixture_details ist positionsgleich mit transform_data", {
-  # Beide Funktionen filtern auf Regular-Season-Runden und behalten die
-  # API-Reihenfolge — Zeile i beschreibt in beiden dasselbe Spiel. Darauf
-  # verlässt sich das Index-Mapping der /league-details-Antwort.
+  # Beide Funktionen filtern auf Regular-Season-Runden und sortieren gleich
+  # (chronologisch, Tiebreak API-Reihenfolge) — Zeile i beschreibt in beiden
+  # dasselbe Spiel. Darauf verlässt sich das Index-Mapping der
+  # /league-details-Antwort.
   source("../../RCode/transform_data.R")
   fixtures <- make_nested_fixtures()
   teams <- data.frame(

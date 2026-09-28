@@ -479,7 +479,7 @@ test_that("short names are preserved across seasons", {
 
 context("Regression Tests - System Integration")
 
-test_that("complete season transition creates expected file count", {
+test_that("merge_league_files fuehrt die drei Ligadateien (18 + 18 + 20) zu einer TeamList zusammen", {
   # Test Issue: Incomplete team lists with wrong team counts
   # Fix: All leagues processed and merged correctly
 

@@ -168,7 +168,10 @@ test_that("Engine-Antwort und Staffelnamen passen zusammen", {
 # Produktivpfad auf (update_all_leagues_loop.R uebergibt die ganze
 # TeamList).
 #
-# Der Test faehrt deshalb bewusst den Produktivpfad: ungefilterte TeamList.
+# Der Test faehrt den heutigen Produktivpfad: rl_group_of_team() filtert
+# die TeamList auf die Liga, bevor es group_of_team() ruft. Den
+# ungefilterten Aufruf deckt der naechste Block ab (Fehler statt stillem
+# erstem Treffer).
 
 test_that("group_of_team loest ein doppeltes Kuerzel nicht auf den falschen Verein auf", {
   env <- source_module("league_registry", "staffel_zuordnung")
