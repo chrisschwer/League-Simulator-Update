@@ -242,3 +242,39 @@ test_that("checkAPILimits skaliert mit der Zahl der aktiven Ligen", {
   expect_equal(eval(formals(env$checkAPILimits)$avg_calls_per_loop, envir = env),
                1 + length(env$league_ids()) / 2)
 })
+
+# --- aus test-update_all_leagues_loop-gating.R (Stufe 4.4a) ---
+
+test_that("checkAPILimits meldet, ob die Planung aus einem Fallback kam", {
+  # Die Quelle des Signals. Eine echte Messung ist keine Notbremse; ein
+  # Probe-Fehler und ein fehlender Header sind es.
+  env <- new.env()
+  source(file.path("..", "..", "RCode", "league_registry.R"), local = env)
+  source(file.path("..", "..", "RCode", "checkAPILimits.R"), local = env)
+
+  alt <- Sys.getenv("RAPIDAPI_KEY", unset = NA)
+  Sys.setenv(RAPIDAPI_KEY = "test-key")
+  on.exit({
+    if (is.na(alt)) Sys.unsetenv("RAPIDAPI_KEY") else Sys.setenv(RAPIDAPI_KEY = alt)
+  }, add = TRUE)
+
+  # Echte Messung -> kein Fallback.
+  f_ok <- env$checkAPILimits
+  stub(f_ok, "httr::GET", function(...) structure(list(), class = "response"))
+  stub(f_ok, "httr::headers", function(response) {
+    list(`x-ratelimit-requests-remaining` = "7000",
+         `x-ratelimit-requests-limit` = "7500")
+  })
+  f_ok(360)
+  expect_false(env$api_limits_plan_reduziert())
+
+  # Probe im Timeout -> Fallback. Genau der Fall vom 14.09.
+  f_err <- env$checkAPILimits
+  stub(f_err, "httr::GET", function(...) stop("Resolving timed out after 10000 ms"))
+  suppressWarnings(suppressMessages(f_err(360)))
+  expect_true(env$api_limits_plan_reduziert())
+
+  # Und eine erneute echte Messung setzt das Signal zurueck.
+  f_ok(360)
+  expect_false(env$api_limits_plan_reduziert())
+})
