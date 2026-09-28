@@ -22,9 +22,6 @@ test_that("update_all_leagues_loop runs one iteration end-to-end with Rust up", 
                  handle$port, handle$log))
   }
 
-  # Pre-set the FT counters so the loop's "first iteration" branch runs cleanly.
-  FT_BL <- 0; FT_BL2 <- 0; FT_Liga3 <- 0
-
   # Stubs nur fuer die Aussenwelt. NICHT gestubbt: connect_rust_simulator()
   # und leagueSimulatorRust() -- dieser Block ist der einzige, der den Loop
   # wirklich gegen das laufende Rust-Binary faehrt (alle anderen
@@ -38,7 +35,18 @@ test_that("update_all_leagues_loop runs one iteration end-to-end with Rust up", 
     fake_fixtures(c("FT", "NS"))
   })
   stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) integer(0))
-  stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
+  stub(update_all_leagues_loop, "transform_data", function(...) {
+    # fake_transformed() allein ist ein einziges GESPIELTES Spiel -- der
+    # Server liefert dann die Einheitsmatrix (AAA/BBB je 100% auf der
+    # eigenen Position), weil nichts mehr auszuwuerfeln ist. Ein zweites,
+    # offenes Rueckspiel zwingt die Monte-Carlo-Simulation wirklich zu
+    # laufen (ELO nur in Zeile 1, wie transform_data() es liefert).
+    rbind(
+      fake_transformed(),
+      data.frame(TeamHeim = "BBB", TeamGast = "AAA",
+                ToreHeim = NA, ToreGast = NA, AAA = NA, BBB = NA)
+    )
+  })
   stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
   stub(update_all_leagues_loop, "generate_static_site", function(...) {
     capture$site_calls <- capture$site_calls + 1
@@ -64,7 +72,7 @@ test_that("update_all_leagues_loop runs one iteration end-to-end with Rust up", 
   })
   expect_true(all(aktiv %in% names(capture$ergebnisse)))
 
-  # Je Liga: rownames AAA/BBB (fake_transformed()) und eine echte
+  # Je Liga: rownames AAA/BBB (aus dem Spielplan oben) und eine echte
   # Wahrscheinlichkeitsmatrix -- Zeilensummen 1 -- aus dem laufenden Server.
   expect_true(all(vapply(aktiv, function(key) {
     identical(rownames(capture$ergebnisse[[key]]), c("AAA", "BBB"))

@@ -88,10 +88,11 @@ test_that("prompt_for_team_info handles empty confirmation gracefully", {
   # get_initial_elo_interactive() bzw. confirm_action() -- nur ihre
   # jeweiligen Blaetter (check_interactive_mode, get_user_input) sind
   # gestubbt, ueber gestubbte KOPIEN statt einer globalen Umschreibung:
-  # stub(get_initial_elo_interactive, ...) direkt wuerde die globale
-  # Funktion ersetzen und in spaetere Tests durchsickern; die vorherige
-  # Fassung stubte confirm_action pauschal auf TRUE und pruefte die "leere
-  # Bestaetigung" damit gar nicht.
+  # stub(get_initial_elo_interactive, ...) direkt stubbt nur eine lokale
+  # Kopie, die prompt_for_team_info() nie sieht (es ruft das globale
+  # Original) -- die vorherige Fassung war deshalb wirkungslos; und die
+  # vorherige Fassung stubte confirm_action pauschal auf TRUE und pruefte
+  # die "leere Bestaetigung" damit gar nicht.
   elo <- get_initial_elo_interactive
   stub(elo, "check_interactive_mode", TRUE)
   stub(elo, "get_user_input", function(prompt, default = NULL) "")
