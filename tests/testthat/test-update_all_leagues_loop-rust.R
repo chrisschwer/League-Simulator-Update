@@ -40,20 +40,12 @@ test_that("loop fails fast with RUST_API_URL message when Rust is down (post-ref
   skip_if_not_installed("httr")
 
   # Point at a port that is guaranteed to refuse connections (no server here).
-  prior_rust_api_url <- Sys.getenv("RUST_API_URL", unset = NA)
-  Sys.setenv(RUST_API_URL = "http://127.0.0.1:1")
-  on.exit({
-    if (is.na(prior_rust_api_url)) {
-      Sys.unsetenv("RUST_API_URL")
-    } else {
-      Sys.setenv(RUST_API_URL = prior_rust_api_url)
-    }
-  }, add = TRUE)
+  withr::local_envvar(RUST_API_URL = "http://127.0.0.1:1")
 
   with_repo_root({
     source("RCode/update_all_leagues_loop.R", local = FALSE)
-    # PRE-REFACTOR EXPECTATION (will FAIL today, by design — this is the canary
-    # the refactor is meant to flip):
+    # Ohne erreichbaren Server bricht der Loop sofort ab und nennt die URL
+    # (#77, kein Fallback).
     err <- tryCatch(
       update_all_leagues_loop(duration = 0, loops = 1, n = 10,
                               saison = "2024",
@@ -61,10 +53,8 @@ test_that("loop fails fast with RUST_API_URL message when Rust is down (post-ref
                               static_site_dir = tempdir()),
       error = function(e) e
     )
-    # Post-refactor: error message must mention "Rust simulator not available"
-    # and include the unreachable URL the test pointed at (http://127.0.0.1:1).
-    # Pre-refactor: today's code logs a warning and silently sources C++ (no error).
-    # So this assertion intentionally fails until Tasks 3–5 land.
+    # Die Fehlermeldung muss "Rust simulator not available" enthalten und die
+    # unerreichbare URL nennen (http://127.0.0.1:1).
     expect_s3_class(err, "error")
     expect_match(conditionMessage(err), "Rust simulator not available", fixed = TRUE)
     expect_match(conditionMessage(err), "127.0.0.1:1", fixed = TRUE)

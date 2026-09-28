@@ -659,6 +659,22 @@ jede Schriftdatei der Quelle (Zählung dynamisch über `list.files()`, nicht als
 Fußzeile und Veraltet-Hinweis den übergebenen Zeitstempel `mtime`, nicht `now`. TDD-Rot je Block per Mutation belegt
 (Produktivcode unverändert).
 
+**4.4a erledigt 28.09.2026, PR #262:** reiner Umbau, kein `expect_*` geändert, `git diff RCode/` leer. Commit 1: vier
+Blöcke in die Datei ihrer Einheit verschoben (`checkAPILimits meldet, ob die Planung aus einem Fallback kam` von
+`test-update_all_leagues_loop-gating.R` nach `test-checkAPILimits.R`; die drei `is_regular_season_round`-Blöcke von
+`test-fixture_cache.R` nach `test-round_filter.R`). Commit 2: neun Stellen `withr::local_envvar`/`withr::local_tempdir`
+statt `Sys.setenv`/`on.exit`/fester `tempdir()`-Unterordner (`test-checkAPILimits.R`, `test-generate_static_site.R`,
+`test-season_processor-regression.R`, `test-season_processor.R`, `test-update_all_leagues_loop-rust.R`). Commit 3:
+veraltete Kommentare (`test-transform_data.R`, `test-checkAPILimits.R`, `test-league_details.R`,
+`test-staffel_zuordnung.R`, `test-update_all_leagues_loop-rust.R`, `test-update_all_leagues_loop.R`), eine Titeländerung
+(`test-season_processor-regression.R:490`, Freigabe 27.09.: „merge_league_files fuehrt die drei Ligadateien (18 + 18 + 20)
+zu einer TeamList zusammen") und sechs tote Test-Attrappen (`test-interactive_prompts.R:12-59`). Beweis: 777 Blöcke,
+3204/3283 Erwartungen (ohne/mit Rust-Server) vorher und nachher identisch; die Multimenge über
+(test, expectations, failed, skipped, error) zeigt ausschließlich das Titelpaar der Titeländerung; die Blocktext-
+Multimenge (`scripts/dev/blockmenge_tests.R`) zeigt genau die 15 erwarteten geänderten Blöcke (13 + N7). Stufe 4.4b
+(14 inhaltliche Ersetzungen, Freigabe je Punkt) setzt darauf auf; die zwei Produktivfragen aus der Analyse sind Issues
+#260 und #261.
+
 1. `test-updateScheduler.R`: die drei Zweige von `calculate_loops()` mit gestubbtem `Sys.time`/`Sys.sleep` (reine Rechenfunktion herauslösen: Jetzt-Zeit → Loops, Startwartezeit, Dauer) — die Berlin-Zeit-Frage gleich mit.
 2. `.record_rate_limit_headers()`: prüfen, ob `test-retrieveResults-rate-limit-header.R` (aus #222) das schon abdeckt; nur Lücken schließen.
 3. Client-JS — **entschieden 25.09.: Node + jsdom mit Syntaxprüfung, Skripte bleiben inline.**

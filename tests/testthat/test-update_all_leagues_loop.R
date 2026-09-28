@@ -59,7 +59,7 @@ test_that("der Loop baut je Liga Seitendaten und übergibt sie an den Generator"
   run_one_loop(build_stub, capture)
 
   expect_equal(capture$site_calls, 1)
-  # Drei Ligen -> drei Aufrufe, mit der eingelesenen TeamList als zweitem Argument
+  # Je aktive Liga ein Aufruf, mit der eingelesenen TeamList als zweitem Argument
   aktiv <- local({
     e <- new.env()
     source(file.path("..", "..", "RCode", "league_registry.R"), local = e)
@@ -207,8 +207,9 @@ test_that("league_data behaelt seine Schluessel und Reihenfolge", {
 })
 
 test_that("Loop 1 simuliert jede Liga plus den Aufstiegslauf", {
-  # Drei Ligen + ein Aufstiegslauf = 4. Die Zahl folgt der Registry, nicht
-  # einer festen Annahme -- test-update_all_leagues_loop-gating.R pinnt sie als 4 bzw. 8.
+  # Je Liga eine Simulation plus je Aufstiegsrestriktion ein Lauf; die Zahl
+  # folgt der Registry, nicht einer festen Annahme --
+  # test-update_all_leagues_loop-gating.R pinnt sie als 4 bzw. 8.
   cap <- run_loop_capturing()
 
   reg <- new.env()

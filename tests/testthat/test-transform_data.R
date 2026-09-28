@@ -231,8 +231,11 @@ test_that("transform_data handles missing team in teams list", {
   )
   
   teams <- create_test_teams_api()
-  
-  # The function doesn't handle missing teams gracefully, so expect an error
+
+  # Ein Team, das die TeamList nicht kennt, muss abbrechen: ohne Kürzel
+  # entstünde eine NA-Teamspalte, und die Simulation liefe mit vertauschten
+  # Teams. Die Meldung ist heute zufällig (R-Fehler aus dem Spaltenaufbau);
+  # siehe Produktivfrage #260.
   expect_error(transform_data(fixtures, teams))
 })
 

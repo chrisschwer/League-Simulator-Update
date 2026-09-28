@@ -158,7 +158,7 @@ context("Team Data Carryover Module")
 
 test_that("load_previous_team_list loads valid team data", {
   # Create temporary test file
-  test_dir <- tempdir()
+  test_dir <- withr::local_tempdir()
   test_file <- file.path(test_dir, "RCode", "TeamList_2024.csv")
   dir.create(file.path(test_dir, "RCode"), recursive = TRUE, showWarnings = FALSE)
   
@@ -181,9 +181,6 @@ test_that("load_previous_team_list loads valid team data", {
   # Assertions
   expect_equal(nrow(result), 2)
   expect_equal(result$ShortText[1], "B04")
-  
-  # Cleanup
-  unlink(file.path(test_dir, "RCode"), recursive = TRUE)
 })
 
 test_that("get_existing_team_data returns correct team info", {
