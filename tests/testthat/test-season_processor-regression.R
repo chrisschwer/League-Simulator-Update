@@ -16,11 +16,9 @@ test_that("Liga3 baseline is NOT 1046 for all season transitions", {
   # Fix: Dynamic calculation based on teams finishing in relegation positions (17-20)
   
   # Create temporary RCode directory if it doesn't exist
-  temp_dir <- tempdir()
+  temp_dir <- withr::local_tempdir()
   rcode_dir <- file.path(temp_dir, "RCode")
-  if (!dir.exists(rcode_dir)) {
-    dir.create(rcode_dir)
-  }
+  dir.create(rcode_dir)
   
   # Create temporary TeamList files for 2023 and 2024
   # These are needed because the implementation looks for these files
@@ -169,9 +167,6 @@ test_that("Liga3 baseline is NOT 1046 for all season transitions", {
   
   expect_equal(baseline_2023, expected_2023)
   expect_equal(baseline_2024, expected_2024)
-  
-  # Cleanup
-  unlink(rcode_dir, recursive = TRUE)
 })
 
 test_that("new teams get season-specific baseline, not hardcoded 1046", {
@@ -333,7 +328,7 @@ test_that("final TeamList_YYYY.csv files are created, not just temp files", {
   # Fix: merge_league_files creates final TeamList_YYYY.csv files
   
   # Create mock temp files
-  temp_dir <- tempdir()
+  temp_dir <- withr::local_tempdir()
   temp_file1 <- file.path(temp_dir, "TeamList_2025_League78_temp.csv")
   temp_file2 <- file.path(temp_dir, "TeamList_2025_League80_temp.csv")
   
@@ -371,9 +366,6 @@ test_that("final TeamList_YYYY.csv files are created, not just temp files", {
   # REGRESSION: Should create final file, not return NULL
   expect_false(is.null(result))
   expect_equal(result, final_file)
-  
-  # Cleanup
-  unlink(c(temp_file1, temp_file2))
 })
 
 context("Regression Tests - Duplicate Prompts Issue")
@@ -490,9 +482,9 @@ context("Regression Tests - System Integration")
 test_that("complete season transition creates expected file count", {
   # Test Issue: Incomplete team lists with wrong team counts
   # Fix: All leagues processed and merged correctly
-  
+
   # Mock complete 3-league processing
-  temp_dir <- tempdir()
+  temp_dir <- withr::local_tempdir()
   
   # Create temp files for all 3 leagues
   bundesliga_file <- file.path(temp_dir, "TeamList_2025_League78_temp.csv")
@@ -548,23 +540,18 @@ test_that("complete season transition creates expected file count", {
   # REGRESSION: Should create final merged file with all teams
   expect_false(is.null(result))
   expect_equal(result, final_file)
-  
-  # Cleanup
-  unlink(c(bundesliga_file, zweite_file, liga3_file))
 })
 
 test_that("circular dependency resolution works end-to-end", {
   # Test Issue: Circular dependency between ELO calculation and team list creation
   # Fix: ELO calculation uses temporary files when main files don't exist
   
-  temp_dir <- tempdir()
-  
+  temp_dir <- withr::local_tempdir()
+
   # Create RCode directory in temp
   rcode_dir <- file.path(temp_dir, "RCode")
-  if (!dir.exists(rcode_dir)) {
-    dir.create(rcode_dir)
-  }
-  
+  dir.create(rcode_dir)
+
   # Change to temp directory for this test
   # (withr stellt es auch zurueck, wenn der Test vorher abbricht)
   withr::local_dir(temp_dir)
@@ -679,7 +666,4 @@ test_that("circular dependency resolution works end-to-end", {
   expected_baseline <- mean(c(1000, 950, 900, 850))  # 925
   expect_equal(baseline, expected_baseline)
   expect_false(baseline == 1046)
-  
-  # Cleanup
-  unlink(rcode_dir, recursive = TRUE)
 })

@@ -40,15 +40,7 @@ test_that("loop fails fast with RUST_API_URL message when Rust is down (post-ref
   skip_if_not_installed("httr")
 
   # Point at a port that is guaranteed to refuse connections (no server here).
-  prior_rust_api_url <- Sys.getenv("RUST_API_URL", unset = NA)
-  Sys.setenv(RUST_API_URL = "http://127.0.0.1:1")
-  on.exit({
-    if (is.na(prior_rust_api_url)) {
-      Sys.unsetenv("RUST_API_URL")
-    } else {
-      Sys.setenv(RUST_API_URL = prior_rust_api_url)
-    }
-  }, add = TRUE)
+  withr::local_envvar(RUST_API_URL = "http://127.0.0.1:1")
 
   with_repo_root({
     source("RCode/update_all_leagues_loop.R", local = FALSE)

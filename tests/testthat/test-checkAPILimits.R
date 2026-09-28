@@ -42,12 +42,7 @@ lade_check_api_limits <- function() {
 
 # Ein Schluessel muss gesetzt sein, sonst steigt die Funktion vorher aus.
 mit_api_key <- function(code) {
-  alt <- Sys.getenv("RAPIDAPI_KEY", unset = NA)
-  Sys.setenv(RAPIDAPI_KEY = "test-key")
-  on.exit({
-    if (is.na(alt)) Sys.unsetenv("RAPIDAPI_KEY") else Sys.setenv(RAPIDAPI_KEY = alt)
-  }, add = TRUE)
-  force(code)
+  withr::with_envvar(c(RAPIDAPI_KEY = "test-key"), code)
 }
 
 # Die Funktion mit vorgegebenen Rate-Limit-Headern. `zaehler` (optional) wird
@@ -119,9 +114,7 @@ test_that("ohne API-Schluessel gibt checkAPILimits den Wunsch unveraendert zurue
   # Kein Schluessel heisst: keine Aussage moeglich. Die Funktion darf dann
   # nicht deckeln -- der Lauf scheitert spaeter deutlicher an anderer Stelle.
   env <- lade_check_api_limits()
-  alt <- Sys.getenv("RAPIDAPI_KEY", unset = NA)
-  Sys.unsetenv("RAPIDAPI_KEY")
-  on.exit(if (!is.na(alt)) Sys.setenv(RAPIDAPI_KEY = alt), add = TRUE)
+  withr::local_envvar(RAPIDAPI_KEY = NA)
 
   expect_warning(ergebnis <- env$checkAPILimits(360), "No RAPIDAPI_KEY")
   expect_equal(ergebnis, 360)
@@ -252,11 +245,7 @@ test_that("checkAPILimits meldet, ob die Planung aus einem Fallback kam", {
   source(file.path("..", "..", "RCode", "league_registry.R"), local = env)
   source(file.path("..", "..", "RCode", "checkAPILimits.R"), local = env)
 
-  alt <- Sys.getenv("RAPIDAPI_KEY", unset = NA)
-  Sys.setenv(RAPIDAPI_KEY = "test-key")
-  on.exit({
-    if (is.na(alt)) Sys.unsetenv("RAPIDAPI_KEY") else Sys.setenv(RAPIDAPI_KEY = alt)
-  }, add = TRUE)
+  withr::local_envvar(RAPIDAPI_KEY = "test-key")
 
   # Echte Messung -> kein Fallback.
   f_ok <- env$checkAPILimits

@@ -546,8 +546,7 @@ test_that("generate_static_site traegt den Takt bis in den Seitenfuss", {
   # muss auf JEDER gerenderten Seite ankommen, nicht nur auf der ersten.
   gen <- source_module("generate_static_site")
   env <- make_data_env()
-  out <- file.path(tempdir(), "fuss-takt")
-  unlink(out, recursive = TRUE)
+  out <- withr::local_tempdir()
 
   gen$generate_static_site(
     output_dir = out,
@@ -569,8 +568,7 @@ test_that("generate_static_site ohne Taktangabe laesst den Fuss unveraendert", {
   # nicht da war -- sonst braeche der Default alle Bestandsseiten.
   gen <- source_module("generate_static_site")
   env <- make_data_env()
-  out <- file.path(tempdir(), "fuss-normal")
-  unlink(out, recursive = TRUE)
+  out <- withr::local_tempdir()
 
   gen$generate_static_site(
     output_dir = out,
