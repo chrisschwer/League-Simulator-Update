@@ -48,7 +48,7 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 | `test-generate_static_site-tooltip.R` | 10 | kuerzel-tooltip (10 Bl.) |
 | `test-interactive_prompts.R` | 11 | interactive-prompts |
 | `test-league_details.R` | 49 | elo-walk-reihenfolge (3 Bl.), fixture-details-produktionsform, fixture-details, gewertete-spiele (11 Bl.), kuerzel-tooltip (1 Bl.), ligatabelle, rundenfilter-schutznetz (5 Bl.), spieltag-logik, tbd-termin (6 Bl.) |
-| `test-league_details-client.R` | 13 (+1, Stufe 4.4b: `fetch_league_details postet an RUST_API_URL/league-details, Default localhost:8080, Fehler nennt Status und Body`, ersetzt den Signaturblock aus `test-league_details-seitendaten.R`) | league-details-client-haertung, league-details-client |
+| `test-league_details-client.R` | 13 (+1, Stufe 4.4b: `fetch_league_details postet an RUST_API_URL/league-details, Default localhost:8080, Fehler nennt Status und Body`, ersetzt den Signaturblock aus `test-league_details-seitendaten.R`; der bisherige Wert 11 in dieser Zeile war veraltet, tatsächlich waren es vorher 12) | league-details-client-haertung, league-details-client |
 | `test-league_details-seitendaten.R` | 13 (−1, Stufe 4.4b: Signaturblock zu `fetch_league_details` entfernt, siehe `test-league_details-client.R`) | league-page-data-ausblick, league-page-data-rueckblick, league-page-data |
 | `test-league_registry.R` | 42 | frauen-ligen-aktivierung (2 Bl.), league-registry (19 Bl.), n-ligen-entflechtung (3 Bl.), phase5-regionalligen (15 Bl.), rl-zonen-verdrahtung (3 Bl.) |
 | `test-league_views.R` | 20 | frauen-ligen-live (4 Bl.), league-views, phase5-regionalligen (11 Bl.) |
