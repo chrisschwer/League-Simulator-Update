@@ -445,11 +445,28 @@ test_that("calculate_liga3_relegation_baseline reicht die Seams durch", {
   # Baseline einen laufenden Rust-Server, und der produktive Aufruf im
   # Saisonwechsel muesste den Endpoint zweimal unterschiedlich konfigurieren.
   #
-  # Geprueft wird nur die SIGNATUR, nicht das Ergebnis: Die Funktion muss die
-  # Parameter kennen.
-  argumente <- names(formals(calculate_liga3_relegation_baseline))
-  expect_true("fetch_fn" %in% argumente)
-  expect_true("fixtures_fn" %in% argumente)
+  # Vorher pruefte dieser Block nur die SIGNATUR (formals()); ob fetch_fn/
+  # fixtures_fn wirklich bei calculate_final_elos() ankommen, sah niemand.
+  # Jetzt faengt der Stub die tatsaechlich uebergebenen Funktionen ab.
+  skip_if_not_installed("mockery")
+  library(mockery)
+
+  fx <- function(...) stop("fx sollte nie aufgerufen werden")
+  fi <- function(...) stop("fi sollte nie aufgerufen werden")
+  gesehen <- NULL
+
+  stub(calculate_liga3_relegation_baseline, "calculate_final_elos",
+       function(season, fetch_fn, fixtures_fn) {
+         gesehen <<- list(fetch_fn = fetch_fn, fixtures_fn = fixtures_fn)
+         stop("abbruch")
+       })
+
+  suppressWarnings(
+    calculate_liga3_relegation_baseline("2026", fetch_fn = fx, fixtures_fn = fi)
+  )
+
+  expect_identical(gesehen$fetch_fn, fx)
+  expect_identical(gesehen$fixtures_fn, fi)
 })
 
 test_that("process_single_season ruft calculate_final_elos ohne R-Walk auf", {

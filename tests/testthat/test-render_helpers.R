@@ -4,12 +4,6 @@
 # display_result() was removed once the static site generator stopped
 # using ggplot2 (Phase 3); groupResultsDF/prozent are still in use.
 
-test_that("render_helpers.R defines its primitives", {
-  env <- source_module("render_helpers")
-  expect_true(is.function(env$prozent))
-  expect_true(is.function(env$groupResultsDF))
-})
-
 test_that("prozent keeps its boundary behaviour after the move", {
   env <- source_module("render_helpers")
   expect_equal(env$prozent(0), 0)

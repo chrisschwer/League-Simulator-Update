@@ -870,7 +870,16 @@ test_that("extract_fixture_details bricht ab, wenn der Filter alles entfernt", {
 })
 
 test_that("extract_fixture_details lässt leere Eingabe unberührt durch", {
-  expect_error(extract_fixture_details(rl_fixtures_flach(character(0))), NA)
+  # Vorher nur expect_error(NA) -- ob ueberhaupt ein sinnvolles leeres
+  # Gerüst herauskommt, pruefte niemand. build_league_page_data() baut
+  # darauf: das leere Gerüst ist Vertrag, nicht nur "kein Fehler".
+  details <- extract_fixture_details(rl_fixtures_flach(character(0)))
+
+  expect_equal(nrow(details), 0)
+  expect_named(details, c("fixture_id", "round", "kickoff", "status",
+                          "zeit_offen", "home_id", "away_id",
+                          "home_name", "away_name",
+                          "goals_home", "goals_away"))
 })
 
 # --- aus test-elo-walk-reihenfolge.R ---

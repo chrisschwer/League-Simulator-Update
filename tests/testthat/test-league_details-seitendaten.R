@@ -186,13 +186,6 @@ test_that("ein Endpoint-Fehler degradiert zu NULL mit Warnung", {
   expect_null(pd)
 })
 
-test_that("fetch_league_details existiert als httr-Client mit RUST_API_URL-Default", {
-  # Nur Signatur-/Existenzprüfung — der HTTP-Weg selbst wird nicht getestet,
-  # build_league_page_data injiziert ihn als Default.
-  expect_true(is.function(fetch_league_details))
-  expect_true(all(c("payload") %in% names(formals(fetch_league_details))))
-})
-
 # --- Issue #205: das abweichende Tormodell (ADR 0004) muss den Payload
 # --- erreichen, sonst laufen Score-Matrix und 1/X/2 der Frauen-Ligen mit
 # --- den Herren-Werten. build_league_page_data() bekommt dafuer einen

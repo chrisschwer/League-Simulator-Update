@@ -194,10 +194,15 @@ test_that("new teams get season-specific baseline, not hardcoded 1046", {
   
   # Test
   result <- process_league_teams(api_teams, "80", "2025", final_elos, calculated_baseline, NULL)
-  
-  # REGRESSION: Should use calculated baseline, not hardcoded 1046
+
+  # REGRESSION: Should use calculated baseline, not hardcoded 1046. Vorher
+  # war das tautologisch, weil der Mock selbst initial_elo = calculated_baseline
+  # zurueckgab. Jetzt geprueft: die Baseline erreicht den Prompt ueberhaupt
+  # (4. Argument von prompt_fn, siehe build_new_team_record()), und der
+  # Prompt-Wert wird uebernommen.
+  expect_called(mock_prompt, 1)
+  expect_equal(mock_args(mock_prompt)[[1]][[4]], calculated_baseline)
   expect_equal(result[[1]]$initial_elo, calculated_baseline)
-  expect_false(result[[1]]$initial_elo == 1046)
 })
 
 context("Regression Tests - ELO Carryover Issue")

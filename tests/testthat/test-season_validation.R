@@ -58,23 +58,49 @@ test_that("validate_season_completion handles API failures gracefully", {
     structure(list(), class = "response")
   })
   stub(validate_season_completion, "httr::status_code", 500)
-  
-  # Should return FALSE on API failure
-  expect_false(validate_season_completion(2024))
+
+  # expect_false() allein unterscheidet nicht zwischen der vorgesehenen
+  # Behandlung (je Liga next, danach return(FALSE)) und dem tryCatch-
+  # Fallback ("Error validating season ..."), der ebenfalls FALSE liefert.
+  # Die Warnungsfolge haelt fest, welcher Pfad wirklich lief.
+  w_all <- character(0)
+  res <- withCallingHandlers(
+    validate_season_completion(2024),
+    warning = function(w) {
+      w_all <<- c(w_all, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+
+  expect_false(res)
+  expect_equal(w_all, c(paste("Failed to fetch matches for league", c("78", "79", "80")),
+                       "Could not validate any leagues due to API failures"))
 })
 
 test_that("validate_season_completion handles empty response", {
   # Mock empty response
   mock_response <- list(response = NULL)
-  
+
   stub(validate_season_completion, "httr::GET", function(...) {
     structure(list(), class = "response")
   })
   stub(validate_season_completion, "httr::status_code", 200)
   stub(validate_season_completion, "httr::content", mock_response)
-  
-  # Should handle gracefully
-  expect_false(validate_season_completion(2024))
+
+  # Wie oben: die Warnungsfolge zeigt den vorgesehenen Pfad, nicht nur ein
+  # FALSE, das auch der Fallback liefern wuerde.
+  w_all <- character(0)
+  res <- withCallingHandlers(
+    validate_season_completion(2024),
+    warning = function(w) {
+      w_all <<- c(w_all, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+
+  expect_false(res)
+  expect_equal(w_all, c(paste("No matches found for league", c("78", "79", "80"), "season 2024"),
+                       "Could not validate any leagues due to API failures"))
 })
 
 context("Season Range Validation")
@@ -189,8 +215,11 @@ test_that("validate_api_access handles API errors", {
     structure(list(), class = "response")
   })
   stub(validate_api_access, "httr::status_code", 403)
-  
-  expect_false(validate_api_access())
+
+  # Vorher lief die Warnung "API test failed with status 403" ungeprueft
+  # durch den Testlauf. expect_warning() haelt sie fest.
+  expect_warning(res <- validate_api_access(), "status 403")
+  expect_false(res)
 })
 
 context("Helper Functions")
