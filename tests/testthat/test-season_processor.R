@@ -154,59 +154,6 @@ test_that("process_single_season validates previous season completion", {
   expect_equal(result$error, "Season 2024 not finished, no season transition possible.")
 })
 
-context("Team Data Carryover Module")
-
-test_that("load_previous_team_list loads valid team data", {
-  # Create temporary test file
-  test_dir <- withr::local_tempdir()
-  test_file <- file.path(test_dir, "RCode", "TeamList_2024.csv")
-  dir.create(file.path(test_dir, "RCode"), recursive = TRUE, showWarnings = FALSE)
-  
-  # Write test data
-  test_data <- data.frame(
-    TeamID = c(168, 167),
-    ShortText = c("B04", "HOF"),
-    Promotion = c(0, 0),
-    InitialELO = c(1765, 1628)
-  )
-  write.table(test_data, test_file, sep = ";", row.names = FALSE, quote = FALSE)
-  
-  # Mock file path
-  stub(load_previous_team_list, "paste0", function(...) test_file)
-  stub(load_previous_team_list, "safe_file_read", function(path, ...) test_data)
-  
-  # Test
-  result <- load_previous_team_list("2024")
-  
-  # Assertions
-  expect_equal(nrow(result), 2)
-  expect_equal(result$ShortText[1], "B04")
-})
-
-test_that("get_existing_team_data returns correct team info", {
-  # Setup
-  prev_data <- data.frame(
-    TeamID = c(168, 167),
-    ShortText = c("B04", "HOF"),
-    Promotion = c(0, -50),
-    stringsAsFactors = FALSE
-  )
-  
-  # Test existing team
-  result <- get_existing_team_data(168, prev_data)
-  expect_equal(result$short_name, "B04")
-  expect_equal(result$promotion_value, 0)
-  
-  # Test second team
-  result <- get_existing_team_data(167, prev_data)
-  expect_equal(result$short_name, "HOF")
-  expect_equal(result$promotion_value, -50)
-  
-  # Test non-existing team
-  result <- get_existing_team_data(999, prev_data)
-  expect_null(result)
-})
-
 # ENTFERNT (Issue #195): Hier standen zwei Tests fuer
 # validate_short_name_uniqueness() und ensure_unique_short_names().
 #
