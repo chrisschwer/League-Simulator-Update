@@ -17,11 +17,6 @@
 #' @return A 6-column numeric matrix with columns: team_number, rank, goals_for,
 #'   goals_against, goal_diff, points. This format is used internally by the
 #'   simulation engine.
-#'
-#' @note For a more user-friendly presentation format that includes W/D/L
-#'   statistics, use \code{\link{Tabelle_presentation}} instead.
-#'
-#' @seealso \code{\link{Tabelle_presentation}} for presentation format with W/D/L
 
 Tabelle <- function(season,
                     numberTeams, numberGames,

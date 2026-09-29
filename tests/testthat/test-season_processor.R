@@ -157,7 +157,8 @@ test_that("process_single_season validates previous season completion", {
 # ENTFERNT (Issue #195): Hier standen zwei Tests fuer
 # validate_short_name_uniqueness() und ensure_unique_short_names().
 #
-# Beide Funktionen sind mit diesem PR geloescht. ensure_unique_short_names()
+# Die Tests fielen mit #195; die Funktionen selbst fielen erst in Stufe 4.5
+# (#212). ensure_unique_short_names()
 # hatte keinen einzigen Produktivaufrufer -- nur diesen Test -- und er
 # nagelte mit expect_match(short_names[2], "B0[0-9]") ausgerechnet die
 # STILLE UMBENENNUNG als Sollverhalten fest. Genau die widerspricht dem
