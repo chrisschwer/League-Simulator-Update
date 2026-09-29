@@ -686,6 +686,20 @@ den Produktionspfad nie traf; weitere Details siehe PR-Beschreibung. Beweis: 777
 3283→3288 (mit Rust) Erwartungen, Differenz Zeile für Zeile auf die 14 Punkte zurückgeführt; Warnungszahl des
 Gesamtlaufs ohne Rust 15→6 (−9, wie erwartet).
 
+**4.5 erledigt 29.09.2026, PR #265:** `Tabelle()`, `input_handler.R` und `team_data_carryover.R` haben alle lebende
+Aufrufer und wurden getestet statt gelöscht (Befund 27.09., Entscheidung Christoph 29.09.); sechs Funktionen ohne
+Produktivaufrufer gelöscht: `get_numeric_input`/`get_choice_input` (+ der nur dort gebrauchte Operator `%+%`) aus
+`input_handler.R`, `build_team_lookup_table`/`validate_short_name_uniqueness`/`merge_team_data_with_carryover`/
+`ensure_unique_short_names` aus `team_data_carryover.R`. #195-Rest: Die letzten zwei sollten laut Kommentar bereits
+mit Issue #195 gefallen sein — tatsächlich fielen damals nur ihre Tests, die Funktionen selbst überlebten bis Stufe
+4.5 (Kommentar in `test-season_processor.R` korrigiert). Drei neue Testdateien (21 Blöcke: `test-Tabelle.R` 6,
+`test-input_handler.R` 7, `test-team_data_carryover.R` 8 inkl. 2 wortgleich aus `test-season_processor.R`
+umgezogener Bestandsblöcke), TDD-Rot je neuer Fall per Mutation belegt. Beweis: 776→795 Blöcke, 3205→3257 (ohne
+Rust, RUST_API_URL=127.0.0.1:1) bzw. 3288→3340 (mit Rust) Erwartungen, Differenz ausschließlich die 19 neuen
+Blöcke (15+20+17 = 52 neue Erwartungen), die zwei umgezogenen Blöcke identisch in beiden Ständen. `git diff
+RCode/` nur Streichungen plus der NAMESPACE-Nachzug (roxygen2-generiert, zwei `export()`-Zeilen für gelöschte
+Funktionen). Bekannt und unbehoben: Issue #264 (Saisonwechsel-Subprozess mit `RUST_API_URL=127.0.0.1:1`).
+
 1. `test-updateScheduler.R`: die drei Zweige von `calculate_loops()` mit gestubbtem `Sys.time`/`Sys.sleep` (reine Rechenfunktion herauslösen: Jetzt-Zeit → Loops, Startwartezeit, Dauer) — die Berlin-Zeit-Frage gleich mit.
 2. `.record_rate_limit_headers()`: prüfen, ob `test-retrieveResults-rate-limit-header.R` (aus #222) das schon abdeckt; nur Lücken schließen.
 3. Client-JS — **entschieden 25.09.: Node + jsdom mit Syntaxprüfung, Skripte bleiben inline.**
