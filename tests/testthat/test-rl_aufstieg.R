@@ -150,11 +150,11 @@ test_that("aufstiegsmodus 2026: Nordost direkt, Nord gegen Bayern", {
   env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg")
   modus <- fn(env, "aufstiegsmodus")(2026)
 
+  # Die Wikipedia-Variante muss ausgeschlossen sein: expect_setequal() prueft
+  # das schon mit -- "Bayern" in direkt oder "Nordost" in playoff wuerde
+  # ebenso scheitern wie ein fehlendes Element.
   expect_setequal(modus$direkt, c("West", "SuedWest", "Nordost"))
   expect_setequal(modus$playoff, c("Nord", "Bayern"))
-  # Die Wikipedia-Variante muss ausgeschlossen sein.
-  expect_false("Bayern" %in% modus$direkt)
-  expect_false("Nordost" %in% modus$playoff)
 })
 
 test_that("aufstiegsmodus akzeptiert die Saison als Integer und als Double", {

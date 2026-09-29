@@ -675,6 +675,17 @@ Multimenge (`scripts/dev/blockmenge_tests.R`) zeigt genau die 15 erwarteten geä
 (14 inhaltliche Ersetzungen, Freigabe je Punkt) setzt darauf auf; die zwei Produktivfragen aus der Analyse sind Issues
 #260 und #261.
 
+**4.4b erledigt 28.09.2026, PR #263:** 14 hohle oder gestrichene Blöcke ersetzt, `git diff RCode/` leer, TDD-Rot je Punkt
+per Mutation belegt. Rust-Loop (`test-update_all_leagues_loop-rust.R`) läuft jetzt echt gegen das gestartete Binary statt
+nur `exists()` zu prüfen; `fetch_league_details` bekommt einen echten HTTP-Client-Block in `test-league_details-client.R`
+(URL, volle Präzision des Bodys, Default, Fehlerpfad); die zwei `skip()`-Blöcke in `test-interactive_prompts.R` laufen
+jetzt echt (Selbstaufruf von `prompt_for_team_info()` gestubbt, `get_promotion_value_interactive()` als gestubbte Kopie);
+`test-season_validation.R` hält die Warnungsfolgen der drei betroffenen Blöcke fest statt sie ungeprüft durchlaufen zu
+lassen; `test-transform_data.R` prüft JSON-`null`-Tore über `jsonlite::fromJSON()` statt einer handgebauten Eingabe, die
+den Produktionspfad nie traf; weitere Details siehe PR-Beschreibung. Beweis: 777→776 Blöcke, 3204→3206 (ohne Rust) bzw.
+3283→3288 (mit Rust) Erwartungen, Differenz Zeile für Zeile auf die 14 Punkte zurückgeführt; Warnungszahl des
+Gesamtlaufs ohne Rust 15→6 (−9, wie erwartet).
+
 1. `test-updateScheduler.R`: die drei Zweige von `calculate_loops()` mit gestubbtem `Sys.time`/`Sys.sleep` (reine Rechenfunktion herauslösen: Jetzt-Zeit → Loops, Startwartezeit, Dauer) — die Berlin-Zeit-Frage gleich mit.
 2. `.record_rate_limit_headers()`: prüfen, ob `test-retrieveResults-rate-limit-header.R` (aus #222) das schon abdeckt; nur Lücken schließen.
 3. Client-JS — **entschieden 25.09.: Node + jsdom mit Syntaxprüfung, Skripte bleiben inline.**

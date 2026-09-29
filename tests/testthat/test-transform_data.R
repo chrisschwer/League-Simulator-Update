@@ -239,30 +239,36 @@ test_that("transform_data handles missing team in teams list", {
   expect_error(transform_data(fixtures, teams))
 })
 
-test_that("transform_data handles NULL goal values", {
-  # Test fixture with NULL goals (different from NA)
-  fixtures <- tibble::tibble(
-    teams = list(
-      data.frame(
-        home = I(list(data.frame(id = 101, name = "Team A"))),
-        away = I(list(data.frame(id = 102, name = "Team B")))
-      )
-    ),
-    goals = list(
-      data.frame(home = NA, away = NA)
-    ),
-    fixture = list(
-      data.frame(id = 1001, status = I(list(data.frame(short = "NS"))))
-    )
-  )
-  
+test_that("transform_data behandelt JSON-null-Tore als offenes Spiel, auch bei Status FT", {
+  # Echtes R-NULL (goals = list(home = NULL, away = NULL)) laesst
+  # transform_data abstuerzen ("Column `goals_home` doesn't exist") -- aber
+  # dieser Fall ist in Produktion unerreichbar: jsonlite::fromJSON() macht
+  # aus JSON-null ein NA. Die Eingabe hier kommt deshalb ueber fromJSON(),
+  # wie retrieveResults() sie liefert -- nicht handgebaut. Ein FT-Spiel mit
+  # null-Toren (API-Glitch, siehe test-league_details-client.R) muss
+  # ebenfalls offen bleiben statt mit NA-Toren als beendet durchzugehen.
+  response <- jsonlite::fromJSON('{"response":[
+    {"fixture":{"id":1001,"status":{"short":"NS"}},
+     "teams":{"home":{"id":101,"name":"Team A"},"away":{"id":102,"name":"Team B"}},
+     "goals":{"home":null,"away":null}},
+    {"fixture":{"id":1002,"status":{"short":"FT"}},
+     "teams":{"home":{"id":103,"name":"Team C"},"away":{"id":104,"name":"Team D"}},
+     "goals":{"home":null,"away":null}},
+    {"fixture":{"id":1003,"status":{"short":"FT"}},
+     "teams":{"home":{"id":101,"name":"Team A"},"away":{"id":103,"name":"Team C"}},
+     "goals":{"home":1,"away":0}}
+  ]}')$response
+
   teams <- create_test_teams_api()
-  
-  result <- transform_data(fixtures, teams)
-  
-  # NULL should be converted to NA
-  expect_true(is.na(result$ToreHeim[1]))
-  expect_true(is.na(result$ToreGast[1]))
+
+  result <- transform_data(response, teams)
+
+  # Beide null-Spiele (NS und der FT-Glitch) bleiben offen.
+  expect_true(all(is.na(result$ToreHeim[1:2])))
+  expect_true(all(is.na(result$ToreGast[1:2])))
+  # Das intakte 1:0 bleibt unberuehrt.
+  expect_equal(result$ToreHeim[3], 1)
+  expect_equal(result$ToreGast[3], 0)
 })
 
 test_that("transform_data drops non-regular-season rounds (relegation playoff)", {

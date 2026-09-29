@@ -28,8 +28,27 @@ test_that("prompt_for_team_info accepts valid input", {
 })
 
 test_that("prompt_for_team_info retries when user says no", {
-  # This test is causing issues with mocking, skip for now
-  skip("Mocking issues with nested function calls")
+  # Die Rekursion in prompt_for_team_info() loest sich lexikalisch ueber den
+  # globalen Namen auf -- eine normale stub()-Kopie fuer einen Mitspieler
+  # griffe deshalb nur beim ersten Aufruf. Der Selbstaufruf muss darum
+  # selbst gestubbt werden (der Trick, der bisher an "Mocking issues"
+  # scheiterte).
+  retry_mock <- mock("ZWEITE-RUNDE")
+  stub(prompt_for_team_info, "prompt_for_team_info", retry_mock)
+  stub(prompt_for_team_info, "get_team_short_name_interactive", function(...) "ENE")
+  stub(prompt_for_team_info, "get_initial_elo_interactive", function(...) 1100)
+  stub(prompt_for_team_info, "get_promotion_value_interactive", function(...) 0)
+  stub(prompt_for_team_info, "can_accept_input", TRUE)
+  stub(prompt_for_team_info, "confirm_action", FALSE)
+
+  result <- prompt_for_team_info("Energie Cottbus", "80", c("AAA"), 1100)
+
+  # Genau eine Wiederholung, mit allen Argumenten durchgereicht und
+  # retry_count + 1.
+  expect_called(retry_mock, 1)
+  expect_equal(mock_args(retry_mock)[[1]],
+              list("Energie Cottbus", "80", c("AAA"), 1100, 1))
+  expect_equal(result, "ZWEITE-RUNDE")
 })
 
 test_that("prompt_for_team_info prevents infinite loops", {
@@ -65,18 +84,26 @@ test_that("prompt_for_team_info prevents infinite loops", {
 
 test_that("prompt_for_team_info handles empty confirmation gracefully", {
   # Empty ELO input falls back to the default; empty confirmation is
-  # treated as yes. Stub the direct collaborators of
-  # prompt_for_team_info (not get_user_input via depth > 1, which would
-  # rewrite get_team_short_name_interactive/get_initial_elo_interactive
-  # in globalenv and leak into later tests).
-  stub(prompt_for_team_info, "get_team_short_name_interactive", function(...) "ENE")
-  stub(prompt_for_team_info, "can_accept_input", TRUE)
-  stub(prompt_for_team_info, "confirm_action", TRUE) # Empty treated as yes
+  # treated as yes. Beide Pfade laufen durch die ECHTE Logik von
+  # get_initial_elo_interactive() bzw. confirm_action() -- nur ihre
+  # jeweiligen Blaetter (check_interactive_mode, get_user_input) sind
+  # gestubbt, ueber gestubbte KOPIEN statt einer globalen Umschreibung:
+  # stub(get_initial_elo_interactive, ...) direkt stubbt nur eine lokale
+  # Kopie, die prompt_for_team_info() nie sieht (es ruft das globale
+  # Original) -- die vorherige Fassung war deshalb wirkungslos; und die
+  # vorherige Fassung stubte confirm_action pauschal auf TRUE und pruefte
+  # die "leere Bestaetigung" damit gar nicht.
+  elo <- get_initial_elo_interactive
+  stub(elo, "check_interactive_mode", TRUE)
+  stub(elo, "get_user_input", function(prompt, default = NULL) "")
 
-  # get_initial_elo_interactive keeps its real logic; only the leaf
-  # get_user_input is stubbed, exercising the "empty input -> default" path.
-  stub(get_initial_elo_interactive, "check_interactive_mode", TRUE)
-  stub(get_initial_elo_interactive, "get_user_input", function(prompt, default = NULL) default)
+  bestaetigen <- confirm_action
+  stub(bestaetigen, "get_user_input", function(prompt, default = NULL) "")
+
+  stub(prompt_for_team_info, "get_team_short_name_interactive", function(...) "ENE")
+  stub(prompt_for_team_info, "get_initial_elo_interactive", elo)
+  stub(prompt_for_team_info, "can_accept_input", TRUE)
+  stub(prompt_for_team_info, "confirm_action", bestaetigen)
 
   result <- prompt_for_team_info("Energie Cottbus", "80")
 
@@ -86,8 +113,37 @@ test_that("prompt_for_team_info handles empty confirmation gracefully", {
 })
 
 test_that("second team detection and conversion works", {
-  # This test is causing issues with mocking, skip for now
-  skip("Mocking issues with nested function calls")
+  # get_user_input sitzt eine Ebene unter prompt_for_team_info, in
+  # get_promotion_value_interactive(). Statt get_promotion_value_interactive
+  # selbst zu stubben (und damit seine echte Logik -- detect_second_teams(),
+  # das y/n -50/0 -- zu umgehen), laeuft hier eine gestubbte KOPIE davon:
+  # nur ihre Blaetter (check_interactive_mode, get_user_input) sind
+  # gestubbt, die Kopie wird als Mitspieler untergeschoben.
+  pv_ja <- get_promotion_value_interactive
+  stub(pv_ja, "check_interactive_mode", TRUE)
+  stub(pv_ja, "get_user_input", "y")
+
+  stub(prompt_for_team_info, "get_promotion_value_interactive", pv_ja)
+  stub(prompt_for_team_info, "get_team_short_name_interactive", function(...) "BAY")
+  stub(prompt_for_team_info, "get_initial_elo_interactive", function(...) 1046)
+  stub(prompt_for_team_info, "can_accept_input", TRUE)
+  stub(prompt_for_team_info, "confirm_action", TRUE)
+
+  result <- prompt_for_team_info("Bayern Munich II", "80")
+
+  expect_equal(result$promotion_value, -50)
+  expect_equal(result$short_name, "BA2") # convert_second_team_short_name()
+
+  # Gegenprobe: "n" -> keine Zweitmannschafts-Konvertierung.
+  pv_nein <- get_promotion_value_interactive
+  stub(pv_nein, "check_interactive_mode", TRUE)
+  stub(pv_nein, "get_user_input", "n")
+  stub(prompt_for_team_info, "get_promotion_value_interactive", pv_nein)
+
+  result2 <- prompt_for_team_info("Bayern Munich II", "80")
+
+  expect_equal(result2$promotion_value, 0)
+  expect_equal(result2$short_name, "BAY")
 })
 
 test_that("non-interactive mode uses defaults", {

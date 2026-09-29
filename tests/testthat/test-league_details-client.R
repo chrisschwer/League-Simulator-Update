@@ -1,4 +1,5 @@
 library(testthat)
+library(mockery)
 source("../../RCode/league_details.R")
 
 # Client für POST /league-details: Payload-Aufbau aus details + TeamList und
@@ -198,4 +199,45 @@ test_that("unbekannte Team-ID führt zu einem Fehler mit der ID in der Meldung",
     build_league_details_payload(details, make_test_teams()),
     "999"
   )
+})
+
+# --- fetch_league_details: der httr-Client selbst (Stufe 4.4b) ---------------
+#
+# Vorher pruefte diese Datei fuer fetch_league_details nur is.function()/
+# formals() -- weder der RUST_API_URL-Default noch der HTTP-Weg selbst waren
+# getestet. Hier steht der Ersatz: httr::POST/status_code/content gestubbt,
+# URL, Body und Fehlerpfad geprueft.
+
+test_that("fetch_league_details postet an RUST_API_URL/league-details, Default localhost:8080, Fehler nennt Status und Body", {
+  payload <- list(schedule = list(list(1, 2, NULL, NULL)),
+                  tore_slope = 0.0024058833)
+
+  # Fall 1: RUST_API_URL gesetzt -- URL und Body (volle Praezision, digits =
+  # NA) kommen beim POST an; die Rueckgabe ist der Antworttext.
+  gesehen <- new.env()
+  stub(fetch_league_details, "httr::POST", function(url, body, ...) {
+    gesehen$url <- url
+    gesehen$body <- body
+    structure(list(), class = "response")
+  })
+  stub(fetch_league_details, "httr::status_code", 200)
+  stub(fetch_league_details, "httr::content", '{"ok":true}')
+
+  withr::local_envvar(RUST_API_URL = "http://rust.test:9999")
+  antwort <- fetch_league_details(payload)
+
+  expect_equal(gesehen$url, "http://rust.test:9999/league-details")
+  # digits = NA: volle Praezision, nicht auf vier Nachkommastellen gerundet.
+  expect_true(grepl("0.0024058833", gesehen$body, fixed = TRUE))
+  expect_equal(antwort, '{"ok":true}')
+
+  # Fall 2: RUST_API_URL ungesetzt -- Default localhost:8080.
+  withr::local_envvar(RUST_API_URL = NA)
+  fetch_league_details(payload)
+  expect_equal(gesehen$url, "http://localhost:8080/league-details")
+
+  # Fall 3: Server lehnt ab -- Fehlermeldung nennt Status und Antworttext.
+  stub(fetch_league_details, "httr::status_code", 422)
+  stub(fetch_league_details, "httr::content", "kaputt")
+  expect_error(fetch_league_details(payload), "status 422: kaputt")
 })

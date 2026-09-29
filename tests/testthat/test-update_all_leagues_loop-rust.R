@@ -2,6 +2,9 @@
 # Issue #77 / docs/superpowers/plans/2026-05-02-simulation-engine-seam.md.
 
 library(testthat)
+library(mockery)
+
+source("../../RCode/update_all_leagues_loop.R")
 
 # --- Tests ---
 
@@ -19,21 +22,65 @@ test_that("update_all_leagues_loop runs one iteration end-to-end with Rust up", 
                  handle$port, handle$log))
   }
 
-  # Pre-set the FT counters so the loop's "first iteration" branch runs cleanly.
-  FT_BL <- 0; FT_BL2 <- 0; FT_Liga3 <- 0
+  # Stubs nur fuer die Aussenwelt. NICHT gestubbt: connect_rust_simulator()
+  # und leagueSimulatorRust() -- dieser Block ist der einzige, der den Loop
+  # wirklich gegen das laufende Rust-Binary faehrt (alle anderen
+  # Loop-Tests stubben leagueSimulatorRust() weg, siehe
+  # test-update_all_leagues_loop.R).
+  capture <- new.env()
+  capture$site_calls <- 0
+  capture$ergebnisse <- NULL
+
+  stub(update_all_leagues_loop, "retrieveResults", function(league, season) {
+    fake_fixtures(c("FT", "NS"))
+  })
+  stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) integer(0))
+  stub(update_all_leagues_loop, "transform_data", function(...) {
+    # fake_transformed() allein ist ein einziges GESPIELTES Spiel -- der
+    # Server liefert dann die Einheitsmatrix (AAA/BBB je 100% auf der
+    # eigenen Position), weil nichts mehr auszuwuerfeln ist. Ein zweites,
+    # offenes Rueckspiel zwingt die Monte-Carlo-Simulation wirklich zu
+    # laufen (ELO nur in Zeile 1, wie transform_data() es liefert).
+    rbind(
+      fake_transformed(),
+      data.frame(TeamHeim = "BBB", TeamGast = "AAA",
+                ToreHeim = NA, ToreGast = NA, AAA = NA, BBB = NA)
+    )
+  })
+  stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
+  stub(update_all_leagues_loop, "generate_static_site", function(...) {
+    capture$site_calls <- capture$site_calls + 1
+    capture$ergebnisse <- list(...)$ergebnisse
+    invisible(character(0))
+  })
 
   with_repo_root({
-    source("RCode/update_all_leagues_loop.R", local = FALSE)
-    # The function exists post-source; just assert it can be invoked with a
-    # one-loop call and that we don't get an immediate error from sourcing/wiring.
-    # We don't assert on Ergebnis values here — we'd need a stubbed retrieveResults
-    # to do that, and that's a bigger fixture than this test should own. The
-    # post-refactor version of this test (Task 7) will exercise the seam shape.
-    expect_true(exists("update_all_leagues_loop"))
-    # Function signature check: in Phase 1's pre-state, has `use_rust` parameter;
-    # in Phase 1's post-state, does not. We assert nothing here — Task 7 does the
-    # signature check after the refactor.
+    update_all_leagues_loop(
+      duration = 0, loops = 1, initial_wait = 0, n = 50,
+      saison = "2024",
+      TeamList_file = "tests/testthat/fixtures/rust-required/TeamList_minimal.csv",
+      static_site_dir = withr::local_tempdir()
+    )
   })
+
+  expect_equal(capture$site_calls, 1)
+
+  aktiv <- local({
+    e <- new.env()
+    source(file.path("..", "..", "RCode", "league_registry.R"), local = e)
+    e$active_league_keys()
+  })
+  expect_true(all(aktiv %in% names(capture$ergebnisse)))
+
+  # Je Liga: rownames AAA/BBB (aus dem Spielplan oben) und eine echte
+  # Wahrscheinlichkeitsmatrix -- Zeilensummen 1 -- aus dem laufenden Server.
+  expect_true(all(vapply(aktiv, function(key) {
+    identical(rownames(capture$ergebnisse[[key]]), c("AAA", "BBB"))
+  }, logical(1))))
+  expect_true(all(vapply(aktiv, function(key) {
+    isTRUE(all.equal(unname(rowSums(capture$ergebnisse[[key]])), c(1, 1),
+                     tolerance = 1e-9))
+  }, logical(1))))
 })
 
 test_that("loop fails fast with RUST_API_URL message when Rust is down (post-refactor)", {
