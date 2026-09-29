@@ -48,17 +48,20 @@ test_that("get_user_input liest mit Terminal eine Zeile per scan", {
   stub(get_user_input, "interactive", FALSE)
   stub(get_user_input, "isatty", TRUE)
   stub(get_user_input, "scan", "abc")
-  expect_equal(get_user_input("x? "), "abc")
+  invisible(capture.output(ergebnis1 <- get_user_input("x? ")))
+  expect_equal(ergebnis1, "abc")
 
   stub(get_user_input, "interactive", FALSE)
   stub(get_user_input, "isatty", TRUE)
   stub(get_user_input, "scan", character(0))
-  expect_equal(get_user_input("x? ", default = 7), "7")
+  invisible(capture.output(ergebnis2 <- get_user_input("x? ", default = 7)))
+  expect_equal(ergebnis2, "7")
 
   stub(get_user_input, "interactive", FALSE)
   stub(get_user_input, "isatty", TRUE)
   stub(get_user_input, "scan", character(0))
-  expect_equal(get_user_input("x? "), "")
+  invisible(capture.output(ergebnis3 <- get_user_input("x? ")))
+  expect_equal(ergebnis3, "")
 })
 
 test_that("can_accept_input: Option schlaegt Terminal, sonst folgt sie interactive()/isatty()", {

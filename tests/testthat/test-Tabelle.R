@@ -41,7 +41,7 @@ test_that("der Rang folgt Punkten, dann Tordifferenz, dann Toren", {
   expect_equal(rang_je_team, c(1, 2, 3))
 
   # Gleiche Punkte, gleiche Tordifferenz, aber mehr Tore -> besserer Rang
-  # (dritte Ebene des Rangwerts 10000*Punkte + 100*Diff + Tore, Z. 88).
+  # (dritte Ebene des Rangwerts 10000*Punkte + 100*Diff + Tore, Z. 83).
   # Ueber die Anpassungsvektoren direkt gesetzt, ohne Spiele.
   leer <- matrix(numeric(0), nrow = 0, ncol = 4)
   ergebnis2 <- Tabelle(leer,
@@ -50,6 +50,21 @@ test_that("der Rang folgt Punkten, dann Tordifferenz, dann Toren", {
   )
   expect_equal(unname(ergebnis2[ergebnis2[, 1] == 1, 2]), 1)
   expect_equal(unname(ergebnis2[ergebnis2[, 1] == 2, 2]), 2)
+
+  # Die drei Ebenen gegeneinander: Punkte schlagen Tordifferenz, auch wenn
+  # die Tordifferenz das Gegenteil nahelegt.
+  konflikt_punkte <- Tabelle(leer,
+    numberTeams = 2, numberGames = 0,
+    AdjPoints = c(4, 3), AdjGoalDiff = c(-20, 20)
+  )
+  expect_equal(konflikt_punkte[order(konflikt_punkte[, 1]), 2], c(1, 2))
+
+  # Tordifferenz schlaegt Tore, auch wenn die Tore das Gegenteil nahelegen.
+  konflikt_diff <- Tabelle(leer,
+    numberTeams = 2, numberGames = 0,
+    AdjPoints = c(1, 1), AdjGoalDiff = c(1, 0), AdjGoals = c(2, 10)
+  )
+  expect_equal(konflikt_diff[order(konflikt_diff[, 1]), 2], c(1, 2))
 })
 
 test_that("gleiche Rangwerte teilen sich den besseren Rang (ties.method max)", {
