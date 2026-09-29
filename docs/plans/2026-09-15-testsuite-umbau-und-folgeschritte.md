@@ -694,11 +694,14 @@ Produktivaufrufer gelöscht: `get_numeric_input`/`get_choice_input` (+ der nur d
 mit Issue #195 gefallen sein — tatsächlich fielen damals nur ihre Tests, die Funktionen selbst überlebten bis Stufe
 4.5 (Kommentar in `test-season_processor.R` korrigiert). Drei neue Testdateien (21 Blöcke: `test-Tabelle.R` 6,
 `test-input_handler.R` 7, `test-team_data_carryover.R` 8 inkl. 2 wortgleich aus `test-season_processor.R`
-umgezogener Bestandsblöcke), TDD-Rot je neuer Fall per Mutation belegt. Beweis: 776→795 Blöcke, 3205→3257 (ohne
-Rust, RUST_API_URL=127.0.0.1:1) bzw. 3288→3340 (mit Rust) Erwartungen, Differenz ausschließlich die 19 neuen
-Blöcke (15+20+17 = 52 neue Erwartungen), die zwei umgezogenen Blöcke identisch in beiden Ständen. `git diff
+umgezogener Bestandsblöcke), TDD-Rot je neuer Fall per Mutation belegt. Beweis: 776→795 Blöcke, 3205→3259 (ohne
+Rust, RUST_API_URL=127.0.0.1:1) bzw. 3288→3342 (mit Rust) Erwartungen, Differenz ausschließlich die 19 neuen
+Blöcke (17+20+17 = 54 neue Erwartungen), die zwei umgezogenen Blöcke identisch in beiden Ständen. `git diff
 RCode/` nur Streichungen plus der NAMESPACE-Nachzug (roxygen2-generiert, zwei `export()`-Zeilen für gelöschte
 Funktionen). Bekannt und unbehoben: Issue #264 (Saisonwechsel-Subprozess mit `RUST_API_URL=127.0.0.1:1`).
+Review-Fix-Welle 1 (29.09.): der Rangtest prüfte die drei Rangstufen nie gegeneinander (`10000*points → 1*points`
+überlebte unbemerkt); zwei Konfliktfälle ergänzt (+2 Erwartungen), Kommentarverweis „Z. 88" → „Z. 83" korrigiert,
+Ausgabe-Leck in `test-input_handler.R` mit `capture.output()` behoben.
 
 1. `test-updateScheduler.R`: die drei Zweige von `calculate_loops()` mit gestubbtem `Sys.time`/`Sys.sleep` (reine Rechenfunktion herauslösen: Jetzt-Zeit → Loops, Startwartezeit, Dauer) — die Berlin-Zeit-Frage gleich mit.
 2. `.record_rate_limit_headers()`: prüfen, ob `test-retrieveResults-rate-limit-header.R` (aus #222) das schon abdeckt; nur Lücken schließen.
