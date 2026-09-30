@@ -1,6 +1,8 @@
-# Test suite for team_data_carryover.R -- source_with_fallback(),
-# load_previous_team_list() and get_existing_team_data() are the three
-# functions with live callers (season_processor.R, team_history_resolver.R).
+# Test suite for team_data_carryover.R -- load_previous_team_list() and
+# get_existing_team_data() are the functions with live callers
+# (season_processor.R, team_history_resolver.R). source_with_fallback() hatte
+# hier eine wortgleiche, unbenutzte Kopie; sie fiel mit #267, ihr Test steht
+# seither in test-season_processor.R bei der benutzten Definition.
 # build_team_lookup_table(), validate_short_name_uniqueness(),
 # merge_team_data_with_carryover() and ensure_unique_short_names() had none
 # and were removed in the same PR that adds this file (Stufe 4.5, #212).
@@ -18,31 +20,6 @@ source("../../RCode/season_processor.R")
 source("../../RCode/team_data_carryover.R")
 
 context("team_data_carryover")
-
-test_that("source_with_fallback sourct die Datei relativ zum Projekt", {
-  stub(source_with_fallback, "requireNamespace", FALSE)
-
-  tmp <- withr::local_tempdir()
-  dir.create(file.path(tmp, "RCode"), recursive = TRUE)
-  writeLines(".probe_marker <- 42", file.path(tmp, "RCode", "probe.R"))
-  withr::defer(if (exists(".probe_marker", envir = globalenv())) {
-    rm(".probe_marker", envir = globalenv())
-  })
-
-  withr::local_dir(tmp)
-  source_with_fallback("RCode/probe.R")
-  expect_true(exists(".probe_marker", envir = globalenv()))
-  rm(".probe_marker", envir = globalenv())
-
-  # ../../-Fallback: zwei Ebenen tiefer findet die Datei nur noch ueber ihn.
-  dir.create(file.path(tmp, "a", "b"), recursive = TRUE)
-  withr::local_dir(file.path(tmp, "a", "b"))
-  source_with_fallback("RCode/probe.R")
-  expect_true(exists(".probe_marker", envir = globalenv()))
-
-  # Fehlender Pfad -- weder direkt noch ueber den Fallback zu finden.
-  expect_error(source_with_fallback("RCode/nicht_da.R"), "Cannot find")
-})
 
 test_that("load_previous_team_list loads valid team data", {
   # Create temporary test file

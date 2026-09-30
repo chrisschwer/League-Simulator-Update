@@ -1,22 +1,6 @@
 # Team Data Carryover Module
 # Handles loading and matching team data from previous seasons
 
-# Helper function for robust sourcing
-source_with_fallback <- function(path) {
-  if (requireNamespace("here", quietly = TRUE)) {
-    source(here::here(path))
-  } else {
-    # Fallback: try from project root or current directory
-    if (file.exists(path)) {
-      source(path)
-    } else if (file.exists(file.path("..", "..", path))) {
-      source(file.path("..", "..", path))
-    } else {
-      stop(paste("Cannot find", path))
-    }
-  }
-}
-
 #' Load team list from previous season
 #'
 #' Loads TeamList for specified season, checking for most recent merged file first

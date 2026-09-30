@@ -535,3 +535,31 @@ test_that("validate_team_count accepts boundary values", {
   
   unlink(test_file)
 })
+
+# source_with_fallback() ist in season_processor.R definiert und sourct dort
+# team_data_carryover.R. Der Block stand bis #267 in test-team_data_carryover.R
+# bei einer wortgleichen, unbenutzten Kopie (unveraendert hierher verschoben).
+test_that("source_with_fallback sourct die Datei relativ zum Projekt", {
+  stub(source_with_fallback, "requireNamespace", FALSE)
+
+  tmp <- withr::local_tempdir()
+  dir.create(file.path(tmp, "RCode"), recursive = TRUE)
+  writeLines(".probe_marker <- 42", file.path(tmp, "RCode", "probe.R"))
+  withr::defer(if (exists(".probe_marker", envir = globalenv())) {
+    rm(".probe_marker", envir = globalenv())
+  })
+
+  withr::local_dir(tmp)
+  source_with_fallback("RCode/probe.R")
+  expect_true(exists(".probe_marker", envir = globalenv()))
+  rm(".probe_marker", envir = globalenv())
+
+  # ../../-Fallback: zwei Ebenen tiefer findet die Datei nur noch ueber ihn.
+  dir.create(file.path(tmp, "a", "b"), recursive = TRUE)
+  withr::local_dir(file.path(tmp, "a", "b"))
+  source_with_fallback("RCode/probe.R")
+  expect_true(exists(".probe_marker", envir = globalenv()))
+
+  # Fehlender Pfad -- weder direkt noch ueber den Fallback zu finden.
+  expect_error(source_with_fallback("RCode/nicht_da.R"), "Cannot find")
+})
