@@ -46,6 +46,7 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 | `test-fixture_cache.R` | 6 (−3, Stufe 4.4a: die drei `is_regular_season_round`-Blöcke nach `test-round_filter.R`) | fixture-cache |
 | `test-generate_static_site.R` | 64 | frauen-ligen-live (11 Bl.), generate-static-site, live-na-guard, n-ligen-entflechtung (5 Bl.), phase5-regionalligen (15 Bl.) |
 | `test-generate_static_site-tooltip.R` | 10 | kuerzel-tooltip (10 Bl.) |
+| `test-input_handler.R` | 7 | — (neu in Stufe 4.5: `input_handler.R` hatte keinen eigenen Test, nur Stubs in `test-interactive_prompts.R`) |
 | `test-interactive_prompts.R` | 11 | interactive-prompts |
 | `test-league_details.R` | 49 | elo-walk-reihenfolge (3 Bl.), fixture-details-produktionsform, fixture-details, gewertete-spiele (11 Bl.), kuerzel-tooltip (1 Bl.), ligatabelle, rundenfilter-schutznetz (5 Bl.), spieltag-logik, tbd-termin (6 Bl.) |
 | `test-league_details-client.R` | 13 (+1, Stufe 4.4b: `fetch_league_details postet an RUST_API_URL/league-details, Default localhost:8080, Fehler nennt Status und Body`, ersetzt den Signaturblock aus `test-league_details-seitendaten.R`; der bisherige Wert 11 in dieser Zeile war veraltet, tatsächlich waren es vorher 12) | league-details-client-haertung, league-details-client |
@@ -72,10 +73,12 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 | `test-scripts-season_transition.R` | 5 | season-transition-cleanup-wrapper, season-transition-csv-snapshot |
 | `test-scripts-testthat_ci.R` | 5 | — (neu in Stufe 4.1: `scripts/ci/testthat_ci.R`) |
 | `test-scripts-zuordnung_tests.R` | 8 | scripts-zuordnung_tests |
-| `test-season_processor.R` | 21 | saisonwechsel-schutzgrenzen, season-processor, season-transition-validators, team-count-validation |
+| `test-season_processor.R` | 19 (−2, Stufe 4.5: die zwei `team_data_carryover`-Bestandsbloecke nach `test-team_data_carryover.R`) | saisonwechsel-schutzgrenzen, season-processor, season-transition-validators, team-count-validation |
 | `test-season_processor-regression.R` | 10 | season-transition-regression |
 | `test-season_validation.R` | 16 | frauen-ligen-aktivierung (1 Bl.), season-validation |
 | `test-staffel_zuordnung.R` | 10 | staffel-zuordnung |
+| `test-Tabelle.R` | 6 | — (neu in Stufe 4.5: `Tabelle()` war nur in `test-elo_aggregation.R` gestubbt, nie selbst ausgefuehrt) |
+| `test-team_data_carryover.R` | 8 | season-processor (2 Bl., Stufe 4.5) |
 | `test-team_history_resolver.R` | 7 | team-history-resolver |
 | `test-team_record_builder.R` | 9 | team-record-builder |
 | `test-transform_data.R` | 30 | elo-walk-reihenfolge (10 Bl.), gewertete-spiele (2 Bl.), rundenfilter-schutznetz (7 Bl.), transform_data |
