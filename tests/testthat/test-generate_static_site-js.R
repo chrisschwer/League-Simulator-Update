@@ -48,6 +48,11 @@ test_that("der Veraltet-Hinweis erscheint eine Stunde nach der Schwelle mit geru
   expect_length(r$fehler, 0)
   expect_false(r$verborgen)
   expect_identical(r$stunden, "25")
+
+  # 25,6 h trennt Math.round von Math.floor (25,4 h liefert bei beiden "25")
+  r <- js_szenario(seite$html, "stale", list(now = seite$generated + 25.6 * stunden_ms))
+  expect_length(r$fehler, 0)
+  expect_identical(r$stunden, "26")
 })
 
 test_that("ohne #generated wirft das Skript keinen Fehler und der Hinweis bleibt verborgen", {

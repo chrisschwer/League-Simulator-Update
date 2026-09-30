@@ -128,9 +128,10 @@ jobs:
       # vom 30.09.2026: Node kommt NICHT ins Image (Laufzeit-Image bleibt schlank,
       # kein apt, kein --user root). Stattdessen installiert der Runner Node und
       # node_modules, und der naechste Schritt mountet beides read-only in den
-      # Container. Das offizielle Node-Binary laeuft dort, weil Runner
-      # (ubuntu-latest, Noble) und Image (rocker/r-ver, Noble) dieselbe glibc
-      # teilen.
+      # Container. Das offizielle Node-Binary (ab Node 18 gegen glibc 2.28
+      # gebaut) laeuft im Image (rocker/r-ver, Noble, glibc 2.39); libstdc++
+      # bringt die Ubuntu-Basis mit. Es muss nicht dieselbe glibc wie auf dem
+      # Runner sein, nur eine hinreichend neue.
       - name: Set up Node (for the client-JS tests)
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7
         with:

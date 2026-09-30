@@ -114,7 +114,7 @@ test_that("Klick auf ein Kuerzel zeigt den title-Text als Tooltip", {
   expect_identical(z$text, r$titel[[1]])
 })
 
-test_that("zweiter Klick, Klick daneben, Escape und Scroll schliessen den Tooltip", {
+test_that("zweiter Klick, Klick daneben, Escape, Scroll und Resize schliessen den Tooltip", {
   skip_ohne_js()
   html <- liga_seite()
   auf <- list(art = "klick", index = 0)
@@ -122,7 +122,8 @@ test_that("zweiter Klick, Klick daneben, Escape und Scroll schliessen den Toolti
     zweiter_klick = list(art = "klick", index = 0),
     daneben = list(art = "daneben"),
     escape = list(art = "escape"),
-    scroll = list(art = "scroll")
+    scroll = list(art = "scroll"),
+    resize = list(art = "resize")
   )
   for (fall in names(schliessen)) {
     # je Fall ab frisch geoeffnetem Tooltip
@@ -139,6 +140,7 @@ test_that("ein Klick auf ein anderes Kuerzel wechselt den Text, statt zu schlies
     list(art = "klick", index = 0), list(art = "klick", index = 1)
   )))
 
+  expect_length(r$fehler, 0)
   expect_false(r$schritte[[2]]$verborgen)
   expect_identical(r$schritte[[2]]$text, r$titel[[2]])
   expect_false(identical(r$schritte[[1]]$text, r$schritte[[2]]$text))

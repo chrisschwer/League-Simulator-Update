@@ -50,7 +50,7 @@ const szenarien = {
   },
 
   // args: { schritte: [{ art, index? }, ...] } mit art = klick | daneben |
-  // escape | scroll | enter; index zaehlt die abbr.kz in Dokumentreihenfolge.
+  // escape | scroll | resize | enter; index zaehlt die abbr.kz in Dokumentreihenfolge.
   // `titel` nennt den title der abbr.kz, auf die ein Schritt zielt.
   tooltip({ window, args, fehler }) {
     const doc = window.document;
@@ -80,6 +80,9 @@ const szenarien = {
           break;
         case "scroll":
           window.dispatchEvent(new window.Event("scroll"));
+          break;
+        case "resize":
+          window.dispatchEvent(new window.Event("resize"));
           break;
         case "enter":
           ziel.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));

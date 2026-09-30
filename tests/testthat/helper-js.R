@@ -21,16 +21,20 @@ js_szenario <- function(html, szenario, args = list()) {
   datei <- withr::local_tempfile(fileext = ".html")
   writeLines(enc2utf8(html), datei, useBytes = TRUE)
   runner <- file.path(js_repo_root(), "tests", "testthat", "helpers", "js-runner.mjs")
+  # stderr getrennt: eine Node-Warnung darf das JSON auf stdout nicht zerbrechen.
+  fehlerdatei <- withr::local_tempfile(fileext = ".txt")
   out <- suppressWarnings(system2(
     "node",
     c(shQuote(runner), shQuote(datei), szenario,
       shQuote(jsonlite::toJSON(args, auto_unbox = TRUE, null = "null"))),
-    stdout = TRUE, stderr = TRUE
+    stdout = TRUE, stderr = fehlerdatei
   ))
   status <- attr(out, "status")
   if (!is.null(status) && status != 0) {
-    stop(sprintf("js-runner '%s' endete mit Status %d:\n%s",
-                 szenario, status, paste(out, collapse = "\n")), call. = FALSE)
+    stop(sprintf("js-runner '%s' endete mit Status %d:\n%s\n%s",
+                 szenario, status, paste(out, collapse = "\n"),
+                 paste(readLines(fehlerdatei, warn = FALSE), collapse = "\n")),
+         call. = FALSE)
   }
   jsonlite::fromJSON(paste(out, collapse = "\n"), simplifyVector = FALSE)
 }
