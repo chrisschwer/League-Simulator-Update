@@ -82,3 +82,24 @@ test_that("das Skript startet beim Laden keine Testsuite", {
   expect_lt(as.numeric(nach - vor, units = "secs"), 5)
   expect_false(file.exists(ziel))
 })
+
+test_that("js_skips erkennt Node/jsdom-Meldungen, aber keine Rust-, Fixture- oder Mocking-Skips", {
+  # Stufe 4.6 (#212): Der Skip-Text von skip_ohne_js() (helper-js.R) ist der
+  # Vertrag; die uebrigen Texte sind die heute in der Suite vorkommenden.
+  z <- source_testthat_ci()
+  js_texte <- c(
+    "Node/jsdom fehlt",
+    "node fehlt im PATH",
+    "jsdom nicht installiert"
+  )
+  andere_texte <- c(
+    "Rust-Server nicht erreichbar",
+    "RUST_API_URL ist leer gesetzt",
+    "Rust binary not found in any of: a, b; run `cargo build --release` in league-simulator-rust/",
+    "Fixture fehlt: x",
+    "Mocking issues with nested function calls",
+    "ShinyApp/data/Ergebnis.Rds fehlt (gitignored, nur lokal)",
+    "Rscript nicht im PATH"
+  )
+  expect_identical(z$js_skips(c(js_texte, andere_texte)), js_texte)
+})
