@@ -88,3 +88,32 @@ test_that("keine Helferdefinition steht in zwei helper-Dateien", {
   }))
   expect_identical(unique(namen[duplicated(namen)]), character(0))
 })
+
+# Eindeutige Top-Level-Namen (Zuweisungen mit Namen links) je Datei, benannt nach der Datei.
+top_level_namen <- function(dateien) {
+  setNames(lapply(dateien, function(d) {
+    ausdruecke <- parse(test_path(d), encoding = "UTF-8")
+    unique(unlist(lapply(ausdruecke, function(e)
+      if (is.call(e) && as.character(e[[1]]) %in% c("<-", "=") && is.name(e[[2]])) as.character(e[[2]]))))
+  }), dateien)
+}
+
+test_that("kein Top-Level-Name steht in zwei Testdateien", {
+  je_datei <- top_level_namen(testdateien)
+  alle <- unlist(je_datei, use.names = FALSE)
+  mehrfach <- unique(alle[duplicated(alle)])
+  meldungen <- vapply(mehrfach, function(n)
+    paste0(n, ": ", paste(names(je_datei)[vapply(je_datei, function(x) n %in% x, logical(1))], collapse = ", ")),
+    character(1), USE.NAMES = FALSE)
+  expect_identical(meldungen, character(0), info = paste(meldungen, collapse = "; "))
+})
+
+test_that("kein Top-Level-Name einer Testdatei ueberschattet einen Helfer", {
+  helfer <- unlist(top_level_namen(list.files(test_path(), pattern = "^helper-.*\\.R$")), use.names = FALSE)
+  je_datei <- top_level_namen(testdateien)
+  meldungen <- unlist(lapply(names(je_datei), function(d) {
+    ueberschattet <- intersect(je_datei[[d]], helfer)
+    if (length(ueberschattet)) paste0(ueberschattet, ": ", d)
+  }))
+  expect_identical(meldungen, NULL, info = paste(meldungen, collapse = "; "))
+})
