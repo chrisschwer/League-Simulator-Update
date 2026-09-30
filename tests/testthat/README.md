@@ -79,12 +79,12 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 | `test-scripts-season_transition.R` | 5 | season-transition-cleanup-wrapper, season-transition-csv-snapshot |
 | `test-scripts-testthat_ci.R` | 8 (+1, Stufe 4.6: `js_skips`) | — (neu in Stufe 4.1: `scripts/ci/testthat_ci.R`) |
 | `test-scripts-zuordnung_tests.R` | 8 | scripts-zuordnung_tests |
-| `test-season_processor.R` | 19 (−2, Stufe 4.5: die zwei `team_data_carryover`-Bestandsbloecke nach `test-team_data_carryover.R`) | saisonwechsel-schutzgrenzen, season-processor, season-transition-validators, team-count-validation |
+| `test-season_processor.R` | 20 (−2, Stufe 4.5: die zwei `team_data_carryover`-Bestandsbloecke nach `test-team_data_carryover.R`; +1, #267: `source_with_fallback` von dort hierher) | saisonwechsel-schutzgrenzen, season-processor, season-transition-validators, team-count-validation |
 | `test-season_processor-regression.R` | 10 | season-transition-regression |
 | `test-season_validation.R` | 16 | frauen-ligen-aktivierung (1 Bl.), season-validation |
 | `test-staffel_zuordnung.R` | 10 | staffel-zuordnung |
 | `test-Tabelle.R` | 6 | — (neu in Stufe 4.5: `Tabelle()` war nur in `test-elo_aggregation.R` gestubbt, nie selbst ausgefuehrt) |
-| `test-team_data_carryover.R` | 8 | season-processor (2 Bl., Stufe 4.5) |
+| `test-team_data_carryover.R` | 7 (−1, #267) | season-processor (2 Bl., Stufe 4.5) |
 | `test-team_history_resolver.R` | 7 | team-history-resolver |
 | `test-team_record_builder.R` | 9 | team-record-builder |
 | `test-transform_data.R` | 30 | elo-walk-reihenfolge (10 Bl.), gewertete-spiele (2 Bl.), rundenfilter-schutznetz (7 Bl.), transform_data |
