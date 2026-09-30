@@ -227,8 +227,11 @@ test_that("start_rust_server verweigert einen schon belegten Port", {
                  handle$port, handle$log))
   }
 
-  url_nach_start <- Sys.getenv("RUST_API_URL")
-  expect_error(start_rust_server(18082L), "schon belegt")
-  # Der Fehler darf die Umgebung nicht verbiegen.
-  expect_identical(Sys.getenv("RUST_API_URL"), url_nach_start)
+  # Der Fehler darf die Umgebung nicht verbiegen: mit Sentinel-Werten pruefen,
+  # die nur ein Zugriff des Helfers veraendern koennte.
+  withr::with_envvar(c(RUST_API_URL = "http://waechter.invalid", PORT = NA), {
+    expect_error(start_rust_server(18082L), "schon belegt")
+    expect_identical(Sys.getenv("RUST_API_URL"), "http://waechter.invalid")
+    expect_identical(Sys.getenv("PORT", unset = NA), NA_character_)
+  })
 })

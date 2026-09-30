@@ -391,7 +391,7 @@ Christophs Entscheidung (25.09.): **jede Aufnahme läuft zweimal — mit und ohn
 - Create (gitignored, lokal): `tests/testthat/_baseline/vorher.csv`
 
 **Interfaces:**
-- Produces: CSV `test, expectations, failed, skipped, error` je `test_that`-Block, **ohne** Dateiname (der ändert sich). Task 6 vergleicht Vorher gegen Nachher als Multimenge.
+- Produces: CSV `test, expectations, failed, skipped, error` (seit Stufe 4.7 auch `warning`) je `test_that`-Block, **ohne** Dateiname (der ändert sich). Task 6 vergleicht Vorher gegen Nachher als Multimenge.
 
 - [ ] **Step 1: Werkzeug schreiben**
 
@@ -717,7 +717,7 @@ CI des PRs: Node v24.21.0 im Image-Job, `SKIP=1 PASS=3402`. Bekannt und unbehobe
 
 **4.7 erledigt 30.09.2026, PR #268:** Wächter „kein Top-Level-Name steht in zwei Testdateien" und „… überschattet einen
 Helfer" (zwei Blöcke in `test-waechter-teststruktur.R`) — sofort grün, weil der Umbau die Dopplungen beseitigt hat; sie
-sichern den Stand nach Stufe 3. `scripts/dev/ergebnisse_tests.R` führt die Spalte `warning` (fünf warnende Blöcke im
+sichern den Stand nach Stufe 3. `scripts/dev/ergebnisse_tests.R` führt die Spalte `warning` (mit Rust wie in der CI 4 Blöcke/5 Warnungen, ohne Rust 5/6; die Blöcke im
 PR-Text aufgelistet, nicht behoben). `start_rust_server()` bricht ab, wenn auf dem Port schon ein `/health` antwortet
 (neuer Block „verweigert einen schon belegten Port", Port 18082), und setzt `ok = FALSE`, wenn der eigene Prozess nicht
 lebt. Beweis: 809→812 Blöcke, Differenz ausschließlich die drei neuen Blöcke, „nur Vorher" leer; Skips ohne Rust 7→8

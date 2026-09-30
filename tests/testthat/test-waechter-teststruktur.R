@@ -115,5 +115,5 @@ test_that("kein Top-Level-Name einer Testdatei ueberschattet einen Helfer", {
     ueberschattet <- intersect(je_datei[[d]], helfer)
     if (length(ueberschattet)) paste0(ueberschattet, ": ", d)
   }))
-  expect_identical(meldungen, NULL, info = paste(meldungen, collapse = "; "))
+  expect_identical(as.character(meldungen), character(0), info = paste(meldungen, collapse = "; "))
 })
