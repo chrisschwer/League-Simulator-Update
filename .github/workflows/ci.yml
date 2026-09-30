@@ -123,9 +123,27 @@ jobs:
           cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:${{ env.CACHE_TAG }}
           cache-to: ${{ env.CACHE_TO }}
 
+      # Die Client-JS-Tests (Stufe 4.6, #212) brauchen Node und jsdom. Die Suite
+      # laeuft im Produktionsimage, und dort gibt es beides nicht -- Entscheidung
+      # vom 30.09.2026: Node kommt NICHT ins Image (Laufzeit-Image bleibt schlank,
+      # kein apt, kein --user root). Stattdessen installiert der Runner Node und
+      # node_modules, und der naechste Schritt mountet beides read-only in den
+      # Container. Das offizielle Node-Binary laeuft dort, weil Runner
+      # (ubuntu-latest, Noble) und Image (rocker/r-ver, Noble) dieselbe glibc
+      # teilen.
+      - name: Set up Node (for the client-JS tests)
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7
+        with:
+          node-version: 24
+
+      - name: Install jsdom
+        run: npm ci
+
       - name: Run testthat inside the image
         run: |
           mkdir -p ci-out
+          # Node-Installationsverzeichnis des Runners (bin/ + lib/), siehe oben.
+          NODE_DIR=$(dirname "$(dirname "$(which node)")")
           # Bind-mount tests/ + scripts/ + test_packagelist.txt + packagelist.txt into the prod image.
           # scripts/ contains operator-facing tools (e.g. season_transition/cleanup.R)
           # that the test suite invokes via Rscript subprocess; they aren't in the
@@ -140,6 +158,9 @@ jobs:
             -v "$PWD/scripts:/app/scripts:ro" \
             -v "$PWD/test_packagelist.txt:/app/test_packagelist.txt:ro" \
             -v "$PWD/packagelist.txt:/app/packagelist.txt:ro" \
+            -v "$PWD/package.json:/app/package.json:ro" \
+            -v "$PWD/node_modules:/app/node_modules:ro" \
+            -v "$NODE_DIR:/opt/node:ro" \
             -v "$PWD/ci-out:/out" \
             -w /app \
             -e RAPIDAPI_KEY=test_key_for_ci \
@@ -160,7 +181,8 @@ jobs:
               #
               # Seit Stufe 4.1 (#212) listet scripts/ci/testthat_ci.R jeden
               # Skip-Grund und bricht ab, wenn sich ein Test wegen Rust
-              # ueberspringt.
+              # ueberspringt. Dasselbe gilt seit Stufe 4.6 fuer Node/jsdom
+              # (JS_SKIPS_VERBOTEN).
               /usr/local/bin/league-simulator-rust --api &
               RUST_PID=$!
               trap "kill $RUST_PID 2>/dev/null || true" EXIT
@@ -178,7 +200,10 @@ jobs:
                 i=$((i + 1))
               done
 
-              RUST_SKIPS_VERBOTEN=1 Rscript scripts/ci/testthat_ci.R
+              export PATH="/opt/node/bin:$PATH"
+              node --version
+
+              RUST_SKIPS_VERBOTEN=1 JS_SKIPS_VERBOTEN=1 Rscript scripts/ci/testthat_ci.R
             '
 
       - name: Upload testthat summary

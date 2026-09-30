@@ -15,6 +15,12 @@ rust_skips <- function(meldungen) {
   meldungen[grepl("rust", meldungen, ignore.case = TRUE)]
 }
 
+# Liefert die Teilmenge von `meldungen`, die auf fehlendes Node/jsdom verweisen
+# (skip_ohne_js() in helper-js.R: "Node/jsdom fehlt"). Stufe 4.6, #212.
+js_skips <- function(meldungen) {
+  meldungen[grepl("node|jsdom", meldungen, ignore.case = TRUE)]
+}
+
 # Liest die Skip-Gruende aus einem testthat_results-Objekt (Rueckgabe von
 # test_dir()/test_file()): ein data.frame test/meldung, eine Zeile je
 # Erwartung der Klasse expectation_skip, in Laufreihenfolge. Ohne Skips:
@@ -95,6 +101,20 @@ main <- function() {
       cat(sprintf("❌ %d Tests haben sich wegen Rust uebersprungen, obwohl der Server laufen soll:\n",
                   nrow(rust_zeilen)))
       cat(sprintf("%s | %s", rust_zeilen$test, rust_zeilen$meldung), sep = "\n")
+      cat("\n")
+      quit(status = 1)
+    }
+  }
+
+  # Die Client-JS-Tests (Stufe 4.6, #212) skippen sich ohne Node/jsdom. Die CI
+  # mountet beides vom Runner in den Container; fehlt es dort, ist das ein
+  # Fehler und kein gruener Skip.
+  if (Sys.getenv("JS_SKIPS_VERBOTEN") == "1") {
+    js_zeilen <- meldungen[meldungen$meldung %in% js_skips(meldungen$meldung), ]
+    if (nrow(js_zeilen) > 0) {
+      cat(sprintf("❌ %d Tests haben sich wegen Node/jsdom uebersprungen, obwohl beides vorhanden sein soll:\n",
+                  nrow(js_zeilen)))
+      cat(sprintf("%s | %s", js_zeilen$test, js_zeilen$meldung), sep = "\n")
       cat("\n")
       quit(status = 1)
     }
