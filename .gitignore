@@ -80,3 +80,6 @@ docs/reports/internal/
 
 # Vergleichsbasis des Testsuite-Umbaus (#211), nur lokal
 tests/testthat/_baseline/
+
+# Node-Abhaengigkeiten der Client-JS-Tests (Stufe 4.6, #212): npm ci
+node_modules/
