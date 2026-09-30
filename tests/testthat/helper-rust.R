@@ -52,7 +52,23 @@ rust_binary <- function() {
 # parallele Laeufe sich nicht stoeren. Der Aufrufer prueft handle$ok selbst
 # und skippt dann -- erst nachdem er stop_rust_server() per on.exit()
 # registriert hat, sonst bliebe der Prozess stehen.
+#
+# Antwortet auf `port` schon jemand auf /health, bricht der Start mit einem
+# Fehler ab (kein Skip): Sonst scheiterte das eigene Binary am Bind, der fremde
+# Server (4.4b: verwaist aus einem anderen Worktree auf :18080) antwortete, und
+# der Test pruefte unbemerkt einen anderen Stand.
 start_rust_server <- function(port = 18080L) {
+  health <- function() {
+    res <- tryCatch(httr::GET(sprintf("http://localhost:%d/health", port),
+                              httr::timeout(0.5)),
+                    error = function(e) NULL)
+    !is.null(res) && httr::status_code(res) == 200
+  }
+  if (health()) {
+    stop(sprintf(paste("Port %d ist schon belegt -- laeuft dort ein fremder",
+                       "Rust-Server? Beenden (lsof -i :%d) und neu starten."),
+                 port, port))
+  }
   bin <- rust_binary()
   log <- tempfile(fileext = ".log")
   # Pass PORT via the parent environment (sys::exec_background inherits env from
@@ -73,6 +89,9 @@ start_rust_server <- function(port = 18080L) {
                     error = function(e) NULL)
     if (!is.null(res) && httr::status_code(res) == 200) { ok <- TRUE; break }
   }
+  # Health genuegt nicht: ist der eigene Prozess schon beendet (Bind
+  # gescheitert), hat ein anderer Server geantwortet.
+  if (ok && !is.na(sys::exec_status(pid, wait = FALSE))) ok <- FALSE
   list(pid = pid, log = log, ok = ok, port = port,
        prior_rust_api_url = prior_rust_api_url)
 }
