@@ -13,6 +13,8 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 - Zuordnung im Zweifel: die Einheit, deren Funktion der Test aufruft und deren Ergebnis er prüft; rufen mehrere, die äußerste (der Aufrufer). Gestubbte oder nur gesourcte Mitspieler zählen nicht.
 - Jede Testdatei nennt ihre Einheit im Quelltext — per `source()`-Literal `<einheit>.R` oder `source_module("<einheit>", ...)` aus `helper-source.R` (mehrere Einheiten erlaubt; die eigene muss dabei sein). Eine Einheit gilt auch als gesourct, wenn die Datei eine Einheit nennt, die sie per `source()` mitlädt (`render_sections` über `generate_static_site`). Eigene `source_xyz()`-Helfer nur, wenn sie mehr tun als sourcen. Gemeinsame Helfer heißen `helper-<zweck>.R` (testthat lädt sie automatisch); keine Helferdefinition in zwei Dateien — was mehr als eine Testdatei braucht, steht in einer `helper-*.R`; eine lokale Variante, die etwas anderes tut, bekommt einen eigenen Namen (`fake_fixtures_je_liga`, `fake_response_status`). Unterordner (`fixtures/`, `helpers/`) enthalten nur Daten und explizit gesourcte Runner, nie Tests — testthat liest sie nicht.
 - Wird eine `RCode/`-Datei geteilt, umbenannt oder gelöscht, ziehen ihre Testdateien im selben PR mit (`git mv`); `test-waechter-teststruktur.R` schlägt sonst fehl.
+- Kein Top-Level-Name (Zuweisung `name <- ...`) steht in zwei Testdateien — jede Testdatei läuft zwar in eigener Umgebung, aber ein doppelter Name erschwert die Suche, lässt offen, welche Definition gemeint ist, und verbirgt Helfer-Dopplungen (seit Stufe 4.7 vom Wächter geprüft; Meldung „name: datei1, datei2“).
+- Kein Top-Level-Name einer Testdatei überschattet einen Namen aus einer `helper-*.R` — sonst gilt je nach Kontext die lokale oder die gemeinsame Definition (seit Stufe 4.7 vom Wächter geprüft; Meldung „name: datei“).
 - Neue Testarten laufen, wo möglich, als R-Test unter der Einheit, die den Gegenstand erzeugt (Client-JS: `test-render_sections-js.R`, #212). Nur was sich keiner Einheit zuordnen lässt, bekommt ein festes Präfix, das in `test-waechter-teststruktur.R` in die geschlossene Liste aufgenommen wird.
 - Ausführen einer Einheit mit allen Themen: `testthat::test_dir("tests/testthat", filter = "^league_details")`.
 
@@ -95,7 +97,7 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 | `test-updateScheduler.R` | 15 | frauen-ligen-aktivierung (4 Bl.) |
 | `test-waechter-ci-pfade.R` | 2 | ein-elo-walk (2 Bl.) |
 | `test-waechter-quelltext.R` | 9 | ein-elo-walk (3 Bl.), frauen-ligen-aktivierung (1 Bl.), kuerzel-tooltip (1 Bl.), modellkonstanten-nur-in-rust, phase5-regionalligen (1 Bl.) |
-| `test-waechter-teststruktur.R` | 6 | — (neu in Stufe 2, prüft die Namenskonvention selbst) |
+| `test-waechter-teststruktur.R` | 6 (seit Stufe 4.7: 8) | — (neu in Stufe 2, prüft die Namenskonvention selbst) |
 
 ## Werkzeuge
 

@@ -215,3 +215,23 @@ test_that("simulate_league_rust sendet das Tormodell nur, wenn es abweicht", {
   expect_equal(mit$tore_slope, 0.0024058833)
   expect_equal(mit$tore_intercept, 1.6527603153)
 })
+
+test_that("start_rust_server verweigert einen schon belegten Port", {
+  skip_if_not_installed("sys")
+  skip_if_not_installed("httr")
+
+  handle <- start_rust_server(18082L) # eigener Port neben :18080 und :18081
+  on.exit(stop_rust_server(handle), add = TRUE)
+  if (!handle$ok) {
+    skip(sprintf("Rust server failed to come up on port %d; log: %s",
+                 handle$port, handle$log))
+  }
+
+  # Der Fehler darf die Umgebung nicht verbiegen: mit Sentinel-Werten pruefen,
+  # die nur ein Zugriff des Helfers veraendern koennte.
+  withr::with_envvar(c(RUST_API_URL = "http://waechter.invalid", PORT = NA), {
+    expect_error(start_rust_server(18082L), "schon belegt")
+    expect_identical(Sys.getenv("RUST_API_URL"), "http://waechter.invalid")
+    expect_identical(Sys.getenv("PORT", unset = NA), NA_character_)
+  })
+})

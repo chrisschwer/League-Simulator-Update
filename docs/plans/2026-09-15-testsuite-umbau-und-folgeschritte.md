@@ -391,7 +391,7 @@ Christophs Entscheidung (25.09.): **jede Aufnahme läuft zweimal — mit und ohn
 - Create (gitignored, lokal): `tests/testthat/_baseline/vorher.csv`
 
 **Interfaces:**
-- Produces: CSV `test, expectations, failed, skipped, error` je `test_that`-Block, **ohne** Dateiname (der ändert sich). Task 6 vergleicht Vorher gegen Nachher als Multimenge.
+- Produces: CSV `test, expectations, failed, skipped, error` (seit Stufe 4.7 auch `warning`) je `test_that`-Block, **ohne** Dateiname (der ändert sich). Task 6 vergleicht Vorher gegen Nachher als Multimenge.
 
 - [ ] **Step 1: Werkzeug schreiben**
 
@@ -714,6 +714,14 @@ Runner und wird samt `node_modules` read-only in den Container gemountet (`/opt/
 795→809 Blöcke, 3259→3319 (ohne Rust) bzw. 3342→3402 (mit Rust) Erwartungen, Differenz ausschließlich die 14 neuen
 Blöcke (+60), Skips unverändert (7 bzw. 1), „nur Vorher" leer; Mutationen je Skript belegt (inkl. `round`→`floor`).
 CI des PRs: Node v24.21.0 im Image-Job, `SKIP=1 PASS=3402`. Bekannt und unbehoben: #264.
+
+**4.7 erledigt 30.09.2026, PR #268:** Wächter „kein Top-Level-Name steht in zwei Testdateien" und „… überschattet einen
+Helfer" (zwei Blöcke in `test-waechter-teststruktur.R`) — sofort grün, weil der Umbau die Dopplungen beseitigt hat; sie
+sichern den Stand nach Stufe 3. `scripts/dev/ergebnisse_tests.R` führt die Spalte `warning` (mit Rust wie in der CI 4 Blöcke/5 Warnungen, ohne Rust 5/6; die Blöcke im
+PR-Text aufgelistet, nicht behoben). `start_rust_server()` bricht ab, wenn auf dem Port schon ein `/health` antwortet
+(neuer Block „verweigert einen schon belegten Port", Port 18082), und setzt `ok = FALSE`, wenn der eigene Prozess nicht
+lebt. Beweis: 809→812 Blöcke, Differenz ausschließlich die drei neuen Blöcke, „nur Vorher" leer; Skips ohne Rust 7→8
+(Port-Block skippt ohne Binary), mit Rust 1→1.
 
 1. `test-updateScheduler.R`: die drei Zweige von `calculate_loops()` mit gestubbtem `Sys.time`/`Sys.sleep` (reine Rechenfunktion herauslösen: Jetzt-Zeit → Loops, Startwartezeit, Dauer) — die Berlin-Zeit-Frage gleich mit.
 2. `.record_rate_limit_headers()`: prüfen, ob `test-retrieveResults-rate-limit-header.R` (aus #222) das schon abdeckt; nur Lücken schließen.

@@ -5,17 +5,18 @@
 #
 # Aufruf aus dem Repo-Root: Rscript scripts/dev/ergebnisse_tests.R <ziel.csv>
 # Die Spalte file dient nur der Diagnose; der Vergleich ignoriert sie, weil
-# sich Dateinamen im Umbau aendern.
+# sich Dateinamen im Umbau aendern. Die Spalte warning zeigt, welche Bloecke
+# warnen (die CI meldet nur die Summe).
 args <- commandArgs(trailingOnly = TRUE)
 ziel <- if (length(args) >= 1) args[1] else "tests/testthat/_baseline/ergebnisse.csv"
 dir.create(dirname(ziel), showWarnings = FALSE, recursive = TRUE)
 Sys.setenv(RAPIDAPI_KEY = Sys.getenv("RAPIDAPI_KEY", "dummy"))
 res <- testthat::test_dir("tests/testthat", reporter = "silent", stop_on_failure = FALSE)
 df <- as.data.frame(res)
-df <- df[, c("file", "test", "nb", "failed", "skipped", "error")]
-names(df) <- c("file", "test", "expectations", "failed", "skipped", "error")
+df <- df[, c("file", "test", "nb", "failed", "skipped", "error", "warning")]
+names(df) <- c("file", "test", "expectations", "failed", "skipped", "error", "warning")
 df <- df[do.call(order, df), ]
 utils::write.csv(df, ziel, row.names = FALSE)
 cat(nrow(df), "Bloecke,", sum(df$expectations), "Erwartungen,",
     sum(df$failed), "Fehlschlaege,", sum(df$error), "Fehler,",
-    sum(df$skipped), "Skips\n")
+    sum(df$skipped), "Skips,", sum(df$warning), "Warnungen\n")
