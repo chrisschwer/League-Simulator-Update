@@ -27,7 +27,9 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 | `helper-source.R` | seit Stufe 2: `source_module(...)`, lädt RCode-Einheiten in eine Umgebung; seit Stufe 3.6 `fn(env, name)` (holt eine Funktion daraus, klare Meldung, wenn sie fehlt) |
 | `helper-html.R` | seit Stufe 2: `read_html`, `make_data_env`; seit Stufe 3.6 `html_lesen` (wie `read_html`, aber mit `encoding = "UTF-8"`) |
 | `helper-rust.R` | seit Stufe 3.6: `skip_if_no_rust(env)` (skippt ohne erreichbaren Rust-Server), `rust_binary`, `start_rust_server`/`stop_rust_server` (eigenes Binary auf eigenem Port). Seit Stufe 4.1 gilt in der CI: `scripts/ci/testthat_ci.R` listet jeden Skip-Grund und bricht mit `RUST_SKIPS_VERBOTEN=1` ab, sobald ein Test trotz laufendem Rust-Server wegen Rust skippt — ein solcher Skip ist dort ein Fehler, kein grünes Ergebnis. |
+| `helper-js.R` | seit Stufe 4.6: `skip_ohne_js()` (Skip-Text „Node/jsdom fehlt“), `js_szenario()`, `js_skripte_aus_html()`, `js_syntax_status()`. Node/jsdom lokal per `npm ci`; in der CI sind sie Pflicht (`JS_SKIPS_VERBOTEN=1`), ein Skip wegen Node/jsdom ist dort ein Fehler |
 | `helper-repo.R` | seit Stufe 2: `with_repo_root` |
+| `helpers/js-runner.mjs` | explizit aufgerufener Node-Runner (jsdom), kein Test |
 | `helpers/season-transition-snapshot-runner.R` | explizit gesourcter Runner, kein Test |
 | `fixtures/` | Testdaten, u. a. `fixtures/fixture_cache/` (eingefrorene RL-Spielpläne, siehe README dort) |
 
@@ -45,6 +47,7 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 | `test-elo_calibration.R` | 30 | elo-calibration |
 | `test-fixture_cache.R` | 6 (−3, Stufe 4.4a: die drei `is_regular_season_round`-Blöcke nach `test-round_filter.R`) | fixture-cache |
 | `test-generate_static_site.R` | 64 | frauen-ligen-live (11 Bl.), generate-static-site, live-na-guard, n-ligen-entflechtung (5 Bl.), phase5-regionalligen (15 Bl.) |
+| `test-generate_static_site-js.R` | 4 | — (neu in Stufe 4.6: Veraltet-Hinweis in Node + jsdom) |
 | `test-generate_static_site-tooltip.R` | 10 | kuerzel-tooltip (10 Bl.) |
 | `test-input_handler.R` | 7 | — (neu in Stufe 4.5: `input_handler.R` hatte keinen eigenen Test, nur Stubs in `test-interactive_prompts.R`) |
 | `test-interactive_prompts.R` | 11 | interactive-prompts |
@@ -57,6 +60,7 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 | `test-render_helpers.R` | 2 (−1, Stufe 4.4b: reine Existenzprüfung gestrichen, gedeckt durch die zwei Folgeblöcke) | render-helpers-move |
 | `test-render_sections-ausblick.R` | 9 | ausblick-sektion, tbd-termin (1 Bl.) |
 | `test-render_sections-farbskala.R` | 1 | score-matrix-farbskala |
+| `test-render_sections-js.R` | 9 | — (neu in Stufe 4.6: Sortierung und Kürzel-Tooltip in Node + jsdom) |
 | `test-render_sections-rueckblick.R` | 13 | rueckblick-sektion |
 | `test-render_sections-tabelle.R` | 9 | ligatabelle-sektion |
 | `test-render_sections-tooltip.R` | 2 | kuerzel-tooltip (2 Bl.) |
@@ -71,7 +75,7 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 | `test-rust_integration.R` | 4 | home-advantage-single-source, league-registry (1 Bl.), tormodell-rust-durchreichung |
 | `test-scripts-preview_site.R` | 6 | frauen-ligen-live (1 Bl.), preview-site |
 | `test-scripts-season_transition.R` | 5 | season-transition-cleanup-wrapper, season-transition-csv-snapshot |
-| `test-scripts-testthat_ci.R` | 5 | — (neu in Stufe 4.1: `scripts/ci/testthat_ci.R`) |
+| `test-scripts-testthat_ci.R` | 8 (+1, Stufe 4.6: `js_skips`) | — (neu in Stufe 4.1: `scripts/ci/testthat_ci.R`) |
 | `test-scripts-zuordnung_tests.R` | 8 | scripts-zuordnung_tests |
 | `test-season_processor.R` | 19 (−2, Stufe 4.5: die zwei `team_data_carryover`-Bestandsbloecke nach `test-team_data_carryover.R`) | saisonwechsel-schutzgrenzen, season-processor, season-transition-validators, team-count-validation |
 | `test-season_processor-regression.R` | 10 | season-transition-regression |

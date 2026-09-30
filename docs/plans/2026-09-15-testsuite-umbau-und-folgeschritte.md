@@ -703,6 +703,18 @@ Review-Fix-Welle 1 (29.09.): der Rangtest prüfte die drei Rangstufen nie gegene
 überlebte unbemerkt); zwei Konfliktfälle ergänzt (+2 Erwartungen), Kommentarverweis „Z. 88" → „Z. 83" korrigiert,
 Ausgabe-Leck in `test-input_handler.R` mit `capture.output()` behoben.
 
+**4.6 erledigt 30.09.2026, PR #266:** Die drei Inline-Skripte (`.stale_script`, `.LIGA_SORT_SCRIPT`,
+`.KUERZEL_SCRIPT`) laufen in Node + jsdom und bestehen je `node --check`; Skripte bleiben inline, `git diff RCode/`
+leer. Werkzeug: `package.json`/`package-lock.json` (nur `jsdom`), `tests/testthat/helpers/js-runner.mjs`,
+`helper-js.R`; zwei neue Testdateien (13 Blöcke: `test-generate_static_site-js.R` 4, `test-render_sections-js.R` 9)
+plus ein Block `js_skips` in `test-scripts-testthat_ci.R`. **Abweichung vom Plan (Christoph, 30.09.):** Die CI-Suite
+läuft im Produktionsimage ohne Node; Node kommt nicht ins Image, sondern per `actions/setup-node` + `npm ci` auf dem
+Runner und wird samt `node_modules` read-only in den Container gemountet (`/opt/node`, `/app/node_modules`).
+`JS_SKIPS_VERBOTEN=1` bricht die CI ab, wenn sich ein JS-Test wegen fehlendem Node/jsdom überspringt. Beweis:
+795→809 Blöcke, 3259→3319 (ohne Rust) bzw. 3342→3402 (mit Rust) Erwartungen, Differenz ausschließlich die 14 neuen
+Blöcke (+60), Skips unverändert (7 bzw. 1), „nur Vorher" leer; Mutationen je Skript belegt (inkl. `round`→`floor`).
+CI des PRs: Node v24.21.0 im Image-Job, `SKIP=1 PASS=3402`. Bekannt und unbehoben: #264.
+
 1. `test-updateScheduler.R`: die drei Zweige von `calculate_loops()` mit gestubbtem `Sys.time`/`Sys.sleep` (reine Rechenfunktion herauslösen: Jetzt-Zeit → Loops, Startwartezeit, Dauer) — die Berlin-Zeit-Frage gleich mit.
 2. `.record_rate_limit_headers()`: prüfen, ob `test-retrieveResults-rate-limit-header.R` (aus #222) das schon abdeckt; nur Lücken schließen.
 3. Client-JS — **entschieden 25.09.: Node + jsdom mit Syntaxprüfung, Skripte bleiben inline.**
