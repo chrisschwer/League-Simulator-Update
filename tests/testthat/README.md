@@ -15,6 +15,7 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 - Wird eine `RCode/`-Datei geteilt, umbenannt oder gelöscht, ziehen ihre Testdateien im selben PR mit (`git mv`); `test-waechter-teststruktur.R` schlägt sonst fehl.
 - Kein Top-Level-Name (Zuweisung `name <- ...`) steht in zwei Testdateien — jede Testdatei läuft zwar in eigener Umgebung, aber ein doppelter Name erschwert die Suche, lässt offen, welche Definition gemeint ist, und verbirgt Helfer-Dopplungen (seit Stufe 4.7 vom Wächter geprüft; Meldung „name: datei1, datei2“).
 - Kein Top-Level-Name einer Testdatei überschattet einen Namen aus einer `helper-*.R` — sonst gilt je nach Kontext die lokale oder die gemeinsame Definition (seit Stufe 4.7 vom Wächter geprüft; Meldung „name: datei“).
+- Die in `helper-test-setup.R` vom globalen Laden ausgenommenen RCode-Dateien (`exclude_patterns`) sourct eine Testdatei nur mit `local = TRUE` — sonst landen sie doch in `globalenv` und sind für alle später laufenden Dateien sichtbar (seit dem Abschluss von #211 vom Wächter geprüft; Meldung „datei: pfad“).
 - Neue Testarten laufen, wo möglich, als R-Test unter der Einheit, die den Gegenstand erzeugt (Client-JS: `test-render_sections-js.R`, #212). Nur was sich keiner Einheit zuordnen lässt, bekommt ein festes Präfix, das in `test-waechter-teststruktur.R` in die geschlossene Liste aufgenommen wird.
 - Ausführen einer Einheit mit allen Themen: `testthat::test_dir("tests/testthat", filter = "^league_details")`.
 

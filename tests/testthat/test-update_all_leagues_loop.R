@@ -9,7 +9,7 @@
 library(testthat)
 library(mockery)
 
-source("../../RCode/update_all_leagues_loop.R")
+source("../../RCode/update_all_leagues_loop.R", local = TRUE)
 
 # Nur fixture$status$short -- schmaler als fake_fixtures() aus
 # helper-fixtures.R (ohne id, date, goals). fake_transformed() steht dort.

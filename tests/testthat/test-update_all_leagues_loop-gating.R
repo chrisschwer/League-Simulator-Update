@@ -19,7 +19,7 @@
 library(testthat)
 library(mockery)
 
-source("../../RCode/update_all_leagues_loop.R")
+source("../../RCode/update_all_leagues_loop.R", local = TRUE)
 
 # update_all_leagues_loop() itself source()s its collaborators with paths
 # relative to the repo root (e.g. "RCode/rust_integration.R"), but testthat

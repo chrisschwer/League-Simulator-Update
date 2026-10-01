@@ -117,3 +117,26 @@ test_that("kein Top-Level-Name einer Testdatei ueberschattet einen Helfer", {
   }))
   expect_identical(as.character(meldungen), character(0), info = paste(meldungen, collapse = "; "))
 })
+
+# helper-test-setup.R laedt diese RCode-Dateien bewusst NICHT global (Muster
+# dort in `exclude_patterns`). Sourct eine Testdatei sie auf oberster Ebene
+# ohne local = TRUE, landen ihre Funktionen trotzdem in globalenv und sind fuer
+# alle spaeter laufenden Dateien sichtbar -- die Ausnahme waere wirkungslos
+# (#211, Unabhaengigkeit Punkt 2). Die Muster werden aus dem Helfer gelesen,
+# nicht abgeschrieben.
+test_that("keine Testdatei sourct eine vom globalen Laden ausgenommene Datei global", {
+  zeilen <- readLines(test_path("helper-test-setup.R"), warn = FALSE, encoding = "UTF-8")
+  von <- grep("exclude_patterns <- c(", zeilen, fixed = TRUE)
+  bis <- von - 1 + which(grepl("^\\s*\\)\\s*$", zeilen[von:length(zeilen)]))[1]
+  muster <- eval(parse(text = sub("^\\s*exclude_patterns <- ", "", paste(zeilen[von:bis], collapse = "\n"))))
+  expect_true(length(muster) >= 2)
+
+  verstoesse <- unlist(lapply(testdateien, function(d) {
+    unlist(lapply(parse(test_path(d), encoding = "UTF-8"), function(e) {
+      if (!is.call(e) || !identical(e[[1]], as.name("source")) || !is.character(e[[2]])) return(NULL)
+      lokal <- !is.null(e$local) && !isFALSE(e$local)
+      if (!lokal && any(vapply(muster, grepl, logical(1), x = basename(e[[2]])))) paste0(d, ": ", e[[2]])
+    }))
+  }))
+  expect_identical(as.character(verstoesse), character(0), info = paste(verstoesse, collapse = "; "))
+})
