@@ -15,7 +15,7 @@
 library(testthat)
 library(mockery)
 
-source("../../RCode/update_all_leagues_loop.R")
+source("../../RCode/update_all_leagues_loop.R", local = TRUE)
 
 # fake_fixtures() und fake_transformed() stehen in helper-fixtures.R.
 

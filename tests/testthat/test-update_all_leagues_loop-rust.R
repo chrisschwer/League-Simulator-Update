@@ -4,7 +4,7 @@
 library(testthat)
 library(mockery)
 
-source("../../RCode/update_all_leagues_loop.R")
+source("../../RCode/update_all_leagues_loop.R", local = TRUE)
 
 # --- Tests ---
 

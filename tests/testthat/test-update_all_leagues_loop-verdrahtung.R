@@ -112,7 +112,7 @@
 library(testthat)
 library(mockery)
 
-source("../../RCode/update_all_leagues_loop.R")
+source("../../RCode/update_all_leagues_loop.R", local = TRUE)
 
 rcode <- function(datei) test_path("..", "..", "RCode", datei)
 
