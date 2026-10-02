@@ -321,7 +321,7 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
       }
       # --- Kontingent erschoepft: gar nicht mehr abrufen ----------------
       #
-      # Unterhalb von `stopp_unter` (Default 10) reicht Drosseln nicht: Ein
+      # Reicht der Rest nicht mehr fuer eine Runde, reicht Drosseln nicht: Ein
       # gestreckter Takt verbraucht weiter, nur langsamer, und die letzten
       # Requests gingen fuer einzelne Runden drauf statt fuer das, was nach
       # dem Reset kommt. Diese Runde ruft deshalb NICHTS ab -- weder den

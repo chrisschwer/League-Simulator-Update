@@ -105,9 +105,8 @@ plane_fenster <- function(jetzt,
          verfuegbar = verfuegbar, ideal_loops = floor(verfuegbar / 2) + 1)
   } else {
     verfuegbar <- deckeln(ende - minuten)
-    # Deckel 200 nur in diesem Zweig -- heutiges Verhalten, siehe Issue #255.
     list(zweig = "im", wartezeit_s = 0,
-         verfuegbar = verfuegbar, ideal_loops = min(floor(verfuegbar / 2) + 1, 200))
+         verfuegbar = verfuegbar, ideal_loops = floor(verfuegbar / 2) + 1)
   }
 }
 

@@ -70,19 +70,18 @@ test_that("plane_fenster: vor dem Fenster wartet bis zum Start und plant das vol
   expect_equal(plan$ideal_loops, 361)
 })
 
-test_that("plane_fenster: im Fenster ohne Wartezeit -- Deckel greift erst, wenn er erreicht wird", {
+test_that("plane_fenster: im Fenster ohne Wartezeit, eine Runde je zwei Minuten", {
   withr::local_envvar(c(DURATION = ""))
   env <- source_scheduler()
 
-  # 15:00 -- 480 Minuten verfuegbar, 241 waeren ideal, der Deckel (#255) kappt
-  # auf 200.
+  # 15:00 -- 480 Minuten verfuegbar, 241 Runden. Keinen 200er-Deckel mehr (#255).
   plan_15 <- env$plane_fenster(as.POSIXct("2026-09-27 15:00:00", tz = "Europe/Berlin"))
   expect_equal(plan_15$zweig, "im")
   expect_equal(plan_15$wartezeit_s, 0)
   expect_equal(plan_15$verfuegbar, 480)
-  expect_equal(plan_15$ideal_loops, 200)
+  expect_equal(plan_15$ideal_loops, 241)
 
-  # 17:00 -- 360 Minuten verfuegbar, 181 ideal, der Deckel greift hier nicht.
+  # 17:00 -- 360 Minuten verfuegbar, 181 Runden.
   plan_17 <- env$plane_fenster(as.POSIXct("2026-09-27 17:00:00", tz = "Europe/Berlin"))
   expect_equal(plan_17$zweig, "im")
   expect_equal(plan_17$wartezeit_s, 0)
@@ -110,7 +109,7 @@ test_that("plane_fenster: die Grenzen 11:00 und 23:00 gehoeren zum Zweig 'im'", 
   plan_start <- env$plane_fenster(as.POSIXct("2026-09-27 11:00:00", tz = "Europe/Berlin"))
   expect_equal(plan_start$zweig, "im")
   expect_equal(plan_start$verfuegbar, 720)
-  expect_equal(plan_start$ideal_loops, 200)
+  expect_equal(plan_start$ideal_loops, 361)
 
   plan_ende <- env$plane_fenster(as.POSIXct("2026-09-27 23:00:00", tz = "Europe/Berlin"))
   expect_equal(plan_ende$zweig, "im")
@@ -133,16 +132,16 @@ test_that("plane_fenster: dauer_max deckelt in allen drei Zweigen gleichermassen
   expect_equal(plan_nach$ideal_loops, 31)
 })
 
-test_that("plane_fenster: der 200er-Deckel gilt nur im Zweig 'im' (#255, bewusst gepinnt)", {
-  # Heutiges Verhalten, keine Verbesserung: unmittelbar nach Fensterstart
-  # schlaegt der Deckel sofort zu, unmittelbar davor (Zweig "vor") gilt er
-  # nicht.
+test_that("plane_fenster: zwei Minuten Startunterschied kosten eine Runde, nicht 161 (#255)", {
+  # Frueher kappte ein 200er-Deckel nur den Zweig "im": Start um 11:02
+  # plante 200 Runden, Start um 10:58 dagegen 361. Ohne Deckel rechnen alle
+  # Zweige gleich.
   withr::local_envvar(c(DURATION = ""))
   env <- source_scheduler()
 
   plan_danach <- env$plane_fenster(as.POSIXct("2026-09-27 11:02:00", tz = "Europe/Berlin"))
   expect_equal(plan_danach$zweig, "im")
-  expect_equal(plan_danach$ideal_loops, 200)
+  expect_equal(plan_danach$ideal_loops, 360)
 
   plan_davor <- env$plane_fenster(as.POSIXct("2026-09-27 10:58:00", tz = "Europe/Berlin"))
   expect_equal(plan_davor$zweig, "vor")
@@ -199,7 +198,7 @@ test_that("calculate_loops: Huelle im Fenster schlaeft nicht", {
     schlafen = function(s) geschlafen <<- s
   ))
   expect_null(geschlafen)
-  expect_equal(res_15$loops, 200)
+  expect_equal(res_15$loops, 241)
   expect_equal(res_15$duration, 480)
 
   res_17 <- suppressMessages(env$calculate_loops(
