@@ -272,25 +272,6 @@ test_that("reicht der Rest genau fuer eine Runde, wird noch abgerufen", {
   }
 })
 
-test_that("eine ausdrueckliche Stopp-Grenze geht den Rundenkosten vor", {
-  env <- lade_takt()
-
-  aufruf <- function(rest) {
-    env$naechste_waittime(
-      remaining = rest, limit = 7500,
-      seconds_until_reset = 4 * 3600,
-      loops_remaining = 100,
-      expected_cost_per_loop = 11,
-      current_waittime = 120,
-      ideal_waittime = 120,
-      stopp_unter = 20
-    )
-  }
-
-  expect_true(aufruf(19)$stopp)
-  expect_false(aufruf(20)$stopp)
-})
-
 test_that("ohne bekannte Rundenkosten stoppt erst das leere Kontingent", {
   # Unbekannte Kosten: Es gibt keine Rundengroesse, an der man die Grenze
   # festmachen koennte. Gestoppt wird dann erst, wenn kein einziger Request

@@ -55,15 +55,10 @@
 #'   ohne diesen Wert gilt `seconds_until_reset` unveraendert. Der
 #'   Unterschied zaehlt nur bei kleinem Kontingent -- dann aber
 #'   entscheidend (Issue #224, Punkt 3), siehe `fenster_sekunden()`.
-#' @param stopp_unter Restbudget, unter dem gar nicht mehr abgerufen wird.
-#'   Die Drosselung streckt den Takt, verbraucht aber weiter; unterhalb
-#'   dieser Grenze ist auch das zu viel. Dann sagt der Regler `stopp = TRUE`,
-#'   und der Loop setzt die Runde ganz aus, statt sie zu verlangsamen.
-#'   Default `NULL`: die Kosten einer Runde (`expected_cost_per_loop`, #243),
-#'   ohne bekannte Kosten 1.
 #' @return Liste mit `waittime` (Sekunden), `gedrosselt` (TRUE, wenn
 #'   gestreckt wurde), `alarm` (TRUE unter der Alarmschwelle) und `stopp`
-#'   (TRUE, wenn ueberhaupt kein Request mehr hinausgehen darf).
+#'   (TRUE, wenn der Rest nicht mehr fuer eine volle Runde reicht -- dann
+#'   geht ueberhaupt kein Request mehr hinaus, #243).
 naechste_waittime <- function(remaining, limit, seconds_until_reset,
                               loops_remaining, expected_cost_per_loop,
                               current_waittime, ideal_waittime = 120,
@@ -72,8 +67,7 @@ naechste_waittime <- function(remaining, limit, seconds_until_reset,
                               max_waittime = 5400,
                               safety_margin = 0.9,
                               hysterese = 0.15,
-                              alarm_anteil = 0.10,
-                              stopp_unter = NULL) {
+                              alarm_anteil = 0.10) {
   klemmen <- function(x) max(min_waittime, min(max_waittime, x))
 
   # Ohne Messwert wird nicht geraten: weder gedrosselt (das verlangsamte die
@@ -105,11 +99,9 @@ naechste_waittime <- function(remaining, limit, seconds_until_reset,
   # muss, und das ist eine Frage der Uhr, die in dieser reinen Funktion
   # nichts zu suchen hat. Der Regler sagt nur: nicht abrufen, und wenn
   # doch jemand die Wartezeit nimmt, dann die groesstmoegliche.
-  if (is.null(stopp_unter)) {
-    kosten_bekannt <- length(expected_cost_per_loop) == 1L &&
-      !is.na(expected_cost_per_loop) && expected_cost_per_loop > 0
-    stopp_unter <- if (kosten_bekannt) expected_cost_per_loop else 1
-  }
+  kosten_bekannt <- length(expected_cost_per_loop) == 1L &&
+    !is.na(expected_cost_per_loop) && expected_cost_per_loop > 0
+  stopp_unter <- if (kosten_bekannt) expected_cost_per_loop else 1
   if (remaining < stopp_unter) {
     return(list(waittime = max_waittime,
                 gedrosselt = TRUE, alarm = TRUE, stopp = TRUE))
