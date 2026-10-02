@@ -81,7 +81,7 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
   Sys.sleep(initial_wait)
 
   # Live-poll gating state: the cheap 1-request live check replaces the full
-  # 3-request fetch on idle iterations. While fixtures are live, every loop
+  # fetch (one request per league) on idle iterations. While fixtures are live, every loop
   # fetches so the rendered Live section shows current scores. Ids that
   # leave the live feed go into pending_finished_ids and stay there until a
   # full fetch actually shows them as final: the season endpoint can lag the
@@ -408,7 +408,7 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
     # reset simulation_executed
     simulation_executed <- FALSE
 
-    # Decide whether the full 3-league fetch is needed this iteration
+    # Decide whether the full fetch (all leagues) is needed this iteration
     need_full_fetch <- TRUE
     if (i > 1) {
       # Ein GEWORFENER Fehler (DNS, Timeout, Connection refused -- Issue

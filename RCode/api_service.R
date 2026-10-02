@@ -231,7 +231,7 @@ validate_team_data <- function(teams) {
 }
 
 fetch_all_leagues_teams <- function(season) {
-  # Fetch teams for all three leagues
+  # Fetch teams for all active leagues
   # Returns list organized by league
 
   # Nur die aktiven Ligen: Diese Funktion holt Teamdaten fuer den laufenden
