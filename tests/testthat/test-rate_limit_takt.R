@@ -227,47 +227,70 @@ test_that("ein erschoepftes Kontingent liefert die maximale Wartezeit", {
   }
 })
 
-test_that("unter der Stopp-Grenze wird gar nicht mehr abgerufen", {
+test_that("unter den Kosten einer Runde wird gar nicht mehr abgerufen", {
   # Drosseln reicht nicht, wenn das Kontingent fast leer ist: Ein
-  # gestreckter Takt verbraucht weiter, nur langsamer. Unterhalb von
-  # `stopp_unter` sagt der Regler deshalb "gar nicht", nicht "langsamer".
+  # gestreckter Takt verbraucht weiter, nur langsamer. Reicht der Rest
+  # nicht mehr fuer eine volle Runde, sagt der Regler deshalb "gar nicht",
+  # nicht "langsamer" -- sonst ist die letzte Runde halb bezahlt und der
+  # letzte Ligaabruf laeuft ins 429.
   #
-  # Die Grenze liegt bewusst ueber 0: Bei zehn Ligen kostet eine Runde 11
-  # Requests. Wer erst bei 0 stoppt, hat die letzte Runde schon halb
-  # bezahlt und mitten im Vollabruf ein 429 kassiert -- Requests ausgegeben
-  # und trotzdem keine vollstaendigen Daten bekommen.
+  # Die Grenze sind die Rundenkosten selbst (#243). Mit der frueheren festen
+  # 10 lief bei genau 10 Resten eine Runde zu 11 Requests noch los.
   env <- lade_takt()
-  grenze <- takt_default(env, "stopp_unter")
 
-  for (rest in 0:(grenze - 1)) {
-    ergebnis <- env$naechste_waittime(
-      remaining = rest, limit = 7500,
-      seconds_until_reset = 4 * 3600,
-      loops_remaining = 100,
-      expected_cost_per_loop = 11,
-      current_waittime = 120,
-      ideal_waittime = 120
-    )
-    expect_true(ergebnis$stopp, info = sprintf("remaining = %d", rest))
+  for (kosten in c(6, 11)) {
+    for (rest in 0:(kosten - 1)) {
+      ergebnis <- env$naechste_waittime(
+        remaining = rest, limit = 7500,
+        seconds_until_reset = 4 * 3600,
+        loops_remaining = 100,
+        expected_cost_per_loop = kosten,
+        current_waittime = 120,
+        ideal_waittime = 120
+      )
+      expect_true(ergebnis$stopp,
+                  info = sprintf("kosten = %d, remaining = %d", kosten, rest))
+    }
   }
 })
 
-test_that("auf der Stopp-Grenze wird noch abgerufen", {
+test_that("reicht der Rest genau fuer eine Runde, wird noch abgerufen", {
   # Gegenprobe: Ohne sie liesse sich der Test oben erfuellen, indem man
-  # immer stoppt. Genau AUF der Grenze (10) laeuft der Abruf noch.
+  # immer stoppt.
   env <- lade_takt()
-  grenze <- takt_default(env, "stopp_unter")
 
-  ergebnis <- env$naechste_waittime(
-    remaining = grenze, limit = 7500,
-    seconds_until_reset = 4 * 3600,
-    loops_remaining = 100,
-    expected_cost_per_loop = 11,
-    current_waittime = 120,
-    ideal_waittime = 120
-  )
+  for (kosten in c(6, 11)) {
+    ergebnis <- env$naechste_waittime(
+      remaining = kosten, limit = 7500,
+      seconds_until_reset = 4 * 3600,
+      loops_remaining = 100,
+      expected_cost_per_loop = kosten,
+      current_waittime = 120,
+      ideal_waittime = 120
+    )
+    expect_false(ergebnis$stopp, info = sprintf("kosten = %d", kosten))
+  }
+})
 
-  expect_false(ergebnis$stopp)
+test_that("ohne bekannte Rundenkosten stoppt erst das leere Kontingent", {
+  # Unbekannte Kosten: Es gibt keine Rundengroesse, an der man die Grenze
+  # festmachen koennte. Gestoppt wird dann erst, wenn kein einziger Request
+  # mehr bleibt.
+  env <- lade_takt()
+
+  aufruf <- function(rest) {
+    env$naechste_waittime(
+      remaining = rest, limit = 7500,
+      seconds_until_reset = 4 * 3600,
+      loops_remaining = 100,
+      expected_cost_per_loop = NA_real_,
+      current_waittime = 120,
+      ideal_waittime = 120
+    )
+  }
+
+  expect_true(aufruf(0)$stopp)
+  expect_false(aufruf(1)$stopp)
 })
 
 test_that("ohne Messwert wird nicht gestoppt", {

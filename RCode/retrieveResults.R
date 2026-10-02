@@ -151,9 +151,9 @@ retrieveResults <- function(league = "78", season = "2022") {
 #'
 #' A match can only newly reach full-time (FT) if it was live at the
 #' previous poll, so this 1-request check lets the caller skip the full
-#' 3-request fetch (retrieveResults() per league) on most loop iterations.
+#' fetch -- one retrieveResults() request per active league -- on most loop
+#' iterations.
 #'
-#' @param league_ids Character vector of API-Football league IDs to check.
 #' @return Integer vector of live fixture IDs (integer(0) if none are live),
 #'   or NULL if the request failed - callers must treat NULL as "unknown"
 #'   and fall back to a full fetch.
