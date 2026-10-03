@@ -13,14 +13,19 @@ source("../../RCode/league_details.R")
 # - aktueller Spieltag: der HÖCHSTE begonnene. Ein neu terminiertes
 #   Nachholspiel macht seine alte Runde nicht wieder zum aktuellen Spieltag.
 # - Fenster (#276), A = aktueller Spieltag:
-#   Rückblick: beendete Spiele von A, Spieltag A-1 komplett, dazu Spiele
-#   älterer Spieltage mit Anstoß ab Beginn von A-1.
-#   Ausblick: offene, nicht verschobene Spiele von A und vom kommenden
-#   Spieltag N (kleinste Runde über A mit offenen Spielen), dazu Spiele
-#   älterer Spieltage mit Anstoß bis zum letzten offenen Spiel von N.
-#   Spätere Spieltage nie.
-# - Nachholspiel: Anstoß nach Beginn (früheste Anstoßzeit) eines späteren
+#   Nachholspiel: Anstoß nach Beginn (früheste Anstoßzeit) eines späteren
 #   Spieltags.
+#   A gilt für den Rückblick als fertig, wenn kein Spiel live ist und
+#   jedes Spiel von A, das kein Nachholspiel ist, ein Ergebnis hat oder
+#   verschoben ist.
+#   Rückblick, A fertig: beendete Spiele von A, dazu ältere mit Anstoß ab
+#   Beginn von A.
+#   Rückblick, A nicht fertig: beendete Spiele von A, Spieltag A-1 komplett,
+#   dazu ältere mit Anstoß ab Beginn von A-1.
+#   Ausblick: offene, nicht verschobene Spiele bis zum kommenden Spieltag N
+#   (kleinste Runde über A mit offenen Spielen) mit Anstoß bis zum letzten
+#   offenen Spiel von N, das kein Nachholspiel ist. Spätere Spieltage nie;
+#   ein verlegtes Spiel erscheint erst, wenn sein Termin ins Fenster fällt.
 
 # --- Szenario 1: Samstagmittag, Spieltag läuft --------------------------------
 # Runde 12 komplett (20.-22.11.), Runde 13: Freitagsspiel beendet, zwei offen.
@@ -238,14 +243,11 @@ verlegt_im_laufenden <- function() {
 test_that("Ausblick: laufender und kommender Spieltag, nicht der übernächste", {
   ab <- ausblick_matches(verlegt_im_laufenden())
 
-  expect_equal(ab$fixture_id, c(85, 87, 88, 86)) # chronologisch, ohne 13.
-  expect_false(any(ab$round == 13))
-})
-
-test_that("ein verlegtes Spiel nach Beginn des nächsten Spieltags ist ein Nachholspiel", {
-  ab <- ausblick_matches(verlegt_im_laufenden())
-
-  expect_equal(ab$nachholspiel, c(FALSE, FALSE, FALSE, TRUE))
+  # Rest des 11. (85) und der 12. Spieltag (87, 88). Nicht der 13., und
+  # nicht das verlegte Spiel vom 20.10. -- sein Termin liegt nach dem Ende
+  # des 12. Spieltags.
+  expect_equal(ab$fixture_id, c(85, 87, 88))
+  expect_true(all(ab$nachholspiel == FALSE))
 })
 
 test_that("Rückblick: laufender Spieltag plus der vorige komplett", {
@@ -299,6 +301,72 @@ test_that("Rückblick: ein nach Beginn des aktuellen gespieltes Spiel des vorige
   rb <- rueckblick_matches(d)
   expect_equal(rb$fixture_id, c(83, 84, 85, 87, 86))
   expect_equal(rb$nachholspiel, c(FALSE, FALSE, FALSE, FALSE, TRUE))
+})
+
+test_that("Ausblick: das verlegte Spiel erscheint, sobald sein Termin ins Fenster fällt", {
+  # 16.10. abends: Der 13. Spieltag läuft (89 beendet), der 14. steht an
+  # (24./25.10.). Das Spiel vom 20.10. liegt jetzt im Fenster -- markiert.
+  d <- naechster_spieltag_laeuft()
+  d$status[d$fixture_id %in% c(88, 89)] <- "FT"
+  d$goals_home[d$fixture_id %in% c(88, 89)] <- 2
+  d$goals_away[d$fixture_id %in% c(88, 89)] <- 2
+  d <- rbind(d, make_details(
+    fd_row(91, 14, "2026-10-24 12:00", "NS", 102, 107),
+    fd_row(92, 14, "2026-10-25 12:00", "NS", 108, 101)
+  ))
+
+  ab <- ausblick_matches(d)
+  expect_equal(ab$fixture_id, c(90, 86, 91, 92))
+  expect_equal(ab$nachholspiel, c(FALSE, TRUE, FALSE, FALSE))
+})
+
+# --- Szenario 8 (#276): aktueller Spieltag fertig ----------------------------
+# Der 12. Spieltag ist durch (87, 88 beendet), der 13. hat noch nicht
+# begonnen. Das verlegte Spiel des 11. (86, 20.10.) ist weiter offen.
+zwoelfter_fertig <- function() {
+  d <- naechster_spieltag_laeuft()
+  d$status[d$fixture_id == 88] <- "FT"
+  d$goals_home[d$fixture_id == 88] <- 0
+  d$goals_away[d$fixture_id == 88] <- 1
+  d
+}
+
+test_that("Rückblick bei fertigem Spieltag: nur dessen Spiele", {
+  rb <- rueckblick_matches(zwoelfter_fertig())
+
+  expect_equal(rb$fixture_id, c(87, 88))
+  expect_true(all(rb$nachholspiel == FALSE))
+})
+
+test_that("Rückblick bei fertigem Spieltag: nach dessen Beginn gespielte Nachholspiele kommen dazu", {
+  d <- zwoelfter_fertig()
+  d$status[d$fixture_id == 86] <- "FT"
+  d$kickoff[d$fixture_id == 86] <- as.POSIXct("2026-10-10 17:00", tz = "UTC")
+  d$goals_home[d$fixture_id == 86] <- 0
+  d$goals_away[d$fixture_id == 86] <- 0
+
+  rb <- rueckblick_matches(d)
+  expect_equal(rb$fixture_id, c(87, 86, 88))
+  expect_equal(rb$nachholspiel, c(FALSE, TRUE, FALSE))
+})
+
+test_that("ein eigenes verlegtes Spiel hält den Spieltag für den Rückblick nicht offen", {
+  # Ein Spiel des 12. ist auf den 21.10. verlegt -- nach Beginn des 13.
+  # Der 12. gilt trotzdem als fertig: kein Spiel vor dem 13. ist mehr offen.
+  d <- rbind(zwoelfter_fertig(), make_details(
+    fd_row(93, 12, "2026-10-21 17:00", "NS", 104, 106)
+  ))
+
+  rb <- rueckblick_matches(d)
+  expect_equal(rb$fixture_id, c(87, 88))
+})
+
+test_that("Rückblick: bei laufendem Spiel ist der Spieltag nicht fertig", {
+  d <- zwoelfter_fertig()
+  d$status[d$fixture_id == 88] <- "2H"
+
+  rb <- rueckblick_matches(d)
+  expect_equal(rb$fixture_id, c(83, 84, 85, 87)) # voriger Spieltag bleibt
 })
 
 # --- aus test-fixture-details.R ---

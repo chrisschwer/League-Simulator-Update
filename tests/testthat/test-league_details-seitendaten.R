@@ -419,20 +419,16 @@ test_that("ein gespieltes Nachholspiel behält seine Kennzeichnung nach dem Join
   pd <- build_league_page_data(fx, vier_runden_teams(),
                                fetch_fn = vier_runden_response())
 
-  # ANGEPASST (#276): Der Rückblick zeigt den vorigen Spieltag (Runde 1)
-  # komplett -- 4001 steht deshalb jetzt mit drin. 4002 bleibt markiert,
-  # weil es nach Beginn von Runde 2 angepfiffen wurde.
   rb <- pd$rueckblick
-  expect_equal(rb$fixture_id, c(4001, 4003, 4004, 4002)) # chronologisch
-  expect_equal(rb$nachholspiel, c(FALSE, FALSE, FALSE, TRUE))
+  expect_equal(rb$fixture_id, c(4003, 4004, 4002)) # chronologisch ab Runde-2-Beginn
+  expect_equal(rb$nachholspiel, c(FALSE, FALSE, TRUE))
   nachzuegler <- rb[rb$fixture_id == 4002, ]
   # 4002 ist Gamma-Delta (Team-Indizes 3-4), sein Wert ist -1.8 -- derselbe
   # wie vor dieser Aenderung. Verrutschte die Zuordnung, staende hier der
   # Wert eines Nachbarn (7.5 fuer 1-2, 2.1 fuer 2-3).
   expect_equal(nachzuegler$elo_delta_home, -1.8)
   expect_equal(nachzuegler$round, 1L)
-  # ANGEPASST (#276): vorher 2L -- Runde 1 ist jetzt regulär im Fenster.
-  expect_equal(pd$spieltag$rueckblick, c(1L, 2L))
+  expect_equal(pd$spieltag$rueckblick, 2L) # Überschrift ohne Nachholspiel-Runde
 })
 
 # --- aus test-league-page-data-ausblick.R ---
