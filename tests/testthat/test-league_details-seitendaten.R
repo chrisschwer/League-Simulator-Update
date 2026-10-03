@@ -576,3 +576,18 @@ test_that("ein früher angesetztes Nachholspiel steht markiert im Ausblick", {
   expect_equal(ab$p_home_win[1], 0.43) # Index 1, nicht verrutscht
   expect_equal(pd$spieltag$ausblick, 3L)
 })
+
+test_that("spieltag$ausblick nennt laufenden und kommenden Spieltag (#276)", {
+  # Runde 2 läuft und hat noch ein offenes Spiel (5004 am Sonntag); Runde 3
+  # ist der kommende Spieltag. Überschrift "2./3. Spieltag".
+  fx <- ausblick_fixtures()
+  fx$fixture[[4]] <- data.frame(id = 5004, date = "2026-11-29T14:30:00+00:00",
+                                status = I(list(data.frame(short = "NS"))))
+  fx$goals[[4]] <- data.frame(home = NA, away = NA)
+
+  pd <- build_league_page_data(fx, ausblick_teams(),
+                               fetch_fn = ausblick_response())
+
+  expect_equal(pd$ausblick$fixture_id, c(5004, 5005, 5006))
+  expect_equal(pd$spieltag$ausblick, c(2L, 3L))
+})
