@@ -43,6 +43,13 @@ test_that("render_ausblick baut Überschrift und Spielzeilen", {
   expect_false(grepl('class="mres"', html, fixed = TRUE))
 })
 
+test_that("die Ausblick-Überschrift nennt laufenden und kommenden Spieltag (#276)", {
+  gen <- source_module("generate_static_site")
+  html <- gen$render_ausblick(mk_ausblick(), runde = c(11L, 12L))
+
+  expect_match(html, ">11./12. Spieltag<", fixed = TRUE)
+})
+
 test_that("die Ergebnis-Matrix ist je Spiel aufklappbar", {
   gen <- source_module("generate_static_site")
   html <- gen$render_ausblick(mk_ausblick(), runde = 3L)
