@@ -26,13 +26,16 @@
 #   ist; sonst "ausstehend".
 # - Der aktuelle Spieltag ist der HÖCHSTE begonnene (ein wieder angesetztes
 #   Nachholspiel macht seinen alten Spieltag nicht zum aktuellen).
-# - Rückblick: alle beendeten Spiele mit Anstoß >= Beginn (früheste
-#   Anstoßzeit) des zuletzt abgeschlossenen Spieltags; Spiele älterer Runden
-#   werden als Nachholspiel markiert.
-# - Ausblick: Ziel ist der laufende Spieltag, sonst die kleinste Runde über
-#   dem aktuellen mit offenen Spielen; aufgenommen werden alle offenen, nicht
-#   verschobenen Spiele mit Anstoß bis zum letzten offenen Spiel des Ziels
-#   (früher angesetzte Nachholspiele eingeschlossen, markiert).
+# - Nachholspiel: Anstoß nach Beginn (früheste Anstoßzeit) eines späteren
+#   Spieltags (Issue #276).
+# - Rückblick (A = aktueller Spieltag): Ist A fertig -- jedes Spiel von A,
+#   das kein Nachholspiel ist, hat ein Ergebnis oder ist verschoben --, die
+#   beendeten Spiele von A plus seit Beginn von A gespielte Nachholspiele.
+#   Sonst zusätzlich Spieltag A-1 komplett und alles ab Beginn von A-1.
+# - Ausblick: offene Spiele bis zum kommenden Spieltag N (kleinste Runde
+#   über A mit offenen Spielen), mit Anstoß bis zum letzten offenen
+#   Nicht-Nachholspiel von N. Ein verlegtes Spiel erscheint erst, wenn sein
+#   Termin in dieses Fenster fällt -- es zieht das Fenster nicht auf.
 
 # Rundenfilter (Negativliste) und Postcondition -- pfadunabhaengig, siehe
 # gleichlautender Block in transform_data.R.
@@ -201,6 +204,30 @@ current_matchday <- function(details) {
   max(begonnen_rounds)
 }
 
+# Beginn (früheste Anstoßzeit) je Spieltag, benannt nach Rundennummer.
+.spieltag_beginn <- function(details) {
+  runden <- sort(unique(details$round))
+  beginn <- vapply(runden, function(r) {
+    k <- details$kickoff[details$round == r & !is.na(details$kickoff)]
+    if (length(k) == 0) Inf else min(as.numeric(k))
+  }, numeric(1))
+  names(beginn) <- as.character(runden)
+  beginn
+}
+
+# Nachholspiel = Anstoß nach Beginn eines späteren Spieltags (#276). Am Ort
+# des Anstoßes gemessen, nicht an der Rundennummer: So ist auch ein verlegtes
+# Spiel des aktuellen Spieltags als solches erkennbar.
+nachholspiel_markierung <- function(details) {
+  beginn <- .spieltag_beginn(details)
+  runden <- as.integer(names(beginn))
+  vapply(seq_len(nrow(details)), function(i) {
+    spaeter <- beginn[runden > details$round[i]]
+    k <- as.numeric(details$kickoff[i])
+    length(spaeter) > 0 && !is.na(k) && k > min(spaeter)
+  }, logical(1))
+}
+
 rueckblick_matches <- function(details) {
   empty <- details[0, ]
   empty$nachholspiel <- logical(0)
@@ -210,21 +237,26 @@ rueckblick_matches <- function(details) {
     return(empty)
   }
 
-  status <- classify_matchday_status(details)
-  abgeschlossene_rounds <- as.integer(names(status)[status == "abgeschlossen"])
-  abgeschlossene_rounds <- abgeschlossene_rounds[abgeschlossene_rounds <= aktuell]
+  nachhol <- nachholspiel_markierung(details)
+  beginn <- .spieltag_beginn(details)
 
-  if (length(abgeschlossene_rounds) > 0) {
-    anker_round <- max(abgeschlossene_rounds)
-    anker <- min(details$kickoff[details$round == anker_round])
-  } else {
-    anker_round <- aktuell
-    anker <- min(details$kickoff[details$round == aktuell])
-  }
+  # Fertig: Vor Beginn von A+1 steht in A nichts mehr aus. Eigene verlegte
+  # Spiele (Nachholspiele) halten A nicht offen, laufende schon.
+  regulaer_a <- details$round == aktuell & !nachhol
+  fertig <- all(details$status[regulaer_a] %in% c(STATUS_ERGEBNIS, STATUS_VERSCHOBEN))
 
-  rows <- details[details$status %in% STATUS_ERGEBNIS & details$kickoff >= anker, ]
+  untere <- if (fertig) aktuell else aktuell - 1L
+  anker_round <- if (as.character(untere) %in% names(beginn)) untere else aktuell
+  anker <- beginn[[as.character(anker_round)]]
+
+  kickoff <- as.numeric(details$kickoff)
+  im_fenster <- details$round <= aktuell &
+    (details$round >= untere | (!is.na(kickoff) & kickoff >= anker))
+
+  auswahl <- details$status %in% STATUS_ERGEBNIS & im_fenster
+  rows <- details[auswahl, ]
+  rows$nachholspiel <- nachhol[auswahl] | rows$round < untere
   rows <- rows[order(rows$kickoff), ]
-  rows$nachholspiel <- rows$round < anker_round
   rownames(rows) <- NULL
   rows
 }
@@ -234,30 +266,36 @@ ausblick_matches <- function(details) {
   empty$nachholspiel <- logical(0)
 
   aktuell <- current_matchday(details)
-  status <- classify_matchday_status(details)
-
   offen_status <- !(details$status %in% c(STATUS_ERGEBNIS, STATUS_LIVE, STATUS_VERSCHOBEN))
-
-  if (!is.na(aktuell) && unname(status[[as.character(aktuell)]]) == "laufend" &&
-      any(details$round == aktuell & offen_status)) {
-    ziel <- aktuell
-  } else {
-    if (!is.na(aktuell)) {
-      kandidaten <- unique(details$round[details$round > aktuell & offen_status])
-    } else {
-      kandidaten <- unique(details$round[offen_status])
-    }
-    if (length(kandidaten) == 0) {
-      return(empty)
-    }
-    ziel <- min(kandidaten)
+  if (!any(offen_status)) {
+    return(empty)
   }
 
-  fensterende <- max(details$kickoff[details$round == ziel & offen_status])
+  nachhol <- nachholspiel_markierung(details)
+  kickoff <- as.numeric(details$kickoff)
 
-  rows <- details[offen_status & details$kickoff <= fensterende, ]
+  kandidaten <- unique(details$round[offen_status &
+                                       (is.na(aktuell) | details$round > aktuell)])
+  if (length(kandidaten) > 0) {
+    kommend <- min(kandidaten)
+    # Fensterende: letztes offenes Spiel des kommenden Spieltags, das kein
+    # Nachholspiel ist -- ein verlegtes Spiel soll das Fenster nicht über
+    # weitere Spieltage aufziehen (#276).
+    im_kommenden <- details$round == kommend & offen_status
+    regulaer <- im_kommenden & !nachhol
+    basis <- if (any(regulaer & !is.na(kickoff))) regulaer else im_kommenden
+    fensterende <- max(kickoff[basis], na.rm = TRUE)
+    im_fenster <- details$round <= kommend & !is.na(kickoff) & kickoff <= fensterende
+  } else {
+    # Saisonende: kein kommender Spieltag mehr, alles Offene bis A zeigen.
+    im_fenster <- details$round <= aktuell
+  }
+
+  auswahl <- offen_status & im_fenster
+  rows <- details[auswahl, ]
+  untere <- if (is.na(aktuell)) -Inf else aktuell
+  rows$nachholspiel <- nachhol[auswahl] | rows$round < untere
   rows <- rows[order(rows$kickoff), ]
-  rows$nachholspiel <- rows$round < ziel
   rownames(rows) <- NULL
   rows
 }
@@ -509,7 +547,7 @@ build_league_page_data <- function(fixtures, teams,
       integer(0)
     }
     ausblick_runde <- if (length(ausblick_runden) > 0) {
-      min(ausblick_runden)
+      ausblick_runden
     } else {
       NA_integer_
     }
