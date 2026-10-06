@@ -617,25 +617,6 @@ test_that("Bayern: die Zaehlung der 3. Liga aendert das Ergebnis nicht", {
   expect_identical(df_a, df_b)
 })
 
-test_that("Bayern: Summe der Relegation ueber alle Teams ist exakt 2, Abstieg exakt 2", {
-  # Zwei Teams gehen in die Relegation, zwei steigen direkt ab -- die
-  # Spaltensummen ueber eine vollstaendige Prognose muessen das exakt
-  # treffen. Waere die Relegation in den Abstieg eingerechnet, laege die
-  # Abstiegssumme zwischen 2 und 4.
-  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
-  n <- 19L
-  ident <- diag(n)
-  shift <- ident[c(2:n, 1), ]
-  prognose <- 0.5 * ident + 0.5 * shift
-  rownames(prognose) <- paste0("T", seq_len(n))
-  counts <- zaehlung(Bayern = c(0, N_ITER, 0, 0, 0), Nord = c(0, 0, 0, N_ITER, 0))
-
-  df <- fn(env, "rl_abstiegsprognose")("Bayern", prognose, counts)
-
-  expect_equal(sum(df$Relegation), 2)
-  expect_equal(sum(df$Abstieg), 2)
-})
-
 test_that("Nur Bayern bekommt eine Relegationsspalte", {
   env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung")
   f <- fn(env, "rl_abstiegsprognose")

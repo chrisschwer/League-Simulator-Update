@@ -558,19 +558,6 @@ test_that("transform_data lässt leere Eingabe unberührt durch", {
   expect_error(transform_data(fixtures, rl_teams()), NA)
 })
 
-test_that("transform_data verhält sich bei Bundesliga-Fixtures unverändert", {
-  # Verhaltensneutralität für die drei Altligen: derselbe Fall wie im
-  # bestehenden Playoff-Test, hier als Regression gegen den Umbau.
-  fixtures <- rl_fixtures_genestet(
-    c("Regular Season - 33", "Regular Season - 34", "Final")
-  )
-
-  result <- transform_data(fixtures, rl_teams())
-
-  expect_equal(nrow(result), 2)
-  expect_equal(result$TeamHeim, c("RLA", "RLC"))
-})
-
 # --- aus test-elo-walk-reihenfolge.R ---
 # Issue #146, Teil 1: Der ELO-Walk muss die Spiele in der Reihenfolge sehen,
 # in der sie STATTGEFUNDEN haben -- nicht in der, in der api-football sie
