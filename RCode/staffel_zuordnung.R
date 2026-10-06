@@ -13,8 +13,8 @@
 #
 # Was die einzelne Staffel dann aus dieser Zahl macht, ist je Verband
 # verschieden -- SuedWest/Nordost/Nord erhoehen ihre Absteigerzahl, West und
-# Bayern vermindern sie stattdessen. Die amtlichen Regeln mit Fundstellen:
-# docs/abstieg_aufstieg_RL_2026_2027.md
+# Bayern vermindern sie stattdessen. Die amtlichen Regeln mit Fundstellen
+# stehen in docs/abstieg_aufstieg_RL_2026_2027.md.
 
 # Die Staffeln in fester Reihenfolge. Sie ist Vertrag: Der Index bestimmt,
 # welche Zeile der Ergebnismatrix zu welcher Staffel gehoert. Aendert sie

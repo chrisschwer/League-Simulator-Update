@@ -214,7 +214,7 @@ render_heatmap <- function(result, namen = NULL) {
     cells <- paste0(vapply(seq_len(n), function(j) .heatmap_cell(result[i, j]),
                            character(1)), collapse = "")
     paste0("<tr><th scope=\"row\">",
-          .kuerzel_html(rownames(result)[i], namen), "</th>", cells, "</tr>")
+           .kuerzel_html(rownames(result)[i], namen), "</th>", cells, "</tr>")
   }, character(1))
 
   paste0(
@@ -394,7 +394,7 @@ render_panel_table <- function(data_obj, panel, computed_obj = NULL,
   paste0(
     "<table class=\"panel\">\n<thead><tr><th scope=\"col\"></th>",
     paste0("<th scope=\"col\">", htmltools::htmlEscape(labels), "</th>",
-          collapse = ""),
+           collapse = ""),
     "</tr></thead>\n<tbody>\n", rows, "\n</tbody>\n</table>"
   )
 }
@@ -556,23 +556,29 @@ render_league_page <- function(view, data_env, output_dir,
   sort_script <- if (!is.null(league_entry)) .LIGA_SORT_SCRIPT else ""
   kuerzel_script <- if (!is.null(namen)) .KUERZEL_SCRIPT else ""
 
-  rueckblick_html <- if (!is.null(league_entry) &&
-                         !is.null(league_entry$rueckblick) &&
-                         nrow(league_entry$rueckblick) > 0) {
+  rueckblick_html <- if (
+    !is.null(league_entry) &&
+      !is.null(league_entry$rueckblick) &&
+      nrow(league_entry$rueckblick) > 0
+  ) {
     render_rueckblick(league_entry$rueckblick, league_entry$spieltag$rueckblick)
   } else {
     ""
   }
-  live_html <- if (!is.null(league_entry) &&
-                   !is.null(league_entry$live) &&
-                   nrow(league_entry$live) > 0) {
+  live_html <- if (
+    !is.null(league_entry) &&
+      !is.null(league_entry$live) &&
+      nrow(league_entry$live) > 0
+  ) {
     render_live(league_entry$live)
   } else {
     ""
   }
-  ausblick_html <- if (!is.null(league_entry) &&
-                       !is.null(league_entry$ausblick) &&
-                       nrow(league_entry$ausblick) > 0) {
+  ausblick_html <- if (
+    !is.null(league_entry) &&
+      !is.null(league_entry$ausblick) &&
+      nrow(league_entry$ausblick) > 0
+  ) {
     render_ausblick(league_entry$ausblick, league_entry$spieltag$ausblick)
   } else {
     ""
@@ -834,9 +840,9 @@ render_league_page <- function(view, data_env, output_dir,
 
   src_dir <- file.path(.gss_dir, "site_assets")
   file.copy(file.path(src_dir, "site.css"), file.path(assets_dir, "site.css"),
-           overwrite = TRUE)
+            overwrite = TRUE)
   file.copy(file.path(src_dir, "favicon.svg"),
-           file.path(assets_dir, "favicon.svg"), overwrite = TRUE)
+            file.path(assets_dir, "favicon.svg"), overwrite = TRUE)
 
   font_files <- list.files(file.path(src_dir, "fonts"), pattern = "\\.woff2$",
                            full.names = TRUE)
@@ -943,8 +949,8 @@ generate_static_site <- function(ergebnisse = NULL,
   # in den Tests derselben Sitzung sofort sichtbar, in Produktion nach dem
   # ersten gedrosselten Zyklus dauerhaft.
   alter_takt <- .aktueller_takt
-  .aktueller_takt <<- waittime
-  on.exit(.aktueller_takt <<- alter_takt, add = TRUE)
+  .aktueller_takt <<- waittime # nolint: assignment_linter. Modulvariable, s. o.
+  on.exit(.aktueller_takt <<- alter_takt, add = TRUE) # nolint: assignment_linter.
 
   # Keine Prognose vorhanden -> Fallback-Seite. Frueher pruefte der Guard drei
   # feste Objekte; jetzt zaehlt, ob ueberhaupt Ergebnisse vorliegen.

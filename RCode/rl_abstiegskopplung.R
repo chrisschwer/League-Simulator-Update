@@ -290,7 +290,7 @@ platz_gewichte <- function(staffel, verteilung, teams, p_meister_aufstieg = 0) {
   p <- pruefe_p_meister_aufstieg(p_meister_aufstieg, "platz_gewichte")
 
   zeile <- verteilung[staffel, ]
-  k_werte <- seq_len(length(zeile)) - 1L
+  k_werte <- seq_along(zeile) - 1L
   n_plaetze <- abstiegsplaetze(staffel, k_werte)
 
   if (!identical(staffel, "Nord") || p == 0) {

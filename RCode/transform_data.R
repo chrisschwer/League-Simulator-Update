@@ -269,7 +269,7 @@ load_team_list <- function(file_path) {
 #' @return Liste mit `df` (sortiert, ohne Hilfsspalten) und `elo_neutral`
 #'   (mitsortiert).
 sortiere_chronologisch_mit_elo_neutral <- function(df, kickoff, original_order,
-                                                    elo_neutral) {
+                                                   elo_neutral) {
   # Ohne Anstosszeit (die Spalte fehlt ganz, siehe create_test_fixtures_api())
   # ist die API-Reihenfolge die beste verfuegbare Naeherung an die Chronologie
   # -- und das Verhalten von heute. Aktiv abfangen statt blind zu sortieren:
@@ -324,10 +324,10 @@ transform_data <- function(fixtures, teams) {
     ))
   }
 
-  fixtures_flat <- fixtures %>% unnest(cols = c("teams", "goals", "fixture"), names_sep = "_")
-  fixtures_flat <- fixtures_flat %>% unnest(cols = c("teams_home", "teams_away", "fixture_status"), names_sep = "_")
+  fixtures_flat <- fixtures |> unnest(cols = c("teams", "goals", "fixture"), names_sep = "_")
+  fixtures_flat <- fixtures_flat |> unnest(cols = c("teams_home", "teams_away", "fixture_status"), names_sep = "_")
   fixtures_flat$fixture_status_short <- replace_na(fixtures_flat$fixture_status_short, "NA")
-  fixtures_flat <- fixtures_flat %>% mutate(OriginalOrder = row_number())
+  fixtures_flat <- fixtures_flat |> mutate(OriginalOrder = row_number())
 
   # Ein Team ohne TeamList-Zeile hat kein Kuerzel: Der merge() unten liefe
   # mit all.x = TRUE still durch, und der Spaltenaufbau bekaeme einen
@@ -343,10 +343,10 @@ transform_data <- function(fixtures, teams) {
   }
 
   df_home <- merge(fixtures_flat, teams, by.x = "teams_home_id", by.y = "TeamID", all.x = TRUE)
-  df_home <- df_home %>% rename(TeamHeim = ShortText, ToreHeim = goals_home, ELOHome = InitialELO)
+  df_home <- df_home |> rename(TeamHeim = ShortText, ToreHeim = goals_home, ELOHome = InitialELO)
 
   df_final <- merge(df_home, teams, by.x = "teams_away_id", by.y = "TeamID", all.x = TRUE)
-  df_final <- df_final %>% rename(TeamGast = ShortText, ToreGast = goals_away, ELOAway = InitialELO)
+  df_final <- df_final |> rename(TeamGast = ShortText, ToreGast = goals_away, ELOAway = InitialELO)
 
   for (team in unique(c(df_final$TeamHeim, df_final$TeamGast))) {
     df_final[[team]] <- ifelse(df_final$TeamHeim == team, df_final$ELOHome,
@@ -380,7 +380,7 @@ transform_data <- function(fixtures, teams) {
   fixture_date <- if ("fixture_date" %in% names(df_final)) df_final$fixture_date else NULL
   original_order <- df_final$OriginalOrder
 
-  df_final <- df_final %>%
+  df_final <- df_final |>
     select(
       TeamHeim, TeamGast, ToreHeim, ToreGast,
       all_of(sort(unique(c(df_final$TeamHeim, df_final$TeamGast))))

@@ -422,7 +422,8 @@ bericht_konflikte <- function(data, season, output_dir = "RCode") {
   # liefen frueher oder spaeter auseinander -- dann waere nicht mehr klar,
   # welche gilt.
   zeilen <- character(0)
-  sag <- function(...) zeilen <<- c(zeilen, paste0(...))
+  # Sammel-Closure: <<- schreibt gezielt in `zeilen` dieses Aufrufs.
+  sag <- function(...) zeilen <<- c(zeilen, paste0(...)) # nolint: assignment_linter.
 
   sag("# Konflikte im Entwurf TeamList_", season)
   sag("")

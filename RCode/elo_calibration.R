@@ -150,8 +150,9 @@ check_spread <- function(elos, observed_draw_rate,
   # Noetige SD durch Suche: die Remisquote faellt monoton in der Streuung.
   required_sd <- NA_real_
   if (reachable) {
-    objective <- function(s) .simulate_draw_rate(s, intercept, home_advantage) -
-      observed_draw_rate
+    objective <- function(s) {
+      .simulate_draw_rate(s, intercept, home_advantage) - observed_draw_rate
+    }
     lo <- 1
     hi <- 1200
     if (objective(hi) < 0) {
@@ -481,13 +482,19 @@ assign_short_names <- function(names_df, reserved = character()) {
       found <- NA_character_
       for (suffix in LETTERS) {
         alt <- paste0(stem, suffix)
-        if (!(alt %in% used)) { found <- alt; break }
+        if (!(alt %in% used)) {
+          found <- alt
+          break
+        }
       }
       if (is.na(found)) {
         for (s1 in LETTERS) {
           for (s2 in LETTERS) {
             alt <- paste0(stem, s1, s2)
-            if (!(alt %in% used)) { found <- alt; break }
+            if (!(alt %in% used)) {
+              found <- alt
+              break
+            }
           }
           if (!is.na(found)) break
         }
