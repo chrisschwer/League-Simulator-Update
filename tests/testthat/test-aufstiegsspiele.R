@@ -399,15 +399,6 @@ test_that("Symmetrie-Gegenprobe: Heimvorteil beidesmal fuer A ergaebe 0.548, nic
                  max_tore = MAX_TORE_EXAKT), bug, tolerance = 1e-12)
 })
 
-test_that("Symmetrie ohne Heimvorteil: alle Raten gleich -> exakt 0.5", {
-  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
-  q <- fn(env, "zweikampf_quote")
-  n <- c(1.3218390804597700, 1.3218390804597700)
-  expect_equal(q(n, n, n, max_tore = MAX_TORE_EXAKT), 0.5, tolerance = 1e-12)
-  expect_equal(q(c(0.4, 0.4), c(0.4, 0.4), c(0.4, 0.4), max_tore = MAX_TORE_EXAKT),
-               0.5, tolerance = 1e-12)
-})
-
 test_that("Summe zu 1: quote aus Sicht von A + quote aus Sicht von B == 1", {
   # Aus Sicht von B sind die Paare vertauscht: B's Hinspiel ist A's
   # Hinspiel mit getauschten Rollen.

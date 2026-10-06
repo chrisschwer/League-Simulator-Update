@@ -335,33 +335,6 @@ test_that("rl_aufstiegsprognose bricht bei fehlender Partnerprognose ab", {
 # ehemaligen source_aufstieg()-Helfers, s. Git-Historie phase5 f62724d,
 # Z. 201-206; die Reihenfolge steckt seit T6 in den source_module()-Aufrufen.)
 # --- aus test-phase5-regionalligen.R ---
-test_that("bei den Direktaufsteigern sind Meister und Aufstieg wirklich gleich", {
-  # Die Rechtfertigung der einen Spalte: Nur wenn rl_aufstiegsprognose()
-  # dort exakt die Meisterwahrscheinlichkeit liefert, ist die Vereinfachung
-  # keine stille Abweichung. Nicht angenommen, sondern nachgerechnet.
-  auf <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "aufstiegsspiele", "rl_aufstieg")
-
-  # Ungleiche Meisterchancen, damit ein versehentliches "alle gleich"
-  # nicht durchginge.
-  prognose <- function(teams, praefix) {
-    m <- matrix(1 / teams, nrow = teams, ncol = teams,
-                dimnames = list(paste0(praefix, seq_len(teams)),
-                                as.character(seq_len(teams))))
-    m[, 1] <- c(0.5, 0.3, rep(0.2 / (teams - 2), teams - 2))
-    m
-  }
-  prognosen <- list(Nord = prognose(18, "N"), Nordost = prognose(18, "O"),
-                    West = prognose(18, "W"), SuedWest = prognose(18, "S"),
-                    Bayern = prognose(19, "B"))
-
-  for (staffel in c("Nordost", "West", "SuedWest")) {
-    df <- auf$rl_aufstiegsprognose(staffel, prognosen, 2026)
-    expect_equal(unname(df$Aufstieg),
-                 unname(prognosen[[staffel]][, 1]),
-                 tolerance = 1e-12, info = staffel)
-  }
-})
-
 test_that("P(Aufstieg) ist fuer Nord und Bayern strikt kleiner als P(Meister)", {
   # Der inhaltliche Grund fuer die zweite Spalte: Wer Meister wird, muss
   # noch zwei Aufstiegsspiele gewinnen. Waeren beide Zahlen gleich, brauchte

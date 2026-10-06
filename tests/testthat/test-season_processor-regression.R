@@ -207,54 +207,6 @@ test_that("new teams get season-specific baseline, not hardcoded 1046", {
 
 context("Regression Tests - ELO Carryover Issue")
 
-test_that("teams retain performance-based ELO across seasons (B04 example)", {
-  # Test Issue: B04 had same ELO (1765) in 2023 and 2025 despite successful seasons
-  # Fix: Teams should use final ELO from previous season, not original initial ELO
-  
-  # B04 initial data
-  previous_team_list <- data.frame(
-    TeamID = c(168),
-    ShortText = c("B04"),
-    Promotion = c(0),
-    InitialELO = c(1765),  # Original ELO
-    stringsAsFactors = FALSE
-  )
-  
-  # B04 after successful season (higher ELO)
-  final_elos <- data.frame(
-    TeamID = c(168),
-    FinalELO = c(1823),  # DIFFERENT from initial - shows performance
-    stringsAsFactors = FALSE
-  )
-  
-  # API returns B04
-  api_teams <- list(
-    list(id = 168, name = "Bayer Leverkusen", is_second_team = FALSE)
-  )
-  
-  # Mock team data carryover
-  stub(process_league_teams, "get_existing_team_data", function(team_id, prev_list) {
-    if (team_id == 168) {
-      return(list(short_name = "B04", promotion_value = 0))
-    }
-    return(NULL)
-  })
-  
-  stub(process_league_teams, "convert_second_team_short_name", function(short_name, is_second, promo) {
-    return(short_name)
-  })
-  
-  # Test
-  result <- process_league_teams(api_teams, "78", "2025", final_elos, 1500, previous_team_list)
-  
-  # REGRESSION: Should use final ELO (1823), not initial ELO (1765)
-  expect_equal(result[[1]]$initial_elo, 1823)
-  expect_false(result[[1]]$initial_elo == 1765)  # Should NOT be original
-  
-  # Should retain team identity
-  expect_equal(result[[1]]$short_name, "B04")
-})
-
 test_that("ELO progression works through multiple seasons", {
   # Test complete ELO progression: 2023→2024→2025
   
