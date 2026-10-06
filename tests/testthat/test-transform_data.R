@@ -239,6 +239,31 @@ test_that("transform_data handles missing team in teams list", {
   expect_error(transform_data(fixtures, teams), "999.*TeamList")
 })
 
+test_that("transform_data akzeptiert TeamList-Teams ohne Spiel", {
+  # Die Pruefung aus #260 geht nur in eine Richtung: Jedes Team im Spielplan
+  # braucht eine TeamList-Zeile, nicht umgekehrt. Produktiv ist die TeamList
+  # immer groesser als eine Liga (alle Ligen plus historische Zeilen), und
+  # zum Saisonstart sind noch nicht alle Paarungen angesetzt.
+  fixtures <- tibble::tibble(
+    teams = list(
+      data.frame(
+        home = I(list(data.frame(id = 101, name = "Team A"))),
+        away = I(list(data.frame(id = 102, name = "Team B")))
+      )
+    ),
+    goals = list(data.frame(home = 1, away = 0)),
+    fixture = list(
+      data.frame(id = 1001, status = I(list(data.frame(short = "FT"))))
+    )
+  )
+
+  teams <- create_test_teams_api()  # 101-104, gespielt haben nur 101 und 102
+
+  result <- transform_data(fixtures, teams)
+
+  expect_equal(names(result)[5:ncol(result)], c("TEA", "TEB"))
+})
+
 test_that("transform_data behandelt JSON-null-Tore als offenes Spiel, auch bei Status FT", {
   # Echtes R-NULL (goals = list(home = NULL, away = NULL)) laesst
   # transform_data abstuerzen ("Column `goals_home` doesn't exist") -- aber
