@@ -372,8 +372,6 @@ get_initial_elo_interactive <- function(league, baseline = NULL) {
       if (trimws(elo_input) == "") {
         return(default_elo)
       }
-
-      elo_value <- as.numeric(elo_input)
     } else {
       # Non-interactive mode, use default
       # Log the automatic decision
@@ -388,14 +386,15 @@ get_initial_elo_interactive <- function(league, baseline = NULL) {
       return(default_elo)
     }
 
-    # Validate ELO
-    validation <- validate_elo_input(elo_value)
+    # Validate ELO; validate_elo_input converts the raw string itself,
+    # without a coercion warning for non-numeric input (#261)
+    validation <- validate_elo_input(elo_input)
     if (!validation$valid) {
       cat("Invalid ELO:", validation$message, "\n")
       next
     }
 
-    return(elo_value)
+    return(validation$sanitized)
   }
 }
 

@@ -168,9 +168,10 @@ validate_season_range <- function(source_season, target_season) {
   # Validate season range is logical and feasible
   # Throws error if invalid
 
-  # Convert to numeric for comparison
-  source_year <- as.numeric(source_season)
-  target_year <- as.numeric(target_season)
+  # Convert to numeric for comparison; NA is the expected signal for
+  # malformed input and handled below, so the coercion warning is noise (#261)
+  source_year <- suppressWarnings(as.numeric(source_season))
+  target_year <- suppressWarnings(as.numeric(target_season))
 
   # Basic range validation
   if (is.na(source_year) || is.na(target_year)) {
