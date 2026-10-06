@@ -83,12 +83,17 @@ test_that("build_carryover_team_record generates fresh short_name when state is 
     team_elo = 1234
   )
 
-  result <- build_carryover_team_record(
-    team,
-    history,
-    league_id = "78",
-    liga3_baseline = 1100,
-    existing_short_names = character()
+  # Im fallback-Zustand warnt die Funktion ausdruecklich, dass sie Daten neu
+  # erzeugt -- erwartetes Verhalten, das der Test zusichert (#273).
+  expect_warning(
+    result <- build_carryover_team_record(
+      team,
+      history,
+      league_id = "78",
+      liga3_baseline = 1100,
+      existing_short_names = character()
+    ),
+    "not found in previous season"
   )
 
   # short_name comes from get_team_short_name on the API name
@@ -103,12 +108,15 @@ test_that("build_carryover_team_record uniquifies short_name in 'fallback' state
 
   collision <- get_team_short_name("Mystery FC")
 
-  result <- build_carryover_team_record(
-    team,
-    history,
-    league_id = "78",
-    liga3_baseline = 1100,
-    existing_short_names = c(collision)
+  expect_warning(
+    result <- build_carryover_team_record(
+      team,
+      history,
+      league_id = "78",
+      liga3_baseline = 1100,
+      existing_short_names = c(collision)
+    ),
+    "not found in previous season"
   )
 
   # uniquification happens via generate_unique_short_name
