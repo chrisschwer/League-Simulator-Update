@@ -31,7 +31,7 @@ source(file.path(.rs_dir, "league_registry.R"), local = TRUE)
 # Deutsche Dezimalformatierung: Punkt -> Komma.
 .komma <- function(x, digits) {
   sub(".", ",", formatC(x, digits = digits, format = "f", big.mark = ""),
-     fixed = TRUE)
+      fixed = TRUE)
 }
 
 # Vorzeichenbehaftete Zahl mit U+2212 als Minus (statt Bindestrich) und
@@ -44,8 +44,8 @@ source(file.path(.rs_dir, "league_registry.R"), local = TRUE)
   gerundet <- round(x, digits)
   formatted <- .komma(abs(gerundet), digits)
   ifelse(gerundet > 0, paste0("+", formatted),
-        ifelse(gerundet < 0, paste0("−", formatted),
-              paste0("±", formatted)))
+         ifelse(gerundet < 0, paste0("−", formatted),
+                paste0("±", formatted)))
 }
 
 # ---------------------------------------------------------------------------
@@ -400,7 +400,7 @@ render_zonen_fussnote <- function(zonen, regel) {
   seg <- function(cls, wert) {
     nolabel <- if (wert < 8) " nolabel" else ""
     paste0("<span class=\"", cls, nolabel, "\" style=\"flex-basis:", wert, "%\">",
-          "<i>", wert, "</i></span>")
+           "<i>", wert, "</i></span>")
   }
 
   aria <- paste0("Sieg Heim ", h, " %, Remis ", x, " %, Sieg Gast ", a, " %")

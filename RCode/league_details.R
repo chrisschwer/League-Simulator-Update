@@ -334,9 +334,9 @@ build_league_table <- function(details, teams) {
     gegentore[i] <- sum(heim$goals_away) + sum(gast$goals_home)
 
     pkt_heim <- sum(ifelse(heim$goals_home > heim$goals_away, 3,
-                            ifelse(heim$goals_home == heim$goals_away, 1, 0)))
+                           ifelse(heim$goals_home == heim$goals_away, 1, 0)))
     pkt_gast <- sum(ifelse(gast$goals_away > gast$goals_home, 3,
-                            ifelse(gast$goals_away == gast$goals_home, 1, 0)))
+                           ifelse(gast$goals_away == gast$goals_home, 1, 0)))
     punkte[i] <- pkt_heim + pkt_gast
   }
 

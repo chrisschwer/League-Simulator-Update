@@ -151,8 +151,8 @@ league_registry <- function() {
       # je Drittliga-Absteiger kommt einer hinzu (Abs. 4, kein Deckel).
       relegation_slots = 3L,
       # Text fuer die Fussnote unter der Ligatabelle (Issue #185). Kurz und
-      # ohne Paragraphen -- die Belege stehen in
-      # docs/abstieg_aufstieg_RL_2026_2027.md.
+      # ohne Paragraphen -- die Belege stehen in der Datei
+      # docs/abstieg_aufstieg_RL_2026_2027.md im Repo.
       #
       # Der zweite Satz ist noetig, weil Nord als einzige Staffel Auf- und
       # Abstieg verknuepft: Steigt der Meister auf, faellt ein Abstiegsplatz
