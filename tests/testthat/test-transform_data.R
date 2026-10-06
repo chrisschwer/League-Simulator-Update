@@ -234,9 +234,9 @@ test_that("transform_data handles missing team in teams list", {
 
   # Ein Team, das die TeamList nicht kennt, muss abbrechen: ohne Kürzel
   # entstünde eine NA-Teamspalte, und die Simulation liefe mit vertauschten
-  # Teams. Die Meldung ist heute zufällig (R-Fehler aus dem Spaltenaufbau);
-  # siehe Produktivfrage #260.
-  expect_error(transform_data(fixtures, teams))
+  # Teams. Die Meldung nennt die fehlende ID und die TeamList (#260) --
+  # nicht irgendeinen R-Fehler aus dem Spaltenaufbau.
+  expect_error(transform_data(fixtures, teams), "999.*TeamList")
 })
 
 test_that("transform_data behandelt JSON-null-Tore als offenes Spiel, auch bei Status FT", {

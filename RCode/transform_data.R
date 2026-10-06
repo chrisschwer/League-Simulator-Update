@@ -329,6 +329,19 @@ transform_data <- function(fixtures, teams) {
   fixtures_flat$fixture_status_short <- replace_na(fixtures_flat$fixture_status_short, "NA")
   fixtures_flat <- fixtures_flat %>% mutate(OriginalOrder = row_number())
 
+  # Ein Team ohne TeamList-Zeile hat kein Kuerzel: Der merge() unten liefe
+  # mit all.x = TRUE still durch, und der Spaltenaufbau bekaeme einen
+  # NA-Teamnamen -- R bricht dort mit einer Meldung ab, die weder Ursache
+  # noch ID nennt (Issue #260). Deshalb vorher pruefen und sprechend abbrechen.
+  ids <- unique(c(fixtures_flat$teams_home_id, fixtures_flat$teams_away_id))
+  fehlend <- ids[!ids %in% teams$TeamID]
+  if (length(fehlend) > 0) {
+    stop(sprintf(
+      "transform_data: Team-ID(s) %s fehlen in der TeamList",
+      paste(fehlend, collapse = ", ")
+    ), call. = FALSE)
+  }
+
   df_home <- merge(fixtures_flat, teams, by.x = "teams_home_id", by.y = "TeamID", all.x = TRUE)
   df_home <- df_home %>% rename(TeamHeim = ShortText, ToreHeim = goals_home, ELOHome = InitialELO)
 
