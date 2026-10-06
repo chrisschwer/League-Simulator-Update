@@ -102,18 +102,16 @@ test_that("load_team_list akzeptiert vierstellige Kurznamen", {
   expect_equal(teams$ShortText, c("WACA", "BAYB", "FR2B"))
 })
 
-test_that("load_team_list akzeptiert die echte TeamList_2026", {
-  # Der scharfe Test: die produktive Liste mit 237 Teams über zehn Ligen muss
-  # durchlaufen. Schlägt das fehl, ist entweder die Prüfung zu streng oder die
-  # Liste kaputt -- beides muss auffallen.
-  pfad <- test_path("..", "..", "RCode", "TeamList_2026.csv")
-  skip_if_not(file.exists(pfad), "TeamList_2026.csv nicht gefunden")
+test_that("Datenpruefung: load_team_list akzeptiert die aktuelle TeamList", {
+  # Der scharfe Test: die gepflegte Liste ueber alle Ligen muss durchlaufen.
+  # Schlägt das fehl, ist entweder die Prüfung zu streng oder die Liste
+  # kaputt -- beides muss auffallen. Kein Skip, wenn die Datei fehlt: Das
+  # waere ein gruenes Ergebnis ohne Pruefung (#271).
+  #
+  # Bis Oktober 2026 stand hier zusaetzlich eine feste Zeilenzahl (247). Sie
+  # kippte bei jedem nachgetragenen Team, ohne dass etwas falsch war.
+  teams <- load_team_list(aktuelle_teamlist_pfad())
 
-  teams <- load_team_list(pfad)
-
-  # 237 aus der Kalibrierung + 10 fuer die Saison 2026 nachgetragene Teams
-  # (zwei Drittliga-Absteiger, acht Aufsteiger aus Oberligen).
-  expect_equal(nrow(teams), 247)
   expect_false(any(duplicated(teams$TeamID)))
 
   # Eindeutig je LIGA, nicht je Wechselgemeinschaft: Seit Regel 3

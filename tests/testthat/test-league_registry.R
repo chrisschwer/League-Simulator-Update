@@ -185,7 +185,9 @@ test_that("validate_team_count traegt zehn Ligen", {
     f
   }
 
-  # Die echte TeamList_2026 muss durchgehen.
+  # Eine Liste in der Groessenordnung der gepflegten TeamList (mit
+  # historischen Eintraegen weit ueber der Sollstaerke) muss durchgehen. Die
+  # echte prueft die Datenpruefung in test-season_processor.R.
   expect_true(env$validate_team_count(schreibe(237))$valid)
   # Offensichtlicher Unfug bleibt abgelehnt.
   expect_false(env$validate_team_count(schreibe(3))$valid)
@@ -802,15 +804,13 @@ test_that("die echten RL-Spielplaene 2025 liegen in der teams_range", {
   }
 })
 
-test_that("die TeamList fuehrt weit mehr Eintraege als eine Staffel Teams hat", {
+test_that("Datenpruefung: die aktuelle TeamList fuehrt weit mehr Eintraege als eine Staffel Teams hat", {
   # Der Grund, warum die Validierung NICHT gegen die TeamList laufen darf.
   # Geprueft wird der Abstand, nicht nur die Ungleichheit: Er ist gross und
-  # strukturell, nicht ein Rundungsfehler.
+  # strukturell, nicht ein Rundungsfehler. Die TeamList fuehrt alle je
+  # aufgetretenen Teams, der Abstand waechst also nur.
   env <- source_module("league_registry")
-  tl <- utils::read.csv(
-    test_path("..", "..", "RCode", "TeamList_2026.csv"),
-    sep = ";", stringsAsFactors = FALSE
-  )
+  tl <- utils::read.csv(aktuelle_teamlist_pfad(), sep = ";", stringsAsFactors = FALSE)
 
   for (id in RL_IDS) {
     eintraege <- sum(as.character(tl$League) == id)

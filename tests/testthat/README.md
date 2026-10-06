@@ -32,6 +32,7 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 | `helper-rust.R` | seit Stufe 3.6: `skip_if_no_rust(env)` (skippt ohne erreichbaren Rust-Server), `rust_binary`, `start_rust_server`/`stop_rust_server` (eigenes Binary auf eigenem Port). Seit Stufe 4.1 gilt in der CI: `scripts/ci/testthat_ci.R` listet jeden Skip-Grund und bricht mit `RUST_SKIPS_VERBOTEN=1` ab, sobald ein Test trotz laufendem Rust-Server wegen Rust skippt — ein solcher Skip ist dort ein Fehler, kein grünes Ergebnis. |
 | `helper-js.R` | seit Stufe 4.6: `skip_ohne_js()` (Skip-Text „Node/jsdom fehlt“), `js_szenario()`, `js_skripte_aus_html()`, `js_syntax_status()`. Node/jsdom lokal per `npm ci`; in der CI sind sie Pflicht (`JS_SKIPS_VERBOTEN=1`), ein Skip wegen Node/jsdom ist dort ein Fehler |
 | `helper-repo.R` | seit Stufe 2: `with_repo_root` |
+| `helper-teamlist.R` | seit #271: `aktuelle_teamlist_pfad()` – die TeamList der aktuellen Saison (aus `SEASON`, sonst neueste `TeamList_<Jahr>.csv`) für **Datenprüfungen**; bricht ab statt zu skippen, wenn sie fehlt. Datenprüfungen tragen „Datenpruefung:“ im Titel; Einheitentests nehmen eine Fixture, nie die produktive Liste |
 | `helpers/js-runner.mjs` | explizit aufgerufener Node-Runner (jsdom), kein Test |
 | `helpers/season-transition-snapshot-runner.R` | explizit gesourcter Runner, kein Test |
 | `fixtures/` | Testdaten, u. a. `fixtures/fixture_cache/` (eingefrorene RL-Spielpläne, siehe README dort) |

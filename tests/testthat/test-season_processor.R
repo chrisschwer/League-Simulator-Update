@@ -316,8 +316,16 @@ test_that("validate_team_count akzeptiert eine vollstaendige Liste", {
 
   # Alle drei geprueften Ligen in Sollstaerke.
   expect_true(env$validate_team_count(schreibe_teamliste(soll_teams(env)))$valid)
-  # Und die echte TeamList_2026 mit ihren historischen Eintraegen.
-  expect_true(env$validate_team_count(schreibe_teamliste(248))$valid)
+})
+
+test_that("Datenpruefung: validate_team_count akzeptiert die aktuelle TeamList", {
+  # Die gepflegte Liste mit ihren historischen Eintraegen liegt weit ueber der
+  # Sollstaerke -- die Obergrenze muss sie tragen, sonst bricht der
+  # Saisonwechsel an der eigenen Vorsaison ab. Bis Oktober 2026 stand hier
+  # eine synthetische Liste mit 248 Zeilen als Stellvertreter (#271).
+  env <- lade_input_validation()
+
+  expect_true(env$validate_team_count(aktuelle_teamlist_pfad())$valid)
 })
 
 test_that("die Untergrenze folgt der Registry, nicht einer festen Zahl", {
@@ -462,9 +470,8 @@ test_that("validate_team_count rejects too few teams", {
 
 test_that("validate_team_count rejects too many teams", {
   # Die Obergrenze folgt der Summe aller zehn Ligen (mit Reserve, weil die
-  # TeamList alle je aufgetretenen Teams fuehrt) statt der festen 62. Die
-  # echte TeamList_2026 mit 237 Teams muss durchgehen -- das prueft
-  # test-league_registry.R.
+  # TeamList alle je aufgetretenen Teams fuehrt) statt der festen 62. Dass
+  # die aktuelle TeamList durchgeht, prueft die Datenpruefung oben.
   test_file <- tempfile(fileext = ".csv")
 
   n <- 2000
