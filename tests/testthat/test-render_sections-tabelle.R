@@ -57,6 +57,19 @@ test_that("Zahlenformate: Komma-Dezimal, echtes Minus, ±0,0; data-Attribute mit
   expect_match(html, 'data-platz="1"', fixed = TRUE)
 })
 
+test_that("Delta-ELO ist sortierbar: Knopf absteigend, Rohwert als data-delta (#285)", {
+  # Wer die Erwartung vom Saisonstart am staerksten uebertrifft, steht nach
+  # dem Klick oben. Sortiert wird nach dem ungerundeten Wert; angezeigt
+  # bleibt die gerundete Zahl mit Vorzeichen.
+  gen <- source_module("generate_static_site")
+  html <- gen$render_liga_tabelle(mk_tabelle())
+
+  expect_match(html, '<button data-key="delta" data-dir="desc">&Delta; ELO</button>', fixed = TRUE)
+  expect_match(html, 'data-delta="-13.34"', fixed = TRUE)
+  expect_match(html, 'data-delta="5.5"', fixed = TRUE)
+  expect_match(html, 'data-delta="0"', fixed = TRUE)
+})
+
 test_that("Sp. und Tordiff. sind als optionale Mobil-Spalten markiert", {
   gen <- source_module("generate_static_site")
   html <- gen$render_liga_tabelle(mk_tabelle())

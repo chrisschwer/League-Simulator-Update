@@ -122,7 +122,9 @@ render_liga_tabelle <- function(tabelle, zonen = NULL) {
     "<th scope=\"col\" class=\"num opt\">Tordiff.</th>\n",
     "<th scope=\"col\"><button data-key=\"pkt\" data-dir=\"desc\">Punkte</button></th>\n",
     "<th scope=\"col\"><button data-key=\"elo\" data-dir=\"desc\">ELO</button></th>\n",
-    "<th scope=\"col\" class=\"num\">&Delta; ELO</th>\n",
+    # Delta-ELO sortierbar (#285): wer die Erwartung vom Saisonstart am
+    # staerksten uebertrifft, steht nach dem Klick oben.
+    "<th scope=\"col\" class=\"num\"><button data-key=\"delta\" data-dir=\"desc\">&Delta; ELO</button></th>\n",
     "</tr></thead>"
   )
 
@@ -130,7 +132,8 @@ render_liga_tabelle <- function(tabelle, zonen = NULL) {
     row <- tabelle[i, ]
     paste0(
       "<tr data-platz=\"", row$platz, "\" data-pkt=\"", row$punkte,
-      "\" data-elo=\"", row$elo, "\"", .zone_attrs(zonen, row$platz), ">",
+      "\" data-elo=\"", row$elo, "\" data-delta=\"", row$delta_elo, "\"",
+      .zone_attrs(zonen, row$platz), ">",
       "<td class=\"num\">", row$platz, "</td>",
       "<th scope=\"row\">", .tooltip_html(row$name, row$kuerzel), "</th>",
       "<td class=\"num opt\">", row$spiele, "</td>",

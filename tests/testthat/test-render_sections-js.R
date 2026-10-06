@@ -87,6 +87,36 @@ test_that("fremde Sortierung entfernt data-zonen, platz setzt es wieder", {
   expect_identical(as.integer(unlist(r$schritte[[2]]$plaetze)), 1:n)
 })
 
+test_that("Klick auf Delta-ELO sortiert absteigend nach dem Rohwert und entfernt die Zonen (#285)", {
+  skip_ohne_js()
+  gen <- source_module("generate_static_site")
+  n <- 18L
+  # Deltas gegen den Platz verschoben, mit zwei Werten, die erst nach dem
+  # Runden gleich aussehen (2.04 / 2.01): sortiert wird nach dem Rohwert.
+  deltas <- c(3.5, -12, 2.04, 0, 15.2, -1.5, 2.01, 8, -20.3, 6, -4, 11, 1, -7.7, 4, -0.2, 9.9, -2)
+  tab <- data.frame(
+    platz = seq_len(n), team_id = seq_len(n), name = paste("Verein", seq_len(n)),
+    spiele = 10, tore = 10, gegentore = 10, tordifferenz = 0,
+    punkte = js_punkte, elo = 1500, delta_elo = deltas, stringsAsFactors = FALSE
+  )
+  abstieg <- numeric(n)
+  abstieg[n] <- 1
+  html <- paste0(
+    "<!doctype html><html><body>",
+    gen$render_liga_tabelle(tab, zonen = list(abstieg = abstieg, relegation = NULL,
+                                              aufstieg = numeric(n))),
+    gen$.LIGA_SORT_SCRIPT, "</body></html>"
+  )
+
+  r <- js_szenario(html, "sort", list(klicks = list("delta")))
+  schritt <- r$schritte[[1]]
+
+  expect_length(r$fehler, 0)
+  expect_identical(schritt$dir, "desc")
+  expect_identical(as.numeric(unlist(schritt$werte)), sort(deltas, decreasing = TRUE))
+  expect_null(schritt$zonen)
+})
+
 test_that("Sortieren nach Platz stellt auf der Ligaseite die Platzreihenfolge wieder her", {
   skip_ohne_js()
   r <- js_szenario(liga_seite(), "sort", list(klicks = list("pkt", "platz")))
