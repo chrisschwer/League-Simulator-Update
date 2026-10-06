@@ -143,7 +143,7 @@ When adding tests, ensure they're properly categorized for optimal sharding.
 All pull requests targeting `main` trigger `.github/workflows/ci.yml`. The workflow has five jobs:
 
 1. **rust-quality**: `cargo fmt --check` + `cargo clippy --all-targets -- -D warnings` + `cargo test --release` on the runner
-2. **r-lint**: `lintr::lint_dir("RCode")` (advisory; never blocks the PR)
+2. **r-lint**: `lintr::lint_dir("RCode")` with lintr pinned to 3.4.0; fails on any lint (since #203). It turns the PR red but does not gate `push-image`. Check locally with `Rscript -e 'lintr::lint_dir("RCode")'` (same lintr version).
 3. **image-build-and-test**: builds the production Docker image and runs the testthat suite inside it
 4. **push-image** (main only): tags the verified image as `:latest` + `:<short-sha>` and pushes to Docker Hub
 5. **report-failure** (main only): if the in-image testthat run fails, opens (or comments on) a `ci-failure`-labeled GitHub issue

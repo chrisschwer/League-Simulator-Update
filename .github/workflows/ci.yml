@@ -54,9 +54,8 @@ jobs:
         run: cargo test --release
 
   r-lint:
-    name: R lint (advisory)
+    name: R lint
     runs-on: ubuntu-latest
-    continue-on-error: true   # advisory only — never blocks the PR
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
@@ -67,19 +66,28 @@ jobs:
           r-version: '4.3.1'
           use-public-rspm: true
 
+      # Version gepinnt: Der Job blockiert, und jede lintr-Version bringt
+      # neue Default-Linter mit (3.2 -> 3.4: neun neue Befunde ohne eine
+      # Codeaenderung). Anheben bewusst, zusammen mit dem Glaetten der
+      # neuen Befunde (Issue #203).
       - name: Install lintr
-        run: install.packages('lintr', repos = 'https://cloud.r-project.org')
+        run: |
+          install.packages('remotes', repos = 'https://cloud.r-project.org')
+          remotes::install_version('lintr', version = '3.4.0',
+                                   repos = 'https://cloud.r-project.org')
         shell: Rscript {0}
 
+      # Scharf seit Issue #203: RCode/ ist lint-frei, eine neue Meldung ist
+      # damit ein Signal statt Rauschen in 58 Zeilen.
       - name: Lint RCode/
         run: |
           lints <- lintr::lint_dir('RCode')
           if (length(lints) > 0) {
             cat('Found', length(lints), 'lints in RCode/\n')
             print(lints)
-          } else {
-            cat('No lints found.\n')
+            quit(status = 1)
           }
+          cat('No lints found.\n')
         shell: Rscript {0}
 
   image-build-and-test:
