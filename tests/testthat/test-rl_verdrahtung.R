@@ -2,8 +2,9 @@
 # update_all_leagues_loop.R sie uebergibt) den fuenf RL-Staffeln zu.
 #
 # Zwei Bloecke: eine Kuerzel-Kollision in einer Attrappe (FCH doppelt, in
-# zwei Ligen) und dieselbe Kollision am echten Datensatz (Hansa Rostock/FCH
-# in Nordost).
+# zwei Ligen) und eine Datenpruefung, dass in der aktuellen TeamList jedes
+# Drittliga-Team seine eigene Staffel bekommt -- welche Kollisionen es dort
+# gerade gibt, haengt von der Ligazusammensetzung ab.
 
 library(testthat)
 library(mockery)
@@ -49,18 +50,23 @@ test_that("rl_group_of_team filtert die TeamList selbst auf die Liga", {
   expect_equal(idx, c(1L, 0L))
 })
 
-test_that("rl_group_of_team loest FCH in der echten TeamList auf Nordost auf", {
-  # Der Regressionstest am echten Datensatz: Hansa Rostock ist der EINZIGE
-  # Nordost-Drittligist. Faellt er aus, steht die Nordost-Zeile der
-  # Auszaehlung auf P(0 Absteiger) = 1, und der Regionalliga Nordost fehlt
-  # die Abstiegszone auf Platz 17.
+test_that("Datenpruefung: rl_group_of_team gibt jedem Drittligisten der aktuellen TeamList seine Staffel", {
+  # Der Regressionstest am echten Datensatz. Anlass war Hansa Rostock (FCH),
+  # 2026 der EINZIGE Nordost-Drittligist, dessen Kuerzel auch Heidenheim in
+  # Liga 79 traegt: Ungefiltert aufgeloest landete er in SuedWest, die
+  # Nordost-Zeile der Auszaehlung stand auf P(0 Absteiger) = 1, und der
+  # Regionalliga Nordost fehlte die Abstiegszone auf Platz 17.
+  #
+  # Geprueft wird deshalb nicht FCH allein, sondern JEDES Drittliga-Team mit
+  # Region -- so faengt der Test auch die Kollisionen kuenftiger Saisons
+  # und kippt nicht, wenn Hansa die Liga verlaesst. (Bis Oktober 2026 fest
+  # auf TeamList_2026 und FCH verdrahtet, #271.)
   env <- new.env()
   source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
   source(test_path("..", "..", "RCode", "staffel_zuordnung.R"), local = env)
   source(test_path("..", "..", "RCode", "rl_verdrahtung.R"), local = env)
 
-  tl <- read.csv2(test_path("..", "..", "RCode", "TeamList_2026.csv"),
-                  stringsAsFactors = FALSE)
+  tl <- read.csv2(aktuelle_teamlist_pfad(), stringsAsFactors = FALSE)
   liga3 <- tl[tl$League == 80, ]
 
   spielplan <- as.data.frame(c(
@@ -72,8 +78,6 @@ test_that("rl_group_of_team loest FCH in der echten TeamList auf Nordost auf", {
   idx <- env$rl_group_of_team(spielplan, tl, liga = "80")
 
   expect_false(is.null(idx))
-  nordost <- env$staffel_index("Nordost")
-  expect_equal(idx[match("FCH", liga3$ShortText)], nordost)
-  # Und die Staffel darf ueberhaupt vorkommen.
-  expect_true(nordost %in% idx)
+  mit_region <- !is.na(liga3$Region) & nzchar(liga3$Region)
+  expect_equal(idx[mit_region], env$staffel_index(liga3$Region[mit_region]))
 })

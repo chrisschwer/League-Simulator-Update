@@ -83,17 +83,17 @@ test_that("group_of_team meldet ein unbekanntes Team", {
 
 # --- End-to-End: von der TeamList bis zur Engine-Antwort --------------------
 
-test_that("die Zuordnung traegt die echte 3. Liga", {
-  # Gegen die produktive TeamList, nicht gegen eine Fixture: Sieben Teams
-  # ohne Region und eine Staffel (Nordost), die dort gar nicht vorkommt --
-  # beides muss die Uebersetzung aushalten.
+test_that("Datenpruefung: die Zuordnung traegt die 3. Liga der aktuellen TeamList", {
+  # Gegen die gepflegte TeamList, nicht gegen eine Fixture: Drittliga-Teams
+  # ohne Region (2026: sieben) und Staffeln, die mit keinem oder nur einem
+  # Team vertreten sind -- beides muss die Uebersetzung aushalten.
   env <- source_module("league_registry", "staffel_zuordnung")
   suppressMessages({
     library(dplyr); library(tidyr)
   })
   source(test_path("..", "..", "RCode", "transform_data.R"), local = env)
 
-  tl <- env$load_team_list(test_path("..", "..", "RCode", "TeamList_2026.csv"))
+  tl <- env$load_team_list(aktuelle_teamlist_pfad())
   liga3 <- tl[tl$League == 80, ]
 
   idx <- env$group_of_team(liga3$ShortText, liga3)
