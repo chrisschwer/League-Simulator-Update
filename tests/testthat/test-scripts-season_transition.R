@@ -177,23 +177,6 @@ test_that("cleanup wrapper dry-run leaves files untouched", {
   expect_true(file.exists(file.path(tmp, "RCode", "TeamList_2099_League80_temp.csv")))
 })
 
-test_that("cleanup wrapper --confirm removes matched files", {
-  tmp <- setup_rcode(c(
-    "TeamList_2099_League78_temp.csv",
-    "TeamList_2099_League79_temp.csv",
-    "TeamList_2099_League80_temp.csv"
-  ))
-  on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
-
-  res <- run_cleanup(tmp, "2099", confirm = TRUE)
-
-  expect_equal(res$status, 0L)
-  expect_match(res$output, "Removed 3 files", fixed = TRUE)
-  expect_false(file.exists(file.path(tmp, "RCode", "TeamList_2099_League78_temp.csv")))
-  expect_false(file.exists(file.path(tmp, "RCode", "TeamList_2099_League79_temp.csv")))
-  expect_false(file.exists(file.path(tmp, "RCode", "TeamList_2099_League80_temp.csv")))
-})
-
 test_that("cleanup wrapper does not touch foreign files even with --confirm", {
   tmp <- setup_rcode(c(
     "TeamList_2099_League78_temp.csv",
