@@ -645,8 +645,8 @@ render_league_page <- function(view, data_env, output_dir,
 .VERLAUF_LEAD <- paste0(
   "Jede Linie ist ein Verein, jeder Knick ein Spiel. Die Höhe ist die ",
   "Stärkeschätzung des Modells; sie steigt, wenn ein Verein besser abschneidet, ",
-  "als das Modell erwartet hat — und fällt, wenn schlechter. Am rechten Rand ",
-  "steht der heutige Stand."
+  "als das Modell erwartet hat — und fällt, wenn schlechter. Die Zahl am Ende ",
+  "jeder Linie ist der heutige Stand."
 )
 
 # Die Verlaufsdaten aller Ligen, VOR dem Rendern: Die Menge entscheidet ueber
