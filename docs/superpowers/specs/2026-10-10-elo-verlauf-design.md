@@ -174,9 +174,12 @@ elo_verlauf_daten(league_entry) -> list(
   `achse_spiele_max = 1`, `achse_datum_ende = NA`; die Seite zeigt statt des
   Diagramms „Die Saison hat noch nicht begonnen.“
 
-**Einbettung:** `jsonlite::toJSON(auto_unbox = TRUE, digits = NA)`, danach
+**Einbettung:** `jsonlite::toJSON(auto_unbox = TRUE, digits = 4)`, danach
 `</` → `<\/` ersetzt, in
-`<script type="application/json" id="verlauf-daten">`.
+`<script type="application/json" id="verlauf-daten">`. `digits = 4` statt
+voller Präzision: Die ELO-Invariante wird vor der Serialisierung in R geprüft
+(Abweichung höchstens 1e-6), und die Anzeige rundet ohnehin auf eine
+Nachkommastelle.
 
 ## Abschnitt 3: Darstellung (`RCode/site_assets/verlauf.js`)
 

@@ -21,6 +21,10 @@ install.packages(packages[!packages %in% installed.packages()[,"Package"]])
 
 # Render the static site from the committed fixture and preview it locally
 Rscript scripts/preview_site.R
+
+# Preview including ELO-Verlauf pages (needs the Rust server for the fixture)
+# Rscript scripts/verlauf_fixture.R /tmp/ld.rds
+# Rscript scripts/preview_site.R ShinyApp/data/Ergebnis.Rds /tmp/site /tmp/ld.rds
 ```
 
 ```bash
@@ -38,7 +42,7 @@ Four main components:
 1. **Simulation Engine** - Rust-based Monte Carlo simulations with ELO ratings (REST seam at `localhost:8080`)
 2. **Scheduler** - Automated updates at match times (Berlin timezone)
 3. **Season Transition** - Handles promotions/relegations between seasons
-4. **Static Site** - twelve self-contained HTML pages (ten league views + Regionalliga promotion page + Methodik, with inline HTML heatmaps) rendered by the scheduler into `STATIC_SITE_DIR`, served by Caddy at fussball.csdatascience.de (`scripts/preview_site.R` renders a local preview from a saved fixture)
+4. **Static Site** - self-contained HTML pages rendered by the scheduler into `STATIC_SITE_DIR`, served by Caddy at fussball.csdatascience.de: ten league views, the Regionalliga promotion page, Methodik, and one ELO-Verlauf page per league (`<slug>-verlauf.html`, Bundesliga: `bundesliga-verlauf.html`) — 22 pages in total. Heatmaps are inline HTML; the ELO-Verlauf chart is drawn client-side by `assets/verlauf.js` (#184). `scripts/preview_site.R` renders a local preview from a saved fixture
 
 For detailed architecture, see @docs/architecture/overview.md
 
