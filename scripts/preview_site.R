@@ -5,10 +5,13 @@
 # the path to the resulting index.html. No server, no browser autostart --
 # open the printed path in a browser yourself.
 #
-# Usage: Rscript scripts/preview_site.R [ergebnis.Rds] [output_dir]
+# Usage: Rscript scripts/preview_site.R [ergebnis.Rds] [output_dir] [league_data.rds]
 #   ergebnis.Rds  Pfad zu einem save()-Image mit den Ergebnisobjekten
 #                 (default: ShinyApp/data/Ergebnis.Rds)
 #   output_dir    Zielverzeichnis (default: ein frisches tempdir())
+#   league_data.rds  optional: benannte Liste von league_entries wie im
+#                 Betrieb (z. B. aus scripts/verlauf_fixture.R). Mit ihr
+#                 entstehen Ligatabellen und ELO-Verlaufsseiten (#184).
 #
 # ALLE Objekte der Datei werden durchgereicht, nicht nur die vier alten:
 # Seit Phase 5 gibt es zehn Ligen, und die Regionalliga-Seiten haengen
@@ -24,6 +27,7 @@ args <- commandArgs(trailingOnly = TRUE)
 
 ergebnis_path <- if (length(args) >= 1) args[[1]] else file.path("ShinyApp", "data", "Ergebnis.Rds")
 output_dir <- if (length(args) >= 2) args[[2]] else file.path(tempdir(), "preview-site")
+league_data_path <- if (length(args) >= 3) args[[3]] else NULL
 
 if (!file.exists(ergebnis_path)) {
   stop(sprintf("preview_site: Ergebnis-Datei nicht gefunden: %s", ergebnis_path))
@@ -94,7 +98,16 @@ if (is.null(ergebnisse[["dritte_liga_aufstieg"]])) {
   ergebnisse[["dritte_liga_aufstieg"]] <- ergebnisse[["dritte_liga"]]
 }
 
-generate_static_site(ergebnisse = ergebnisse, output_dir = output_dir)
+league_data <- NULL
+if (!is.null(league_data_path)) {
+  if (!file.exists(league_data_path)) {
+    stop(sprintf("preview_site: league_data-Datei nicht gefunden: %s", league_data_path))
+  }
+  league_data <- readRDS(league_data_path)
+}
+
+generate_static_site(ergebnisse = ergebnisse, output_dir = output_dir,
+                     league_data = league_data)
 
 # The Bundesliga view has slug "index" (see RCode/league_views.R), so it
 # renders to output_dir/index.html -- the landing page for the preview.

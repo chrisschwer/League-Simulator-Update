@@ -32,6 +32,9 @@
      und --ocker abgestimmt, damit die drei Zonenfarben als eine Familie
      lesbar sind. */
   --gruen:#3F7D3A;
+  /* ELO-Verlauf (Issue #184): gedaempfte Kontextlinien und -etiketten,
+     sobald eine Linie hervorgehoben ist. */
+  --rule-dim:#EDE9DE; --ink-dim:#BDB6A8;
   --serif:'Source Serif 4',Georgia,serif; --sans:'Inter Tight',-apple-system,'Helvetica Neue',Arial,sans-serif;
   --mono:'JetBrains Mono',Menlo,Consolas,monospace;
 }
@@ -249,3 +252,85 @@ abbr.kz:focus-visible{outline:1px solid var(--tinte);outline-offset:1px}
   background:var(--ink);color:var(--paper);font-family:var(--sans);font-size:13px;
   line-height:1.3;border-radius:2px;pointer-events:none;white-space:nowrap}
 .kz-tip[hidden]{display:none}
+
+/* ---------- ELO-Verlauf je Liga (Issue #184) ----------
+   Vorlage: docs/designs/elo-verlauf-2bl-2024-25.html. Tufte: leise
+   Kontextlinien, eine hervorgehobene Linie, direkte Beschriftung. */
+.zurueck{font-family:var(--sans);font-size:13px;margin:0 0 28px}
+.zurueck a{color:var(--ink-2);text-decoration:none}
+.zurueck a:hover{color:var(--ink);text-decoration:underline;text-decoration-color:var(--akzent)}
+.verlauf-link{font-family:var(--sans);font-size:13px;margin:14px 0 0}
+
+#verlauf .chartcard{margin-top:28px;position:relative}
+#verlauf .chartbar{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin:0 0 14px}
+#verlauf .chartbar .legend{margin:0}
+#verlauf .modes{display:flex;border:1px solid var(--rule);align-items:stretch}
+#verlauf .modes button{all:unset;font-family:var(--sans);font-size:11.5px;font-weight:600;letter-spacing:.04em;
+  padding:5px 11px;cursor:pointer;color:var(--ink-3);border-right:1px solid var(--rule)}
+#verlauf .modes button:last-child{border-right:none}
+#verlauf .modes button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+#verlauf .modes button:focus-visible{outline:2px solid var(--akzent);outline-offset:-2px}
+
+#verlauf .chartbox{position:relative;overflow-x:auto;overflow-y:hidden}
+svg.verlauf{display:block;width:100%;height:auto;touch-action:pan-x pan-y}
+svg.verlauf text{font-family:var(--mono);font-variant-numeric:tabular-nums}
+svg.verlauf .gridline{stroke:var(--rule-soft);stroke-width:.5}
+svg.verlauf .axislabel{font-family:var(--sans);font-size:9.5px;fill:var(--ink-3);font-variant-numeric:normal}
+svg.verlauf .pause{fill:var(--surface-2)}
+svg.verlauf .pauselabel{font-family:var(--sans);font-size:9px;fill:var(--ink-3);font-variant-numeric:normal;
+  letter-spacing:.06em;text-transform:uppercase}
+svg.verlauf .linie{fill:none;stroke:var(--rule);stroke-width:1;stroke-linejoin:round;stroke-linecap:round;
+  transition:stroke .14s ease,stroke-width .14s ease,opacity .14s ease}
+svg.verlauf .endlabel{font-size:10.5px;fill:var(--ink-3);transition:fill .14s ease}
+svg.verlauf .endkuerzel{font-family:var(--sans);font-size:10.5px;fill:var(--ink-3);font-weight:600;
+  font-variant-numeric:normal;transition:fill .14s ease}
+svg.verlauf .hit{fill:none;stroke:transparent;stroke-width:11;cursor:pointer}
+svg.verlauf .fuehrung{stroke:var(--rule-soft);stroke-width:.5;transition:stroke .14s ease}
+svg.verlauf .fuehrung.waag{stroke-dasharray:1 2.5}
+svg.verlauf .punkt{fill:var(--tinte);opacity:0;pointer-events:none;transition:opacity .12s ease}
+svg.verlauf g.team.on .linie{stroke:var(--tinte);stroke-width:2}
+svg.verlauf g.team.on .endlabel{fill:var(--ink);font-weight:600}
+svg.verlauf g.team.on .endkuerzel{fill:var(--tinte)}
+svg.verlauf g.team.on .fuehrung{stroke:var(--tinte)}
+svg.verlauf g.team.on .punkt.aktiv{opacity:1}
+svg.verlauf g.team.dim .linie{stroke:var(--rule-soft);opacity:.55}
+svg.verlauf g.team.dim .endlabel,svg.verlauf g.team.dim .endkuerzel{fill:var(--ink-dim)}
+svg.verlauf g.team.dim .fuehrung{stroke:var(--rule-dim)}
+
+#verlauf .tip{position:absolute;z-index:5;pointer-events:none;opacity:0;transform:translateY(2px);
+  transition:opacity .12s ease,transform .12s ease;background:var(--paper);border:1px solid var(--rule);
+  padding:9px 12px 10px;max-width:250px;box-shadow:0 1px 2px rgba(21,19,15,.06)}
+#verlauf .tip.show{opacity:1;transform:translateY(0)}
+#verlauf .tip p{margin:0}
+#verlauf .tip .tdate{font-family:var(--sans);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-3);margin:0 0 3px}
+#verlauf .tip .tpair{font-family:var(--serif);font-size:15px;margin:0 0 1px;line-height:1.3}
+#verlauf .tip .tpair .dash{color:var(--ink-3);padding:0 2px}
+#verlauf .tip .tres{font-family:var(--mono);font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+#verlauf .tip .terw{font-family:var(--sans);font-size:11px;color:var(--ink-3);margin:3px 0 0}
+#verlauf .tip .telo{font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums;color:var(--ink-2);
+  margin:6px 0 0;padding-top:6px;border-top:1px solid var(--rule-soft)}
+#verlauf .tip .tdelta.pos{color:var(--tinte);font-weight:700}
+#verlauf .tip .tdelta.neg{color:var(--akzent);font-weight:700}
+
+#verlauf .hinweis{font-family:var(--sans);font-size:12.5px;color:var(--ink-2);border-left:2px solid var(--ocker);
+  padding:2px 0 2px 14px;margin-top:34px;max-width:66ch;line-height:1.5}
+
+table.verlauf-tab{width:100%;font-size:15px;margin-top:8px}
+table.verlauf-tab th[scope=col]{font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-3);text-align:left;padding:0 10px 7px 0;border-bottom:1px solid var(--ink)}
+table.verlauf-tab th.num,table.verlauf-tab td.num{text-align:right}
+table.verlauf-tab td{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;
+  padding:6px 10px 6px 0;border-bottom:.5px solid var(--rule-soft)}
+table.verlauf-tab th[scope=row]{font-family:var(--serif);font-weight:400;font-size:15px;text-align:left;
+  padding:6px 10px 6px 0;border-bottom:.5px solid var(--rule-soft)}
+table.verlauf-tab tbody tr{cursor:pointer;transition:background .12s ease}
+table.verlauf-tab tbody tr:hover,table.verlauf-tab tbody tr.on{background:var(--surface-2)}
+table.verlauf-tab tbody tr.on th[scope=row]{font-weight:600}
+table.verlauf-tab .dpos{color:var(--tinte)}
+table.verlauf-tab .dneg{color:var(--akzent)}
+
+@media (max-width:760px){
+  svg.verlauf{min-width:640px}
+  #verlauf .modes button{padding:5px 9px;font-size:11px}
+}

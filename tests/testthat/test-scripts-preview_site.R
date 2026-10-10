@@ -172,3 +172,23 @@ test_that("eine fehlende Ergebnis-Datei bricht mit klarer Meldung ab, nicht mit 
   expect_match(meldung, "gibt-es-nicht.Rds", fixed = TRUE)
   expect_false(file.exists(file.path(out, "index.html")))
 })
+
+test_that("preview_site.R nimmt league_data als drittes Argument -- die Verlaufsseiten entstehen (#184)", {
+  rscript <- Sys.which("Rscript")
+  skip_if(!nzchar(rscript), "Rscript nicht im PATH")
+  fixture <- withr::local_tempfile(fileext = ".Rds")
+  ld_datei <- withr::local_tempfile(fileext = ".rds")
+  out <- withr::local_tempdir()
+  fixture_zehn_ligen(fixture)
+  saveRDS(list(bundesliga = verlauf_beispiel(), zweite_bundesliga = verlauf_beispiel()), ld_datei)
+
+  ausgabe <- suppressWarnings(system2(
+    rscript, c(shQuote(skript_pfad()), shQuote(fixture), shQuote(out), shQuote(ld_datei)),
+    stdout = TRUE, stderr = TRUE
+  ))
+  status <- attr(ausgabe, "status")
+  expect_true(is.null(status) || status == 0L, info = paste(ausgabe, collapse = "\n"))
+  expect_true(file.exists(file.path(out, "bundesliga-verlauf.html")))
+  expect_true(file.exists(file.path(out, "2-bundesliga-verlauf.html")))
+  expect_match(html_lesen(file.path(out, "index.html")), 'href="bundesliga-verlauf.html"', fixed = TRUE)
+})
