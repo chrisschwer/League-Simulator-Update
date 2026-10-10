@@ -109,7 +109,7 @@ elo_verlauf_daten <- function(league_entry) {
   list(
     saison = elo_verlauf_saison(m$kickoff),
     saison_laeuft = saison_laeuft,
-    achse_spiele_max = spiele_max + as.integer(saison_laeuft),
+    achse_spiele_max = max(1L, spiele_max + as.integer(saison_laeuft)),
     achse_datum_ende = datum_ende,
     teams = vereine
   )

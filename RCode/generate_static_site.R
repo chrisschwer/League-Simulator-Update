@@ -673,12 +673,12 @@ render_league_page <- function(view, data_env, output_dir,
   daten
 }
 
-# JSON fuer <script type="application/json">: "</" maskiert, damit ein Name
-# wie "</script>" das Element nicht schliesst.
+# JSON fuer <script type="application/json">: jedes "<" als \u003c (gueltiges
+# JSON), damit weder "</script>" noch "<!--" im Namen das Element stoeren.
 .verlauf_json <- function(daten) {
   json <- jsonlite::toJSON(daten, auto_unbox = TRUE, digits = 4, na = "null",
                            null = "null")
-  gsub("</", "<\\/", as.character(json), fixed = TRUE)
+  gsub("<", "\\u003c", as.character(json), fixed = TRUE)
 }
 
 render_verlauf_tabelle <- function(daten) {
@@ -1173,12 +1173,22 @@ generate_static_site <- function(ergebnisse = NULL,
                        verlauf_slug = if (key %in% names(verlauf)) view$verlauf_slug else NULL)
   }, character(1))
 
+  # Scheitert eine Verlaufsseite (praktisch nur I/O), entstehen die uebrigen
+  # Seiten trotzdem.
   verlauf_paths <- vapply(names(verlauf), function(key) {
     view <- views[[key]]
     message(sprintf("generate_static_site: rendering %s", view$verlauf_slug))
-    render_verlauf_page(view, verlauf[[key]], output_dir, now = now, mtime = now,
-                        verlauf_ziele = verlauf_ziele)
+    tryCatch(
+      render_verlauf_page(view, verlauf[[key]], output_dir, now = now, mtime = now,
+                          verlauf_ziele = verlauf_ziele),
+      error = function(e) {
+        warning(sprintf("generate_static_site: Verlaufsseite %s nicht geschrieben: %s",
+                        key, conditionMessage(e)), call. = FALSE)
+        NA_character_
+      }
+    )
   }, character(1))
+  verlauf_paths <- verlauf_paths[!is.na(verlauf_paths)]
 
   # Die Aufstiegsseite entsteht nur, wenn wenigstens eine Regionalliga
   # gerendert wurde. Ohne Staffeln waere sie eine leere Seite in der
