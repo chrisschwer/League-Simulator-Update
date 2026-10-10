@@ -8,7 +8,7 @@
 // auf stderr, Exit-Status 1. Skriptfehler der Seite landen nicht als Abbruch,
 // sondern im Feld `fehler` (jsdomError), damit die Tests sie pruefen koennen.
 //
-// Szenarien: stale (Veraltet-Hinweis), sort (Ligatabelle), tooltip (Kuerzel).
+// Szenarien: stale (Veraltet-Hinweis), sort (Ligatabelle), tooltip (Kuerzel), verlauf (ELO-Verlauf).
 
 import { readFileSync } from "node:fs";
 import { JSDOM, VirtualConsole } from "jsdom";
@@ -93,6 +93,61 @@ const szenarien = {
       return zustand();
     });
     return { schritte, titel, fehler };
+  },
+
+  // args: { schritte: [{ art, wert?, index?, n? }, ...] } mit art =
+  // modus (wert: spiel|datum, Klick auf den Umschalter) | zeile (Klick auf
+  // tr[data-i=index] der Tabelle) | zeige (window.eloVerlauf.zeigeSpiel(index, n))
+  // | loesche (window.eloVerlauf.loesche()). jsdom kennt kein Layout, deshalb
+  // laeuft der Tooltip ueber die Schnittstelle statt ueber Zeigerkoordinaten.
+  verlauf({ window, args, fehler }) {
+    const doc = window.document;
+    const zustand = () => {
+      const svg = doc.querySelector("#verlauf-box svg");
+      const tip = doc.getElementById("verlauf-tip");
+      const gruppen = svg ? Array.from(svg.querySelectorAll("g.team")) : [];
+      const xs = (g) => Array.from(g.querySelectorAll(".punkt"), (c) => Number(c.getAttribute("cx")));
+      return {
+        hat_svg: svg !== null,
+        linien: gruppen.length,
+        an: gruppen.filter((g) => g.classList.contains("on")).map((g) => Number(g.dataset.i)),
+        gedimmt: gruppen.filter((g) => g.classList.contains("dim")).length,
+        zeilen_an: Array.from(doc.querySelectorAll("#verlauf-tab tbody tr.on"), (r) => Number(r.dataset.i)),
+        gedrueckt: Array.from(doc.querySelectorAll(".modes button"), (b) => b.getAttribute("aria-pressed")),
+        tip_sichtbar: tip ? tip.classList.contains("show") : false,
+        tip_text: tip ? tip.textContent : null,
+        label_y: svg ? Array.from(svg.querySelectorAll(".endkuerzel"), (t) => Number(t.getAttribute("y"))) : [],
+        erste_x: Object.fromEntries(gruppen.map((g) => [g.dataset.i, xs(g)[0]])),
+        letzte_x: Object.fromEntries(gruppen.map((g) => [g.dataset.i, xs(g)[xs(g).length - 1]])),
+        pause: svg ? svg.querySelector(".pause") !== null : false,
+        pfad_kaputt: svg
+          ? Array.from(svg.querySelectorAll("path.linie"), (p) => p.getAttribute("d")).some((d) => /NaN|Infinity/.test(d))
+          : false,
+      };
+    };
+    const api = window.eloVerlauf;
+    const vorher = zustand();
+    const schritte = (args.schritte || []).map((s) => {
+      switch (s.art) {
+        case "modus":
+          doc.querySelector(`.modes button[data-mode="${s.wert}"]`).click();
+          break;
+        case "zeile":
+          doc.querySelector(`#verlauf-tab tbody tr[data-i="${s.index}"]`)
+            .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+          break;
+        case "zeige":
+          api.zeigeSpiel(s.index, s.n);
+          break;
+        case "loesche":
+          api.loesche();
+          break;
+        default:
+          throw new Error(`unbekannte Aktion: ${s.art}`);
+      }
+      return zustand();
+    });
+    return { vorher, schritte, api: typeof api, fehler };
   },
 };
 

@@ -55,3 +55,19 @@ js_syntax_status <- function(skripte) {
     as.integer(status)
   }, integer(1))
 }
+
+# Ersetzt <script src="assets/<datei>"></script> durch den Inhalt der Datei aus
+# <output_dir>/assets. Der Runner laedt keine externen Ressourcen; so laeuft
+# das Skript der Verlaufsseiten (assets/verlauf.js) wie im Browser.
+js_assets_einbetten <- function(html, output_dir) {
+  tags <- regmatches(html, gregexpr('<script src="assets/[^"]+"></script>', html))[[1]]
+  for (tag in tags) {
+    datei <- sub('<script src="(assets/[^"]+)"></script>', "\\1", tag)
+    inhalt <- paste(readLines(file.path(output_dir, datei), warn = FALSE, encoding = "UTF-8"),
+                    collapse = "\n")
+    pos <- regexpr(tag, html, fixed = TRUE)
+    html <- paste0(substr(html, 1, pos - 1), "<script>\n", inhalt, "\n</script>",
+                   substr(html, pos + nchar(tag), nchar(html)))
+  }
+  html
+}
