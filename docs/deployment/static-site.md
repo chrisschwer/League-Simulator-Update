@@ -20,8 +20,10 @@ ShinyApp/public/
 ├── <league>.html       # one per active league (ten since the Sept. 2026 expansion)
 ├── rl-aufstieg.html    # Regionalliga promotion page
 ├── methodik.html       # Methodik, content from RCode/site_assets/methodik_content.html
+├── <league>-verlauf.html  # ELO-Verlauf per league (#184); only when league data is present
 └── assets/
     ├── site.css
+    ├── verlauf.js      # draws the ELO-Verlauf chart in the browser (#184)
     ├── favicon.svg
     └── fonts/*.woff2
 ```
