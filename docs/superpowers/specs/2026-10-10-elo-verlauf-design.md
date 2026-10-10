@@ -22,7 +22,7 @@ Rust-Server oder an der Datenhaltung.
 
 Die Seite ist eine Mischung aus **Edward Tufte** und dem Erscheinungsbild
 von *30 Punkte*. Maßstab ist der Entwurf vom 8. September, der als Referenz
-unter `docs/design/2026-09-08-elo-verlauf-entwurf.html` im Repo liegt. Die
+unter `docs/designs/elo-verlauf-2bl-2024-25.html` im Repo liegt. Die
 fertige Seite muss **mindestens so gut aussehen wie dieser Entwurf**. Wo sie
 abweicht, dann nur, weil echte Saisondaten es verlangen (variable Ligagröße,
 laufende Saison).
@@ -232,5 +232,5 @@ elo_verlauf_daten(league_entry) -> list(
   `RCode/generate_static_site.R` (Verlaufsdaten vorab, Render-Funktion,
   Nav-Parameter, Link auf Ligaseite, Asset-Kopie),
   `RCode/site_assets/site.css`, `scripts/preview_site.R`, Doku (s. o.)
-- neu (Referenz/Sichtprüfung): `docs/design/2026-09-08-elo-verlauf-entwurf.html`,
+- neu (Referenz/Sichtprüfung): `docs/designs/elo-verlauf-2bl-2024-25.html`,
   `scripts/verlauf_fixture.R`
