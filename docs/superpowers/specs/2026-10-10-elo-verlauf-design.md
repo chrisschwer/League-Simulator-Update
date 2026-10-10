@@ -18,6 +18,56 @@ Zeiger.
 Nicht Ziel: frühere Saisons, Vergleich über Ligen hinweg, Änderungen am
 Rust-Server oder an der Datenhaltung.
 
+## Gestaltungsanspruch
+
+Die Seite ist eine Mischung aus **Edward Tufte** und dem Erscheinungsbild
+von *30 Punkte*. Maßstab ist der Entwurf vom 8. September, der als Referenz
+unter `docs/design/2026-09-08-elo-verlauf-entwurf.html` im Repo liegt. Die
+fertige Seite muss **mindestens so gut aussehen wie dieser Entwurf**. Wo sie
+abweicht, dann nur, weil echte Saisondaten es verlangen (variable Ligagröße,
+laufende Saison).
+
+**Tufte, konkret:**
+
+- **Daten-Tinte vor allem anderen.** Kein Rahmen um das Diagramm, keine
+  Achsenlinien, kein Hintergrundraster außer wenigen waagerechten Hilfslinien
+  im 50er-Schritt (`--rule-soft`, 0,5 px). Keine Schatten, keine Verläufe,
+  keine Flächenfüllungen unter Linien.
+- **Kontext leise, Fokus laut.** Alle Linien in Ruhe in `--rule` (1 px). Bei
+  Auswahl wird genau eine Linie `--tinte` (2 px), alle anderen treten weiter
+  zurück (`--rule-soft`, gedämpft). Keine bunte Farbe je Verein: 18–20
+  unterscheidbare Farben gibt es nicht, und eine Farblegende wäre Chartjunk.
+- **Direkt beschriften statt Legende.** Kürzel und ELO stehen an den
+  Linienenden, entzerrt, mit Führungsstrich, sobald ein Etikett von seiner
+  Linie weggerückt ist.
+- **Ziffern:** in Diagramm, Tooltip und Tabelle tabellarisch in
+  JetBrains Mono, im Fließtext Mediävalziffern (Source Serif).
+- **Ruhige Hilfsflächen:** Die Winterpause ist eine `--surface-2`-Fläche mit
+  kleiner Versalienzeile, kein Muster und keine Linie.
+- **Erklären in Prosa, nicht in Bedienelementen.** Ein Lead-Satz sagt, wie
+  das Diagramm zu lesen ist; die einzige Bedienung ist der Umschalter aus zwei
+  Segmenten.
+
+**Farben und Schrift** ausschließlich über die Tokens aus `site.css`
+(`--paper`, `--surface-2`, `--ink`/`-2`/`-3`, `--rule`/`-soft`, `--tinte`
+für Fokus und positives Δ, `--akzent` für negatives Δ, `--ocker` für den
+Hinweisbalken; `--serif`/`--sans`/`--mono`). Keine neuen Farbwerte. Die
+Hartwerte aus dem Entwurf (`#EDE9DE`, `#BDB6A8`) werden zu benannten Tokens
+in `site.css`.
+
+**Typografie und Abstände** wie im Entwurf: `eyebrow` in Versalien,
+`h2` in Serif 28/24 px, Lead höchstens 64 Zeichen breit, Diagrammbeschriftung
+9,5–10,5 px.
+
+**Abnahme der Gestaltung** (Teil der Definition of Done, nicht optional):
+
+1. Die Verlaufsseite wird mit der Fixture gerendert und **neben dem Entwurf**
+   im Browser verglichen, jeweils in beiden Achsenmodi. Geprüft wird bei
+   1280 px und 390 px Breite, für eine frühe Saison (3 Spiele), die
+   Saisonmitte (Winterpause sichtbar) und eine Liga mit 20 Vereinen.
+2. Screenshots beider Seiten gehen in den PR.
+3. Christoph nimmt die Gestaltung ab. Ohne seine Abnahme wird nicht gemergt.
+
 ## Entscheidungen
 
 | Frage | Entscheidung |
@@ -166,9 +216,13 @@ elo_verlauf_daten(league_entry) -> list(
   `aria-pressed`; Endbeschriftungen überlappen nicht (Abstand ≥ 12,5);
   Tooltip für einen Punkt enthält Paarung, Ergebnis, Δ; Tabellenzeile hebt
   Linie hervor; „Saison hat noch nicht begonnen“ ohne Spiele.
-- Sichtprüfung: synthetische `league_data`-Fixture für eine Liga unter
-  `tests/testthat/fixtures/`, gerendert mit `scripts/preview_site.R`, im
-  Browser angesehen (Desktop und schmale Breite).
+- Sichtprüfung: ein kleines Skript `scripts/verlauf_fixture.R` erzeugt
+  reproduzierbar (fester Seed) synthetische `league_data` für drei Stände:
+  18 Vereine nach 3 Spielen, 18 Vereine nach 20 Spielen über die
+  Winterpause, 20 Vereine mit Nachholspiel und einem gewerteten Spiel. Die
+  ELO-Werte kommen dabei aus dem echten `/league-details`, wenn der
+  Rust-Server lokal läuft. Gerendert wird mit `scripts/preview_site.R`, die
+  Abnahme läuft wie unter „Gestaltungsanspruch“ beschrieben.
 
 ## Betroffene Dateien
 
@@ -178,3 +232,5 @@ elo_verlauf_daten(league_entry) -> list(
   `RCode/generate_static_site.R` (Verlaufsdaten vorab, Render-Funktion,
   Nav-Parameter, Link auf Ligaseite, Asset-Kopie),
   `RCode/site_assets/site.css`, `scripts/preview_site.R`, Doku (s. o.)
+- neu (Referenz/Sichtprüfung): `docs/design/2026-09-08-elo-verlauf-entwurf.html`,
+  `scripts/verlauf_fixture.R`
