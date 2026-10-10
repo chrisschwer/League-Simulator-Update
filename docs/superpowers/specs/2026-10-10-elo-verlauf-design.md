@@ -139,7 +139,10 @@ Neue Datei `RCode/elo_verlauf.R`, rein (keine I/O):
 
 ```r
 elo_verlauf_daten(league_entry) -> list(
-  saison_laeuft,      # TRUE, solange ein Spiel keinen Status aus STATUS_ERGEBNIS hat
+  saison,             # "2026/27" aus der fruehesten Anstosszeit (Berliner Zeit)
+  saison_laeuft,      # TRUE, solange ein Spiel weder ein Ergebnis (STATUS_ERGEBNIS)
+                      # hat noch abgesagt (CANC) ist -- sonst hielte ein einziges
+                      # abgesagtes Spiel die Saison fuer immer offen
   achse_spiele_max,   # max(n) + (saison_laeuft ? 1 : 0)
   achse_datum_ende,   # "YYYY-MM-DD": letzter Spieltag (+7 Tage, wenn saison_laeuft)
   teams = list(       # in Reihenfolge ELO heute absteigend
@@ -197,6 +200,10 @@ elo_verlauf_daten(league_entry) -> list(
     für das Spiel links vom Finger; erneutes Antippen hebt die Auswahl auf.
   - `aria-label` des SVG aus Liga und Saison; die Tabelle ist die
     zugängliche Alternative.
+  - Kleine Schnittstelle `window.eloVerlauf = { modus(m), waehle(i),
+    zeigeSpiel(i, n), loesche() }` — dieselben Funktionen, die die
+    Ereignisse aufrufen. jsdom kennt kein Layout; die Tests steuern das
+    Diagramm darüber statt über Zeigerkoordinaten.
 
 ## Tests
 
