@@ -29,6 +29,8 @@ source(file.path(.gss_dir, "league_registry.R"), local = TRUE)
 # Die Sektionsrenderer (Ligatabelle, Zonen, Rueckblick, Live, Ausblick)
 # liegen seit #211 in render_sections.R.
 source(file.path(.gss_dir, "render_sections.R"), local = TRUE)
+# Verlaufsdaten je Liga (Issue #184).
+source(file.path(.gss_dir, "elo_verlauf.R"), local = TRUE)
 
 BLOG_URL <- "http://30punkte.wordpress.com"
 SITE_WORDMARK <- "30 Punkte"
@@ -399,10 +401,19 @@ render_panel_table <- function(data_obj, panel, computed_obj = NULL,
   )
 }
 
-.nav_html <- function(current_slug) {
+# `verlauf_ziele`: NULL auf Liga-, Aufstiegs- und Methodikseite. Auf einer
+# Verlaufsseite ein benannter Vektor Liga-Slug -> verlauf_slug: Wer in den
+# Verlaeufen blaettert und oben eine Liga waehlt, will deren Verlauf sehen
+# (Issue #184). Ligen ohne Verlaufsseite fuehren auf ihre Ligaseite.
+.nav_html <- function(current_slug, verlauf_ziele = NULL) {
   link <- function(v) {
     label <- htmltools::htmlEscape(v$nav_label)
-    href <- paste0(v$slug, ".html")
+    ziel <- if (!is.null(verlauf_ziele) && v$slug %in% names(verlauf_ziele)) {
+      verlauf_ziele[[v$slug]]
+    } else {
+      v$slug
+    }
+    href <- paste0(ziel, ".html")
     if (identical(v$slug, current_slug)) {
       paste0("<a class=\"nav-current\" aria-current=\"page\" href=\"", href,
              "\">", label, "</a>")
@@ -472,7 +483,7 @@ render_panel_table <- function(data_obj, panel, computed_obj = NULL,
   )
 }
 
-.masthead_html <- function(current_slug) {
+.masthead_html <- function(current_slug, verlauf_ziele = NULL) {
   paste0(
     "<header class=\"mast\">\n",
     "<div class=\"masthead-row\"><div>\n",
@@ -480,7 +491,7 @@ render_panel_table <- function(data_obj, panel, computed_obj = NULL,
     "<div class=\"mastrule\"></div>\n",
     "<p class=\"tagline\">", htmltools::htmlEscape(SITE_TAGLINE), "</p>\n",
     "</div></div>\n",
-    .nav_html(current_slug), "\n",
+    .nav_html(current_slug, verlauf_ziele), "\n",
     "</header>\n"
   )
 }
@@ -505,7 +516,8 @@ render_panel_table <- function(data_obj, panel, computed_obj = NULL,
 render_league_page <- function(view, data_env, output_dir,
                                now = Sys.time(), mtime = now,
                                league_entry = NULL,
-                               view_key = NULL) {
+                               view_key = NULL,
+                               verlauf_slug = NULL) {
   .copy_assets(output_dir)
 
   result <- get(view$plot_source, envir = data_env)
@@ -540,6 +552,15 @@ render_league_page <- function(view, data_env, output_dir,
     ""
   }
 
+  # Link zur Verlaufsseite (Issue #184) -- nur, wenn es sie gibt. Der
+  # Generator entscheidet das vorab fuer alle Ligen.
+  verlauf_link <- if (!is.null(verlauf_slug)) {
+    paste0("<p class=\"verlauf-link\"><a href=\"", verlauf_slug,
+           ".html\">ELO-Verlauf der Saison ansehen →</a></p>\n")
+  } else {
+    ""
+  }
+
   tabelle_html <- if (!is.null(league_entry)) {
     paste0(
       "<section id=\"tabelle\">\n",
@@ -548,7 +569,7 @@ render_league_page <- function(view, data_env, output_dir,
       "<p class=\"sectionlead\">Die aktuelle Tabelle, daneben die ELO-Stärkeschätzung ",
       "des Modells und ihre Veränderung seit Saisonbeginn.</p>\n",
       "<div class=\"scroll\">", render_liga_tabelle(league_entry$tabelle, zonen = zonen),
-      "</div>\n", zonen_fussnote, "\n</section>\n"
+      "</div>\n", zonen_fussnote, "\n", verlauf_link, "</section>\n"
     )
   } else {
     ""
@@ -615,6 +636,133 @@ render_league_page <- function(view, data_env, output_dir,
   )
 
   out_path <- file.path(output_dir, paste0(view$slug, ".html"))
+  .write_atomically(html, out_path)
+  invisible(out_path)
+}
+
+# --- ELO-Verlauf je Liga (Issue #184) ---------------------------------------
+
+.VERLAUF_LEAD <- paste0(
+  "Jede Linie ist ein Verein, jeder Knick ein Spiel. Die Höhe ist die ",
+  "Stärkeschätzung des Modells; sie steigt, wenn ein Verein besser abschneidet, ",
+  "als das Modell erwartet hat — und fällt, wenn schlechter. Am rechten Rand ",
+  "steht der heutige Stand."
+)
+
+# Die Verlaufsdaten aller Ligen, VOR dem Rendern: Die Menge entscheidet ueber
+# den Link auf der Ligaseite und ueber die Ziele der Navigation auf den
+# Verlaufsseiten. Ohne `matches` (Alt-Fixtures, Tests mit nur einer Tabelle)
+# gibt es keinen Verlauf -- still, ohne Warnung. Scheitert die Aufbereitung,
+# fehlt nur diese eine Seite; die uebrige Site entsteht.
+.verlauf_je_liga <- function(views, league_data) {
+  daten <- list()
+  for (key in names(views)) {
+    entry <- league_data[[key]]
+    if (is.null(entry) || is.null(entry$matches)) {
+      next
+    }
+    ergebnis <- tryCatch(elo_verlauf_daten(entry), error = function(e) {
+      warning(sprintf("generate_static_site: kein ELO-Verlauf fuer %s: %s",
+                      key, conditionMessage(e)), call. = FALSE)
+      NULL
+    })
+    if (!is.null(ergebnis)) {
+      daten[[key]] <- ergebnis
+    }
+  }
+  daten
+}
+
+# JSON fuer <script type="application/json">: "</" maskiert, damit ein Name
+# wie "</script>" das Element nicht schliesst.
+.verlauf_json <- function(daten) {
+  json <- jsonlite::toJSON(daten, auto_unbox = TRUE, digits = 4, na = "null",
+                           null = "null")
+  gsub("</", "<\\/", as.character(json), fixed = TRUE)
+}
+
+render_verlauf_tabelle <- function(daten) {
+  zeilen <- vapply(seq_along(daten$teams), function(i) {
+    t <- daten$teams[[i]]
+    veraenderung <- round(t$aktuell - t$start, 1)
+    klasse <- if (veraenderung > 0) "num dpos" else if (veraenderung < 0) "num dneg" else "num"
+    paste0(
+      "<tr data-i=\"", i - 1L, "\"><th scope=\"row\">", htmltools::htmlEscape(t$name), "</th>",
+      "<td class=\"num\">", .komma(t$start, 1), "</td>",
+      "<td class=\"num\">", .komma(t$aktuell, 1), "</td>",
+      "<td class=\"", klasse, "\">", .vorzeichen(t$aktuell - t$start, 1), "</td></tr>"
+    )
+  }, character(1))
+  paste0(
+    "<table class=\"verlauf-tab\" id=\"verlauf-tab\">\n",
+    "<thead><tr><th scope=\"col\">Verein</th>",
+    "<th scope=\"col\" class=\"num\">ELO Saisonbeginn</th>",
+    "<th scope=\"col\" class=\"num\">ELO heute</th>",
+    "<th scope=\"col\" class=\"num\">Veränderung</th></tr></thead>\n",
+    "<tbody>\n", paste(zeilen, collapse = "\n"), "\n</tbody>\n</table>"
+  )
+}
+
+render_verlauf_page <- function(view, daten, output_dir, now = Sys.time(),
+                                mtime = now, verlauf_ziele = NULL) {
+  .copy_assets(output_dir)
+  daten$liga <- view$nav_label
+  label <- htmltools::htmlEscape(view$nav_label)
+  titel <- trimws(paste("ELO-Verlauf", view$nav_label, daten$saison))
+  gespielt <- any(vapply(daten$teams, function(t) length(t$punkte) > 1L, logical(1)))
+
+  diagramm <- if (gespielt) {
+    paste0(
+      "<div class=\"chartcard\">\n",
+      "<div class=\"chartbar\">\n",
+      "<div class=\"modes\" role=\"group\" aria-label=\"Darstellung der Zeitachse\">",
+      "<button type=\"button\" data-mode=\"spiel\" aria-pressed=\"true\">Nach Spielen</button>",
+      "<button type=\"button\" data-mode=\"datum\" aria-pressed=\"false\">Nach Datum</button>",
+      "</div>\n",
+      "<p class=\"legend\">Auf eine Linie zeigen oder tippen, um einen Verein zu verfolgen. ",
+      "Gewählt wird das zuletzt gespielte Spiel links vom Zeiger.</p>\n",
+      "</div>\n",
+      "<div class=\"chartbox\" id=\"verlauf-box\">",
+      "<div class=\"tip\" id=\"verlauf-tip\" role=\"status\" aria-live=\"polite\"></div>",
+      "<noscript><p class=\"legend\">Das Diagramm braucht JavaScript; die Tabelle unten ",
+      "zeigt die Zahlen.</p></noscript></div>\n",
+      "</div>\n"
+    )
+  } else {
+    "<p class=\"sectionlead\" id=\"verlauf-leer\">Die Saison hat noch nicht begonnen.</p>\n"
+  }
+
+  html <- paste0(
+    "<!doctype html>\n<html lang=\"de\">\n<head>\n",
+    .head_html(paste("ELO-Verlauf", view$nav_label)),
+    "</head>\n<body>\n<div class=\"wrap\">\n",
+    .masthead_html(view$slug, verlauf_ziele), "\n",
+    .stale_banner_html(), "\n",
+    "<p class=\"zurueck\"><a href=\"", view$slug, ".html\">← Prognose ", label, "</a></p>\n",
+    "<section id=\"verlauf\">\n",
+    "<p class=\"eyebrow\">ELO-Verlauf</p>\n",
+    "<h2>", htmltools::htmlEscape(titel), "</h2>\n",
+    "<p class=\"sectionlead\">", .VERLAUF_LEAD, "</p>\n",
+    diagramm,
+    "<p class=\"hinweis\">Die Kurven entstehen aus denselben Spielen und demselben Modell ",
+    "wie die Prognose. Wie das Modell aus einem Ergebnis eine neue Stärkeschätzung macht, ",
+    "steht unter <a href=\"methodik.html\">Methodik</a>.</p>\n",
+    "</section>\n",
+    "<section id=\"verlauf-tabelle\">\n",
+    "<p class=\"eyebrow\">Tabelle</p>\n",
+    "<h2>Stärkeschätzung heute</h2>\n",
+    "<p class=\"sectionlead\">Sortiert nach der heutigen Stärkeschätzung, nicht nach ",
+    "Punkten. Eine Zeile anzuwählen hebt die Linie im Diagramm hervor.</p>\n",
+    "<div class=\"scroll\">", render_verlauf_tabelle(daten), "</div>\n",
+    "</section>\n",
+    .footer_html(mtime), "\n",
+    "<script type=\"application/json\" id=\"verlauf-daten\">", .verlauf_json(daten), "</script>\n",
+    .stale_script, "\n",
+    "<script src=\"assets/verlauf.js\"></script>\n",
+    "</div>\n</body>\n</html>\n"
+  )
+
+  out_path <- file.path(output_dir, paste0(view$verlauf_slug, ".html"))
   .write_atomically(html, out_path)
   invisible(out_path)
 }
@@ -831,7 +979,7 @@ render_league_page <- function(view, data_env, output_dir,
   invisible(path)
 }
 
-# Copies site.css, fonts/*.woff2 and favicon.svg from RCode/site_assets into
+# Copies site.css, verlauf.js, fonts/*.woff2 and favicon.svg from RCode/site_assets into
 # <output_dir>/assets. Idempotent: safe to call on every page render.
 .copy_assets <- function(output_dir) {
   assets_dir <- file.path(output_dir, "assets")
@@ -843,6 +991,8 @@ render_league_page <- function(view, data_env, output_dir,
             overwrite = TRUE)
   file.copy(file.path(src_dir, "favicon.svg"),
             file.path(assets_dir, "favicon.svg"), overwrite = TRUE)
+  file.copy(file.path(src_dir, "verlauf.js"), file.path(assets_dir, "verlauf.js"),
+            overwrite = TRUE)
 
   font_files <- list.files(file.path(src_dir, "fonts"), pattern = "\\.woff2$",
                            full.names = TRUE)
@@ -998,6 +1148,12 @@ generate_static_site <- function(ergebnisse = NULL,
   }
   views <- views[renderbar]
 
+  # ELO-Verlauf (Issue #184): erst die Daten aller Ligen, dann rendern --
+  # die Menge steuert Link und Navigationsziele.
+  verlauf <- .verlauf_je_liga(views, league_data)
+  verlauf_ziele <- vapply(names(verlauf), function(k) views[[k]]$verlauf_slug, character(1))
+  names(verlauf_ziele) <- vapply(names(verlauf), function(k) views[[k]]$slug, character(1))
+
   # data_env traegt die Ergebnisse unter den Namen, die league_views() in
   # plot_source/top$source/bottom$source erwartet. Die namensbasierte
   # Aufloesung bleibt unangetastet -- sie traegt die 3.-Liga-Asymmetrie
@@ -1013,7 +1169,15 @@ generate_static_site <- function(ergebnisse = NULL,
     view <- views[[key]]
     message(sprintf("generate_static_site: rendering %s", view$slug))
     render_league_page(view, data_env, output_dir, now = now, mtime = now,
-                       league_entry = league_data[[key]], view_key = key)
+                       league_entry = league_data[[key]], view_key = key,
+                       verlauf_slug = if (key %in% names(verlauf)) view$verlauf_slug else NULL)
+  }, character(1))
+
+  verlauf_paths <- vapply(names(verlauf), function(key) {
+    view <- views[[key]]
+    message(sprintf("generate_static_site: rendering %s", view$verlauf_slug))
+    render_verlauf_page(view, verlauf[[key]], output_dir, now = now, mtime = now,
+                        verlauf_ziele = verlauf_ziele)
   }, character(1))
 
   # Die Aufstiegsseite entsteht nur, wenn wenigstens eine Regionalliga
@@ -1034,7 +1198,7 @@ generate_static_site <- function(ergebnisse = NULL,
   message("generate_static_site: rendering methodik")
   methodik_path <- .render_methodik_page(output_dir, now = now, mtime = now)
 
-  paths <- c(unname(league_paths), aufstiegs_path, methodik_path)
+  paths <- c(unname(league_paths), unname(verlauf_paths), aufstiegs_path, methodik_path)
 
   message(sprintf("generate_static_site: wrote %d pages to %s",
                   length(paths), output_dir))
