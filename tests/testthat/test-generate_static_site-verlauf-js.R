@@ -2,6 +2,7 @@
 # Diagramm aus #verlauf-daten. Node + jsdom fuehren es auf der gerenderten
 # Seite aus (Runner-Szenario "verlauf"). Geometrie wie im Entwurf:
 # W = 1080, M.l = 52, M.r = 80, also Zeichenbreite 948, rechter Rand x = 1000.
+vjs_gen <- source_module("generate_static_site")
 
 vjs_seite <- function(league_data, slug = "bundesliga-verlauf", envir = parent.frame()) {
   dir <- verlauf_site(league_data, envir = envir)
