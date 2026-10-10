@@ -28,7 +28,13 @@
   const alleElo = teams.flatMap((t) => t.punkte.map((p) => p.nach));
   const eloMin = Math.min(...alleElo), eloMax = Math.max(...alleElo);
   const pad = Math.max((eloMax - eloMin) * 0.06, 10);
-  const y = (v) => M.t + (H - M.t - M.b) * (1 - (v - (eloMin - pad)) / (eloMax + pad - (eloMin - pad)));
+  // Oben schliesst das Diagramm wie im Entwurf mit einer Hilfslinie ab: Liegt
+  // die naechste 50er-Linie ueber den Daten nah genug, wird sie zur Oberkante,
+  // statt einen leeren Streifen ueber der obersten Hilfslinie zu lassen.
+  const eloUnten = eloMin - pad;
+  const kappe = Math.ceil((eloMax + pad / 3) / 50) * 50;
+  const eloOben = kappe - (eloMax + pad) <= (eloMax - eloMin) * 0.1 ? kappe : eloMax + pad;
+  const y = (v) => M.t + (H - M.t - M.b) * (1 - (v - eloUnten) / (eloOben - eloUnten));
 
   const tag = (d) => new Date(d + "T12:00:00Z").getTime();
   const alleTage = [...new Set(teams.flatMap((t) => t.punkte.filter((p) => p.datum).map((p) => p.datum)))].sort();
@@ -74,7 +80,7 @@
     }
 
     // Wenige waagerechte Hilfslinien im 50er-Schritt.
-    const von = Math.ceil((eloMin - pad) / 50) * 50, bis = Math.floor((eloMax + pad) / 50) * 50;
+    const von = Math.ceil(eloUnten / 50) * 50, bis = Math.floor(eloOben / 50) * 50;
     for (let v = von; v <= bis; v += 50) {
       s += `<line class="gridline" x1="${M.l}" y1="${y(v).toFixed(1)}" x2="${W - M.r}" y2="${y(v).toFixed(1)}"/>`;
       s += `<text class="axislabel" x="${M.l - 8}" y="${(y(v) + 3.2).toFixed(1)}" text-anchor="end">${v}</text>`;
