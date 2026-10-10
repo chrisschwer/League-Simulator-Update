@@ -272,7 +272,7 @@ abbr.kz:focus-visible{outline:1px solid var(--tinte);outline-offset:1px}
 #verlauf .modes button:focus-visible{outline:2px solid var(--akzent);outline-offset:-2px}
 
 #verlauf .chartbox{position:relative;overflow-x:auto;overflow-y:hidden}
-svg.verlauf{display:block;width:100%;height:auto;touch-action:pan-y}
+svg.verlauf{display:block;width:100%;height:auto;touch-action:pan-x pan-y}
 svg.verlauf text{font-family:var(--mono);font-variant-numeric:tabular-nums}
 svg.verlauf .gridline{stroke:var(--rule-soft);stroke-width:.5}
 svg.verlauf .axislabel{font-family:var(--sans);font-size:9.5px;fill:var(--ink-3);font-variant-numeric:normal}

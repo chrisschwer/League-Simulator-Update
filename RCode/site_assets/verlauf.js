@@ -95,7 +95,8 @@
       marken.forEach((k) => {
         s += `<text class="axislabel" x="${(M.l + INNEN * (k / max)).toFixed(1)}" y="${yAchse}" text-anchor="middle">${k}.</text>`;
       });
-    } else {
+    } else if (alleTage.length) {
+      // Ohne gespieltes Spiel gibt es keine Kalenderachse (tStart waere 1970).
       const d0 = new Date(tStart);
       for (let jahr = d0.getUTCFullYear(), m = d0.getUTCMonth(); ;) {
         const t = Date.UTC(jahr, m, 1, 12);
