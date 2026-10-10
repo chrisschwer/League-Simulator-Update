@@ -286,6 +286,7 @@ svg.verlauf .endkuerzel{font-family:var(--sans);font-size:10.5px;fill:var(--ink-
   font-variant-numeric:normal;transition:fill .14s ease}
 svg.verlauf .hit{fill:none;stroke:transparent;stroke-width:11;cursor:pointer}
 svg.verlauf .fuehrung{stroke:var(--rule-soft);stroke-width:.5;transition:stroke .14s ease}
+svg.verlauf .fuehrung.waag{stroke-dasharray:1 2.5}
 svg.verlauf .punkt{fill:var(--tinte);opacity:0;pointer-events:none;transition:opacity .12s ease}
 svg.verlauf g.team.on .linie{stroke:var(--tinte);stroke-width:2}
 svg.verlauf g.team.on .endlabel{fill:var(--ink);font-weight:600}

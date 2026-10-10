@@ -115,6 +115,10 @@
       const pts = t.punkte.map((p) => [xOf(p), y(p.nach)]);
       return { ti, pts, ende: pts[pts.length - 1], ly: 0 };
     });
+    // Alle Etiketten stehen in einer Spalte hinter dem am weitesten rechts
+    // liegenden Linienende -- auch wenn ein Verein ein Spiel weniger hat und
+    // seine Linie frueher endet; sonst laege sein Etikett im Liniengewirr.
+    const xSpalte = Math.max(...geo.map((g) => g.ende[0]));
     const sortiert = [...geo].sort((a, b) => a.ende[1] - b.ende[1]);
     sortiert.forEach((g, k) => {
       g.ly = g.ende[1];
@@ -136,11 +140,16 @@
       g.pts.forEach((c, i) => {
         s += `<circle class="punkt" data-p="${i}" cx="${c[0].toFixed(1)}" cy="${c[1].toFixed(1)}" r="2.6"/>`;
       });
-      if (Math.abs(g.ly - g.ende[1]) > 1.2) {
-        s += `<line class="fuehrung" x1="${(g.ende[0] + 2).toFixed(1)}" y1="${g.ende[1].toFixed(1)}" x2="${(g.ende[0] + 7).toFixed(1)}" y2="${g.ly.toFixed(1)}"/>`;
+      // Kuerzere Linie: gepunktete Waagerechte bis zur Etikettenspalte; gepunktet,
+      // damit sie nicht als gleichbleibende Staerke gelesen wird.
+      if (xSpalte - g.ende[0] > 1.2) {
+        s += `<line class="fuehrung waag" x1="${(g.ende[0] + 2).toFixed(1)}" y1="${g.ende[1].toFixed(1)}" x2="${(xSpalte + 2).toFixed(1)}" y2="${g.ende[1].toFixed(1)}"/>`;
       }
-      s += `<text class="endkuerzel" x="${(g.ende[0] + 9).toFixed(1)}" y="${(g.ly + 3.4).toFixed(1)}">${esc(t.kuerzel)}</text>`;
-      s += `<text class="endlabel" x="${(g.ende[0] + 40).toFixed(1)}" y="${(g.ly + 3.4).toFixed(1)}">${Math.round(t.aktuell)}</text>`;
+      if (Math.abs(g.ly - g.ende[1]) > 1.2) {
+        s += `<line class="fuehrung" x1="${(xSpalte + 2).toFixed(1)}" y1="${g.ende[1].toFixed(1)}" x2="${(xSpalte + 7).toFixed(1)}" y2="${g.ly.toFixed(1)}"/>`;
+      }
+      s += `<text class="endkuerzel" x="${(xSpalte + 9).toFixed(1)}" y="${(g.ly + 3.4).toFixed(1)}">${esc(t.kuerzel)}</text>`;
+      s += `<text class="endlabel" x="${(xSpalte + 40).toFixed(1)}" y="${(g.ly + 3.4).toFixed(1)}">${Math.round(t.aktuell)}</text>`;
       s += "</g>";
     });
     s += "</svg>";
