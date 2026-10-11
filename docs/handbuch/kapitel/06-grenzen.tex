@@ -1,0 +1,127 @@
+\chapter{Was das Modell kann und was nicht}\label{kap:grenzen}
+
+Wahrscheinlichkeiten sind keine Vorhersagen. Wenn das Modell einer Mannschaft
+30~Prozent für den Abstieg gibt und sie bleibt drin, hat es sich nicht
+geirrt. Ob ein Modell gut ist, zeigt sich erst über viele Prognosen: Von
+allen Ereignissen mit 30~Prozent sollten etwa drei von zehn eintreten. Dieses
+Kapitel sammelt die Grenzen, die das Projekt kennt und dokumentiert hat, und
+die Vereinfachungen, die sich aus dem Code ergeben.
+
+\section{Dokumentierte Schwächen}
+
+\subsection{Zu wenige Tore bei den Herren}
+
+Die erwartete Torzahl je Spiel ist im Tormodell konstant $2c$. Für die
+Herren sind das 2{,}64 Tore, gemessen wurden in der Bundesliga 3{,}18, rund
+ein Fünftel mehr. Eine Korrektur müsste alle acht Herren-Ligen gemeinsam
+treffen (Abschnitt~\ref{sec:wechselgemeinschaft}). Sie ist für das Projekt
+\enquote{Prognosequalität} im Sommer 2027 vorgesehen
+(\datei{docs/reports/2026-09-05-liga-empirie-zehn-ligen.md}).
+
+\subsection{Remis: die Form der Verteilung stimmt nicht überall}\label{sec:remis}
+
+Zwei unabhängige Poisson-Verteilungen können eine bestimmte Remisquote nicht
+überschreiten. Am höchsten ist sie bei gleich starken Mannschaften ohne
+Heimvorteil:
+\begin{equation}
+  P(\text{Remis}) \le \sum_{j \ge 0} \pi_c(j)^2 =
+  \begin{cases} 26{,}1\,\% & \text{Herren } (c = 1{,}322)\\ 23{,}0\,\% & \text{Frauen } (c_F = 1{,}653).\end{cases}
+\end{equation}
+
+\begin{itemize}
+  \item In der \textbf{2.~Bundesliga} lag die beobachtete Remisquote bei
+        26{,}1~\%, praktisch auf dieser Obergrenze. Bei realer Streuung der
+        Spielstärken kann das Modell sie nicht erreichen. Es erzeugt dort
+        \emph{zu wenige} Remis.
+  \item Bei den \textbf{Frauen} liegt das Modell dagegen \emph{zu hoch}:
+        19{,}9~\% gegenüber beobachteten 16{,}2~\%, also 3{,}7 Prozentpunkte
+        zu viel.
+\end{itemize}
+
+Die gemeinsame Ursache ist die Form der Verteilung. Die Gesamttore streuen
+stärker, als Poisson erlaubt (Überdispersion 1{,}20 statt 1{,}00). Die
+Verteilung der Tordifferenz ist in der Mitte dünner und an den Rändern
+dicker als im Modell. Neue Parameterwerte helfen dagegen nicht. Nötig wäre
+ein korreliertes Tormodell wie das von Dixon und Coles.
+
+\begin{merke}[Hinweis zu CLAUDE.md]
+\datei{CLAUDE.md} formuliert pauschal, das Modell erzeuge
+\enquote{strukturell zu wenig Remis}, und nennt dabei die Lücke von
+3{,}7~Prozentpunkten bei den Frauen. Laut Report und Methodik-Seite liegt das
+Modell bei den Frauen aber zu \emph{hoch}. Die Richtung ist je Liga
+verschieden. Die Stelle in \datei{CLAUDE.md} sollte entsprechend
+präzisiert werden.
+\end{merke}
+
+\subsection{Die Streuung der ELO ist kein freier Parameter}
+
+Bei $k = 20$ und rund 34 Spielen je Saison pendelt sich die
+Standardabweichung der ELO innerhalb einer Liga bei etwa 95 bis 100 ein. Wo
+die echten Stärkeunterschiede größer sind, etwa in der Frauen-Bundesliga,
+bildet das Modell sie zu schwach ab. Rechnerisch wären dort 458 nötig, der
+Walk erreicht 240 bis 257 (ADR~0003).
+
+\subsection{Annahmen der Regionalliga-Kopplung}
+
+Die Kopplung beruht auf dokumentierten Annahmen
+(\datei{docs/modellannahmen-rl-kopplung.md}, §\,5):
+
+\begin{itemize}
+  \item Die Zahl der Absteiger aus Nordost ist bei 2 gedeckelt.
+  \item Die Nord-Meisterkopplung ist eine Näherung.
+  \item West ist entkoppelt.
+  \item Die Bayern-Relegation wird nicht aufgelöst.
+  \item Die Verlängerung wird mit einem Drittel der Torerwartung gerechnet.
+        Empirisch fallen in einer Verlängerung eher 25 bis 30~Prozent der
+        Tore eines regulären Spiels.
+  \item Sonderfälle wie Lizenzverweigerung, Verzicht oder Zwangsabstieg
+        sind ausgelassen.
+\end{itemize}
+
+\subsection{Keine Prognose-Historie}
+
+Gespeichert wird nichts außer den Startwerten, und Monte Carlo ist nicht
+deterministisch. Wie sich etwa die Meisterwahrscheinlichkeit im Lauf der
+Saison entwickelt hat, lässt sich deshalb nicht nachträglich rekonstruieren
+(ADR~0002). Der ELO-Verlauf dagegen ist deterministisch und wird bei jedem
+Rendern neu berechnet.
+
+\section{Vereinfachungen, die sich aus dem Code ergeben}
+
+Die folgenden Punkte stehen in keinem Dokument als Schwäche, ergeben sich
+aber beim Lesen des Codes. Einige sind bewusste Vereinfachungen, andere
+könnten Kandidaten für Issues sein.
+
+\begin{description}[font=\sffamily\bfseries\small,style=nextline]
+  \item[Kein direkter Vergleich]
+        Gleichstand nach Punkten, Tordifferenz und Toren entscheidet in der
+        Simulation das alphabetisch frühere Kürzel (Abschnitt~\ref{sec:tiebreak}).
+  \item[Keine Punktabzüge]
+        Reale Abzüge nach Sportgerichtsurteilen oder Lizenzentscheidungen
+        gehen nicht ein.
+  \item[Abgesagte Spiele werden simuliert]
+        Ein Spiel mit Status CANC wird in der Prognose so behandelt, als
+        fände es noch statt. Die ELO-Verlaufsseite behandelt es dagegen als
+        endgültig ausgefallen.
+  \item[Kein Rückgang zur Mitte]
+        Die ELO wird beim Saisonwechsel 1:1 übertragen. Viele ELO-Systeme
+        ziehen die Werte zwischen zwei Saisons ein Stück zum Mittel zurück,
+        um Kaderwechsel abzubilden.
+  \item[Zwei Erwartungsskalen]
+        ELO-Update und Tormodell rechnen mit unterschiedlich skalierten
+        Erwartungen (Abschnitt~\ref{sec:skalen}).
+  \item[Siegquote aus zwei Läufen]
+        Auf der Aufstiegsseite stammt \enquote{Meister} aus dem Hauptlauf und
+        \enquote{Aufstieg} aus dem Malus-Lauf. Wegen des Rauschens zweier
+        unabhängiger Monte-Carlo-Läufe ist der Quotient nur näherungsweise
+        die Quote der Aufstiegsspiele. Am 11.~Oktober 2026 zeigte die Seite
+        für eine Nord-Mannschaft \enquote{Meister 0} und \enquote{Aufstieg <1}.
+        Die Aufstiegschance übertraf also die Meisterchance, obwohl
+        Aufstieg Meisterschaft voraussetzt.
+  \item[Gewertete Spiele in der Playoff-ELO]
+        Die aktuelle ELO für die Aufstiegsspiele
+        (\code{rl\_aktuelle\_elo}, \datei{RCode/rl_verdrahtung.R:113--121})
+        wird ohne das Kennzeichen \code{elo\_neutral} berechnet. Ein am grünen
+        Tisch gewertetes Spiel würde dort die ELO bewegen, anders als
+        überall sonst. Ob das beabsichtigt ist, ist im Code nicht kommentiert.
+\end{description}

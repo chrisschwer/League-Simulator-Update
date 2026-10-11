@@ -1,0 +1,151 @@
+% League Simulator -- Handbuch
+% Bauen: latexmk -lualatex league-simulator-handbuch.tex   (siehe README.md)
+\documentclass[11pt,a4paper,parskip=half,toc=bibliography,numbers=noenddot]{scrreprt}
+
+\usepackage[ngerman]{babel}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Source Serif Pro}
+\setsansfont{Inter}[Scale=MatchLowercase]
+\setmonofont{Source Code Pro}[Scale=MatchLowercase]
+\setmathfont{STIX Two Math}[Scale=MatchLowercase]
+
+\usepackage{microtype}
+\usepackage{csquotes}
+\usepackage{xcolor}
+\usepackage{booktabs,tabularx,longtable,array}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{mathtools}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,shapes.geometric,calc}
+\usepackage{listings}
+\usepackage[most]{tcolorbox}
+\usepackage{enumitem}
+\usepackage{scrlayer-scrpage}
+\usepackage[locale=DE,group-minimum-digits=4,group-separator={\,}]{siunitx}
+
+% Screenshots aus bilder/ (PNG). Fehlt die Datei, steht ein Platzhalter da.
+\newcommand{\screenshot}[2]{%
+  \begin{figure}[!htbp]\centering
+  \IfFileExists{bilder/#1.png}%
+    {\fcolorbox{rule}{white}{\includegraphics[width=0.94\textwidth,height=0.5\textheight,keepaspectratio]{bilder/#1.png}}}%
+    {\fcolorbox{rule}{surface2}{\parbox[c][4cm][c]{0.9\textwidth}{\centering\sffamily\small\color{ink3}Screenshot \texttt{bilder/#1.png}}}}%
+  \caption{#2}\label{fig:#1}
+  \end{figure}}
+\usepackage{xurl}
+\usepackage[hidelinks]{hyperref}
+\usepackage[htt]{hyphenat}
+\renewcommand{\_}{\BreakableUnderscore}
+
+% --- Farben aus RCode/site_assets/site.css -----------------------------
+\definecolor{ink}{HTML}{15130F}
+\definecolor{ink2}{HTML}{312E29}
+\definecolor{ink3}{HTML}{6B655C}
+\definecolor{rule}{HTML}{D4CEBF}
+\definecolor{rulesoft}{HTML}{E3DED0}
+\definecolor{surface2}{HTML}{F5F3EE}
+\definecolor{akzent}{HTML}{B0261E}
+\definecolor{tinte}{HTML}{1F3A4D}
+\definecolor{ocker}{HTML}{B8893A}
+\definecolor{gruen}{HTML}{3F7D3A}
+
+\addtokomafont{disposition}{\color{ink}}
+\addtokomafont{chapter}{\rmfamily\mdseries\Huge}
+\addtokomafont{section}{\rmfamily\mdseries\Large}
+\addtokomafont{subsection}{\rmfamily\mdseries\large}
+\addtokomafont{subsubsection}{\rmfamily\bfseries\normalsize}
+\addtokomafont{part}{\rmfamily\mdseries}
+\addtokomafont{partnumber}{\sffamily\small\color{ink3}}
+\addtokomafont{chapterprefix}{\sffamily\small\color{akzent}}
+\renewcommand*{\chapterformat}{\mbox{\textcolor{akzent}{\rule[.2em]{2em}{1.5pt}}\enskip\thechapter\enskip}}
+\addtokomafont{pageheadfoot}{\sffamily\footnotesize\color{ink3}}
+\pagestyle{scrheadings}
+\clearpairofpagestyles
+\ohead{\leftmark}
+\ofoot*{\pagemark}
+\automark[chapter]{chapter}
+
+\setlist{itemsep=2pt,topsep=4pt}
+\setlength{\emergencystretch}{2em}
+
+% --- Kästen --------------------------------------------------------------
+\newtcolorbox{merke}[1][]{enhanced,breakable,colback=surface2,colframe=surface2,
+  borderline west={3pt}{0pt}{ocker},arc=0pt,left=10pt,right=8pt,top=6pt,bottom=6pt,
+  fonttitle=\sffamily\bfseries\small,coltitle=ink,title={#1},
+  attach title to upper={\par\smallskip}}
+\newtcolorbox{achtung}[1][]{enhanced,breakable,colback=white,colframe=white,
+  borderline west={3pt}{0pt}{akzent},arc=0pt,left=10pt,right=8pt,top=6pt,bottom=6pt,
+  fonttitle=\sffamily\bfseries\small,coltitle=akzent,title={#1},
+  attach title to upper={\par\smallskip}}
+
+% --- Code / Quellenverweise ---------------------------------------------
+\lstset{basicstyle=\ttfamily\footnotesize,columns=fullflexible,keepspaces=true,
+  breaklines=true,frame=leftline,framerule=1.5pt,rulecolor=\color{rule},
+  xleftmargin=10pt,framexleftmargin=6pt,showstringspaces=false,
+  literate={ä}{{\"a}}1 {ö}{{\"o}}1 {ü}{{\"u}}1 {Ä}{{\"A}}1 {Ö}{{\"O}}1 {Ü}{{\"U}}1 {ß}{{\ss}}1
+           {→}{{$\rightarrow$}}1 {–}{{--}}1 {−}{{$-$}}1}
+\DeclareUrlCommand\datei{\def\UrlFont{\ttfamily\small}}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\quelle}[1]{\hfill{\footnotesize\color{ink3}\textsf{Quelle:} \texttt{#1}}}
+
+% --- Mathematik ----------------------------------------------------------
+\newcommand{\Pois}{\operatorname{Pois}}
+\newcommand{\clamp}{\operatorname{clamp}}
+\newcommand{\sgn}{\operatorname{sgn}}
+\newcommand{\E}{\mathbb{E}}
+
+\hypersetup{pdftitle={League Simulator -- Handbuch},pdfauthor={Christoph Schwerdtfeger}}
+
+\begin{document}
+
+\begin{titlepage}
+  \raggedright
+  \vspace*{3cm}
+  {\sffamily\small\color{ink3} 30 Punkte · fussball.csdatascience.de\par}
+  \vspace{6pt}
+  {\color{akzent}\rule{40pt}{2pt}\par}
+  \vspace{14pt}
+  {\fontsize{38}{42}\selectfont League Simulator\par}
+  \vspace{10pt}
+  {\Large\color{ink2} Methodik, Website und Technik\par}
+  \vspace{2cm}
+  \begin{minipage}{0.8\textwidth}
+    \color{ink2}
+    Ein Handbuch zu dem System, das für zehn deutsche Fußballligen nach jedem
+    Spiel neu ausrechnet, wie die Saison ausgehen könnte: wie das Modell
+    rechnet, was die Website zeigt und worauf das alles läuft.
+  \end{minipage}
+  \vfill
+  {\sffamily\small\color{ink3}
+  Stand: Repository \texttt{main} @ \texttt{a41890a}, 11.~Oktober 2026 · Saison 2026/27\par}
+\end{titlepage}
+
+\tableofcontents
+
+\input{kapitel/00-einleitung}
+
+\part{Methodik}
+\input{kapitel/01-elo}
+\input{kapitel/02-tormodell}
+\input{kapitel/03-simulation}
+\input{kapitel/04-regionalliga}
+\input{kapitel/05-startwerte}
+\input{kapitel/06-grenzen}
+
+\part{Die Website}
+\input{kapitel/07-seiten}
+\input{kapitel/08-ligaseite}
+\input{kapitel/09-weitere-seiten}
+\input{kapitel/10-design}
+
+\part{Technik}
+\input{kapitel/11-architektur}
+\input{kapitel/12-scheduler}
+\input{kapitel/13-rust}
+\input{kapitel/14-betrieb}
+
+\appendix
+\input{kapitel/15-anhang}
+
+\end{document}

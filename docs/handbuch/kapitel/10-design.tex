@@ -1,0 +1,119 @@
+\chapter{Gestaltung und Formatregeln}\label{kap:design}
+
+Die Gestaltung ist zurückhaltend und zeitungsnah. Die Daten haben Vorrang,
+und Farbe trägt Bedeutung, statt zu schmücken. Alle Regeln stehen in einer
+handgeschriebenen Stilvorlage, \datei{RCode/site_assets/site.css}. Sie
+kommt ohne Framework aus.
+
+\section{Schriften}
+
+Alle drei Schriften liegen als WOFF2 im Projekt, nur mit lateinischem
+Zeichensatz, und werden selbst ausgeliefert. Es gibt keine Anfragen an
+Schriftendienste.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}llX@{}}
+\toprule
+Rolle & Schrift & Einsatz \\
+\midrule
+Serif & Source Serif 4 (variabel, 200--900) & Fließtext, Überschriften, Wortmarke, Vereinsnamen; Mediävalziffern im Text \\
+Sans  & Inter Tight (400--700) & Navigation, Kapitälchen-Überschriften, Tabellenköpfe, Legenden, Fuß \\
+Mono  & JetBrains Mono (400--700) & alle Zahlen in Tabellen, Heatmap, Ergebnisse, ELO (Tabellenziffern) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Dieses Handbuch ist in Source Serif Pro, Inter und Source Code Pro gesetzt,
+den nächsten Verwandten in \TeX\ Live.
+
+\section{Farben}
+
+\newcommand{\farbe}[3]{\textcolor{#1}{\rule{1.6em}{0.9em}} & \code{#2} & \code{#3}}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}cllX@{}}
+\toprule
+& Token & Wert & Verwendung \\
+\midrule
+\farbe{ink}{--ink}{\#15130F} & Haupttext \\
+\farbe{ink2}{--ink-2}{\#312E29} & Sekundärtext, Navigation \\
+\farbe{ink3}{--ink-3}{\#6B655C} & Legenden, Fuß, Kapitälchen \\
+\farbe{rule}{--rule}{\#D4CEBF} & Linien, Rahmen, Linien im Verlauf \\
+\farbe{rulesoft}{--rule-soft}{\#E3DED0} & feine Linien, Remis-Segment \\
+\farbe{surface2}{--surface-2}{\#F5F3EE} & Hinweisflächen, Winterpause, gewählte Zeile \\
+\farbe{akzent}{--akzent}{\#B0261E} & Rot: Unterstreichung, Strich unter der Wortmarke, Abstieg, negative Änderung, Fokusrahmen \\
+\farbe{tinte}{--tinte}{\#1F3A4D} & Tintenblau: Endfarbe der Heatmap, Heimsieg, hervorgehobene Linie, positive Änderung \\
+\farbe{ocker}{--ocker}{\#B8893A} & Auswärtssieg, Relegation, Hinweisbalken \\
+\farbe{gruen}{--gruen}{\#3F7D3A} & Aufstiegszone \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Die Seite hat bewusst nur ein helles Erscheinungsbild. Einen Dunkelmodus
+gibt es nicht.
+
+\section{Satz und Raster}
+
+\begin{itemize}
+  \item Fließtext: Serif, 17~px, Zeilenhöhe 1{,}58. Der Inhalt ist höchstens
+        1\,080~px breit, Einleitungstexte höchstens 64 Zeichen.
+  \item Abschnitte: 56~px Abstand und eine feine Linie. Jede Sektion beginnt
+        mit einer kleinen Überschrift in Kapitälchen (\enquote{PROGNOSE},
+        \enquote{TABELLE}, \dots), danach folgt die Überschrift in Serif.
+  \item Links: dunkle Schrift mit roter Unterstreichung.
+  \item Umbrüche bei \textbf{760~px} (kleinere Abstände, Spielzeilen
+        zweispaltig, Verlaufsdiagramm scrollbar) und \textbf{520~px}
+        (Ligatabelle ohne \enquote{Sp.} und \enquote{Tordiff.}, Heatmap mit
+        fester Spaltenbreite, Werte unter 1~Prozent nur als Farbe).
+\end{itemize}
+
+\section{Zahlen und Prozente}\label{sec:prozent}
+
+Prozentwerte formatiert eine einzige Funktion, \code{prozent()}
+(\datei{RCode/render_helpers.R:32--47}):
+
+\begin{center}
+\small
+\begin{tabular}{@{}ll@{}}
+\toprule
+Wahrscheinlichkeit $x$ & Anzeige \\
+\midrule
+$x = 0$ & \enquote{0} (in der Heatmap: leere Zelle) \\
+$0 < x < 0{,}01$ & \enquote{<1} \\
+$0{,}01 \le x \le 0{,}99$ & $\operatorname{round}(100x)$ \\
+$0{,}99 < x < 1$ & \enquote{>99} \\
+$x = 1$ & \enquote{\checkmark} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Damit steht nie \enquote{100} oder \enquote{0} für etwas, das in einzelnen
+Simulationen doch anders ausging. Weitere Regeln:
+
+\begin{itemize}
+  \item Dezimalkomma überall. Negative Zahlen tragen das echte Minuszeichen
+        (U+2212), null trägt \enquote{$\pm$}.
+  \item Wo ein Prozentzeichen steht, trennt es ein geschütztes Leerzeichen von
+        der Zahl (\enquote{12\,\%}). Tabellen verzichten auf das Zeichen und
+        sagen es in der Legende.
+  \item Die Ergebnis-Matrix zeigt eine Nachkommastelle, alle anderen
+        Prozentangaben sind ganzzahlig.
+  \item Zeiten stehen in Berliner Zeit mit \enquote{Uhr}, im Fuß mit
+        \enquote{MEZ} oder \enquote{MESZ}.
+\end{itemize}
+
+\section{Barrierefreiheit}
+
+\begin{itemize}
+  \item Die Heatmap trägt \code{aria-label}, und die Balken sind mit
+        \code{role="img"} und einer gesprochenen Beschreibung versehen
+        (\enquote{Sieg Heim 62\,\%, Remis 22\,\%, Sieg Gast 16\,\%}).
+  \item Kürzel sind als \code{<abbr>} mit dem vollen Namen ausgezeichnet und
+        per Tastatur und Antippen erreichbar.
+  \item Das Verlaufsdiagramm hat eine Textbeschreibung, und die Tabelle
+        darunter enthält dieselben Zahlen als zugängliche Alternative.
+  \item Alle bedienbaren Elemente haben einen sichtbaren roten Fokusrahmen.
+        Die einzige Animation (das Aufklappen der Ergebnis-Matrix) entfällt
+        bei \code{prefers-reduced-motion}.
+\end{itemize}

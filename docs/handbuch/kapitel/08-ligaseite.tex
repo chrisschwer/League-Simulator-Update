@@ -1,0 +1,208 @@
+\chapter{Die Ligaseite, von oben nach unten}\label{kap:ligaseite}
+
+Eine Ligaseite (\code{render\_league\_page},
+\datei{RCode/generate_static_site.R:516--641}) besteht aus diesen Teilen:
+
+\begin{enumerate}
+  \item Kopf mit Wortmarke und Navigation (Kapitel~\ref{kap:seiten}),
+  \item Hinweis auf veraltete Daten (verborgen, solange die Daten frisch sind),
+  \item \textbf{Prognose}: Heatmap und zwei Zusammenfassungstabellen,
+  \item \textbf{Tabelle}: Ligatabelle mit ELO, bei Regionalligen mit Zonen,
+        darunter der Link zum ELO-Verlauf,
+  \item \textbf{Rückblick}: die Spiele des aktuellen Spieltags mit Prognose und
+        ELO-Änderung,
+  \item \textbf{Live}: laufende Spiele, nur wenn welche laufen,
+  \item \textbf{Ausblick}: die kommenden Spiele mit Wahrscheinlichkeiten und
+        Ergebnis-Matrix,
+  \item Fuß mit Zeitstempel und Blog-Link.
+\end{enumerate}
+
+\screenshot{ligaseite-bundesliga}{Kopf, Heatmap und Zusammenfassungstabellen der Bundesliga-Seite.}
+
+\section{Prognose: die Heatmap}
+
+Die Sektion beginnt mit \enquote{Saisonprognose \emph{Liga}} und dem Satz
+\enquote{10\,000 Monte-Carlo-Simulationen des Saisonrests. Jede Zeile zeigt,
+mit welcher Wahrscheinlichkeit ein Team auf welchem Platz landet.} Die
+Heatmap ist die Matrix $\hat P$ aus Gleichung~\eqref{eq:mc}. Jede Zeile ist
+eine Mannschaft, sortiert nach erwartetem Platz, jede Spalte ein Endplatz.
+Die Zeilenköpfe zeigen das Kürzel. Der volle Vereinsname erscheint als
+Tooltip, beim Antippen auch auf Touch-Geräten.
+
+\subsection*{Die Farbformel}
+
+Jede Zelle wird von Weiß zum Tintenblau \code{\#1F3A4D} interpoliert
+(\code{.heat\_style}, \datei{RCode/render_helpers.R:83--96}). Damit kleine
+Wahrscheinlichkeiten sichtbar bleiben und nicht linear verblassen, wird die
+Wahrscheinlichkeit vorher mit dem Exponenten 0{,}6 gestaucht:
+\begin{equation}
+  t = p^{\,0{,}6}, \qquad
+  \begin{pmatrix} R\\ G\\ B \end{pmatrix}
+  = \operatorname{round}\!\left(
+    \begin{pmatrix} 255\\ 255\\ 255 \end{pmatrix}
+    + t\left[\begin{pmatrix} 31\\ 58\\ 77 \end{pmatrix} - \begin{pmatrix} 255\\ 255\\ 255 \end{pmatrix}\right]
+  \right).
+\end{equation}
+Ist $t > 0{,}52$, also ab $p \approx 33{,}6\,\%$, wechselt die Schrift von
+fast Schwarz (\code{\#15130F}) zu Weiß.
+
+\begin{center}
+\definecolor{h01}{RGB}{241,243,244}
+\definecolor{h10}{RGB}{199,206,210}
+\definecolor{h50}{RGB}{107,125,138}
+\definecolor{h100}{RGB}{31,58,77}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+$p$ & 1\,\% & 10\,\% & 50\,\% & 100\,\% \\
+$t = p^{0{,}6}$ & 0{,}063 & 0{,}251 & 0{,}660 & 1 \\
+RGB & (241,\,243,\,244) & (199,\,206,\,210) & (107,\,125,\,138) & (31,\,58,\,77) \\
+Farbe &
+\colorbox{h01}{\makebox[2.6em]{\ttfamily\small 1}} &
+\colorbox{h10}{\makebox[2.6em]{\ttfamily\small 10}} &
+\colorbox{h50}{\makebox[2.6em]{\ttfamily\small\color{white} 50}} &
+\colorbox{h100}{\makebox[2.6em]{\color{white}\checkmark}} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection*{Was in einer Zelle steht}
+
+Eine Zelle mit $p = 0$ bleibt leer und weiß. Sonst steht dort der
+Prozentwert nach der Regel aus Abschnitt~\ref{sec:prozent}, ohne
+Prozentzeichen, denn die Legende sagt \enquote{Angaben in Prozent}. Auf
+schmalen Bildschirmen (bis 520~px) werden Werte unter einem Prozent nur noch
+als Färbung gezeigt. Die Heatmap passt so ohne seitliches Scrollen auf ein
+Telefon.
+
+\section{Prognose: die Zusammenfassungstabellen}
+
+Unter der Heatmap stehen zwei Tabellen nebeneinander, oben die Spitze und
+unten das Tabellenende. Jede Spalte summiert eine Gruppe von Plätzen.
+Gezeigt werden nur Mannschaften, deren Summe über die Spalten mindestens
+1~Prozent beträgt. Eine 0 erscheint hier als \enquote{0} und nicht als
+leere Zelle wie in der Heatmap.
+
+\begin{table}[ht]
+\centering\small
+\caption{Spaltengruppen je Liga (\texttt{RCode/league\_views.R}). Negative
+Zahlen zählen von unten. \enquote{berechnet} heißt, dass der Wert nicht aus
+einer Platzsumme stammt, sondern aus Kapitel~\ref{kap:regionalliga}.}
+\label{tab:panels}
+\begin{tabularx}{\textwidth}{@{}l>{\raggedright}X>{\raggedright\arraybackslash}X@{}}
+\toprule
+Liga & oben & unten \\
+\midrule
+Bundesliga & Meister (1), Champions League (2--4), Europa League (5), Conference League Quali (6) & Relegation (16), Abstieg (17--18) \\
+2.~Bundesliga & Aufstieg (1--2), Relegation Bundesliga (3) & Relegation 3.~Liga (16), Abstieg (17--18) \\
+3.~Liga & aus dem Malus-Lauf: Aufstieg (1--2), Relegation (3), DFB-Pokal (4) & Abstieg (17--20) \\
+Frauen-Bundesliga & Meister (1), Champions League Quali (2--3) & Abstieg ($-2$ bis $-1$) \\
+2.~Frauen-Bundesliga & aus dem Malus-Lauf: Aufstieg (1--2) & Abstieg ($-3$ bis $-1$) \\
+RL Nord, RL Bayern & Meister (1), Aufstieg (berechnet, Aufstiegsspiele) & Abstieg (berechnet); Bayern zusätzlich Relegation \\
+RL Nordost, West, SüdWest & Aufstieg (1, Direktaufstieg) & Abstieg (berechnet) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Berechnete Spalten werden über ihren Namen zugeordnet, nicht über ihre
+Position. Fehlt eine, bricht das Rendern dieser Seite ab, statt eine falsche
+Zahl zu zeigen (\datei{generate_static_site.R:246--285}).
+
+\section{Tabelle: Ligatabelle und ELO}
+
+Die Sektion \enquote{Ligatabelle und ELO} zeigt den aktuellen Stand, daneben
+die Stärkeschätzung des Modells und ihre Veränderung seit Saisonbeginn
+(\code{render\_liga\_tabelle}, \datei{RCode/render_sections.R:115--164}).
+
+\begin{center}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+Spalte & Inhalt & sortierbar \\
+\midrule
+Platz    & Tabellenplatz & ja \\
+Team     & voller Name, Kürzel als Tooltip & -- \\
+Sp.      & Spiele (auf Telefonen ausgeblendet) & -- \\
+Tordiff. & Tordifferenz mit Vorzeichen (auf Telefonen ausgeblendet) & -- \\
+Punkte   & Punkte & ja \\
+ELO      & aktuelle ELO, eine Nachkommastelle & ja \\
+$\Delta$ ELO & ELO heute minus ELO zum Saisonstart & ja \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Die Tabelle zählt beendete und gewertete Spiele und sortiert nach Punkten,
+Tordifferenz und Toren. Ein Klick auf einen Spaltenkopf sortiert im Browser
+um. Die Sortierung nach $\Delta$ ELO zeigt oben, wer die Erwartung vom
+Saisonstart am deutlichsten übertrifft (Issue~\#285). Vorzeichen werden vom
+\emph{gerundeten} Wert bestimmt: \enquote{$+$}, \enquote{$-$} (echtes
+Minuszeichen U+2212) oder \enquote{$\pm$} bei null.
+
+\subsection*{Auf- und Abstiegszonen der Regionalligen}
+
+In den Regionalligen markiert eine dünne farbige Linie am linken Zeilenrand
+die Zonen: \textcolor{akzent}{Rot} für Abstieg, \textcolor{ocker}{Ocker} für
+Relegation (nur Bayern), \textcolor{gruen}{Grün} für Aufstieg. Die
+\emph{Deckkraft} der Linie ist die Wahrscheinlichkeit selbst, mindestens aber
+15~Prozent, damit jede Chance über null sichtbar bleibt. Treffen mehrere
+Zonen zusammen, gilt der Vorrang Rot vor Ocker vor Grün. Die Zonen gehören
+zum Tabellenplatz und verschwinden, sobald nach einer anderen Spalte sortiert
+wird.
+
+Darunter erklärt eine Fußnote die Regel der Staffel, etwa für Nord:
+\enquote{Drei Vereine steigen ab, je Absteiger aus der 3.~Liga einer mehr.
+Gewinnt Nord das Aufstiegsspiel, ist es einer weniger.} Schwankt die Zahl
+der Absteiger, folgt ihre Verteilung (\enquote{3 mit $x$\,\%, 4 mit
+$y$\,\% …}) und danach die Wahrscheinlichkeit je Platz.
+
+Unter der Tabelle führt ein Link zur ELO-Verlaufsseite der Liga
+(Abschnitt~\ref{sec:verlauf}).
+
+\section{Rückblick}
+
+Der Rückblick zeigt die beendeten Spiele des aktuellen Spieltags. Solange
+dieser nicht abgeschlossen ist, zeigt er zusätzlich den vorigen und dazu
+gekennzeichnete Nachholspiele. Jede Zeile hat fünf Spalten:
+
+\begin{enumerate}
+  \item Anstoß in Berliner Zeit, etwa \enquote{Sa. 4.10., 15:30 Uhr},
+  \item die Paarung \enquote{Heim – Gast},
+  \item einen 1/X/2-Balken mit den Wahrscheinlichkeiten \emph{vor} dem Spiel:
+        \textcolor{tinte}{Heimsieg}, \textcolor{ink3}{Remis} (hellgrau),
+        \textcolor{ocker}{Auswärtssieg},
+  \item das Ergebnis,
+  \item die ELO-Änderung als \enquote{Heim / Gast}, etwa
+        \enquote{$+4{,}1$ / $-4{,}1$}.
+\end{enumerate}
+
+Die Wahrscheinlichkeiten des Balkens stammen aus Abschnitt~\ref{sec:tor-beispiel}
+und werden mit der ELO unmittelbar vor dem Spiel berechnet. Gerundet wird so,
+dass die drei Segmente zusammen genau 100 ergeben:
+\begin{equation}
+  h = \operatorname{round}(100\,p_H), \qquad a = \operatorname{round}(100\,p_A), \qquad x = 100 - h - a.
+\end{equation}
+Segmente unter 8~Prozent tragen keine Zahl. Gewertete Spiele sind mit
+\enquote{Wertung} markiert und haben keine ELO-Änderung.
+
+\section{Live und Ausblick}
+
+\textbf{Live} erscheint nur, wenn Spiele laufen. Die Sektion zeigt Paarung
+und Zwischenstand mit dem Hinweis \enquote{Prognosen werden während des
+Spiels nicht aktualisiert.}
+
+\textbf{Ausblick} zeigt die offenen Spiele des aktuellen und des nächsten
+Spieltags, gerechnet mit der ELO von heute, jeweils mit 1/X/2-Balken. Zu
+jeder Paarung lässt sich die \emph{Ergebnis-Matrix} aufklappen
+(\datei{render_sections.R:561--587}). Sie zeigt das $7\times7$-Gitter aus
+Kapitel~\ref{kap:tormodell}: Zeilen sind die Tore der Heimmannschaft, Spalten
+die der Gastmannschaft, und die letzte Zeile und Spalte fassen \enquote{6+}
+zusammen. Die Werte haben eine Nachkommastelle, Zellen unter 0{,}1~Prozent
+bleiben leer. Die Färbung ist relativ zum größten Wert der Matrix:
+\code{.heat\_style}$\bigl(\min(1,\ 0{,}75 \cdot p / p_{\max})\bigr)$. Auch
+das wahrscheinlichste Ergebnis wird also nie ganz dunkel.
+
+\section{Fuß}
+
+Links steht \enquote{Letztes Update: TT.MM.JJJJ HH:MM MESZ} in Berliner Zeit,
+dahinter der maschinenlesbare Zeitstempel für den Veraltet-Hinweis, bei
+gedrosseltem Takt zusätzlich \enquote{Eingeschränkter Service}. Rechts steht
+\enquote{Mehr dazu unter 30punkte.wordpress.com}.

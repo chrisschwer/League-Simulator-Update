@@ -1,0 +1,119 @@
+\chapter{Der Rust-Simulationsserver}\label{kap:rust}
+
+Die Simulation lief früher in R mit C++-Erweiterungen (Rcpp). Heute
+übernimmt sie ein eigener Rust-Server
+(\datei{league-simulator-rust/}), den R über HTTP anspricht. Der Server ist
+rund hundertmal schneller als der Vorgänger und die \emph{einzige} Stelle,
+an der die Modellkonstanten stehen.
+
+\section{Bausteine}
+
+\begin{center}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+Crate & Version & Zweck \\
+\midrule
+\code{axum}       & 0.8.9  & HTTP-Server und Routing \\
+\code{tokio}      & 1.53.1 & asynchrone Laufzeit \\
+\code{rayon}      & 1.12.0 & parallele Iterationen (Work-Stealing) \\
+\code{rand}       & 0.10.3 & Zufallszahlen \\
+\code{statrs}     & 0.19.1 & Poisson-Verteilungsfunktion \\
+\code{serde}, \code{serde\_json} & 1.0 & JSON \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Gebaut wird mit \code{rust:1.98-alpine} gegen musl, im Release-Profil mit
+\code{opt-level=3}, Link-Time-Optimierung, einer Codegen-Einheit und
+\code{panic="abort"}. Der Code gliedert sich in die Module \code{api},
+\code{elo}, \code{simulation} (Spiel und Saison), \code{monte\_carlo},
+\code{league\_details} und \code{models}.
+
+\section{Endpunkte}
+
+Der Server lauscht auf Port 8080 und nimmt Anfragen bis 2~MB an
+(\datei{src/api/mod.rs:15--24}).
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+Endpunkt & Zweck \\
+\midrule
+\code{GET /health} & Lebenszeichen für den Docker-Healthcheck: \code{\{"status":"ok", "version":…\}} \\
+\code{POST /simulate} & Monte-Carlo-Simulation einer Liga \\
+\code{POST /simulate/batch} & mehrere Ligen in einem Aufruf \\
+\code{POST /league-details} & deterministischer ELO-Walk und Wahrscheinlichkeiten je Spiel, ohne Zufall \\
+\code{POST /match-preview} & ein virtuelles Einzelspiel aus zwei ELO-Werten, für die Aufstiegsspiele \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection*{\texttt{POST /simulate}}
+
+\begin{lstlisting}
+{
+  "schedule":   [[0, 1, 2, 1], [2, 3, null, null], ...],  // Heim, Gast, Tore, Tore
+  "elo_values": [2057.26, 1876.14, ...],                    // Start-ELO je Team
+  "team_names": ["FCB", "BVB", ...],
+  "iterations": 10000,
+  "mod_factor": 20,
+  "elo_neutral":     [false, true, ...],   // optional, parallel zu schedule
+  "adj_points":      [0, -50, ...],        // optional, Malus-Lauf
+  "tore_slope": ..., "tore_intercept": ..., // nur Frauen-Ligen
+  "group_of_team": [...], "relegation_places": 4   // nur 3. Liga
+}
+\end{lstlisting}
+
+Mannschaften sind ab 0 nummeriert, fehlende Tore (\code{null}) werden
+simuliert. Die Antwort enthält die Wahrscheinlichkeitsmatrix
+(Mannschaft~$\times$~Platz, sortiert nach erwartetem Platz), die
+Mannschaftsnamen, die Zahl der Simulationen, die Laufzeit und für die
+3.~Liga die Zählung \code{relegation\_group\_counts}. Ungültige Anfragen
+beantwortet der Server mit Status 400 und einer Klartextmeldung. Mehr als
+\num{100000} Iterationen lehnt er ab.
+
+\subsection*{\texttt{POST /league-details}}
+
+Die Anfrage gleicht der von \code{/simulate}, die Mannschaften sind hier
+aber ab 1 nummeriert. \code{max\_goals} (Standard 6) bestimmt die Größe der
+Ergebnis-Matrix. Die Antwort enthält je Spiel: ob es gespielt ist, die Tore,
+die ELO beider Mannschaften vor dem Spiel, die ELO-Änderung, beide
+Torerwartungen, $P(\text{Heimsieg})$, $P(\text{Remis})$,
+$P(\text{Auswärtssieg})$ und die Ergebnis-Matrix. Dazu kommen die aktuellen
+ELO-Werte aller Mannschaften. Aus dieser einen Antwort entstehen Ligatabelle,
+Rückblick, Ausblick und ELO-Verlauf.
+
+\section{Wer welche Parameter sendet}
+
+R sendet den Heimvorteil nie, und das Tormodell nur für die Frauen-Ligen.
+Fehlt ein Wert, nimmt der Server seinen Standard. Damit gibt es für jede
+Konstante genau eine Quelle (ADR~0002). Ein Wächtertest
+(\datei{tests/testthat/test-waechter-quelltext.R}) liest den R- und
+JavaScript-Quelltext als Text und schlägt fehl, sobald dort eine der
+Konstanten auftaucht. R serialisiert JSON mit \code{digits = NA}, damit
+\code{tore\_slope} nicht auf vier Nachkommastellen gerundet ankommt.
+
+\section{Leistung}
+
+Gemessen am 7.~September 2026 auf einem Entwicklerrechner, 18 Mannschaften,
+voller Spielplan ohne gespielte Partien (der teuerste Fall):
+
+\begin{center}
+\small
+\begin{tabular}{@{}lr@{}}
+\toprule
+Messgröße & Wert \\
+\midrule
+\num{10000} Iterationen & ca. 42~ms \\
+\num{50000} Iterationen & ca. 218~ms \\
+eine Saison & ca. 4~µs \\
+HTTP und JSON auf R-Seite & ca. 20~ms \\
+alle zehn Ligen je Zyklus & ca. 0{,}5~s \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Die Dauer eines Zyklus bestimmen damit die API-Abrufe, nicht die
+Simulation.

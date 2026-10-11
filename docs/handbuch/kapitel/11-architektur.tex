@@ -1,0 +1,89 @@
+\chapter{Architektur}\label{kap:architektur}
+
+\section{Komponenten und Datenfluss}
+
+Das System besteht aus einem einzigen Docker-Container, in dem zwei Prozesse
+laufen: der R-Scheduler und der Rust-Simulationsserver. Dazu kommen ein
+Docker-Volume und ein Webserver.
+
+\begin{figure}[ht]
+\centering
+\resizebox{\textwidth}{!}{\begin{tikzpicture}[
+  font=\sffamily\footnotesize,
+  box/.style={draw=ink3,fill=white,rounded corners=1.5pt,align=center,inner sep=5pt,minimum height=1.05cm},
+  ext/.style={box,fill=surface2},
+  arr/.style={-{Stealth[length=5pt]},draw=ink2,thick},
+  lab/.style={font=\sffamily\scriptsize,color=ink3,align=center},
+  grp/.style={draw=rule,dashed,rounded corners=3pt,inner sep=8pt},
+]
+\node[ext,text width=2.1cm] (api) {API-Football\\[1pt]\scriptsize(RapidAPI)};
+\node[box,right=1.3cm of api,text width=2.6cm] (sch) {\textbf{R-Scheduler}\\[1pt]\scriptsize 11--23 Uhr, Takt 2 min};
+\node[box,below=1.15cm of sch,text width=2.6cm] (rust) {\textbf{Rust-Server}\\[1pt]\scriptsize axum + rayon, :8080};
+\node[box,right=1.6cm of sch,text width=2.4cm] (gen) {\textbf{Seitengenerator}\\[1pt]\scriptsize R + htmltools};
+\node[ext,right=1.5cm of gen,text width=2.1cm,shape=cylinder,shape border rotate=90,aspect=0.18,minimum height=1.25cm] (vol) {Volume\\[1pt]\scriptsize\mbox{\texttt{fussball-site}}};
+\node[box,below=2.8cm of vol,text width=2.1cm] (caddy) {\textbf{Caddy}\\[1pt]\scriptsize HTTPS, Cache};
+\node[ext,below=2.8cm of gen,text width=2.4cm] (browser) {Browser\\[1pt]\scriptsize\mbox{\texttt{verlauf.js}}, Veraltet-Hinweis};
+\node[ext,below=1.15cm of api,text width=2.1cm] (team) {TeamList-CSV\\[1pt]\scriptsize Start-ELO};
+
+\begin{scope}[on background layer]
+  \node[grp,fit=(sch)(rust)(gen),label={[lab,anchor=south west]north west:Container \texttt{fussball-scheduler}}] {};
+\end{scope}
+
+\draw[arr] (api) -- node[lab,above]{Spiele} (sch);
+\draw[arr] ([xshift=-6pt]sch.south) -- node[lab,left]{JSON} ([xshift=-6pt]rust.north);
+\draw[arr] ([xshift=6pt]rust.north) -- node[lab,right]{Matrix,\\Details} ([xshift=6pt]sch.south);
+\draw[arr] (sch) -- node[lab,above]{Ergebnisse} (gen);
+\draw[arr] (gen) -- node[lab,above]{22 Seiten} (vol);
+\draw[arr] (vol) -- node[lab,right]{nur lesend} (caddy);
+\draw[arr] (caddy) -- node[lab,above]{HTTPS} (browser);
+\draw[arr,dashed] (team) -- (sch);
+\end{tikzpicture}}
+\caption{Komponenten zur Laufzeit. Der Container ist gestrichelt umrandet.}
+\label{fig:architektur}
+\end{figure}
+
+\begin{enumerate}
+  \item \textbf{API-Football} über RapidAPI liefert Spielpläne, Ergebnisse
+        und Live-Status.
+  \item Der \textbf{R-Scheduler} fragt die API im Zwei-Minuten-Takt ab,
+        bereitet die Daten auf und ruft den Rust-Server.
+  \item Der \textbf{Rust-Server} rechnet die Monte-Carlo-Simulation und die
+        deterministischen Spieldetails. Er ist nur innerhalb des Containers
+        erreichbar.
+  \item Der \textbf{Seitengenerator} (R, \code{htmltools}) schreibt die 22
+        Seiten in das Ausgabeverzeichnis. Die Ergebnisse übergibt der
+        Scheduler im Speicher. Im Produktionspfad wird keine Ergebnisdatei
+        geschrieben.
+  \item Das \textbf{Docker-Volume} \code{fussball-site} teilen Container und
+        Webserver. Der Container schreibt, Caddy liest.
+  \item \textbf{Caddy} liefert die Seiten mit HTTPS, Kompression und
+        passenden Cache-Regeln aus.
+\end{enumerate}
+
+\section{Leitentscheidungen}
+
+Die Architektur folgt einer Reihe festgehaltener Entscheidungen
+(\datei{docs/adr/}):
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+ADR & Entscheidung \\
+\midrule
+0001 & Statische Seiten statt einer gehosteten Shiny-App. \\
+0002 & Spieldetails werden bei jedem Rendern deterministisch aus Startwerten und Ergebnissen berechnet und nicht gespeichert. Die Modellkonstanten leben nur im Rust-Server. \\
+0003 & ELO-Eichung für Ligen ohne Historie. \\
+0004 & Ein Tormodell je Wechselgemeinschaft. \\
+0005 & Ligakonfiguration als Daten in einer Registry. \\
+0006 & Abstiegskopplung der Regionalligen an die 3.~Liga, exakt ausgezählt. \\
+0007 & Die TeamList ist ein gepflegtes Stammdatenblatt, der Saisonwechsel läuft in zwei Phasen. \\
+0008 & Zweitvertretungs-Malus nach §\,55b Nr.~3.1 DFB-Spielordnung. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Eine frühere Aufteilung in Microservices mit Kubernetes wurde im Mai 2026
+zugunsten des einen Containers zurückgenommen (Git-Tag
+\code{pre-deployment-cleanup-2026-05-02}). Diagramme dieses Entwurfs in
+\datei{docs/architecture/} sind als historisch markiert.
