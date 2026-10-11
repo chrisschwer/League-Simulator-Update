@@ -1,7 +1,9 @@
 # Static Site
 
-After each simulation cycle the scheduler renders twelve pages (one per
-active league, plus the Regionalliga promotion page and Methodik) into
+After each simulation cycle the scheduler renders twelve prognosis pages (one per
+active league, plus the Regionalliga promotion page and Methodik) and, for each
+league with league data, one ELO-Verlauf page (`<slug>-verlauf.html`, #184) —
+22 pages in total — into
 `STATIC_SITE_DIR` (default `ShinyApp/public`, `/app/ShinyApp/public` in the
 container). A plain web server serves that directory — there is no Shiny
 runtime, no `rsconnect`, and no deployment credentials.
@@ -18,8 +20,10 @@ ShinyApp/public/
 ├── <league>.html       # one per active league (ten since the Sept. 2026 expansion)
 ├── rl-aufstieg.html    # Regionalliga promotion page
 ├── methodik.html       # Methodik, content from RCode/site_assets/methodik_content.html
+├── <league>-verlauf.html  # ELO-Verlauf per league (#184); only when league data is present
 └── assets/
     ├── site.css
+    ├── verlauf.js      # draws the ELO-Verlauf chart in the browser (#184)
     ├── favicon.svg
     └── fonts/*.woff2
 ```
@@ -115,7 +119,7 @@ docker compose logs -f scheduler
 
 ```bash
 docker compose ps                                   # fussball-scheduler healthy
-docker run --rm -v fussball-site:/v alpine ls -la /v  # 12 HTML + assets/, owner 1001
+docker run --rm -v fussball-site:/v alpine ls -la /v  # 22 HTML + assets/, owner 1001
 curl -sI https://fussball.example.org/              # 200, Cache-Control: no-cache
 curl -s  https://fussball.example.org/ | grep -c Saisonprognose
 ```
@@ -127,7 +131,9 @@ is load-bearing for the scheduler's wall-clock window.
 
 Use [`scripts/preview_site.R`](../../scripts/preview_site.R) — it passes
 through every object in the saved fixture, not just the four objects from
-before the league expansion, so it renders all twelve current pages:
+before the league expansion, so it renders all twelve prognosis pages. The
+ELO-Verlauf pages need league data (third argument, see
+`scripts/verlauf_fixture.R`); without it they are skipped:
 
 ```bash
 Rscript scripts/preview_site.R

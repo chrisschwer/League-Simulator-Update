@@ -280,3 +280,19 @@ test_that("die Aufstiegsseite deckt alle fuenf Staffeln ab", {
   expect_identical(v$staffeln, c("Nord", "Nordost", "West", "SuedWest",
                                  "Bayern"))
 })
+
+test_that("jede Liga traegt einen eigenen verlauf_slug, die Bundesliga bundesliga-verlauf (#184)", {
+  views <- source_module("league_views")$league_views()
+  slugs <- vapply(names(views), function(k) views[[k]]$slug, "")
+  vs <- vapply(names(views), function(k) {
+    v <- views[[k]]$verlauf_slug
+    if (is.null(v)) NA_character_ else v
+  }, "")
+  expect_length(vs, 10)
+  expect_false(anyNA(vs))
+  expect_identical(unname(vs[["bundesliga"]]), "bundesliga-verlauf")
+  andere <- names(vs) != "bundesliga"
+  expect_identical(unname(vs[andere]), paste0(unname(slugs[andere]), "-verlauf"))
+  expect_false(any(vs %in% c(slugs, "methodik", "rl-aufstieg")))
+  expect_null(views[["rl-aufstieg"]]$verlauf_slug)
+})

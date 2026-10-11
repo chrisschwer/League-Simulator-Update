@@ -280,6 +280,18 @@ league_views <- function() {
     )
   )
 
+  # Je Liga eine Verlaufsseite (Issue #184). Die einzige Stelle, an der die
+  # Namensregel steht: Die Bundesliga heisst "index", ihre Verlaufsseite soll
+  # trotzdem einen sprechenden Namen tragen.
+  for (key in names(views)) {
+    slug <- views[[key]]$slug
+    views[[key]]$verlauf_slug <- if (identical(slug, "index")) {
+      "bundesliga-verlauf"
+    } else {
+      paste0(slug, "-verlauf")
+    }
+  }
+
   # Die Aufstiegsseite ist KEINE Liga: kein api-football-Wettbewerb, keine
   # Heatmap, kein Registry-Eintrag. Sie fasst die fuenf Staffeln zu der einen
   # Frage zusammen, die ueber ihre Grenzen hinweg gestellt wird -- wer steigt

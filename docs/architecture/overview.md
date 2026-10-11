@@ -22,7 +22,7 @@ graph TB
     end
     
     subgraph "Presentation Layer"
-        SITE[Static Site<br/>12 HTML pages + assets]
+        SITE[Static Site<br/>22 HTML pages + assets]
         CADDY[Caddy<br/>fussball.csdatascience.de]
     end
     
@@ -83,8 +83,9 @@ Efficient data storage and retrieval system.
 Self-contained HTML pages rendered by the scheduler after each
 simulation cycle and served by Caddy — no application server, no Shiny
 runtime. One page per active league (ten since the September 2026 league
-expansion), plus the Regionalliga promotion page and Methodik: twelve in
-total, with two-level navigation grouped by the registry's `nav_group`. `ShinyApp/app.R` and the Shiny dependency were removed with the
+expansion), plus the Regionalliga promotion page, Methodik and one ELO-Verlauf
+page per league (#184): 22 in total, with two-level navigation grouped by the
+registry's `nav_group`. `ShinyApp/app.R` and the Shiny dependency were removed with the
 relaunch; local preview is [`scripts/preview_site.R`](../../scripts/preview_site.R)
 (render + open the printed path in a browser).
 
@@ -175,7 +176,7 @@ graph LR
 ```mermaid
 graph LR
     A[RDS File] --> B[generate_static_site]
-    B --> C[12 HTML Pages + assets]
+    B --> C[22 HTML Pages + assets]
     C --> D[Caddy]
     D --> E[User Browser]
 ```
