@@ -207,7 +207,7 @@
       `<p class="tdate">${fmtDatum(p.datum)} · ${p.runde}. Spieltag${p.nachhol ? " · Nachholspiel" : ""}</p>` +
       `<p class="tpair">${esc(heim)}<span class="dash">–</span>${esc(gast)} ` +
       `<span class="tres">${p.tore_heim}:${p.tore_gast}</span></p>` +
-      `<p class="terw">Das Modell gab ${esc(t.kuerzel)} vorher ${pct(p.p_sieg)} % Sieg, ${pct(p.p_remis)} % Remis.</p>` +
+      `<p class="terw">Das Modell gab ${esc(t.kuerzel)} vorher ${pct(p.p_sieg)}\u00a0% Sieg, ${pct(p.p_remis)}\u00a0% Remis.</p>` +
       `<p class="telo">ELO ${nz1(p.vor)} → ${nz1(p.nach)} ` +
       `<span class="tdelta ${p.delta >= 0 ? "pos" : "neg"}">${vz(p.delta)}</span></p>`;
     const g = svg.querySelector(`g.team[data-i="${ti}"]`);

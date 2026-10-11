@@ -78,7 +78,7 @@ test_that("Tooltip: Datum, Spieltag, Paarung, Ergebnis, Erwartung, ELO", {
   expect_true(s$tip_sichtbar)
   expect_identical(unlist(s$an), 0L)
   for (teil in c("Sa. 15. Aug. 2026 · 2. Spieltag", "Team 104", "Team 101", "2:0",
-                 "50 % Sieg, 30 % Remis", "1610,0 → 1570,0", "−40,0")) {
+                 "50\u00a0% Sieg, 30\u00a0% Remis", "1610,0 → 1570,0", "−40,0")) {
     expect_match(s$tip_text, teil, fixed = TRUE)
   }
   expect_false(grepl("Nachholspiel", s$tip_text, fixed = TRUE))
