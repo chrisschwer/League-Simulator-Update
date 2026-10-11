@@ -3,6 +3,7 @@
 \documentclass[11pt,a4paper,parskip=half,toc=bibliography,numbers=noenddot]{scrreprt}
 
 \usepackage[ngerman]{babel}
+\AtBeginDocument{\shorthandoff{"}}  % sonst wird \code{panic="abort"} zu ä
 \usepackage{fontspec}
 \usepackage{unicode-math}
 \setmainfont{Source Serif Pro}
