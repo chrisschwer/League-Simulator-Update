@@ -86,9 +86,11 @@ Die Frauen-Werte sind an 1917 Spielen geschätzt und out-of-sample validiert
 **Bekannte Schwächen** (Projekt „Prognosequalität", Sommer 2027):
 `E[Tore/Spiel] = 2 × tore_intercept` — der Herren-Wert impliziert 2,64 Tore
 gegen gemessene 3,18 in der Bundesliga. Und das unabhängige Poisson-Modell
-erzeugt strukturell zu wenig Remis (Überdispersion 1,20); bei den
-Frauen-Ligen bleiben 3,7 Prozentpunkte Lücke, in der 2. Bundesliga ist die
-beobachtete Quote gar nicht darstellbar. Beides braucht ein korreliertes
+trifft die Form der Ergebnisverteilung nicht (Überdispersion 1,20), mit je
+Liga verschiedener Richtung bei den Remis: Bei den Frauen-Ligen liegt es
+3,7 Prozentpunkte **zu hoch** (19,9 % gegen 16,2 %), in der 2. Bundesliga
+ist die beobachtete Quote (26,1 %) dagegen gar nicht darstellbar, weil sie
+auf der Poisson-Obergrenze von 26,14 % liegt — dort sind es **zu wenige**. Beides braucht ein korreliertes
 Tormodell (Dixon-Coles), keine neuen Parameterwerte. Siehe
 [`docs/reports/2026-09-05-liga-empirie-zehn-ligen.md`](docs/reports/2026-09-05-liga-empirie-zehn-ligen.md).
 
