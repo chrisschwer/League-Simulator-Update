@@ -336,10 +336,23 @@ platz_gewichte <- function(staffel, verteilung, teams, p_meister_aufstieg = 0) {
 #' Gewicht 0 multipliziert: Wo rechnerisch kein Absteiger mehr moeglich ist,
 #' muss das Gewicht IDENTISCH 0 sein und nicht 1e-17. sum() eines leeren
 #' Vektors ist exakt 0.
+#'
+#' Ebenso das Gegenstueck: Ist der Platz in JEDEM moeglichen k ein
+#' Abstiegsplatz, ist das Gewicht IDENTISCH 1. Die Summe aller P(k) ist das
+#' nur mathematisch -- 174/1e4 + 4075/1e4 + 5751/1e4 ergibt
+#' 0.99999999999999989, und prozent() schreibt dann ">99" statt des
+#' Haekchens. Live auf RL West am 13.10.2026: vier sichere Absteiger als
+#' ">99 %". Gezaehlt werden nur k mit P(k) > 0; ein unmoegliches k mit
+#' weniger Plaetzen darf den Platz nicht unsicher machen.
 gewichte_aus_platzzahlen <- function(zeile, n_plaetze, teams) {
   gewichte <- numeric(teams)
+  moeglich <- zeile > 0
   for (d in seq_len(teams)) {
-    gewichte[teams - d + 1L] <- sum(zeile[n_plaetze >= d])
+    gewichte[teams - d + 1L] <- if (all(n_plaetze[moeglich] >= d)) {
+      1
+    } else {
+      sum(zeile[n_plaetze >= d])
+    }
   }
   gewichte
 }
