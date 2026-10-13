@@ -80,19 +80,15 @@ groupResultsDF <- function(results,
 # (seit #211 hier, unveraendert verschoben) -----------------------------------
 
 # ---------------------------------------------------------------------------
-# Heatmap cell colour: white -> tinte (#1F3A4D), t = p^0.6 so low
-# probabilities stay legible instead of washing out linearly. Text flips to
-# white once the tile is dark enough (t > 0.52).
+# Heatmap cell position on the colour scale, t = p^0.6 so low probabilities
+# stay legible instead of washing out linearly. The cell carries only t and
+# a flag for strong tiles (t > 0.52); site.css mixes the actual colours from
+# --heat-hi and --paper, so the dark mode can recolour the heatmap.
 # ---------------------------------------------------------------------------
-
-.HEAT_INK <- c(0x1F, 0x3A, 0x4D)
-.HEAT_PAPER <- c(255, 255, 255)
 
 .heat_style <- function(p) {
   t <- p^0.6
-  rgb <- round(.HEAT_PAPER + (.HEAT_INK - .HEAT_PAPER) * t)
-  text_colour <- if (t > 0.52) "#FFFFFF" else "#15130F"
-  sprintf("background:rgb(%d,%d,%d);color:%s", rgb[1], rgb[2], rgb[3], text_colour)
+  sprintf("--t:%.3f;--hi:%d", t, as.integer(t > 0.52))
 }
 
 # Text mit Tooltip: <abbr> mit title (Hover) und tabindex (Tastatur,

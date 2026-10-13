@@ -35,8 +35,31 @@
   /* ELO-Verlauf (Issue #184): gedaempfte Kontextlinien und -etiketten,
      sobald eine Linie hervorgehoben ist. */
   --rule-dim:#EDE9DE; --ink-dim:#BDB6A8;
+  /* Link beim Ueberfahren; Schrift auf Tinte- und Ockerflaechen (Quoten-
+     balken). Auf Ocker dunkel: Weiss erreichte dort nur 3,1 Kontrast. */
+  --akzent-hover:#7E1813; --auf-tinte:#FFFFFF; --auf-ocker:#15130F;
+  /* Heatmap: Farbe bei voller Wahrscheinlichkeit und Schrift auf kraeftigen
+     Zellen. Die Zelle traegt nur --t (0..1) und --hi (0/1), siehe
+     .heat_style() in render_helpers.R. */
+  --heat-hi:#1F3A4D; --heat-on-hi:#FFFFFF;
   --serif:'Source Serif 4',Georgia,serif; --sans:'Inter Tight',-apple-system,'Helvetica Neue',Arial,sans-serif;
   --mono:'JetBrains Mono',Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+/* Dark Mode: folgt der System-Einstellung. Jede Farbe hat hier ihre
+   Entsprechung fuer dunklen Grund; Herleitung und Kontrastwerte im
+   Palettenentwurf vom 13.10.2026. Der Grund ist ein warmes Fast-Schwarz in
+   der Tonlage von --ink, die Tinte wird ein helles Graublau, damit in der
+   Heatmap "wahrscheinlich" auch im Dunkeln die auffaelligste Zelle bleibt. */
+@media (prefers-color-scheme:dark){
+  :root{
+    --paper:#161411; --surface-2:#211E1A; --ink:#ECE8E0; --ink-2:#C9C3B8; --ink-3:#958E82;
+    --rule:#3D3933; --rule-soft:#2C2924; --akzent:#E0574B; --tinte:#86AECB; --ocker:#C99A4B;
+    --gruen:#74AD68; --rule-dim:#24211D; --ink-dim:#5C574E;
+    --akzent-hover:#F2877C; --auf-tinte:#161411; --auf-ocker:#161411;
+    --heat-hi:#7FA7C4; --heat-on-hi:#161411;
+    color-scheme:dark;
+  }
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);
@@ -44,7 +67,7 @@ body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);
 .wrap{max-width:1080px;margin:0 auto;padding:40px 24px 64px}
 a{color:var(--ink);text-decoration:underline;text-decoration-color:var(--akzent);
   text-decoration-thickness:1px;text-underline-offset:3px}
-a:hover{color:#7E1813;text-decoration-thickness:2px}
+a:hover{color:var(--akzent-hover);text-decoration-thickness:2px}
 a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--akzent);outline-offset:2px}
 
 header.mast{margin-bottom:48px}
@@ -79,7 +102,9 @@ table.heatmap th{font-family:var(--sans);font-weight:500;font-size:11px;color:va
 table.heatmap thead th:first-child{text-align:left}
 table.heatmap tbody th{position:sticky;left:0;background:var(--paper);text-align:left;
   padding:0 10px 0 0;font-family:var(--sans);font-weight:500;font-size:12px;color:var(--ink)}
-table.heatmap td{width:34px;min-width:30px;height:26px;text-align:center;border:1px solid var(--paper)}
+table.heatmap td{width:34px;min-width:30px;height:26px;text-align:center;border:1px solid var(--paper);
+  background:color-mix(in srgb,var(--heat-hi) calc(var(--t,0) * 100%),var(--paper));
+  color:color-mix(in srgb,var(--heat-on-hi) calc(var(--hi,0) * 100%),var(--ink))}
 .legend{font-family:var(--sans);font-size:12px;color:var(--ink-3);margin-top:10px}
 .legend .legend-mobile{display:none}
 
@@ -146,9 +171,9 @@ table.liga[data-zonen="platz"] tr[data-zone="aufstieg"] td:first-child::before{b
 .oddsbar span{display:flex;align-items:center;justify-content:center;overflow:hidden;min-width:2px}
 .oddsbar i{font-style:normal}
 .oddsbar .nolabel i{display:none}
-.oh{background:var(--tinte);color:#fff}
+.oh{background:var(--tinte);color:var(--auf-tinte)}
 .ox{background:var(--rule-soft);color:var(--ink-2)}
-.oa{background:var(--ocker);color:#fff}
+.oa{background:var(--ocker);color:var(--auf-ocker)}
 .oddslegend{font-family:var(--sans);font-size:12px;color:var(--ink-3);margin:0 0 14px}
 .oddslegend b{font-weight:500;color:var(--ink-2)}
 .chip{display:inline-block;width:9px;height:9px;margin:0 4px 0 10px;vertical-align:baseline;border:.5px solid var(--rule)}
@@ -170,7 +195,9 @@ table.score th{font-family:var(--sans);font-weight:500;font-size:11px;color:var(
 table.score .corner{position:relative;min-width:104px}
 table.score .corner span{font-size:10px;letter-spacing:.02em;white-space:nowrap}
 table.score tbody th{text-align:right;padding-right:8px}
-table.score td{width:44px;height:26px;text-align:center;border:1px solid var(--paper)}
+table.score td{width:44px;height:26px;text-align:center;border:1px solid var(--paper);
+  background:color-mix(in srgb,var(--heat-hi) calc(var(--t,0) * 100%),var(--paper));
+  color:color-mix(in srgb,var(--heat-on-hi) calc(var(--hi,0) * 100%),var(--ink))}
 
 footer{margin-top:72px;border-top:1px solid var(--rule);padding-top:16px;
   font-family:var(--sans);font-size:12.5px;color:var(--ink-3);display:flex;
@@ -299,7 +326,7 @@ svg.verlauf g.team.dim .fuehrung{stroke:var(--rule-dim)}
 
 #verlauf .tip{position:absolute;z-index:5;pointer-events:none;opacity:0;transform:translateY(2px);
   transition:opacity .12s ease,transform .12s ease;background:var(--paper);border:1px solid var(--rule);
-  padding:9px 12px 10px;max-width:250px;box-shadow:0 1px 2px rgba(21,19,15,.06)}
+  padding:9px 12px 10px;max-width:250px;box-shadow:0 1px 2px color-mix(in srgb,var(--ink) 6%,transparent)}
 #verlauf .tip.show{opacity:1;transform:translateY(0)}
 #verlauf .tip p{margin:0}
 #verlauf .tip .tdate{font-family:var(--sans);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
