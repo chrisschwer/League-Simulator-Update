@@ -1247,3 +1247,54 @@ test_that("die gerenderte Seite laesst die Zelle ohne Meisterchance leer", {
   # Eine leere Zelle, nicht eine mit Inhalt.
   expect_match(html, "<td></td>", fixed = TRUE)
 })
+
+# ===========================================================================
+# Issue #294: sichtbare Texte
+# ===========================================================================
+
+test_that("die Tagline nennt die Spannweite aller Ligen, Kopf und Meta-Beschreibung gleich", {
+  # Seit September 2026 zehn Ligen bis hinunter zur Regionalliga; die alte
+  # Tagline zaehlte nur die drei Herren-Profiligen auf.
+  gen <- source_module("generate_static_site")
+  out <- withr::local_tempdir()
+  gen$generate_static_site(
+    output_dir = out,
+    now = as.POSIXct("2026-09-07 12:00", tz = "Europe/Berlin"),
+    ergebnisse = alle_ergebnisse()
+  )
+  tagline <- paste0("Prognosen von der Bundesliga bis zur Regionalliga ",
+                    "— nach jedem Spiel neu gerechnet.")
+  html <- read_html(file.path(out, "index.html"))
+  expect_match(html, paste0('<p class="tagline">', tagline, "</p>"), fixed = TRUE)
+  expect_match(html, paste0('<meta name="description" content="', tagline, '">'),
+               fixed = TRUE)
+  expect_false(grepl("Prognosen für Bundesliga", html, fixed = TRUE))
+})
+
+test_that("die Aufstiegsseite schreibt 'übrigen' mit Umlaut", {
+  gen <- source_module("generate_static_site")
+  out <- withr::local_tempdir()
+  gen$generate_static_site(
+    output_dir = out,
+    now = as.POSIXct("2026-09-07 12:00", tz = "Europe/Berlin"),
+    ergebnisse = alle_ergebnisse()
+  )
+  html <- read_html(file.path(out, paste0(AUFSTIEGSSEITE_SLUG, ".html")))
+  expect_match(html, "die beiden übrigen", fixed = TRUE)
+  expect_false(grepl("uebrig", html, fixed = TRUE))
+})
+
+test_that("der Blog-Link oeffnet einen neuen Tab, auch auf der Fallback-Seite", {
+  # target="blank_" oeffnete einen Tab namens "blank_" und verwendete ihn
+  # bei jedem weiteren Klick wieder.
+  gen <- source_module("generate_static_site")
+  fuss <- gen$.footer_html(as.POSIXct("2026-09-07 12:00", tz = "Europe/Berlin"))
+  expect_match(fuss, 'target="_blank" rel="noopener"', fixed = TRUE)
+
+  out <- withr::local_tempdir()
+  gen$generate_static_site(output_dir = out,
+                           now = as.POSIXct("2026-09-07 12:00", tz = "Europe/Berlin"))
+  html <- read_html(file.path(out, "index.html"))
+  expect_match(html, 'target="_blank" rel="noopener"', fixed = TRUE)
+  expect_false(grepl("blank_", html, fixed = TRUE))
+})

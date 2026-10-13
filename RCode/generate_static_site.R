@@ -35,7 +35,7 @@ source(file.path(.gss_dir, "elo_verlauf.R"), local = TRUE)
 BLOG_URL <- "http://30punkte.wordpress.com"
 SITE_WORDMARK <- "30 Punkte"
 SITE_TAGLINE <- paste0(
-  "Prognosen für Bundesliga, 2. Bundesliga und 3. Liga ",
+  "Prognosen von der Bundesliga bis zur Regionalliga ",
   "— nach jedem Spiel neu gerechnet."
 )
 STALE_THRESHOLD_HOURS <- 24
@@ -508,7 +508,7 @@ render_panel_table <- function(data_obj, panel, computed_obj = NULL,
     "<span>", htmltools::htmlEscape(footer_timestamp(mtime, .aktueller_takt)),
     " <time id=\"generated\" datetime=\"", iso_utc(mtime), "\"></time></span>\n",
     "<span>Mehr dazu unter <a href=\"", BLOG_URL,
-    "\" target=\"blank_\">30punkte.wordpress.com</a></span>\n",
+    "\" target=\"_blank\" rel=\"noopener\">30punkte.wordpress.com</a></span>\n",
     "</footer>\n"
   )
 }
@@ -883,7 +883,7 @@ render_verlauf_page <- function(view, daten, output_dir, now = Sys.time(),
     "<p class=\"eyebrow\">Regionalliga</p>\n",
     "<h2>", htmltools::htmlEscape(view$plot_title), "</h2>\n",
     "<p class=\"sectionlead\">Vier Mannschaften steigen in die 3. Liga auf. ",
-    "Drei Staffeln stellen ihren Aufsteiger direkt, die beiden uebrigen ",
+    "Drei Staffeln stellen ihren Aufsteiger direkt, die beiden übrigen ",
     "ermitteln den vierten in zwei Aufstiegsspielen gegeneinander. ",
     "<em>Meister</em> ist die Wahrscheinlichkeit, die Staffel zu gewinnen, ",
     "<em>Aufstieg</em> die, danach auch in der 3. Liga zu stehen. Die ",
@@ -948,7 +948,7 @@ render_verlauf_page <- function(view, daten, output_dir, now = Sys.time(),
     "nicht geladen werden. Bitte versuchen Sie es später erneut.</p>\n",
     "</section>\n",
     "<footer><span>Mehr dazu unter <a href=\"", BLOG_URL,
-    "\" target=\"blank_\">30punkte.wordpress.com</a></span></footer>\n",
+    "\" target=\"_blank\" rel=\"noopener\">30punkte.wordpress.com</a></span></footer>\n",
     "</div>\n</body>\n</html>\n"
   )
   .copy_assets(output_dir)
