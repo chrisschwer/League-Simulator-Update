@@ -70,7 +70,7 @@ test_that("Matrixzellen tragen Komma-Prozente mit einer Nachkommastelle", {
   expect_match(html, ">12,3<")
   expect_match(html, ">6,1<")
   # Färbung nach Wahrscheinlichkeit wie in der Heatmap
-  expect_match(html, "background:rgb", fixed = TRUE)
+  expect_match(html, "style=\"--t:", fixed = TRUE)
 })
 
 test_that("Zellen unter 0,1 Prozent bleiben leer", {
