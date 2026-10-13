@@ -1,0 +1,108 @@
+\chapter{Woher die Startwerte kommen}\label{kap:startwerte}
+
+Das Modell braucht für jede Mannschaft einen ELO-Wert zum Saisonstart. Er
+steht in der Stammdatei \datei{RCode/TeamList_<Saison>.csv}, die als
+gepflegtes Stammdatenblatt gilt (ADR~0007). Die Datei hat die Spalten
+\code{TeamID}, \code{ShortText}, \code{Promotion}, \code{InitialELO},
+\code{League}, \code{Region} und \code{Name}.
+
+\section{Saisonwechsel}
+
+Zum Saisonwechsel rechnet das Werkzeug
+\datei{scripts/season_transition.R} die ELO am Ende der alten Saison aus.
+Dazu ruft es denselben Endpunkt \code{POST /league-details} auf, den auch die
+Website benutzt, je Liga mit deren Tormodell. Einen eigenen ELO-Walk in R
+gibt es seit September 2026 nicht mehr (Issue~\#146). Der frühere hatte mit
+einem Heimvorteil von 100 statt 40 gerechnet.
+
+\begin{description}[font=\sffamily\bfseries\small]
+  \item[Übertrag 1:1] Die Start-ELO der neuen Saison ist die End-ELO der
+        alten, ohne Rückführung zur Mitte und unabhängig von Auf- oder
+        Abstieg. Ein Aufsteiger nimmt seine Stärke mit.
+  \item[Neue Mannschaften] Wer in keiner beobachteten Liga gespielt hat,
+        bekommt einen Basiswert: in der 3.~Liga den Mittelwert der End-ELO der
+        vier Absteiger der Vorsaison (Ersatzwert 1\,046), in der
+        2.~Bundesliga 1\,350, in der Bundesliga 1\,500, sonst 1\,200
+        (\datei{RCode/elo_aggregation.R:404--550}).
+\end{description}
+
+\section{Eichung für Ligen ohne Historie}\label{sec:eichung}
+
+Mit der Erweiterung auf zehn Ligen im September 2026 kamen sieben Ligen ohne
+eigene ELO-Historie dazu: die fünf Regionalligen und die beiden
+Frauen-Ligen. Ihre Startwerte hat das einmalige Offline-Skript
+\datei{scripts/calibrate_historical_elo.R} geeicht (ADR~0003):
+
+\begin{enumerate}
+  \item \textbf{Walk je Liga} über die verfügbare Historie, mit den
+        Startwerten 1\,156 (3.~Liga), 920 (Regionalligen) und 1\,500 (Frauen).
+        Die End-ELO einer Saison ist der Start der nächsten. Neue Mannschaften
+        beginnen beim Startwert. Gewertet werden nur reguläre Spiele der
+        Hauptrunde in chronologischer Reihenfolge.
+  \item \textbf{Regionalligen an die 3.~Liga.} Der ganze Block wird
+        verschoben, und zwar um die mittlere ELO-Differenz zwischen
+        Drittliga-Absteigern und Regionalliga-Aufsteigern über die Wechsel
+        2020--2025:
+        \[
+          \Delta_{RL} = \overline{E}(\text{Absteiger 3.~Liga}) - \overline{E}(\text{Aufsteiger RL}).
+        \]
+  \item \textbf{Staffeln gegeneinander.} Jede Staffel wird um die Hälfte der
+        Abweichung verschoben, die ihre Aufsteiger in der 3.~Liga gegenüber
+        dem Mittel aller Staffeln zeigen. Die Dämpfung auf die Hälfte
+        berücksichtigt, dass je Staffel nur zwei bis sechs Aufsteiger
+        vorliegen.
+  \item \textbf{2.~Frauen-Bundesliga an die Frauen-Bundesliga}, analog zu
+        Schritt~2.
+  \item \textbf{Frauen an die Herren}, per Konvention: Die Frauen-Ligen werden
+        so verschoben, dass der Mittelwert der Frauen-Bundesliga dem der
+        Herren-Bundesliga entspricht (1\,682). Das ist ausdrücklich keine
+        Messung, denn zwischen beiden findet kein Austausch statt.
+\end{enumerate}
+
+Alle Verschiebungen sind additiv, die Abstände innerhalb einer Liga bleiben
+erhalten. Weil der Walk die Summe der ELO erhält, ist keine Iteration nötig.
+
+\section{Ein Tormodell je Wechselgemeinschaft}\label{sec:wechselgemeinschaft}
+
+Die ELO ist das Einzige, was eine Mannschaft über eine Ligagrenze mitnimmt.
+Nur wenn Ligen, die Mannschaften austauschen, dasselbe Tormodell benutzen,
+bedeutet ein ELO-Wert diesseits und jenseits der Grenze dasselbe. Maßgeblich
+ist deshalb nicht die einzelne Liga, sondern die \emph{Wechselgemeinschaft}
+(ADR~0004):
+
+\begin{itemize}
+  \item \textbf{Herren} (Ligen 78, 79, 80, 83--87) tauschen untereinander
+        Mannschaften aus und teilen ein Tormodell.
+  \item \textbf{Frauen} (82, 1034) sind untereinander verbunden, nie mit den
+        Herren, und haben daher ein eigenes.
+\end{itemize}
+
+Die Frauen-Werte $s_F, c_F$ sind per Maximum-Likelihood an 1\,917 Spielen
+geschätzt und außerhalb der Stichprobe validiert. Der Brier-Score sinkt um
+2{,}96~\%, der Log-Loss um 2{,}66~\%, und das neue Modell ist in allen fünf
+Testsaisons besser
+(\datei{docs/reports/2026-09-05-frauen-tormodell.md}). Ein eigener
+Heimvorteil für die Frauen hat sich nicht als signifikant erwiesen
+(Schätzwert 28, $p = 0{,}23$). Es bleibt bei 40.
+
+\subsection*{Wie der Heimvorteil zu 40 kam}
+
+Bis September 2026 rechnete das Modell mit 65 ELO-Punkten. Die
+Neukalibrierung integriert über eine realistische Verteilung von
+ELO-Unterschieden und trifft mit 40 die gemessenen Anteile der Bundesliga
+2024 und 2025:
+
+\begin{center}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+& Heimsieg & Remis & Auswärtssieg \\
+\midrule
+Modell mit $H = 40$ & 41{,}0\,\% & 24{,}4\,\% & 34{,}7\,\% \\
+gemessen            & 41{,}2\,\% & 25{,}0\,\% & 33{,}8\,\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Auf die Saisonprognosen wirkt die Änderung mit weniger als einem
+Prozentpunkt (ADR~0002, Nachtrag;
+\datei{docs/reports/2026-09-05-heimvorteil-vorher-nachher.md}).

@@ -1,0 +1,153 @@
+\chapter{Zehntausend Saisons: Simulation und Monte Carlo}\label{kap:simulation}
+
+\section{Eine simulierte Saison}
+
+Eine Iteration spielt die ganze Saison durch
+(\datei{league-simulator-rust/src/simulation/season.rs:10--62}). Sie beginnt
+jedes Mal bei den ELO-Werten zum Saisonstart und geht den Spielplan in
+Listenreihenfolge durch. Für jedes Spiel gibt es drei Fälle:
+
+\begin{enumerate}
+  \item \textbf{Das Ergebnis fehlt.} Die Tore werden mit dem Tormodell
+        gezogen und eingetragen. \emph{Danach wird die ELO aktualisiert}, als
+        wäre das Spiel wirklich so ausgegangen.
+  \item \textbf{Das Ergebnis liegt vor.} Es zählt für die Tabelle, und die ELO
+        wird mit dem echten Ergebnis aktualisiert.
+  \item \textbf{Das Ergebnis liegt vor, das Spiel ist gewertet} (Kennzeichen
+        \code{elo\_neutral}). Es zählt für die Tabelle, die ELO bleibt
+        unverändert.
+\end{enumerate}
+
+Die ELO ist innerhalb einer simulierten Saison also \emph{dynamisch}. Eine
+Mannschaft, die in einem Durchlauf eine Siegesserie hinlegt, geht stärker in
+die folgenden simulierten Spiele. Das bildet ab, dass sich auch die echte
+Stärkeschätzung im Lauf der Saison bewegen wird, und verbreitert die
+Verteilung der Endplätze gegenüber einem Modell mit festen Stärken.
+
+\subsection*{Reihenfolge der Spiele}
+
+Die R-Seite sortiert den Spielplan chronologisch, bevor er an Rust geht
+(\datei{RCode/transform_data.R:271--291}): nach Anstoßzeit, bei Gleichstand
+in der Reihenfolge der API, Spiele ohne Termin ans Ende. Gespielte Spiele
+werden so in jeder Iteration in derselben Reihenfolge nachgespielt und führen
+zu denselben ELO-Werten. Die simulierten Spiele folgen danach in der Reihenfolge
+des Spielplans.
+
+\section{Statusgruppen}
+
+Die Daten kommen von API-Football. Jedes Spiel trägt einen Statuscode, und
+das Modell fasst die Codes in Gruppen zusammen
+(\datei{RCode/league_details.R:56--68},
+\datei{RCode/transform_data.R:357--374}):
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}llXcc@{}}
+\toprule
+Gruppe & Codes & In der Simulation & ELO-Walk & Tabelle \\
+\midrule
+beendet    & FT, AET, PEN & Ergebnis fest & ja & ja \\
+gewertet   & AWD, WO      & Ergebnis fest, \code{elo\_neutral} & nein & ja \\
+live       & 1H, HT, 2H, ET, BT, P, SUSP, INT, LIVE & wird simuliert & nein & nein \\
+verschoben & PST, CANC, TBD, ABD & wird simuliert & nein & nein \\
+offen      & alle übrigen, vor allem NS & wird simuliert & nein & nein \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Laufende Spiele fließen erst mit dem Abpfiff ein. Der Zwischenstand bleibt
+unberücksichtigt, und die Website sagt das in der Live-Sektion ausdrücklich.
+Simuliert werden nur Hauptrundenspiele. Runden mit Bezeichnungen wie
+\enquote{Relegation}, \enquote{Play-off} oder \enquote{Final} filtert
+\datei{RCode/round_filter.R} heraus.
+
+\section{Die Abschlusstabelle und ihre Reihenfolge}\label{sec:tiebreak}
+
+Am Ende jeder Iteration entsteht eine Tabelle mit drei Punkten für einen
+Sieg, einem für ein Remis und keinem für eine Niederlage. Sortiert wird
+stabil (\datei{season.rs:92--168}):
+
+\begin{enumerate}
+  \item Punkte, absteigend,
+  \item Tordifferenz, absteigend,
+  \item erzielte Tore, absteigend,
+  \item bei völligem Gleichstand die Eingabereihenfolge der Mannschaften.
+\end{enumerate}
+
+Die Eingabereihenfolge ist alphabetisch nach Kürzel
+(\datei{transform_data.R:383--387}). Bei völligem Gleichstand gewinnt also
+systematisch das alphabetisch frühere Kürzel. Einen direkten Vergleich wertet
+das Modell nicht aus. Bei zehntausend Durchläufen und ganzzahligen Toren ist
+ein Gleichstand in allen drei Kriterien selten, kommt aber vor.
+
+Die Engine kann Startwerte für Punkte und Tore übernehmen
+(\code{adj\_points}, \code{adj\_goals} und weitere). Im Hauptlauf sind sie
+null. Reale Punktabzüge, etwa nach Lizenzverstößen, werden nicht modelliert,
+weil es dafür keine Datenquelle gibt. Genutzt werden die Startwerte nur für
+den Malus-Lauf der Zweitvertretungen (Abschnitt~\ref{sec:malus}).
+
+\section{Monte Carlo}
+
+Der Rust-Server wiederholt die Saison $N = \num{10000}$-mal
+(\datei{league-simulator-rust/src/monte_carlo/mod.rs}). Es sei $C_{t,p}$ die
+Zahl der Iterationen, in denen Mannschaft $t$ auf Platz $p$ landet. Die
+angezeigte Wahrscheinlichkeit ist der Anteil:
+\begin{equation}\label{eq:mc}
+  \boxed{\;\hat P(t \text{ auf Platz } p) = \frac{C_{t,p}}{N}\;}
+\end{equation}
+Jede Zeile und jede Spalte dieser Matrix summiert sich zu 1. Die Zeilen
+sortiert der Server nach dem erwarteten Platz
+$\bar p_t = \sum_p p\,\hat P_{t,p}$, aufsteigend. Diese Matrix ist die
+Heatmap auf jeder Ligaseite.
+
+\begin{description}[font=\sffamily\bfseries\small]
+  \item[Zufallszahlen] Jede Iteration erhält einen eigenen 64-Bit-Startwert
+        aus dem Thread-Zufallsgenerator des Betriebssystems und erzeugt daraus
+        einen eigenen Generator (\code{StdRng::seed\_from\_u64}). Zwei Läufe
+        mit denselben Daten liefern deshalb leicht unterschiedliche Matrizen.
+        Eine deterministische Variante mit festem Startwert gibt es nur für
+        Tests.
+  \item[Parallelität] Die Iterationen laufen über \code{rayon} parallel
+        (\code{par\_iter().fold().reduce()}). Jeder Thread zählt in eigene
+        Zähler, die am Ende addiert werden. Ganzzahlige Addition ist
+        kommutativ, die Reihenfolge der Threads ändert das Ergebnis also nicht.
+  \item[Laufzeit] Rund 42~ms für \num{10000} Iterationen einer Liga mit 18
+        Mannschaften und vollem Restspielplan, gemessen am 7.~September 2026.
+        Alle zehn Ligen zusammen brauchen etwa eine halbe Sekunde.
+\end{description}
+
+\subsection*{Wie genau sind die Zahlen?}
+
+Der Standardfehler eines geschätzten Anteils ist
+\begin{equation}
+  \operatorname{SE}(\hat P) = \sqrt{\frac{\hat P (1 - \hat P)}{N}} \le
+  \sqrt{\frac{0{,}25}{\num{10000}}} = 0{,}5\ \text{Prozentpunkte}.
+\end{equation}
+Die Methodik-Seite fasst das allgemeinverständlich zusammen: 35 gegen 37
+Prozent heißt gleichauf. Ein Häkchen (\checkmark) bedeutet, dass in keiner
+der zehntausend Simulationen etwas anderes herauskam. Das ist etwas anderes
+als \enquote{rechnerisch sicher}.
+
+\section{Von der Matrix zu den Spalten der Website}
+
+Die Spalten neben der Heatmap, etwa \enquote{Meister},
+\enquote{Champions League} oder \enquote{Abstieg}, summieren Plätze
+(\code{groupResultsDF}, \datei{RCode/render_helpers.R:49--77}):
+\begin{equation}
+  P(t \in \text{Gruppe } [l, u]) = \sum_{p=l}^{u} \hat P_{t,p}.
+\end{equation}
+Negative Grenzen zählen von unten: $-1$ ist der letzte Platz. Sie werden erst
+zur Renderzeit gegen die Ligagröße aufgelöst, weil Ligen ihre Größe ändern
+können (die Frauen-Bundesliga wuchs 2025 von 12 auf 14 Mannschaften).
+Tabelle~\ref{tab:panels} in Kapitel~\ref{kap:ligaseite} listet alle Gruppen
+je Liga.
+
+\subsection*{Zusatzzählung für die 3.~Liga}
+
+Für die Regionalligen ist nicht nur wichtig, wie wahrscheinlich ein
+Drittligist absteigt, sondern auch \emph{wohin}. Er fällt in die Regionalliga
+seiner Region zurück. Deshalb zählt der Server für die 3.~Liga zusätzlich,
+wie viele der vier Absteiger aus jeder Staffelregion kommen. Es sei $G_{g,j}$
+die Zahl der Iterationen mit genau $j$ Absteigern aus Region $g$
+(\datei{monte_carlo/mod.rs:133--147}). Auf diesen Zählungen baut die
+Abstiegskopplung auf (Abschnitt~\ref{sec:kopplung}).

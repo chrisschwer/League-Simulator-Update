@@ -1,0 +1,102 @@
+\chapter{Seiten und Navigation}\label{kap:seiten}
+
+\section{Grundprinzip: statische Seiten}
+
+Die Website besteht aus statischen, in sich geschlossenen HTML-Seiten. Der
+Scheduler schreibt sie nach jedem Simulationszyklus neu, ein Webserver
+(Caddy) liefert sie aus. Es gibt keinen Anwendungsserver und keine Datenbank.
+Bis August 2026 lief die Seite als Shiny-App auf shinyapps.io. ADR~0001
+begründet den Wechsel: Der Dienst endet im März 2027, die App hatte keine
+echte Interaktivität, die Server-Rechenzeit gebraucht hätte, und an einem
+Spieltag waren bis zu 240 Neuveröffentlichungen nötig.
+
+Die Heatmap ist eine HTML-Tabelle mit eingefärbten Zellen, es gibt keine
+Bilder. Alle Seiten zusammen sind einige hundert Kilobyte groß. Nur das
+ELO-Verlaufsdiagramm zeichnet ein Skript im Browser.
+
+\section{Seiteninventar}
+
+Pro Zyklus entstehen 22 Seiten
+(\datei{RCode/generate_static_site.R:1086--1216}): zehn Ligaseiten, zehn
+ELO-Verlaufsseiten, die Aufstiegsseite der Regionalligen und die
+Methodik-Seite. Liegen gar keine Ergebnisse vor, entsteht nur eine
+Platzhalter-Startseite (\enquote{Noch keine Prognosedaten verfügbar}).
+
+\begin{center}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lllr@{}}
+\toprule
+Liga & Ligaseite & Verlaufsseite & ID \\
+\midrule
+Bundesliga & \code{index.html} & \code{bundesliga-verlauf.html} & 78 \\
+2.~Bundesliga & \code{2-bundesliga.html} & \code{2-bundesliga-verlauf.html} & 79 \\
+3.~Liga & \code{3-liga.html} & \code{3-liga-verlauf.html} & 80 \\
+RL Nord & \code{rl-nord.html} & \code{rl-nord-verlauf.html} & 84 \\
+RL Nordost & \code{rl-nordost.html} & \code{rl-nordost-verlauf.html} & 85 \\
+RL West & \code{rl-west.html} & \code{rl-west-verlauf.html} & 87 \\
+RL SüdWest & \code{rl-suedwest.html} & \code{rl-suedwest-verlauf.html} & 86 \\
+RL Bayern & \code{rl-bayern.html} & \code{rl-bayern-verlauf.html} & 83 \\
+Frauen-BL & \code{frauen-bundesliga.html} & \code{frauen-bundesliga-verlauf.html} & 82 \\
+2.~Frauen-BL & \code{2-frauen-bundesliga.html} & \code{2-frauen-bundesliga-verlauf.html} & 1034 \\
+\midrule
+Aufstieg & \code{rl-aufstieg.html} & -- & -- \\
+Methodik & \code{methodik.html} & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Die Bundesliga ist die Startseite und heißt deshalb \code{index.html}. Ihre
+Verlaufsseite heißt \code{bundesliga-verlauf.html} und nicht
+\code{index-verlauf.html}. Alle Namen stammen aus der Liga-Registry
+(\datei{RCode/league_registry.R}) und aus \code{league\_views()}
+(\datei{RCode/league_views.R}). Die Registry hält alles Ligaspezifische als
+Daten (ADR~0005). Eine neue Liga ist dort ein neuer Eintrag und keine neue
+Code-Verzweigung.
+
+\section{Zweistufige Navigation}
+
+Jede Seite trägt denselben Kopf: die Wortmarke \enquote{30 Punkte}, darunter
+einen kurzen roten Strich, die Unterzeile und die Navigation. Die Navigation
+hat eine Zeile je Gruppe. Jede Zeile beginnt mit dem Gruppennamen in
+Kapitälchen, danach folgen die Links, getrennt durch Mittelpunkte:
+
+\begin{center}
+\begin{tabular}{@{}>{\sffamily\scriptsize\color{ink3}}l>{\sffamily\small}l@{}}
+HERREN       & Bundesliga · 2.~Bundesliga · 3.~Liga \\
+REGIONALLIGA & Nord · Nordost · West · SüdWest · Bayern · Aufstieg \\
+FRAUEN       & Bundesliga · 2.~Bundesliga \\
+             & Methodik \\
+\end{tabular}
+\end{center}
+
+Die Regionalligen stehen bewusst direkt unter den Herren
+(\datei{generate_static_site.R:54--69}, Issue~\#178). Sie sind
+Herren-Ligen derselben Wechselgemeinschaft, und die Nachbarschaft soll das
+zeigen. Die aktuelle Seite ist fett und unterstrichen und trägt
+\code{aria-current="page"}.
+
+Auf den Verlaufsseiten führen die Liga-Links zur \emph{Verlaufsseite} der
+jeweils anderen Liga. Wer Verläufe vergleicht, bleibt so in dieser Ansicht.
+Aufstieg und Methodik verlinken normal.
+
+\section{Hinweis auf veraltete Daten}
+
+Eine statische Seite veraltet genau dann, wenn der Scheduler nicht mehr
+schreibt. Eine Prüfung beim Rendern würde deshalb nie anschlagen. Die
+Entscheidung fällt im Browser (\datei{generate_static_site.R:445--469}):
+Im Fuß jeder Seite steht der Zeitpunkt der Erzeugung als
+\code{<time id="generated" datetime="…">} in UTC. Ein kleines Skript
+berechnet daraus das Alter in Stunden,
+\[
+  \text{Alter} = \frac{\text{jetzt} - \text{erzeugt}}{3{,}6\cdot 10^{6}\ \text{ms}},
+\]
+und blendet ab einem Alter von mehr als 24 Stunden einen Hinweis ein:
+\enquote{Achtung: Diese Prognosen sind \emph{n} Stunden alt und werden derzeit
+nicht aktualisiert.}
+
+Daneben gibt es einen zweiten, serverseitigen Hinweis. Arbeitet der
+Scheduler wegen knappen API-Kontingents in einem gedrosselten Takt (mehr als
+180 Sekunden statt 120), ergänzt der Fuß \enquote{Eingeschränkter Service,
+Update etwa alle \emph{n} Minuten}. Anlass war ein Vorfall am 14.~September
+2026, bei dem die Seite nur alle 83 Minuten aktualisiert wurde.

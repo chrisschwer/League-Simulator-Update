@@ -1,0 +1,172 @@
+\chapter{Regionalligen: Kopplung, Aufstieg, Malus}\label{kap:regionalliga}
+
+In den Regionalligen hängt an einem Tabellenplatz oft nicht allein, ob man
+auf- oder absteigt. Wie viele Mannschaften eine Staffel abgeben muss, hängt
+davon ab, wie viele Drittligisten in sie zurückfallen. Wer aufsteigt, hängt
+für zwei Staffeln an Aufstiegsspielen gegeneinander. Die Rechtsgrundlagen
+für 2026/27 stehen in \datei{docs/abstieg_aufstieg_RL_2026_2027.md}, die
+Modellannahmen in \datei{docs/modellannahmen-rl-kopplung.md}. Die
+Entscheidungen dazu halten ADR~0006 und ADR~0008 fest.
+
+\section{Die Abstiegskopplung an die 3.~Liga}\label{sec:kopplung}
+
+\subsection*{Verteilung der Drittliga-Absteiger je Staffel}
+
+Jeder Drittligist ist über die Spalte \code{Region} der Stammdatei einer
+Staffel zugeordnet. Aus der Zusatzzählung des Monte-Carlo-Laufs
+(Kapitel~\ref{kap:simulation}) folgt direkt die Verteilung der Zahl der
+Absteiger je Staffel. Sie ist ausgezählt und nicht genähert
+(\datei{RCode/rl_abstiegskopplung.R:116--181}):
+\begin{equation}
+  q_g(j) = P(\text{genau } j \text{ Drittliga-Absteiger in Staffel } g) = \frac{G_{g,j}}{N}.
+\end{equation}
+Ausgezählt und nicht etwa aus den einzelnen Abstiegswahrscheinlichkeiten
+zusammengesetzt wird, weil die Abstiegsplätze negativ korreliert sind:
+Steigt ein Verein aus dem Norden ab, ist ein Platz weniger für alle anderen
+frei. Der Code prüft zwei Invarianten. Jede Zeile summiert sich zu $N$, und
+die erwartete Gesamtzahl $\sum_g \sum_j j\,q_g(j)$ ist exakt $K = 4$.
+
+\subsection*{Abstiegsplätze je Staffel}
+
+Wie viele Plätze bei $j$ Drittliga-Absteigern zum Abstieg führen, regeln die
+Spielordnungen der Regionalverbände (\datei{rl_abstiegskopplung.R:65--86}):
+
+\begin{center}
+\begin{tabular}{@{}llp{6.2cm}@{}}
+\toprule
+Staffel & Abstiegsplätze $n_g(j)$ & Grundlage \\
+\midrule
+Nord     & $3 + j$             & NFV-SpO §\,6 Abs.~3/4 \\
+Nordost  & $\min(1 + j,\ 2)$   & NOFV A.\ Nr.~5, Deckel 2 als Modellannahme \\
+West     & $4$                 & WDFV, entkoppelt \\
+SüdWest  & $\min(3 + j,\ 5)$   & RLSW-SpO §\,47 Nr.~1/2 \\
+Bayern   & $2$                 & BFV, dazu Relegation (s.\,u.) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection*{Platzgewichte und Abstiegswahrscheinlichkeit}
+
+Für eine Staffel mit $n$ Mannschaften ist der $d$-letzte Platz genau dann ein
+Abstiegsplatz, wenn $n_g(j) \ge d$. Sein Gewicht ist die Wahrscheinlichkeit
+dafür (\datei{rl_abstiegskopplung.R:339--345}):
+\begin{equation}
+  w_g(n - d + 1) = \sum_{j \,:\, n_g(j) \ge d} q_g(j), \qquad d = 1, \dots, n.
+\end{equation}
+Die Abstiegswahrscheinlichkeit einer Mannschaft verbindet dieses Gewicht mit
+ihrer eigenen Platzverteilung aus dem Hauptlauf der Staffel
+(\datei{rl_abstiegskopplung.R:371--392}):
+\begin{equation}\label{eq:rl-abstieg}
+  \boxed{\;P(t \text{ steigt ab}) = \sum_{p=1}^{n} \hat P_{t,p}\; w_g(p)\;}
+\end{equation}
+Das Produkt ist exakt und keine Näherung. 3.~Liga und Regionalliga sind
+getrennte Wettbewerbe, ihre Ergebnisse also unabhängig.
+
+\paragraph{Nord: die zweite Kopplung.} Steigt der Nord-Meister auf, muss die
+Staffel einen Absteiger weniger stellen. Mit $p_M$ als Summe der
+Aufstiegswahrscheinlichkeiten der Staffel mischt der Code beide Fälle
+(\datei{RCode/update_all_leagues_loop.R:783--788}):
+\begin{equation}
+  w^{\text{Nord}} = \clamp_{[0,1]}\Bigl((1 - p_M)\, w[n_g(j)] + p_M\, w[\max(n_g(j) - 1,\ 0)]\Bigr).
+\end{equation}
+Hier handelt es sich ausdrücklich um eine Näherung: Meisterschaft und
+Abstieg stammen aus derselben Simulation der Staffel und sind nicht
+unabhängig.
+
+\paragraph{Bayern: Relegation.} Die beiden Letzten steigen direkt ab. Die
+Plätze $n-3$ und $n-2$ spielen eine Relegation gegen die Bayernligen, die das
+Modell nicht auflöst. Die Website weist diese Plätze als eigene Spalte
+\enquote{Relegation} aus:
+$P(\text{Relegation}) = \hat P_{t,n-3} + \hat P_{t,n-2}$.
+
+\section{Wer aufsteigt}
+
+Vier Regionalligisten steigen in die 3.~Liga auf. West und SüdWest stellen
+ihren Aufsteiger dauerhaft direkt. Der dritte direkte Platz rotiert unter
+Nord, Nordost und Bayern. Die beiden übrigen dieser drei ermitteln den
+vierten Aufsteiger in Hin- und Rückspiel. Wer in welcher Saison an der Reihe
+ist, steht als Daten in \code{AUFSTIEGSROTATION}
+(\datei{RCode/rl_aufstieg.R:53}). Für 2026/27 steigt Nordost direkt auf,
+\textbf{Nord und Bayern} spielen gegeneinander. Für eine unbekannte Saison
+bricht der Code ab, statt still mit dem Vorjahreswert weiterzurechnen.
+
+\subsection*{Direktaufsteiger}
+
+\begin{equation}
+  P(\text{Aufstieg}) = P(\text{Meister}) = \hat P_{t,1}.
+\end{equation}
+
+\subsection*{Aufstiegsspiele}
+
+Für die beiden Playoff-Staffeln summiert der Code über alle möglichen
+Meisterpaarungen. Weil die Staffeln unabhängig simuliert werden, ist auch
+diese Doppelsumme exakt (\datei{rl_aufstieg.R:120--190}):
+\begin{equation}\label{eq:rl-aufstieg}
+  \boxed{\;P(X \text{ steigt auf}) = P_M(X) \cdot \sum_{Y} P_M(Y)\cdot P(X \text{ setzt sich gegen } Y \text{ durch})\;}
+\end{equation}
+Dabei ist $P_M$ die Meisterwahrscheinlichkeit aus dem Malus-Lauf
+(Abschnitt~\ref{sec:malus}), und $Y$ läuft über die Mannschaften der anderen
+Staffel. Es gilt immer $P(\text{Aufstieg}) < P(\text{Meister})$.
+
+\paragraph{Ein Duell über zwei Spiele.} Die Quote
+$P(X \text{ setzt sich gegen } Y \text{ durch})$ rechnet
+\datei{RCode/aufstiegsspiele.R:43--117} analytisch aus:
+
+\begin{enumerate}
+  \item Die Torerwartungen beider Spiele liefert der Endpunkt
+        \code{/match-preview}, mit der \emph{aktuellen} ELO beider
+        Mannschaften. Im Hinspiel hat Nord Heimrecht, im Rückspiel Bayern.
+  \item Die Tordifferenz eines Spiels ist verteilt als
+        \[
+          P(D = d) = \sum_{i} \pi_{\lambda_X}(i)\,\pi_{\lambda_Y}(i - d),
+        \]
+        abgeschnitten bei 15 Toren je Mannschaft.
+  \item Die Gesamtdifferenz ist die Faltung $D_1 * D_2$ der beiden Spiele.
+        Eine Auswärtstorregel gibt es nicht mehr.
+  \item Bei Gleichstand folgt eine Verlängerung mit den \emph{neutralen}
+        Raten $\lambda^{\text{neutral}} = (\lambda^{\text{hin}} + \lambda^{\text{rück}})/2$,
+        auf 30 Minuten skaliert: $\lambda_{\text{ev}} = \lambda^{\text{neutral}}/3$.
+        Ist es danach immer noch gleich, gilt das Elfmeterschießen als
+        50:50.
+\end{enumerate}
+\begin{equation}
+  P(X) = P(D_1 + D_2 > 0) + P(D_1 + D_2 = 0)\,\Bigl[P(D_{\text{ev}} > 0) + \tfrac12\,P(D_{\text{ev}} = 0)\Bigr].
+\end{equation}
+Im affinen Tormodell hebt sich der Heimvorteil über Hin- und Rückspiel
+exakt auf. Wer zuerst Heimrecht hat, spielt für die Quote keine Rolle.
+
+\paragraph{Siegquote.} Die Aufstiegsseite zeigt für die Playoff-Staffeln
+zusätzlich die Siegquote
+\[
+  \frac{P(\text{Aufstieg})}{P(\text{Meister})},
+\]
+also die Chance, die Aufstiegsspiele zu gewinnen, wenn man Meister wird. Ist
+$P(\text{Meister}) = 0$, bleibt die Zelle leer.
+
+\section{Der Zweitvertretungs-Malus}\label{sec:malus}
+
+Zweite Mannschaften von Profivereinen dürfen nicht in jede Liga aufsteigen.
+Nach §\,55b Nr.~3.1 der DFB-Spielordnung gilt (ADR~0008):
+
+\begin{itemize}
+  \item In der 3.~Liga und der 2.~Frauen-Bundesliga sind Zweitvertretungen
+        grundsätzlich nicht aufstiegsberechtigt.
+  \item In der Regionalliga ist eine Zweitvertretung nur dann nicht
+        aufstiegsberechtigt, wenn die erste Mannschaft in der 3.~Liga spielt.
+\end{itemize}
+
+Das Modell rechnet für die betroffenen Ligen einen \emph{zweiten}
+Monte-Carlo-Lauf, in dem die nicht aufstiegsberechtigten Mannschaften mit
+$-50$ Punkten starten:
+\begin{equation}
+  \text{adj\_points}_t = \text{Promotion}_t \in \{0,\ -50\}.
+\end{equation}
+Wer den Malus trägt, steht in der gepflegten Spalte \code{Promotion} der
+Stammdatei und wird nicht aus dem Kürzel erraten. Minus 50 Punkte nehmen eine
+Mannschaft praktisch aus dem Rennen um die oberen Plätze. Die Aufstiegsspalten
+dieser Ligen stammen aus dem Malus-Lauf. Heatmap und Abstieg kommen aus dem
+Hauptlauf, in dem alle normal mitspielen.
+
+In der Saison 2026/27 tragen zwei Mannschaften der 3.~Liga und sechs der
+2.~Frauen-Bundesliga den Malus. In den Regionalligen trägt ihn derzeit
+niemand.

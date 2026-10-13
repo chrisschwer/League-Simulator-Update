@@ -1,0 +1,130 @@
+\chapter{Die Stärkeschätzung: ELO}\label{kap:elo}
+
+Das ELO-System stammt aus dem Schach. Jede Mannschaft trägt eine Zahl, die
+ihre Spielstärke schätzt. Nach jedem Spiel wird verglichen, was das Modell
+erwartet hat und was passiert ist. Die Differenz, verstärkt durch die Höhe
+des Ergebnisses, verschiebt die Zahlen beider Mannschaften um denselben
+Betrag in entgegengesetzte Richtungen.
+
+In der Bundesliga liegen die Werte grob zwischen 1\,500 und 2\,100, in den
+Regionalligen etwa zwischen 700 und 1\,200. Die Skala hat keinen absoluten
+Nullpunkt. Bedeutung haben nur Unterschiede, und das auch nur innerhalb einer
+Wechselgemeinschaft, also einer Gruppe von Ligen, zwischen denen Mannschaften
+auf- und absteigen (Abschnitt~\ref{sec:wechselgemeinschaft}).
+
+Die Rechnung steht in einer einzigen Funktion,
+\code{calculate\_elo\_change}, in
+\datei{league-simulator-rust/src/elo/mod.rs:5--32}. Sie übernimmt die Logik
+der früheren C++-Implementierung (\datei{SpielNichtSimulieren.cpp}).
+
+\section{Erwartungswert}
+
+Es seien $E_h$ und $E_a$ die ELO-Werte der Heim- und der Gastmannschaft
+vor dem Spiel und $H = 40$ der Heimvorteil. Der Code bildet zuerst die
+\emph{invertierte} Differenz und begrenzt sie auf $\pm 400$:
+\begin{equation}
+  \Delta_{\text{inv}} = E_a - E_h - H, \qquad
+  \tilde\Delta = \clamp_{[-400,\,400]}\bigl(\Delta_{\text{inv}}\bigr)
+              = \min\bigl(\max(\Delta_{\text{inv}}, -400),\, 400\bigr).
+\end{equation}
+Der Erwartungswert der Heimmannschaft ist die klassische logistische
+ELO-Formel mit Basis 10 und Skala 400:
+\begin{equation}\label{eq:elo-erwartung}
+  p_h = \frac{1}{1 + 10^{\tilde\Delta/400}}.
+\end{equation}
+
+\begin{itemize}
+  \item Der Heimvorteil wird auf die ELO der Heimmannschaft aufgeschlagen.
+        Bei gleich starken Mannschaften erwartet das Modell für die
+        Heimmannschaft $p_h = 1/(1+10^{-0{,}1}) \approx 0{,}557$.
+  \item Wegen der Begrenzung gilt immer
+        $p_h \in [\tfrac{1}{11},\, \tfrac{10}{11}] \approx [0{,}091;\ 0{,}909]$.
+        Auch ein krasser Favorit kann bei einem Sieg also noch Punkte gewinnen.
+  \item $p_h$ ist ein \emph{erwarteter Score}, bei dem ein Remis als halber
+        Sieg zählt. Es ist \emph{nicht} die Siegwahrscheinlichkeit des
+        Tormodells (Abschnitt~\ref{sec:skalen}).
+\end{itemize}
+
+\section{Tatsächlicher Score und Tordifferenz-Multiplikator}
+
+Das Ergebnis wird auf einen Score abgebildet. Ein Sieg zählt 1, ein Remis
+0{,}5 und eine Niederlage 0
+(\datei{elo/mod.rs:16--17}):
+\begin{equation}
+  S = \frac{\sgn(g_h - g_a) + 1}{2} \in \{0,\ \tfrac12,\ 1\}.
+\end{equation}
+Hohe Siege zählen mehr, aber gedämpft. Der Multiplikator ist die Wurzel der
+Tordifferenz, mindestens 1 (\datei{elo/mod.rs:19--20}):
+\begin{equation}
+  m = \sqrt{\max\bigl(\lvert g_h - g_a\rvert,\ 1\bigr)}.
+\end{equation}
+Remis und Siege mit einem Tor Unterschied haben $m = 1$. Ein 4:0 hat
+$m = 2$ und verschiebt damit doppelt so viel wie ein 1:0.
+
+\section{Das Update}
+
+Mit dem Gewichtungsfaktor $k = 20$ (\code{mod\_factor}) gilt
+(\datei{elo/mod.rs:23--27}):
+\begin{equation}\label{eq:elo-update}
+  \boxed{\;\delta = k \cdot m \cdot (S - p_h), \qquad
+  E_h' = E_h + \delta, \qquad E_a' = E_a - \delta\;}
+\end{equation}
+
+\begin{description}[font=\sffamily\bfseries\small]
+  \item[Nullsumme] Was die eine Mannschaft gewinnt, verliert die andere. In
+        einer geschlossenen Liga bleiben Summe und Mittelwert der ELO über die
+        ganze Saison konstant. Der Rust-Test
+        \code{elo\_is\_conserved\_by\_the\_walk} prüft das, und die Eichung
+        neuer Ligen (Abschnitt~\ref{sec:eichung}) nutzt es.
+  \item[Keine Rundung] ELO ist durchgehend eine Gleitkommazahl. Die
+        Stammdatei speichert volle Genauigkeit, zum Beispiel
+        \code{2057.25650898366} für den FC Bayern. Gerundet wird nur bei der
+        Anzeige.
+  \item[Reihenfolge] Die Updates werden in chronologischer Reihenfolge der
+        Anstoßzeiten ausgeführt, ausgehend vom ELO-Wert zum Saisonstart
+        (\code{InitialELO} in \datei{RCode/TeamList_2026.csv}). Diese
+        Kette heißt im Code \emph{ELO-Walk}.
+  \item[Gewertete Spiele] Spiele, die am grünen Tisch gewertet wurden
+        (Status AWD oder WO), zählen für die Tabelle, bewegen die ELO aber
+        nicht (Issue~\#157). Ein 3:0 am grünen Tisch sagt nichts über die
+        Spielstärke aus.
+\end{description}
+
+\section{Rechenbeispiel}\label{sec:elo-beispiel}
+
+Das Eröffnungsspiel der Saison 2026/27: FC Bayern ($E_h = 2057{,}26$) gegen
+VfB Stuttgart ($E_a = 1805{,}06$).
+\begin{align*}
+  \Delta_{\text{inv}} &= 1805{,}06 - 2057{,}26 - 40 = -292{,}19
+    \quad\text{(innerhalb $\pm 400$)},\\
+  p_h &= 1/(1 + 10^{-292{,}19/400}) = 0{,}8432.
+\end{align*}
+
+\begin{center}
+\begin{tabular}{@{}lccr@{}}
+\toprule
+Ergebnis & $S$ & $m$ & ELO-Änderung Bayern $\delta$ \\
+\midrule
+2:1 & 1   & 1          & $20 \cdot 1 \cdot (1 - 0{,}8432) = +3{,}14$ \\
+4:0 & 1   & 2          & $+6{,}27$ \\
+1:1 & 0{,}5 & 1        & $-6{,}86$ \\
+0:2 & 0   & $\sqrt2$   & $-23{,}85$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Stuttgart erhält jeweils den Gegenwert mit umgekehrtem Vorzeichen. Ein Remis
+kostet den Favoriten mehr, als ein knapper Sieg ihm einbringt: Das Modell
+hatte einen Sieg weitgehend vorausgesetzt.
+
+Eine zweite Gegenprobe steht in ADR~0002. Ein 3:0 bei 1\,500 gegen 1\,480
+ergibt $\delta = 20\sqrt3\,(1 - p_h) = +14{,}359$.
+
+\begin{merke}[Wie die ELO-Werte auf die Seite kommen]
+Gespeichert wird nur die ELO zum Saisonstart. Den aktuellen Stand und jeden
+Zwischenstand rechnet der Rust-Server bei jedem Rendern neu aus allen
+gespielten Spielen nach. Das geschieht deterministisch über den Endpunkt
+\code{POST /league-details} (ADR~0002). Ligatabelle, Rückblick, Ausblick und
+ELO-Verlauf beruhen so alle auf demselben Walk und können sich nicht
+widersprechen.
+\end{merke}

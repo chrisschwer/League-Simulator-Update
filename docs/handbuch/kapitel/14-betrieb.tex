@@ -1,0 +1,171 @@
+\chapter{Rendering, Auslieferung, Build und Betrieb}\label{kap:betrieb}
+
+\section{Rendering}
+
+Der Seitengenerator (\datei{RCode/generate_static_site.R}) baut die Seiten
+mit dem R-Paket \code{htmltools}. Der Ablauf:
+
+\begin{enumerate}
+  \item Nur Ligen, für die alle benötigten Ergebnisse vorliegen, werden
+        gerendert. Die übrigen werden übersprungen und im Log genannt: Eine
+        Website ohne eine Liga ist besser als gar keine.
+  \item Zuerst werden die Verlaufsdaten aller Ligen berechnet. Davon hängen
+        der Link auf der Ligaseite und die Ziele der Navigation auf den
+        Verlaufsseiten ab.
+  \item Danach entstehen die Ligaseiten, die Verlaufsseiten (jede einzeln
+        abgesichert), die Aufstiegsseite (nur wenn mindestens eine
+        Regionalliga dabei ist) und die Methodik-Seite.
+  \item Abschließend steht im Log \enquote{wrote 22 pages}.
+\end{enumerate}
+
+\paragraph{Atomares Schreiben.} Jede Seite wird zuerst in eine Datei
+\code{<name>.tmp} im selben Verzeichnis geschrieben und dann umbenannt
+(\datei{generate_static_site.R:960--980}). Das Umbenennen ist auf demselben
+Dateisystem atomar. Der Webserver sieht deshalb immer entweder die alte oder
+die vollständige neue Seite, nie eine halb geschriebene.
+
+\paragraph{Assets.} Stilvorlage, Schriften, Favicon und \code{verlauf.js}
+werden bei jedem Rendern nach \code{assets/} kopiert.
+
+\section{Auslieferung}
+
+Caddy bindet das Volume nur lesend ein, komprimiert mit zstd und gzip und
+setzt Cache-Regeln je Pfad:
+
+\begin{center}
+\small
+\begin{tabular}{@{}ll@{}}
+\toprule
+Pfad & \code{Cache-Control} \\
+\midrule
+Ligaseiten, Verlaufsseiten, Aufstiegsseite & \code{no-cache} \\
+\code{methodik.html} & \code{public, max-age=3600} \\
+\code{/assets/*} & \code{public, max-age=300} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{achtung}[Neue Seiten brauchen eine eigene Caddy-Zeile]
+Die Pfadregeln in Caddy gelten exakt. Eine Seite, die im \code{route}-Block
+nicht genannt ist, bekommt \emph{gar keinen} Cache-Header. Wer eine Seite
+hinzufügt, trägt sie vor dem Deployment in die Caddy-Konfiguration ein. So
+geschah es zuletzt am 11.~Oktober 2026 für die zehn Verlaufsseiten.
+\end{achtung}
+
+\section{Container}
+
+Das Produktions-Image (\datei{Dockerfile}) wird in drei Stufen gebaut:
+
+\begin{enumerate}
+  \item \code{rust:1.98-alpine} kompiliert den Rust-Server.
+  \item \code{rocker/r-ver:4.6.1} installiert die R-Pakete mit allen
+        Entwicklungsbibliotheken.
+  \item Das Laufzeit-Image \code{rocker/r-ver:4.6.1} enthält nur die nötigen
+        Bibliotheken, die R-Pakete, das Rust-Programm und \datei{RCode/}.
+        Es läuft als Benutzer \code{appuser} (uid 1001), nicht als root.
+\end{enumerate}
+
+Die R-Pakete im Produktionspfad sind \code{dplyr}, \code{tidyr},
+\code{tibble}, \code{magrittr}, \code{httr}, \code{jsonlite}, \code{digest},
+\code{xtable}, \code{here} und \code{htmltools}. Tests und Skripte gehören
+nicht zum Image.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+Einstellung & Wert \\
+\midrule
+Healthcheck & \code{curl -f http://localhost:8080/health}, alle 30~s \\
+Umgebung & \code{RAPIDAPI\_KEY} (Pflicht), \code{SEASON=2026}, \code{DURATION} leer, \code{TZ=Europe/Berlin}, \code{STATIC\_SITE\_DIR=/app/ShinyApp/public} \\
+Volume & \code{fussball-site} $\rightarrow$ \code{/app/ShinyApp/public} \\
+Ressourcen & 2~GB Speicher, 4 CPUs, Logs $3 \times 10$~MB \\
+Neustart & \code{unless-stopped} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Der Healthcheck prüft nur, ob der Rust-Server lebt. Ein hängender
+R-Scheduler macht den Container nicht \enquote{unhealthy}. Nach einem
+Deployment muss man deshalb die Logs lesen, nicht nur den Status.
+
+\section{Continuous Integration}
+
+GitHub Actions (\datei{.github/workflows/ci.yml}) prüft jeden Pull Request
+und jeden Push auf \code{main}:
+
+\begin{description}[font=\sffamily\bfseries\small]
+  \item[rust-quality] \code{cargo fmt --check}, \code{cargo clippy -D warnings},
+        \code{cargo test --release} (76 Tests).
+  \item[r-lint] \code{lintr} 3.4.0 (fest gepinnt) über \datei{RCode/}, mit
+        Zeilenlänge 120. Jeder Befund lässt den Job scheitern.
+  \item[image-build-and-test] baut das Produktions-Image, startet darin den
+        Rust-Server und führt den vollständigen R-Testsatz aus, einschließlich
+        der JavaScript-Tests mit Node 24 und jsdom. Ein Test, der übersprungen
+        wird, weil Rust oder Node fehlt, gilt in der CI als Fehler.
+  \item[push-image] nur auf \code{main}: Das Image geht mit den Tags
+        \code{:latest} und \code{:<kurzer Commit-SHA>} zu Docker Hub
+        (\code{chrisschwer/league-simulator}).
+  \item[report-failure] legt bei einem Fehlschlag auf \code{main} ein Issue an.
+\end{description}
+
+Dazu kommt CodeQL, das wöchentlich und bei jedem Pull Request die
+Workflow-Dateien prüft.
+
+\section{Tests}
+
+\begin{itemize}
+  \item \textbf{R}: rund 870 \code{testthat}-Blöcke in 61 Dateien. Die
+        Dateien folgen einer festen Namensregel
+        \code{test-<einheit>[-<thema>].R}, wobei \code{<einheit>} der Name
+        einer Datei in \datei{RCode/} ist. Ein Wächtertest erzwingt die Regel.
+  \item \textbf{JavaScript}: Sortierung, Tooltips, Veraltet-Hinweis und das
+        Verlaufsdiagramm werden in Node mit jsdom getestet, aufgerufen aus den
+        R-Tests der erzeugenden Einheit.
+  \item \textbf{Rust}: 76 Tests, darunter die Erhaltung der ELO-Summe und
+        die Gleichheit von Tormodell in Simulation und Spieldetails.
+  \item \textbf{Naht R–Rust}: Integrationstests gegen einen laufenden
+        Rust-Server prüfen die JSON-Verträge.
+\end{itemize}
+
+\section{Betrieb}
+
+Produktiv läuft der Container auf einem eigenen Server. Dessen
+\code{compose.yml} pinnt das Image auf den Commit-SHA eines Merges auf
+\code{main}, nie auf \code{latest}, und es gibt keinen automatischen
+Updater. Ein Deployment ist im Kern eine einzige geänderte Zeile:
+
+\begin{enumerate}
+  \item Umfang prüfen: was sich seit dem laufenden Stand geändert hat, laut
+        \code{git log} und nicht laut Pull-Request-Text.
+  \item Neue Seiten vorab in die Caddy-Konfiguration eintragen.
+  \item Pin auf den neuen SHA setzen, \code{docker compose pull} und
+        \code{up -d}.
+  \item Verifizieren, und zwar bis über die zweite Runde des Schedulers
+        hinaus: kein Neustart-Kreislauf, \enquote{wrote 22 pages}, keine
+        Warnungen im Log, alle Seiten mit Status 200 und korrektem
+        Cache-Header.
+\end{enumerate}
+
+Ein Rollback setzt den Pin auf den vorherigen SHA zurück. Das alte Image
+liegt lokal auf dem Server.
+
+\section{Werkzeuge für Betreiber}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+Skript & Zweck \\
+\midrule
+\code{scripts/season\_transition.R} & Saisonwechsel: End-ELO berechnen, neue Stammdatei erzeugen \\
+\code{scripts/preview\_site.R} & lokale Vorschau der Website aus einer gespeicherten Ergebnisdatei \\
+\code{scripts/verlauf\_fixture.R} & Beispieldaten für die Vorschau der Verlaufsseiten (braucht den Rust-Server) \\
+\code{scripts/calibrate\_historical\_elo.R} & einmalige ELO-Eichung neuer Ligen, schreibt nur mit \code{--confirm} \\
+\code{scripts/analyze\_league\_empirics.R} & Empirie-Report: Tore je Spiel, Heim/Remis/Auswärts, Remisquoten \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Destruktive Werkzeuge laufen standardmäßig als Probelauf und verändern erst
+mit \code{--confirm} etwas.

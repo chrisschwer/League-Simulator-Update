@@ -1,0 +1,77 @@
+\chapter{Überblick}
+
+Der League Simulator schätzt für zehn deutsche Fußballligen, mit welcher
+Wahrscheinlichkeit jede Mannschaft am Saisonende auf welchem Tabellenplatz
+steht. Er rechnet nach jedem beendeten Spiel neu und veröffentlicht das
+Ergebnis als statische Website unter
+\href{https://fussball.csdatascience.de}{fussball.csdatascience.de}, die unter
+dem Namen des Blogs \enquote{30~Punkte} läuft.
+
+Abgedeckt sind die Bundesliga, die 2.~Bundesliga, die 3.~Liga, die fünf
+Regionalligen (Nord, Nordost, West, SüdWest, Bayern) sowie die
+Frauen-Bundesliga und die 2.~Frauen-Bundesliga.
+
+\section*{Das Modell in drei Sätzen}
+
+\begin{enumerate}
+  \item Jede Mannschaft hat eine \emph{Stärkeschätzung}, den ELO-Wert. Er steigt,
+        wenn sie besser abschneidet, als das Modell erwartet hat, und fällt,
+        wenn sie schlechter abschneidet (Kapitel~\ref{kap:elo}).
+  \item Aus dem ELO-Unterschied zweier Mannschaften folgt für jede eine
+        Torerwartung. Die Tore eines Spiels werden als unabhängige
+        Poisson-Zufallszahlen gezogen (Kapitel~\ref{kap:tormodell}).
+  \item Der Rest der Saison wird zehntausendmal durchgespielt. Der Anteil der
+        Durchläufe, in denen eine Mannschaft auf einem Platz landet, ist die
+        angezeigte Wahrscheinlichkeit (Kapitel~\ref{kap:simulation}).
+\end{enumerate}
+
+Alles Weitere ist Feinarbeit: Regeln für Auf- und Abstieg zwischen den Ligen
+(Kapitel~\ref{kap:regionalliga}), die Herkunft der Startwerte
+(Kapitel~\ref{kap:startwerte}) und eine ehrliche Liste dessen, was das Modell
+nicht kann (Kapitel~\ref{kap:grenzen}).
+
+\section*{Aufbau dieses Handbuchs}
+
+\begin{description}[font=\sffamily\bfseries\small]
+  \item[Teil I, Methodik] Alle Formeln, so wie der Code sie rechnet,
+        mit Konstanten, Rechenbeispielen und Quellverweisen.
+  \item[Teil II, Website] Die 22 Seiten und jedes Element darauf, von der
+        Heatmap bis zum ELO-Verlaufsdiagramm, dazu das Gestaltungssystem.
+  \item[Teil III, Technik] Datenfluss, Scheduler, Rust-Simulationsserver,
+        Rendering, Container, CI und Betrieb.
+\end{description}
+
+\begin{merke}[Zur Genauigkeit]
+Die Formeln in diesem Handbuch sind aus dem Quelltext abgelesen und nicht
+aus Lehrbüchern übernommen. Wo der Code von der üblichen Darstellung
+abweicht, etwa beim Tordifferenz-Multiplikator oder bei der Begrenzung der
+ELO-Differenz, gilt der Code. Verweise wie
+\datei{league-simulator-rust/src/elo/mod.rs:5} nennen Datei und Zeile auf dem
+Stand \texttt{a41890a}. Alle Rechenbeispiele sind nachgerechnet.
+\end{merke}
+
+\section*{Die Modellkonstanten}
+
+Zwei Parametergruppen bestimmen jede Prognose. Sie stehen
+\emph{ausschließlich} im Rust-Server
+(\datei{league-simulator-rust/src/models/mod.rs:124--130}). R sendet einen Wert
+nur, wenn eine Liga bewusst abweicht, und das betrifft nur das Tormodell der
+Frauen-Ligen (ADR~0002, ADR~0004). Ein Wächtertest im R-Testsatz sorgt dafür,
+dass keine dieser Zahlen im R- oder JavaScript-Code oder im Seitentext
+auftaucht.
+
+\begin{center}
+\begin{tabular}{@{}llll@{}}
+\toprule
+Symbol & Name im Code & Wert & Gilt für \\
+\midrule
+$k$   & \code{mod\_factor}      & 20 & alle Ligen \\
+$H$   & \code{home\_advantage}  & 40 & alle Ligen \\
+$N$   & \code{iterations}       & \num{10000} & alle Ligen \\
+$s$   & \code{tore\_slope}      & 0{,}0017854953143549 & Herren-Ligen \\
+$c$   & \code{tore\_intercept}  & 1{,}3218390804597700 & Herren-Ligen \\
+$s_F$ & \code{tore\_slope}      & 0{,}0024058833 & Frauen-Ligen (82, 1034) \\
+$c_F$ & \code{tore\_intercept}  & 1{,}6527603153 & Frauen-Ligen (82, 1034) \\
+\bottomrule
+\end{tabular}
+\end{center}

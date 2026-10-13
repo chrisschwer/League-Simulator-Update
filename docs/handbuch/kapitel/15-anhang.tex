@@ -1,0 +1,120 @@
+\chapter{Formelübersicht}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.6}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright}p{3.4cm}X@{}}
+\toprule
+Größe & Formel \\
+\midrule
+ELO-Erwartung & $p_h = \dfrac{1}{1 + 10^{\clamp_{[-400,400]}(E_a - E_h - H)/400}}$ \\
+Score & $S = \tfrac12\bigl(\sgn(g_h - g_a) + 1\bigr)$ \\
+Multiplikator & $m = \sqrt{\max(\lvert g_h - g_a\rvert, 1)}$ \\
+ELO-Update & $\delta = k\,m\,(S - p_h)$, \quad $E_h' = E_h + \delta$, \quad $E_a' = E_a - \delta$ \\
+Torerwartung & $\lambda_{h,a} = \max\bigl(\pm s\,(E_h + H - E_a) + c,\ 0{,}001\bigr)$ \\
+Tore & $g \sim \Pois(\lambda)$, unabhängig, per Quantilfunktion \\
+Platzwahrscheinlichkeit & $\hat P_{t,p} = C_{t,p}/N$ \\
+Platzgruppe & $\sum_{p=l}^{u} \hat P_{t,p}$ \\
+RL-Abstieg & $\sum_p \hat P_{t,p}\, w_g(p)$, \quad $w_g(n-d+1) = \sum_{j:\,n_g(j) \ge d} q_g(j)$ \\
+RL-Aufstieg (Playoff) & $P_M(X) \sum_Y P_M(Y)\, P(X \succ Y)$ \\
+Heatmap-Farbe & $t = p^{0{,}6}$, \quad $\text{RGB} = \operatorname{round}\bigl(255 + t\,(\text{Tinte} - 255)\bigr)$ \\
+Standardfehler & $\sqrt{\hat P(1 - \hat P)/N} \le 0{,}005$ \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\chapter{Die zehn Ligen}
+
+\begin{center}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{@{}llcll>{\raggedright\arraybackslash}X@{}}
+\toprule
+Liga & Schlüssel & API-ID & Familie & Teams & Besonderheit \\
+\midrule
+Bundesliga & \code{bundesliga} & 78 & Herren & 18 & \\
+2.~Bundesliga & \code{zweite\_bundesliga} & 79 & Herren & 18 & \\
+3.~Liga & \code{dritte\_liga} & 80 & Herren & 20 & Abstieg in fünf Regionen; Malus-Lauf \\
+Frauen-Bundesliga & \code{frauen\_bundesliga} & 82 & Frauen & 12--14 & eigenes Tormodell \\
+2.~Frauen-Bundesliga & \code{zweite\_frauen\_bl}\textsuperscript{*} & 1034 & Frauen & 14 & drei Absteiger; Malus-Lauf \\
+Regionalliga Bayern & \code{rl\_bayern} & 83 & Herren & 16--22 & 2026/27 Aufstiegsspiele; Relegation \\
+Regionalliga Nord & \code{rl\_nord} & 84 & Herren & 16--22 & 2026/27 Aufstiegsspiele \\
+Regionalliga Nordost & \code{rl\_nordost} & 85 & Herren & 16--22 & 2026/27 Direktaufstieg (Rotation) \\
+Regionalliga SüdWest & \code{rl\_suedwest} & 86 & Herren & 16--22 & Direktaufstieg \\
+Regionalliga West & \code{rl\_west} & 87 & Herren & 16--22 & Direktaufstieg, Abstieg entkoppelt \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textsuperscript{*}\,Vollständig \code{zweite\_frauen\_bundesliga}. Die Mannschaftszahlen sind Spannen und keine festen Werte. Die Registry
+prüft, ob eine Liga in ihrer Spanne liegt, und erlaubt so Ligen, die ihre
+Größe ändern.
+
+\chapter{Begriffe}
+
+\begin{description}[font=\sffamily\bfseries\small,style=nextline]
+  \item[ELO] Stärkeschätzung einer Mannschaft, Kapitel~\ref{kap:elo}.
+  \item[ELO-Walk] Die Kette der ELO-Updates über alle gespielten Spiele einer
+        Saison, ausgehend von der Start-ELO.
+  \item[Wechselgemeinschaft] Gruppe von Ligen, zwischen denen Mannschaften
+        auf- und absteigen und die deshalb ein Tormodell teilen.
+  \item[Hauptlauf / Malus-Lauf] Die reguläre Simulation und die zweite
+        Simulation, in der nicht aufstiegsberechtigte Zweitvertretungen mit
+        $-50$ Punkten starten.
+  \item[Abstiegskopplung] Die Abhängigkeit der Regionalliga-Absteiger von den
+        Drittliga-Absteigern aus derselben Region.
+  \item[Gewertetes Spiel] Am grünen Tisch entschiedenes Spiel (AWD, WO).
+        Zählt für die Tabelle, nicht für die ELO.
+  \item[Nachholspiel] Ein Spiel, das nach Beginn eines späteren Spieltags
+        angepfiffen wird.
+  \item[Kürzel] Kurzname einer Mannschaft (\code{ShortText}), nur innerhalb
+        einer Liga eindeutig.
+  \item[Registry] \datei{RCode/league_registry.R}: alle Ligen und ihre
+        Eigenschaften als Daten.
+  \item[Statische Seite] Fertige HTML-Datei ohne Server-Logik, Kapitel~\ref{kap:seiten}.
+\end{description}
+
+\chapter{Wichtige Quelldateien}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+Datei & Inhalt \\
+\midrule
+\multicolumn{2}{@{}l}{\textit{Rust: Modell}} \\
+\datei{src/models/mod.rs} & Modellkonstanten, Datenstrukturen \\
+\datei{src/elo/mod.rs} & ELO-Erwartung und Update \\
+\datei{src/simulation/match_sim.rs} & Tormodell, Poisson-Ziehung \\
+\datei{src/simulation/season.rs} & Saisonsimulation, Tabelle \\
+\datei{src/monte_carlo/mod.rs} & Monte Carlo, Zufallszahlen, Parallelität \\
+\datei{src/league_details/mod.rs} & deterministischer Walk, 1/X/2, Ergebnis-Matrix \\
+\datei{src/api/handlers.rs} & Endpunkte, Prüfung der Anfragen \\
+\midrule
+\multicolumn{2}{@{}l}{\textit{R: Ablauf und Daten}} \\
+\datei{RCode/updateScheduler.R} & Einstieg, Zeitfenster \\
+\datei{RCode/update_all_leagues_loop.R} & Hauptschleife, Gating, Haupt- und Malus-Lauf \\
+\datei{RCode/retrieveResults.R} & API-Football-Abrufe \\
+\datei{RCode/rate_limit_takt.R} & Taktregler \\
+\datei{RCode/transform_data.R} & Statusgruppen, Sortierung, Malus \\
+\datei{RCode/rust_integration.R} & HTTP-Client für den Rust-Server \\
+\datei{RCode/league_details.R} & Spieldetails, Ligatabelle, Fenster \\
+\datei{RCode/league_registry.R} & die zehn Ligen als Daten \\
+\datei{RCode/rl_abstiegskopplung.R} & Abstiegskopplung \\
+\datei{RCode/rl_aufstieg.R}, \datei{aufstiegsspiele.R} & Aufstiegsrotation und -spiele \\
+\midrule
+\multicolumn{2}{@{}l}{\textit{R und Web: Website}} \\
+\datei{RCode/generate_static_site.R} & Seitengenerator \\
+\datei{RCode/render_sections.R} & Tabelle, Rückblick, Ausblick, Zonen \\
+\datei{RCode/render_helpers.R} & Prozentformat, Heatmap-Farbe, Platzgruppen \\
+\datei{RCode/league_views.R} & Ansichten und Spaltengruppen je Liga \\
+\datei{RCode/elo_verlauf.R} & Daten der Verlaufsseiten \\
+\datei{RCode/site_assets/} & \code{site.css}, \code{verlauf.js}, Schriften, Methodik-Text \\
+\midrule
+\multicolumn{2}{@{}l}{\textit{Dokumente}} \\
+\datei{docs/adr/} & Architekturentscheidungen 0001--0008 \\
+\datei{docs/modellannahmen-rl-kopplung.md} & Annahmen der Regionalliga-Kopplung \\
+\datei{docs/reports/} & Empirie, Frauen-Tormodell, Heimvorteil \\
+\datei{docs/deployment/} & Container, Caddy, Rollback \\
+\bottomrule
+\end{tabularx}
+\end{center}

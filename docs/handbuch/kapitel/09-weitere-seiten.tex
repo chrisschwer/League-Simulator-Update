@@ -1,0 +1,130 @@
+\chapter{Aufstieg, Methodik, ELO-Verlauf}\label{kap:weitere}
+
+\section{Die Aufstiegsseite der Regionalligen}
+
+Die Seite \code{rl-aufstieg.html} gehört zu keiner Liga. Sie fasst den
+Aufstieg aus allen fünf Staffeln zusammen
+(\code{.render\_aufstiegsseite}, \datei{RCode/generate_static_site.R:860--904}).
+Unter der Überschrift \enquote{Aufstieg in die 3.~Liga} erklärt ein kurzer
+Text die Regel. Danach folgt je Staffel eine Tabelle mit drei Spalten:
+
+\begin{description}[font=\sffamily\bfseries\small]
+  \item[Meister] $P(\text{Platz 1})$ aus dem Hauptlauf der Staffel.
+  \item[Aufstieg] Bei Direktaufsteigern gleich dem Meister, bei den
+        Playoff-Staffeln nach Gleichung~\eqref{eq:rl-aufstieg}.
+  \item[Siegquote] $P(\text{Aufstieg})/P(\text{Meister})$, nur bei den
+        Playoff-Staffeln. Leer, wenn der Quotient nicht definiert ist.
+\end{description}
+
+Welche Staffel Playoff-Staffel ist, liest die Seite aus der Ansicht ab und
+nicht aus festen Staffelnamen. So folgt sie der jährlichen Rotation ohne
+Codeänderung. Gezeigt werden nur Mannschaften mit einer Meister- oder
+Aufstiegschance über null.
+
+\screenshot{aufstiegsseite}{Die Aufstiegsseite mit den fünf Staffeln.}
+
+\section{Die Methodik-Seite}
+
+Der Text der Methodik-Seite ist redaktionell und liegt als fertiges HTML in
+\datei{RCode/site_assets/methodik_content.html}. Er geht auf den Blogbeitrag
+\enquote{Was die Prognosen mit Schach zu tun haben} vom 1.~April 2015 zurück
+und wurde für den Relaunch überarbeitet. Er erklärt das Modell ohne Formeln:
+
+\begin{enumerate}
+  \item Die Stärkeschätzung ELO, Heimvorteil 40 Punkte, gedämpfte Wirkung
+        hoher Siege,
+  \item vom Stärkeunterschied zum Ergebnis: Torerwartung, Poisson-Verteilung,
+        das Beispiel Bayern gegen Stuttgart,
+  \item zehntausend Saisons: das Monte-Carlo-Verfahren,
+  \item Abstieg aus den Regionalligen und warum er erst am Saisonende
+        feststeht,
+  \item was die Prognose kann und was nicht: Häkchen, Gleichstand,
+        Zweitvertretungen, Wertungen, Modellgüte.
+\end{enumerate}
+
+Ein farbig abgesetzter Absatz vermerkt die Neukalibrierung des
+Heimvorteils von 65 auf 40 Punkte im September 2026.
+
+\section{Die ELO-Verlaufsseiten}\label{sec:verlauf}
+
+Seit Oktober 2026 hat jede Liga eine Verlaufsseite (Issue~\#184). Sie zeigt,
+wie sich die Stärkeschätzung jeder Mannschaft über die Saison entwickelt hat.
+Gestaltet ist sie nach den Grundsätzen von Edward Tufte, mit den
+Gestaltungsmitteln der Website.
+
+\screenshot{verlauf-bundesliga}{ELO-Verlauf mit hervorgehobenem Verein und Tooltip.}
+
+\subsection*{Aufbau}
+
+\begin{enumerate}
+  \item Kopf und Navigation (die Liga-Links führen zu den anderen
+        Verlaufsseiten), darunter ein Rücklink \enquote{← Prognose \emph{Liga}}.
+  \item Überschrift \enquote{ELO-Verlauf \emph{Liga} \emph{Saison}} und der
+        Einleitungssatz \enquote{Jede Linie ist ein Verein, jeder Knick ein
+        Spiel. […] Die Zahl am Ende jeder Linie ist der heutige Stand.}
+  \item Das Diagramm mit einem Umschalter \enquote{Nach Spielen} /
+        \enquote{Nach Datum}.
+  \item Ein Hinweis, dass die Kurven aus denselben Spielen und demselben
+        Modell entstehen wie die Prognose, mit Verweis auf die Methodik. Er
+        nennt bewusst keine Modellkonstanten.
+  \item Die Tabelle \enquote{Stärkeschätzung heute}: Verein, ELO zum
+        Saisonbeginn, ELO heute und Veränderung, sortiert nach der heutigen
+        ELO. Sie wird auf dem Server erzeugt und funktioniert auch ohne
+        JavaScript.
+\end{enumerate}
+
+\subsection*{Die Daten}
+
+\code{elo\_verlauf\_daten()} (\datei{RCode/elo_verlauf.R:41--116}) baut für
+jeden Verein eine Punktfolge. Punkt 0 ist die ELO zum Saisonstart. Danach
+folgt je \emph{gespieltem} Spiel ein Punkt mit Datum, Spieltag,
+Nachholspiel-Kennzeichen, Gegner, Ergebnis, ELO vor und nach dem Spiel, der
+Änderung $\delta$ und den Wahrscheinlichkeiten für Sieg und Remis vor dem
+Spiel. Gewertete Spiele erzeugen keinen Punkt, weil sie die ELO nicht
+bewegen.
+
+Eine Invariante sichert die Konsistenz mit der Ligatabelle: Der letzte Punkt
+jeder Linie muss auf $10^{-6}$ genau der ELO in der Tabelle entsprechen.
+Sonst entfällt diese eine Verlaufsseite mit einer Warnung im Log, und alle
+anderen Seiten entstehen trotzdem.
+
+Die Daten gehen als JSON in einem
+\code{<script type="application/json">}-Element in die Seite. Jedes
+\enquote{\textless} wird dabei als \code{\textbackslash u003c} kodiert. Das
+bleibt gültiges JSON, und kein Vereinsname kann das Skript-Element mit
+\code{</script>} oder \code{<!--} vorzeitig beenden.
+
+\subsection*{Das Diagramm}
+
+Das Skript \datei{RCode/site_assets/verlauf.js} zeichnet ein SVG mit dem
+Koordinatensystem $1080 \times 640$.
+
+\begin{description}[font=\sffamily\bfseries\small]
+  \item[Wenig Tinte] Keine Rahmen, Achsenlinien, Schatten oder Flächen.
+        Waagerechte Hilfslinien liegen alle 50 ELO-Punkte. Alle Linien sind
+        leise grau, genau eine ist hervorgehoben (Tintenblau, 2~px). Es gibt
+        keine Vereinsfarben und keine Legende. Jede Linie ist an ihrem Ende
+        direkt beschriftet, mit dem Kürzel und der gerundeten heutigen ELO.
+  \item[Senkrechte Skala] Sie reicht vom kleinsten bis zum größten Wert, mit
+        einem Polster von 6~Prozent der Spanne, mindestens 10 Punkte. Liegt
+        die Oberkante nah an einer 50er-Linie, rastet sie dort ein, damit das
+        Diagramm oben mit einer Hilfslinie abschließt.
+  \item[Zwei Zeitachsen] \enquote{Nach Spielen} (Standard) setzt das
+        $n$-te Spiel jedes Vereins an dieselbe Stelle. \enquote{Nach Datum}
+        zeigt die echte Zeitachse mit Monatsnamen und markiert die
+        Winterpause als Fläche, wenn die größte Lücke länger als 18 Tage ist.
+        Bei laufender Saison bleibt rechts Platz für den nächsten Spieltag.
+  \item[Beschriftungen] Die Endbeschriftungen stehen in einer gemeinsamen
+        Spalte rechts und sind auf mindestens 12{,}5~px Abstand
+        auseinandergezogen. Vereine mit weniger Spielen erreichen die Spalte
+        über eine gepunktete Führungslinie.
+  \item[Tooltip] Zeigen oder Tippen auf eine Linie wählt den Verein und das
+        letzte Spiel links vom Zeiger. Der Tooltip zeigt Datum und Spieltag,
+        Paarung und Ergebnis, \enquote{Das Modell gab \emph{X} vorher
+        $a$\,\% Sieg, $b$\,\% Remis.} und \enquote{ELO vor → nach $\pm\delta$}.
+  \item[Tabelle und Diagramm] Fährt die Maus über eine Tabellenzeile, wird
+        die zugehörige Linie hervorgehoben. Ein Klick hält die Auswahl.
+        Umgekehrt markiert die Auswahl im Diagramm die Tabellenzeile.
+  \item[Telefon] Das Diagramm bleibt mindestens 640~px breit und lässt sich
+        seitlich scrollen (\code{touch-action: pan-x pan-y}).
+\end{description}

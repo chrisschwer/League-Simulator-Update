@@ -1,0 +1,132 @@
+\chapter{Vom Stärkeunterschied zum Ergebnis: das Tormodell}\label{kap:tormodell}
+
+Für die Prognose reicht ein erwarteter Score nicht. Die Simulation braucht
+konkrete Ergebnisse, denn Tabellenplätze hängen auch an Toren und
+Tordifferenz. Das Tormodell übersetzt den ELO-Unterschied in zwei
+Torerwartungen und zieht daraus Tore.
+
+\section{Torerwartung}
+
+Mit der Differenz einschließlich Heimvorteil
+\begin{equation}
+  \Delta = E_h + H - E_a
+\end{equation}
+sind die erwarteten Tore der beiden Mannschaften
+(\datei{league-simulator-rust/src/simulation/match_sim.rs:16--21}):
+\begin{equation}\label{eq:lambda}
+  \boxed{\;\lambda_h = \max\bigl(s\,\Delta + c,\ 0{,}001\bigr), \qquad
+          \lambda_a = \max\bigl(-s\,\Delta + c,\ 0{,}001\bigr)\;}
+\end{equation}
+Für die Herren-Ligen gilt $s = 0{,}0017854953143549$ und
+$c = 1{,}32183908045977$, für die Frauen-Ligen $s_F = 0{,}0024058833$ und
+$c_F = 1{,}6527603153$.
+
+\begin{itemize}
+  \item Das Modell ist \emph{affin} in $\Delta$. Die Differenz wird hier
+        nicht begrenzt, anders als beim ELO-Update. Es gibt nur die
+        Untergrenze $\lambda \ge 0{,}001$. Sie greift erst ab
+        $\lvert\Delta\rvert > (c - 0{,}001)/s$, also ab 739{,}8 ELO-Punkten
+        bei den Herren und ab 686{,}6 bei den Frauen.
+  \item Solange die Untergrenze nicht greift, ist $\lambda_h + \lambda_a = 2c$.
+        Die erwartete Torzahl je Spiel hängt damit nicht von den Mannschaften
+        ab: $2c = 2{,}64$ bei den Herren und $3{,}31$ bei den Frauen.
+        Kapitel~\ref{kap:grenzen} behandelt die Folgen.
+  \item Dieselbe Formel benutzt auch der deterministische Endpunkt
+        \code{/league-details}
+        (\datei{league_details/mod.rs:82--85}). Simulation und Spieldetails
+        rechnen also mit demselben Modell.
+\end{itemize}
+
+\section{Ziehen der Tore}
+
+In der Simulation werden für jedes Spiel zwei unabhängige gleichverteilte
+Zufallszahlen $u_h, u_a \in [0, 1)$ gezogen. Über die Quantilfunktion der
+Poisson-Verteilung werden sie zu Toren
+(\datei{match_sim.rs:41--132}):
+\begin{equation}
+  g = F^{-1}_{\Pois(\lambda)}(u) = \min\bigl\{\,j \in \mathbb{N}_0 :
+      P(X \le j) \ge u \,\bigr\}, \qquad X \sim \Pois(\lambda).
+\end{equation}
+Das entspricht \code{qpois} in R. Für $\lambda < 10$, also in jedem
+praktischen Fall, summiert der Code die Wahrscheinlichkeiten direkt auf, mit
+der Rekursion $P(X = j) = P(X = j-1)\cdot\lambda/j$. Für größere $\lambda$
+sucht er binär über die Verteilungsfunktion aus der Bibliothek \code{statrs}.
+
+Die Tore der beiden Mannschaften sind \emph{unabhängig}. Es gibt keinen
+Korrelationsterm wie im Dixon-Coles-Modell. Diese Vereinfachung erklärt die
+bekannten Abweichungen bei der Remisquote (Abschnitt~\ref{sec:remis}).
+
+\section{Sieg, Remis, Niederlage in geschlossener Form}
+
+Die Spieldetails auf der Website (Rückblick, Ausblick, Tooltip im
+ELO-Verlauf) brauchen keine Zufallszahlen. Der Rust-Server rechnet die
+Wahrscheinlichkeiten exakt aus
+(\datei{league_details/mod.rs:61--115}). Mit
+$\pi_\lambda(j) = e^{-\lambda}\lambda^j/j!$ für $j = 0, \dots, 30$ gilt:
+\begin{align}
+  P(\text{Heimsieg})     &= \sum_{h=0}^{30}\sum_{a=0}^{h-1} \pi_{\lambda_h}(h)\,\pi_{\lambda_a}(a), \\
+  P(\text{Remis})        &= \sum_{j=0}^{30} \pi_{\lambda_h}(j)\,\pi_{\lambda_a}(j), \\
+  P(\text{Auswärtssieg}) &= \sum_{a=0}^{30}\sum_{h=0}^{a-1} \pi_{\lambda_h}(h)\,\pi_{\lambda_a}(a).
+\end{align}
+Die Summen brechen bei 30 Toren je Mannschaft ab und werden nicht
+renormiert. Bei den vorkommenden $\lambda$ ist die abgeschnittene Masse
+kleiner als $10^{-12}$.
+
+\subsection*{Die Ergebnis-Matrix}
+
+Für den Ausblick berechnet derselbe Code die Wahrscheinlichkeit jedes
+Endstands. Mit der Standardeinstellung \code{max\_goals = 6} entsteht ein
+$7 \times 7$-Gitter, dessen letzte Zeile und Spalte die Restmasse
+\enquote{6+} sammeln:
+\begin{equation}
+  M_{ij} = \sum_{\substack{h,\,a \le 30\\ \min(h,6) = i,\ \min(a,6) = j}}
+           \pi_{\lambda_h}(h)\,\pi_{\lambda_a}(a), \qquad i, j \in \{0, \dots, 6\}.
+\end{equation}
+
+\section{Rechenbeispiel}\label{sec:tor-beispiel}
+
+Wieder FC Bayern gegen VfB Stuttgart (Herren-Tormodell):
+\begin{align*}
+  \Delta &= 2057{,}26 + 40 - 1805{,}06 = 292{,}19,\\
+  \lambda_h &= \phantom{-}0{,}0017855 \cdot 292{,}19 + 1{,}32184 = 1{,}844,\\
+  \lambda_a &= -0{,}0017855 \cdot 292{,}19 + 1{,}32184 = 0{,}800.
+\end{align*}
+Daraus folgen $P(\text{Sieg Bayern}) = 62{,}1\,\%$,
+$P(\text{Remis}) = 22{,}2\,\%$ und
+$P(\text{Sieg Stuttgart}) = 15{,}7\,\%$. Die Methodik-Seite rundet das auf
+62, 22 und 16~Prozent und übersetzt es so: \enquote{Liefe dieser Abend
+sechsmal, gewönne Stuttgart einmal.}
+
+Ausschnitt der Ergebnis-Matrix in Prozent (Zeilen: Tore Bayern, Spalten:
+Tore Stuttgart):
+
+\begin{center}
+\begin{tabular}{@{}c|cccc@{}}
+     & 0 & 1 & 2 & 3 \\ \midrule
+0    & 7{,}1  & 5{,}7  & 2{,}3 & 0{,}6 \\
+1    & 13{,}1 & 10{,}5 & 4{,}2 & 1{,}1 \\
+2    & 12{,}1 & 9{,}7  & 3{,}9 & 1{,}0 \\
+3    & 7{,}4  & 5{,}9  & 2{,}4 & 0{,}6 \\
+\end{tabular}
+\end{center}
+Das wahrscheinlichste Einzelergebnis ist 1:0 mit 13{,}1~Prozent.
+
+\section{Zwei Erwartungen, zwei Skalen}\label{sec:skalen}
+
+\begin{achtung}[Eine Eigenheit, die man kennen sollte]
+Das ELO-Update rechnet mit der logistischen Erwartung aus
+Gleichung~\eqref{eq:elo-erwartung}, die Prognose mit dem Poisson-Tormodell.
+Beide Zahlen messen etwas Ähnliches, sind aber verschieden skaliert. Für
+Bayern gegen Stuttgart gilt:
+\[
+  p_h^{\text{ELO}} = 0{,}843
+  \qquad\text{gegenüber}\qquad
+  P(\text{Sieg}) + \tfrac12 P(\text{Remis}) = 0{,}621 + 0{,}111 = 0{,}732.
+\]
+Das ELO-Update erwartet vom Favoriten also mehr als das Tormodell. Ein
+knapper Bayern-Sieg bringt deshalb nur $+3{,}1$ Punkte, obwohl das
+Tormodell ihn für keineswegs sicher hält. Die Abweichung ist
+systematisch und stammt aus der Übernahme des ursprünglichen C++-Codes. Ob
+eine einheitliche Skala die Prognosen verbessert, ist nicht untersucht. ADR~0002 beschreibt denselben Skaleneffekt bei der
+Kalibrierung des Heimvorteils.
+\end{achtung}

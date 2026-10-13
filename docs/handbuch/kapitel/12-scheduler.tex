@@ -1,0 +1,95 @@
+\chapter{Scheduler und Datenbeschaffung}\label{kap:scheduler}
+
+Der Scheduler ist ein R-Prozess (\datei{RCode/updateScheduler.R}, Hauptschleife
+in \datei{RCode/update_all_leagues_loop.R}). Er läuft dauerhaft im
+Container und entscheidet, wann Daten geholt, simuliert und Seiten
+geschrieben werden.
+
+\section{Das Zeitfenster}
+
+\begin{itemize}
+  \item Aktiv ist der Scheduler täglich von \textbf{11:00 bis 23:00 Uhr}
+        Berliner Zeit, also 720 Minuten. Der Beginn um 11 Uhr folgt aus dem
+        Spielplan: 37~Prozent der Spiele der 2.~Frauen-Bundesliga beginnen
+        vormittags um 11 Uhr.
+  \item Die Laufzeit ergibt sich aus Fensterende minus Fensterbeginn. Die
+        Umgebungsvariable \code{DURATION} bleibt leer. Ein fester Wert wäre
+        eine zweite Quelle, die beim nächsten Verschieben des Fensters
+        unbemerkt das Fenster beschneiden würde.
+  \item Außerhalb des Fensters schläft der Prozess bis zum nächsten
+        Fensterbeginn. Endet ein Tageslauf um 23 Uhr, startet Docker den
+        Container neu (\code{restart: unless-stopped}).
+  \item Die Fensterrechnung erfolgt ausdrücklich in \code{Europe/Berlin},
+        unabhängig von der Zeitzone des Prozesses.
+\end{itemize}
+
+\section{Takt und Live-Gating}
+
+Im Normalbetrieb läuft eine Runde alle \textbf{120 Sekunden}, das sind bis
+zu 361 Runden am Tag. Damit das API-Kontingent reicht, ist jede Runde zweistufig:
+
+\begin{enumerate}
+  \item \textbf{Live-Abfrage} (eine Anfrage für alle Ligen,
+        \code{GET /v3/fixtures?live=78-79-80-…}): Läuft irgendwo ein Spiel?
+  \item \textbf{Vollabruf} (eine Anfrage je Liga, also zehn) nur, wenn
+        \begin{itemize}
+          \item ein Spiel läuft, oder
+          \item ein Spiel den Live-Feed verlassen hat, in den Saisondaten aber
+                noch nicht als beendet steht (Issue~\#154), oder
+          \item der letzte erfolgreiche Vollabruf länger als 3\,600 Sekunden
+                zurückliegt (Sicherheitsnetz, Issue~\#226), oder
+          \item die Live-Abfrage scheitert.
+        \end{itemize}
+\end{enumerate}
+
+Die erste Runde eines Tages ist immer ein Vollabruf. Simuliert wird eine
+Liga nur, wenn sich die Menge ihrer beendeten Spiele geändert hat. Verglichen
+wird die Menge der Spiel-IDs, nicht ihre Anzahl. Seiten werden geschrieben,
+wenn simuliert wurde oder sich etwas Sichtbares geändert hat, etwa ein
+Zwischenstand oder eine Anstoßzeit.
+
+\section{Das API-Kontingent}
+
+Der Zugang läuft über den Pro-Plan von API-Football: 7\,500 Anfragen am Tag
+und 300 je Minute. Ein ruhiger Tag verbraucht etwa 500 Anfragen, ein voller
+Spieltag bis zu 3\,900 (Issue~\#190).
+
+Nach jeder Anfrage liest der Scheduler die Kopfzeilen
+\code{x-ratelimit-requests-remaining}, \code{-limit} und \code{-reset} mit.
+Ein Regler (\datei{RCode/rate_limit_takt.R}) passt den Takt an das
+Restkontingent an. Er hält den Abstand zwischen 60 und 5\,400 Sekunden,
+plant mit einem Sicherheitsabschlag von 10~Prozent und schaltet mit 15~Prozent
+Hysterese, damit der Takt nicht flattert. Bei gedrosseltem Takt zeigt die
+Website einen Hinweis (Kapitel~\ref{kap:seiten}).
+
+\section{Fehlertoleranz}
+
+\begin{itemize}
+  \item \textbf{Je Liga isoliert.} Scheitert der Abruf, die Aufbereitung oder
+        die Simulation einer Liga, fällt nur diese Liga aus. Ihre letzte
+        Prognose bleibt stehen, und alle anderen Seiten werden aktualisiert.
+  \item \textbf{Zeitlimits.} 30 Sekunden für API-Football, 60 Sekunden für den
+        Rust-Server, gegen hängende Verbindungen.
+  \item \textbf{Startskript.} \datei{docker-start.sh} startet den Rust-Server,
+        wartet auf dessen \code{/health}, startet ihn neu, falls er stirbt,
+        und versucht den Scheduler bis zu fünfmal im Abstand von 30 Sekunden
+        zu starten.
+  \item \textbf{Warnungen sofort.} \code{options(warn = 1)} schreibt jede
+        Warnung direkt ins Container-Log. Viele Fehler führen nicht zum
+        Absturz, sondern zu einer fehlenden Sektion mit Warnung.
+\end{itemize}
+
+\section{Der Ablauf einer Runde}
+
+\begin{enumerate}
+  \item Kontingent prüfen, Takt festlegen.
+  \item Live-Abfrage, bei Bedarf Vollabruf je Liga.
+  \item Daten aufbereiten (\code{transform\_data}): Statusgruppen, Filter auf
+        Hauptrunde, chronologische Sortierung.
+  \item Für jede geänderte Liga \code{POST /simulate} mit \num{10000}
+        Iterationen, bei Ligen mit Zweitvertretungen zusätzlich der
+        Malus-Lauf.
+  \item Regionalliga-Kopplung und Aufstiegsspalten berechnen.
+  \item Spieldetails je Liga über \code{POST /league-details}.
+  \item \code{generate\_static\_site()} schreibt alle Seiten.
+\end{enumerate}
