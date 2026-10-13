@@ -1080,3 +1080,31 @@ test_that("sichere Abstiegsplaetze tragen exakt 1, auch wenn die Anteile in Flie
   df <- rl$rl_abstiegsprognose("West", mk_ergebnis(18), m)
   expect_identical(attr(df, "platz_abstieg")[15:18], rep(1, 4))
 })
+
+test_that("ein fast sicherer Abstiegsplatz bleibt >99 % und bekommt kein Haekchen", {
+  # Gegenstueck zum Test darueber: Die Eins ist nur fuer Plaetze gedacht, die
+  # in JEDEM moeglichen Drittliga-Fall Abstiegsplatz sind. Steigt etwa FCH
+  # mit 9999/10000 aus der 3. Liga in die Nordost-Staffel ab, hat der
+  # Vorletzte der Nordost-Staffel 0,9999 -- das Haekchen hiesse "sicher", und
+  # das waere falsch. Ein Fall mit P = 1/10000 ist moeglich, nicht unmoeglich.
+  rl <- new.env()
+  source(test_path("..", "..", "RCode", "staffel_zuordnung.R"), local = rl)
+  source(test_path("..", "..", "RCode", "rl_abstiegskopplung.R"), local = rl)
+  helfer <- source_module("render_helpers")
+
+  m <- matrix(0, nrow = 5, ncol = 5,
+              dimnames = list(rl$STAFFELN, as.character(0:4)))
+  m["Nordost", c("0", "1")] <- c(1, 9999)
+  m["Nord", "1"] <- 10000
+  m["West", "1"] <- 10000
+  m["SuedWest", "1"] <- 10000
+  # 0.9999 + 1 + 1 + 1 = 3.9999; Bayern traegt die fehlenden 0.0001.
+  m["Bayern", c("0", "1")] <- c(9999, 1)
+
+  w <- rl$platz_gewichte("Nordost", rl$absteiger_verteilung(m), 18L)
+  expect_identical(w[18], 1)
+  expect_equal(w[17], 0.9999, tolerance = 1e-12)
+  expect_false(identical(w[17], 1))
+  expect_identical(helfer$prozent(w[17]), ">99")
+  expect_identical(helfer$prozent(w[18]), intToUtf8(0x2713))
+})
