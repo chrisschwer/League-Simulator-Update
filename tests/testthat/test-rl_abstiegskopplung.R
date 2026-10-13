@@ -1050,3 +1050,33 @@ test_that("Bayerns Relegation trifft die zwei Plaetze VOR den Absteigern", {
   expect_identical(df[c("T16", "T17"), "Abstieg"], c(0, 0))
   expect_identical(df["T15", "Relegation"], 0)
 })
+
+test_that("sichere Abstiegsplaetze tragen exakt 1, auch wenn die Anteile in Fliesskomma nicht auf 1 summieren", {
+  # Live-Befund 13.10.2026 (RL West): "Platz 15: >99 %, ..., Platz 18: >99 %"
+  # statt vier Haekchen. West hat in JEDEM Drittliga-Fall vier Absteiger,
+  # das Gewicht der vier letzten Plaetze ist also die Summe aller P(k) --
+  # mathematisch 1, in Fliesskomma aber z.B. 174/1e4 + 4075/1e4 + 5751/1e4
+  # = 0.99999999999999989. prozent() prueft `x == 1` exakt und schreibt dann
+  # ">99". Die Klemme aus #185 sass nur im Nord-Zweig.
+  rl <- new.env()
+  source(test_path("..", "..", "RCode", "staffel_zuordnung.R"), local = rl)
+  source(test_path("..", "..", "RCode", "rl_abstiegskopplung.R"), local = rl)
+
+  m <- matrix(0, nrow = 5, ncol = 5,
+              dimnames = list(rl$STAFFELN, as.character(0:4)))
+  m["West", c("0", "1", "2")] <- c(174, 4075, 5751)
+  m["Nord", "1"] <- 10000
+  m["SuedWest", "1"] <- 10000
+  # 1.5577 + 1 + 1 = 3.5577; Nordost traegt die fehlenden 0.4423.
+  m["Nordost", c("0", "1")] <- c(5577, 4423)
+  m["Bayern", "0"] <- 10000
+  expect_false(sum(m["West", ] / 10000) == 1)  # die Falle ist scharf
+
+  verteilung <- rl$absteiger_verteilung(m)
+  w <- rl$platz_gewichte("West", verteilung, 18L)
+  expect_identical(w[15:18], rep(1, 4))
+  expect_identical(w[1:14], rep(0, 14))
+
+  df <- rl$rl_abstiegsprognose("West", mk_ergebnis(18), m)
+  expect_identical(attr(df, "platz_abstieg")[15:18], rep(1, 4))
+})
