@@ -62,6 +62,32 @@ test_that("Ausblick während eines laufenden Spieltags: dessen offene Spiele", {
   expect_true(all(ab$nachholspiel == FALSE))
 })
 
+# --- Unlesbare Runde ------------------------------------------------------
+# Ein Rundenlabel ohne Zahl am Ende ("Regular Season - 1x") liest
+# extract_fixture_details() als NA. Verwerfen darf es die Zeile nicht -- sie
+# muss positionsgleich mit transform_data bleiben. Die Fenster lassen sie
+# aus: Vorher landete im Rückblick eine Komplett-NA-Zeile, an der das
+# Rendering scheiterte (Security-Audit 2026-10-17).
+samstagmittag_unlesbar <- function() {
+  make_details(
+    samstagmittag(),
+    fd_row(7, NA, "2026-11-28 12:00", "FT", 102, 104, 1, 0),
+    fd_row(8, NA, "2026-11-28 18:30", "NS", 103, 101)
+  )
+}
+
+test_that("ein Spiel ohne lesbare Runde erscheint nicht im Rückblick", {
+  rb <- rueckblick_matches(samstagmittag_unlesbar())
+
+  expect_equal(rb$fixture_id, c(1, 2, 3, 4))
+})
+
+test_that("ein Spiel ohne lesbare Runde erscheint nicht im Ausblick", {
+  ab <- ausblick_matches(samstagmittag_unlesbar())
+
+  expect_equal(ab$fixture_id, c(5, 6))
+})
+
 # --- Szenario 2: Montag, Nachholspiel am Dienstag terminiert ------------------
 # Runde 5 hat ein neu angesetztes Nachholspiel (Di 1.12.), Runde 13 ist
 # komplett, Runde 14 steht an (4.-6.12.).

@@ -1321,13 +1321,26 @@ generate_static_site <- function(ergebnisse = NULL,
     }
   }
 
+  # Wie bei den Verlaufsseiten: Scheitert eine Ligaseite (etwa an einem
+  # kaputten Datensatz des Anbieters), entstehen die uebrigen Seiten
+  # trotzdem, und die Datei aus dem letzten guten Zyklus bleibt stehen. Ohne
+  # das brach der ganze Zyklus ab, und der Scheduler startete in einer
+  # Schleife neu.
   league_paths <- vapply(names(views), function(key) {
     view <- views[[key]]
     message(sprintf("generate_static_site: rendering %s", view$slug))
-    render_league_page(view, data_env, output_dir, now = now, mtime = now,
-                       league_entry = league_data[[key]], view_key = key,
-                       verlauf_slug = if (view$slug %in% names(verlauf_ziele)) view$verlauf_slug else NULL)
+    tryCatch(
+      render_league_page(view, data_env, output_dir, now = now, mtime = now,
+                         league_entry = league_data[[key]], view_key = key,
+                         verlauf_slug = if (view$slug %in% names(verlauf_ziele)) view$verlauf_slug else NULL),
+      error = function(e) {
+        warning(sprintf("generate_static_site: Ligaseite %s nicht geschrieben: %s",
+                        key, conditionMessage(e)), call. = FALSE)
+        NA_character_
+      }
+    )
   }, character(1))
+  league_paths <- league_paths[!is.na(league_paths)]
 
   # Ligaseiten ohne Ergebnisse in diesem Zyklus bleiben ebenfalls stehen;
   # auch sie bekommen die aktuelle Navigation (nach einem Registry-Wechsel
