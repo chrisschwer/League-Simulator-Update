@@ -96,7 +96,7 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 | `test-update_all_leagues_loop-gating.R` | 36 (−1, Stufe 4.4a: `checkAPILimits meldet, ob die Planung aus einem Fallback kam` nach `test-checkAPILimits.R`) | update-loop-gating |
 | `test-update_all_leagues_loop-rust.R` | 2 | rust-required |
 | `test-update_all_leagues_loop-sicherheitsnetz.R` | 4 | sicherheitsnetz-zeit |
-| `test-update_all_leagues_loop-verdrahtung.R` | 21 | rl-verdrahtung (21 Bl.) |
+| `test-update_all_leagues_loop-verdrahtung.R` | 23 (+2, #291: eine Simulation je Regionalliga; Aufstieg <= Meister auf der Aufstiegsseite) | rl-verdrahtung (21 Bl.) |
 | `test-updateScheduler.R` | 15 | frauen-ligen-aktivierung (4 Bl.) |
 | `test-waechter-ci-pfade.R` | 2 | ein-elo-walk (2 Bl.) |
 | `test-waechter-quelltext.R` | 9 | ein-elo-walk (3 Bl.), frauen-ligen-aktivierung (1 Bl.), kuerzel-tooltip (1 Bl.), modellkonstanten-nur-in-rust, phase5-regionalligen (1 Bl.) |

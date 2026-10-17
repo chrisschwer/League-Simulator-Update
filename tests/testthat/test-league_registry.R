@@ -427,10 +427,9 @@ test_that("active_leagues liefert die vollstaendigen Eintraege", {
 })
 
 test_that("die Registry weiss, welche Liga einen Aufstiegslauf braucht", {
-  # Der -50-Malus für Zweitvertretungen ist heute für Liga 3 hartkodiert. Er
-  # hängt an einer Liga-Eigenschaft, nicht an einer ID -- und gilt künftig
-  # auch für die Regionalligen, deren Zweitvertretungen ebenfalls nicht in
-  # die 3. Liga aufsteigen dürfen.
+  # Der -50-Malus für Zweitvertretungen hängt an einer Liga-Eigenschaft,
+  # nicht an einer ID. (Für die Regionalligen ist er seit #291 gestrichen,
+  # s. den Test weiter unten.)
   env <- new.env()
   source(test_path("..", "..", "RCode", "league_registry.R"), local = env)
 
@@ -693,14 +692,21 @@ test_that("die Regionalligen behalten das Herren-Tormodell", {
   }
 })
 
-test_that("aus den Regionalligen duerfen Zweitvertretungen nicht aufsteigen", {
-  # Wie in der 3. Liga: Die Aufstiegstabelle braucht einen zweiten Lauf mit
-  # -50-Malus. has_promotion_restriction() steuert das.
+test_that("die Regionalligen bekommen keinen Malus-Lauf, 3. Liga und 2. Frauen-BL schon", {
+  # ANGEPASST am 17.10.2026 (#291): Bis dahin trugen alle fuenf Staffeln
+  # `restrictions` und bekamen einen zweiten Lauf mit -50-Malus. Der Malus
+  # greift nach Par. 55b Nr. 3.1 DFB-SpO aber nur, wenn die Erstvertretung in
+  # der 3. Liga spielt (ADR 0008) -- das trifft 2026/27 auf keine
+  # RL-Zweitvertretung zu. Der Lauf ist fuer die Regionalligen deshalb
+  # gestrichen; Meister und Aufstieg kommen aus demselben Lauf.
   env <- source_module("league_registry")
 
   for (id in RL_IDS) {
-    expect_true(env$has_promotion_restriction(id), info = id)
+    expect_false(env$has_promotion_restriction(id), info = id)
   }
+  # Dort bleibt der Malus dauerhaft wirksam.
+  expect_true(env$has_promotion_restriction("80"))
+  expect_true(env$has_promotion_restriction("1034"))
 })
 
 test_that("Registry und AUFSTIEGSROTATION sagen dasselbe ueber 2026/27", {

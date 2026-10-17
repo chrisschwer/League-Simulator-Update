@@ -649,11 +649,13 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
             }
           }
 
-          # Ligen, aus denen Zweitvertretungen nicht aufsteigen duerfen,
-          # brauchen eine eigene Aufstiegstabelle: ein zweiter Lauf, in dem
-          # sie -50 Punkte tragen und damit aus dem Rennen sind. Bisher war
-          # das an die Liga-ID "80" gebunden; jetzt an die Liga-Eigenschaft
-          # -- die Regionalligen brauchen dasselbe, sobald sie live gehen.
+          # Ligen, aus denen Zweitvertretungen nicht aufsteigen duerfen
+          # (3. Liga, 2. Frauen-Bundesliga), brauchen eine eigene
+          # Aufstiegstabelle: ein zweiter Lauf, in dem sie -50 Punkte tragen
+          # und damit aus dem Rennen sind. Welche Ligen das sind, sagt die
+          # Registry (has_promotion_restriction()). Die Regionalligen gehoeren
+          # seit #291 nicht mehr dazu: Ihre Aufstiegsspalte rechnet unten auf
+          # dem Hauptlauf (ADR 0008, Nachtrag 2026-10-17).
           #
           # WELCHE Teams den Abzug tragen, sagt die Spalte Promotion der
           # TeamList (malus_aus_teamlist(), transform_data.R) -- nicht mehr
@@ -662,25 +664,14 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
           # (ADR 0007). Welche LIGEN ueberhaupt einen zweiten Lauf bekommen,
           # bleibt die Frage der Registry.
           #
-          # NAMENSKOLLISION seit Phase 5: Der Schluessel folgt der VIEW. Wo
-          # sie das obere Panel aus "<key>_aufstieg" liest (3. Liga,
-          # 2. Frauen-Bundesliga), landet der Lauf dort. Bei den
-          # Regionalligen ist dieser Name aber schon vergeben -- er traegt
-          # die BERECHNETE Aufstiegsspalte (rl_aufstiegsprognose(), ein
-          # data.frame je Team). Eine ganze Platzmatrix unter demselben
-          # Namen uebernaehme die Spalte lautlos, und die Seite zeigte statt
-          # der Aufstiegswahrscheinlichkeit eine Platzverteilung -- ohne
-          # dass etwas fehlschlaegt. Der Lauf heisst dort deshalb
-          # "<key>_aufstiegstabelle".
-          aufstiegs_key <- paste0(key, "_aufstieg")
-          if (!identical(league_views()[[key]]$top$source,
-                         .ergebnis_objektname(aufstiegs_key))) {
-            aufstiegs_key <- paste0(key, "_aufstiegstabelle")
-          }
-
+          # Der Lauf landet unter "<key>_aufstieg" -- dort liest die View
+          # das obere Panel. (Bei den Regionalligen traegt derselbe Name die
+          # BERECHNETE Aufstiegsspalte aus rl_aufstiegsprognose(); deshalb
+          # duerfen sie hier nie hinein. test-league_registry.R pinnt, dass
+          # sie keine `restrictions` tragen.)
           if (has_promotion_restriction(liga_ids[[key]])) {
             adj_points <- malus_aus_teamlist(spielplan, TeamList, liga_ids[[key]])
-            ergebnisse[[aufstiegs_key]] <-
+            ergebnisse[[paste0(key, "_aufstieg")]] <-
               leagueSimulatorRust(spielplan, n = n, adjPoints = adj_points,
                                   toreSlope = tormodell$tore_slope,
                                   toreIntercept = tormodell$tore_intercept)
@@ -730,22 +721,23 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
         playoff <- tryCatch(aufstiegsmodus(saison)$playoff,
                             error = function(e) character(0))
 
-        # Aufstiegstabellen der Playoff-Staffeln: der Lauf mit -50-Malus,
-        # in dem Zweitvertretungen aus dem Rennen sind. `[[` und nicht `$`:
-        # `ergebnisse$rl_nord_aufstieg` traefe per partiellem Matching auf
-        # rl_nord_aufstiegstabelle und lieferte lautlos eine Platzmatrix.
-        aufstiegstabellen <- list()
+        # Prognosen der Playoff-Staffeln: der HAUPTLAUF, derselbe, aus dem
+        # die Meisterspalte der Aufstiegsseite kommt (#291). Einen
+        # Malus-Lauf gibt es fuer die Regionalligen nicht mehr (ADR 0008,
+        # Nachtrag 2026-10-17); so gilt Aufstieg <= Meister schon durch die
+        # Rechnung, und die Siegquote ist wirklich eine.
+        prognosen <- list()
         aktuelle_elos <- list()
         for (k in rl_keys[rl_staffel[rl_keys] %in% playoff]) {
-          tabelle <- ergebnisse[[paste0(k, "_aufstiegstabelle")]]
-          if (is.null(tabelle) || is.null(rownames(as.matrix(tabelle)))) {
+          prognose <- ergebnisse[[k]]
+          if (is.null(prognose) || is.null(rownames(as.matrix(prognose)))) {
             next
           }
-          aufstiegstabellen[[rl_staffel[[k]]]] <- tabelle
+          prognosen[[rl_staffel[[k]]]] <- prognose
           # spielplaene[[k]] fehlt, wenn k diese Runde nicht erfolgreich
           # abgerufen/transformiert wurde (Issue #208-Isolation) -- die alte
-          # Aufstiegstabelle bleibt dann stehen (s. tabelle oben), nur die
-          # aktuelle ELO fuer die Siegquote fehlt fuer diese Runde.
+          # Prognose bleibt dann stehen (s. oben), nur die aktuelle ELO fuer
+          # die Siegquote fehlt fuer diese Runde.
           if (is.null(spielplaene[[k]])) {
             next
           }
@@ -759,7 +751,7 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
         }
 
         aufstiegsspalten <- rl_aufstiegsspalten(
-          aufstiegstabellen, aktuelle_elos, saison
+          prognosen, aktuelle_elos, saison
         )
         for (k in rl_keys) {
           spalte <- aufstiegsspalten[[rl_staffel[[k]]]]

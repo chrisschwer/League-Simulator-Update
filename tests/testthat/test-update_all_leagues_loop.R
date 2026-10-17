@@ -167,11 +167,10 @@ test_that("der Loop uebergibt die Ergebnisse als benannte Liste", {
   # Je aktive Liga ein Eintrag, plus ein Aufstiegslauf je Liga, aus der
   # Zweitvertretungen nicht aufsteigen duerfen.
   #
-  # ANGEPASST in Phase 5: Der Schluessel des Aufstiegslaufs war "<key>_aufstieg".
-  # Bei den Regionalligen ist dieser Name jetzt von der BERECHNETEN
-  # Aufstiegsspalte belegt (rl_aufstiegsprognose()); der Simulationslauf heisst
-  # dort "<key>_aufstiegstabelle". Massgeblich ist die View: Liest ihr oberes
-  # Panel aus "<key>_aufstieg", landet der Lauf dort, sonst daneben.
+  # ANGEPASST in Phase 5 und wieder mit #291: Der Lauf heisst "<key>_aufstieg"
+  # -- dort liest die View das obere Panel. Den Ausweichnamen
+  # "<key>_aufstiegstabelle" fuer die Regionalligen gibt es nicht mehr, seit
+  # sie keinen Malus-Lauf haben.
   reg <- new.env()
   source(test_path("..", "..", "RCode", "league_registry.R"), local = reg)
   source(test_path("..", "..", "RCode", "league_views.R"), local = reg)
@@ -181,15 +180,12 @@ test_that("der Loop uebergibt die Ergebnisse als benannte Liste", {
     function(k) reg$has_promotion_restriction(reg$league_registry()[[k]]$api_id),
     reg$active_league_keys()
   )
-  erwartet <- c(reg$active_league_keys(), vapply(mit_lauf, function(k) {
-    schluessel <- paste0(k, "_aufstieg")
-    if (identical(reg$league_views()[[k]]$top$source,
-                  reg$.ergebnis_objektname(schluessel))) {
-      schluessel
-    } else {
-      paste0(k, "_aufstiegstabelle")
-    }
-  }, character(1)))
+  # Harness-Probe: Die View jeder Liga mit Lauf liest ihn unter diesem Namen.
+  for (k in mit_lauf) {
+    expect_identical(reg$league_views()[[k]]$top$source,
+                     reg$.ergebnis_objektname(paste0(k, "_aufstieg")), info = k)
+  }
+  erwartet <- c(reg$active_league_keys(), paste0(mit_lauf, "_aufstieg"))
 
   expect_setequal(names(cap$ergebnisse), erwartet)
   expect_false(any(vapply(cap$ergebnisse, is.null, logical(1))))

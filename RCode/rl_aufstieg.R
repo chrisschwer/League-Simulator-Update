@@ -195,8 +195,9 @@ aufstiegswahrscheinlichkeit <- function(p_meister_x, p_meister_y, p_sieg) {
 #'
 #' @param staffel Name einer Staffel aus STAFFELN.
 #' @param prognosen Benannte Liste Staffel -> Prognosematrix (Teams x
-#'   Plaetze, rownames = Teams). Erwartet wird die Aufstiegs-Variante, in
-#'   der Zweitvertretungen bereits ausgeschlossen sind.
+#'   Plaetze, rownames = Teams). Im Betrieb die Matrix des Hauptlaufs: Fuer
+#'   die Regionalligen gibt es seit #291 keinen Malus-Lauf mehr (ADR 0008,
+#'   Nachtrag 2026-10-17).
 #' @param season Startjahr der Saison.
 #' @param p_sieg Matrix der Zweikampfquoten fuer die Playoff-Paarung; Zeilen
 #'   = Teams der in STAFFELN frueheren Staffel, Spalten = Teams der

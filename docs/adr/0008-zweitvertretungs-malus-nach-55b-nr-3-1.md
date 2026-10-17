@@ -89,3 +89,32 @@ aufsteigen. Das bleibt richtig — aber eben nur unter der Bedingung des
 Ohne diesen Text wäre die Änderung für einen späteren Leser nicht
 nachvollziehbar: Er fände 24 Teams ohne Malus, eine Registry, die
 Aufstiegsbeschränkungen behauptet, und keinen Grund für den Unterschied.
+
+## Nachtrag 2026-10-17: kein Malus-Lauf mehr für die Regionalligen (#291)
+
+Die Regel in der Tabelle oben bleibt richtig. Der **zweite Lauf** für die
+Regionalligen entfällt aber. Heute trägt keine RL-Zweitvertretung einen Malus,
+weil keine Erstvertretung in der 3. Liga spielt. Der Lauf schloss also
+niemanden aus. Er hatte aber eine Nebenwirkung: Auf `rl-aufstieg.html` kam bei
+den Playoff-Staffeln „Meister" aus dem Hauptlauf und „Aufstieg" aus dem
+Malus-Lauf. Weil das zwei unabhängige Monte-Carlo-Läufe waren, war die
+Siegquote unscharf. Im Grenzfall stand dort „Meister 0, Aufstieg <1".
+
+Deshalb tragen die fünf Regionalligen in `RCode/league_registry.R` kein
+`restrictions` mehr. Der Satz oben unter „Warum ein eigener ADR" beschreibt
+damit einen früheren Stand. Meister und Aufstieg kommen jetzt beide aus dem
+Hauptlauf, und Aufstieg ≤ Meister gilt schon durch die Rechnung. Die 3. Liga
+und die 2. Frauen-Bundesliga behalten ihren Malus-Lauf unverändert, denn dort
+wirkt der Malus dauerhaft.
+
+Nicht abgebildet ist damit der einzige Fall, in dem § 55b Nr. 3.1 in dieser
+Saison in einer Regionalliga greifen könnte: Ein Zweitligist steigt in die
+3. Liga ab, und gleichzeitig wird seine Reserve Meister. Nach einer
+Abschätzung vom 17.10.2026 liegt das bei rund 1 %, praktisch nur bei
+Hannover 96 / Hannover 96 II in der RL Nord. Aufstiegsberechtigt wäre dann der
+Nächstplatzierte. Das Handbuch vermerkt die Lücke in Kapitel 6.
+
+Die Spalte `Promotion` der TeamList wird weiter gepflegt. Spielt künftig eine
+Erstvertretung in der 3. Liga, muss über den Malus-Lauf der Regionalligen neu
+entschieden werden. Die Aufstiegsseite bräuchte Meister und Aufstieg dann
+wieder aus einem gemeinsamen Lauf.
