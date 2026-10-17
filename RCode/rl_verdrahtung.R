@@ -158,13 +158,16 @@ rl_aktuelle_elo <- function(spielplan, tormodell = list(),
 
 #' Die Aufstiegsspalten der beiden Playoff-Staffeln.
 #'
-#' Beide entstehen zusammen: Die Doppelsumme ueber die Aufstiegstabellen
-#' braucht BEIDE Staffeln, also auch dann, wenn nur eine neu simuliert
-#' wurde. Die Zweikampfquoten kommen aus /match-preview ueber die AKTUELLE
-#' ELO -- ein Aufruf von /league-details je Staffel.
+#' Beide entstehen zusammen: Die Doppelsumme ueber die Prognosen braucht
+#' BEIDE Staffeln, also auch dann, wenn nur eine neu simuliert wurde. Die
+#' Zweikampfquoten kommen aus /match-preview ueber die AKTUELLE ELO -- ein
+#' Aufruf von /league-details je Staffel.
 #'
-#' @param prognosen Benannte Liste Staffel -> Aufstiegstabelle (der Lauf mit
-#'   -50-Malus, in dem Zweitvertretungen aus dem Rennen sind).
+#' @param prognosen Benannte Liste Staffel -> Platzmatrix des Hauptlaufs,
+#'   derselben, aus der die Aufstiegsseite die Meisterspalte liest. Einen
+#'   eigenen Lauf mit -50-Malus gibt es fuer die Regionalligen seit #291 nicht
+#'   mehr (ADR 0008, Nachtrag 2026-10-17): Meister und Aufstieg aus einem
+#'   Lauf, damit Aufstieg <= Meister gilt.
 #' @param elos Benannte Liste Staffel -> aktueller ELO-Vektor.
 #' @param saison Startjahr der Saison.
 #' @param tormodell Abweichendes Tormodell (ADR 0004). Leer fuer die

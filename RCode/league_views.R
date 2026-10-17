@@ -167,13 +167,11 @@ league_views <- function() {
     # gewoehnliche Platzgruppe -- dort ist P(Aufstieg) = P(Meister), und eine
     # berechnete Spalte waere derselbe Wert auf einem laengeren Weg.
     #
-    # Die Meisterspalte kommt aus derselben Prognosematrix wie die Heatmap,
-    # nicht aus einem Sonderlauf: Die Aufstiegsseite rechnet die
-    # Zweitvertretungen heraus (rl_aufstiegsprognose() bekommt die
-    # Aufstiegsvariante), die LIGA-Seite zeigt dagegen die Meisterchance so,
-    # wie sie sportlich zustande kommt. Ein Sonderlauf hier haette auf der
-    # Ligaseite eine Meisterchance von 0 fuer ein Team gezeigt, das sehr wohl
-    # Meister werden kann -- nur eben nicht aufsteigen darf.
+    # Meister- und Aufstiegsspalte kommen aus derselben Prognosematrix wie
+    # die Heatmap, nicht aus einem Sonderlauf: Fuer die Regionalligen gibt es
+    # seit #291 keinen Malus-Lauf mehr (ADR 0008, Nachtrag 2026-10-17).
+    # Zweitvertretungen sind dort 2026/27 aufstiegsberechtigt, weil keine
+    # Erstvertretung in der 3. Liga spielt.
     rl_nord = list(
       slug = "rl-nord",
       nav_label = "Nord",

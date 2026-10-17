@@ -130,11 +130,16 @@ league_registry <- function() {
     # also zur Wechselgemeinschaft Herren. Ein staffelweiser Intercept wuerde
     # jeden Auf- und Absteiger stillschweigend umskalieren (ADR 0004).
     #
-    # Alle fuenf tragen `restrictions`: Auch aus der Regionalliga duerfen
-    # Zweitvertretungen nicht in die 3. Liga aufsteigen (Par. 55b DFB-SpO).
-    # Die Aufstiegstabelle braucht deshalb -- wie in der 3. Liga -- einen
-    # zweiten Lauf mit -50-Malus, sonst stuende auf der Aufstiegsseite eine
-    # Meisterchance fuer ein Team, das gar nicht aufsteigen darf.
+    # KEINE traegt `restrictions` (#291, 17.10.2026): Eine Zweitvertretung
+    # darf nach Par. 55b Nr. 3.1 DFB-SpO nur dann nicht in die 3. Liga
+    # aufsteigen, wenn ihre Erstvertretung dort spielt (ADR 0008). 2026/27
+    # trifft das auf keine RL-Reserve zu. Ein zweiter Lauf mit -50-Malus
+    # haette also nichts ausgeschlossen, aber Meister (Hauptlauf) und
+    # Aufstieg (Malus-Lauf) aus zwei unabhaengigen Laeufen genommen -- mit
+    # "Aufstieg > Meister" im Grenzfall. Nicht abgebildet bleibt die
+    # Kopplung "Zweitligist steigt ab, seine RL-Reserve wird Meister"
+    # (Stand 17.10.2026 rund 1 %, praktisch nur Hannover 96 II, Handbuch
+    # Kap. 6).
     rl_nord = list(
       api_id = "84", active = TRUE, family = "herren", staffel = "Nord",
       slug = "rl-nord", nav_label = "Nord", nav_group = "Regionalliga",
@@ -160,8 +165,7 @@ league_registry <- function() {
       relegation_regel = paste(
         "Drei Vereine steigen ab, je Absteiger aus der 3. Liga einer mehr.",
         "Gewinnt Nord das Aufstiegsspiel, ist es einer weniger."
-      ),
-      restrictions = "Zweitvertretungen duerfen nicht aufsteigen"
+      )
     ),
     rl_nordost = list(
       api_id = "85", active = TRUE, family = "herren", staffel = "Nordost",
@@ -175,8 +179,7 @@ league_registry <- function() {
       # Basis ein Absteiger, bei einem Drittliga-Absteiger zwei
       # (NOFV A&A A. Nr. 5, Schema A/B).
       relegation_slots = 1L,
-      relegation_regel = "Ein Verein steigt ab, zwei bei einem Absteiger aus der 3. Liga.",
-      restrictions = "Zweitvertretungen duerfen nicht aufsteigen"
+      relegation_regel = "Ein Verein steigt ab, zwei bei einem Absteiger aus der 3. Liga."
     ),
     rl_west = list(
       api_id = "87", active = TRUE, family = "herren", staffel = "West",
@@ -200,8 +203,7 @@ league_registry <- function() {
       relegation_regel = paste(
         "Vier Vereine steigen ab.",
         "Anders als bei den übrigen Staffeln ändert die 3. Liga diese Zahl nicht."
-      ),
-      restrictions = "Zweitvertretungen duerfen nicht aufsteigen"
+      )
     ),
     rl_suedwest = list(
       api_id = "86", active = TRUE, family = "herren", staffel = "SuedWest",
@@ -217,8 +219,7 @@ league_registry <- function() {
       relegation_regel = paste(
         "Drei Vereine steigen ab, je Absteiger aus der 3. Liga einer mehr,",
         "höchstens fünf."
-      ),
-      restrictions = "Zweitvertretungen duerfen nicht aufsteigen"
+      )
     ),
     rl_bayern = list(
       api_id = "83", active = TRUE, family = "herren", staffel = "Bayern",
@@ -246,8 +247,7 @@ league_registry <- function() {
       # Aufstieg. Bayern hat BEIDES -- ein Aufstiegsspiel nach oben und
       # zwei Relegationsplaetze nach unten (BFV A&A II. Nr. 3). In einem
       # gemeinsamen Feld waere jeder Wert falsch.
-      relegation_playoff_slots = 2L,
-      restrictions = "Zweitvertretungen duerfen nicht aufsteigen"
+      relegation_playoff_slots = 2L
     )
   )
 }
@@ -285,13 +285,14 @@ active_league_keys <- function() {
 
 #' Braucht diese Liga einen zweiten Simulationslauf fuer die Aufstiegstabelle?
 #'
-#' In der 3. Liga duerfen Zweitvertretungen nicht aufsteigen; die
-#' Aufstiegstabelle entsteht deshalb aus einem zweiten Lauf mit -50 Punkten
-#' Malus fuer sie. Bisher war das an die Liga-ID "80" gebunden -- jetzt ist es
-#' eine Eigenschaft der Liga.
+#' In der 3. Liga und der 2. Frauen-Bundesliga duerfen Zweitvertretungen
+#' nicht aufsteigen; die Aufstiegstabelle entsteht deshalb aus einem zweiten
+#' Lauf mit -50 Punkten Malus fuer sie. Das ist eine Eigenschaft der Liga
+#' (`restrictions`), keine Liga-ID.
 #'
-#' Die Regionalligen brauchen dieselbe Einschraenkung, sobald sie live gehen:
-#' Auch von dort steigen Zweitvertretungen nicht in die 3. Liga auf.
+#' Die Regionalligen tragen sie seit #291 nicht mehr: Dort greift die Sperre
+#' nur, wenn die Erstvertretung in der 3. Liga spielt (ADR 0008), und das
+#' trifft 2026/27 auf keine Staffel zu.
 has_promotion_restriction <- function(id) {
   entry <- league_by_id(id)
   !is.null(entry) && !is.null(entry$restrictions)

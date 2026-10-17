@@ -101,13 +101,11 @@
 # Punkt 6 der Vorgabe (3. Liga nicht simuliert, RL aber schon) zerfaellt in
 # ZWEI Faelle, s. die Tests im Abschnitt "Fehlerfall".
 #
-# FALLE FUER JEDEN, DER `ergebnisse` LIEST: `ergebnisse$rl_nord_aufstieg`
-# trifft per partiellem `$`-Matching auf `rl_nord_aufstiegstabelle` (die
-# Platzmatrix des Malus-Laufs), solange das eigentliche Objekt fehlt -- und
-# liefert dann lautlos eine 18x18-Matrix statt NULL. Deshalb greift diese
-# Datei ausschliesslich mit `[[` auf die Ergebnisliste zu. Das gilt ebenso
-# fuer den Loop selbst, wenn er die Aufstiegsspalte fuer Nords
-# p_meister_aufstieg nachschlaegt.
+# `[[` STATT `$` AUF `ergebnisse`: Bis #291 traf `ergebnisse$rl_nord_aufstieg`
+# per partiellem Matching auf `rl_nord_aufstiegstabelle` (die Platzmatrix
+# des damaligen RL-Malus-Laufs). Den Lauf gibt es nicht mehr; die Datei
+# bleibt trotzdem bei `[[`, weil partielles Matching bei jedem kuenftigen
+# Schluessel mit gemeinsamem Praefix wieder zuschnappt.
 
 library(testthat)
 library(mockery)
@@ -343,7 +341,11 @@ parse_body <- function(body) {
   payload
 }
 
-rust_fake <- function() {
+# `malus_versatz` verschiebt im Malus-Lauf die Zeilen der Platzmatrix um so
+# viele Teams: Dann liegen die Meisterchancen des Malus-Laufs bei ANDEREN
+# Teams als im Hauptlauf -- der Fall aus #291 (Meister 0, Aufstieg > 0), der
+# entsteht, sobald Meister und Aufstieg aus verschiedenen Laeufen kommen.
+rust_fake <- function(malus_versatz = 0L) {
   log <- new.env()
   log$simulate <- list()
   log$preview <- list()
@@ -389,6 +391,9 @@ rust_fake <- function() {
       log$laeufe[[schluessel]] <- zaehler
 
       m <- verschiebungsmatrix(n, GEWICHTE[[art]][[min(zaehler, 2L)]])
+      if (malus && malus_versatz > 0L) {
+        m <- m[c(seq(malus_versatz + 1L, n), seq_len(malus_versatz)), ]
+      }
       antwort <- list(
         probability_matrix = lapply(seq_len(n), function(i) as.list(m[i, ])),
         team_names = as.list(teams),
@@ -464,11 +469,12 @@ mit_rust_fake <- function(fake, expr) {
 # `full_fetch_mindestens_alle` ist damit in Vielfachen von 120 s anzugeben.
 lauf_ausfuehren <- function(loops = 1L, full_fetch_mindestens_alle = 3600,
                             teamlist = teamlist_datei(),
-                            nord_ab_fetch2_beendet = FALSE) {
+                            nord_ab_fetch2_beendet = FALSE,
+                            malus_versatz = 0L) {
   # Vor dem Wechsel ins Repo-Root auswerten: Die TeamList-Datei und die
   # Registry werden ueber Pfade relativ zu tests/testthat gefunden.
   force(teamlist)
-  fake <- rust_fake()
+  fake <- rust_fake(malus_versatz)
   capture <- new.env()
   capture$ergebnisse <- list()
   capture$sim_marken <- integer(0)
@@ -594,9 +600,11 @@ abstieg_erwartet <- function(staffel, key, erg, counts = COUNTS_REGULAER) {
   modell()$rl_abstiegsprognose(staffel, erg[[key]], counts, p_meister_aufstieg = p)
 }
 
+# Seit #291 rechnet die Aufstiegsspalte auf dem HAUPTLAUF der Staffeln --
+# vorher auf einem eigenen Malus-Lauf (`<key>_aufstiegstabelle`).
 aufstieg_erwartet <- function(staffel, erg, paarungen,
-                              nord = erg[["rl_nord_aufstiegstabelle"]],
-                              bayern = erg[["rl_bayern_aufstiegstabelle"]]) {
+                              nord = erg[["rl_nord"]],
+                              bayern = erg[["rl_bayern"]]) {
   modell()$rl_aufstiegsprognose(
     staffel, list(Nord = nord, Bayern = bayern),
     season = 2026, paarungen = paarungen
@@ -753,16 +761,21 @@ test_that("Bayern weist Relegation und Abstieg getrennt aus, die anderen nur den
 # 4. Nord und Bayern: die Aufstiegsspalte aus den Aufstiegsspielen
 # ===========================================================================
 
-test_that("Nord und Bayern bekommen die Aufstiegsspalte als Doppelsumme ueber die Aufstiegstabellen", {
+test_that("Nord und Bayern bekommen die Aufstiegsspalte als Doppelsumme ueber die Hauptlaeufe", {
   lauf <- standardlauf()
   erg <- lauf$ergebnisse[[1]]
   paarungen <- paarungen_erwartet(lauf)
 
-  # Harness-Probe: Mit den REGULAEREN Prognosen (Zweitvertretungen im
-  # Rennen) kaeme etwas anderes heraus -- der Vergleich sieht also, ob die
-  # Aufstiegstabelle benutzt wurde.
+  # Harness-Probe: Mit einer ANDEREN Platzmatrix fuer Nord (Zeilen um drei
+  # Teams verschoben, Namen fest) kaeme etwas anderes heraus -- der
+  # Vergleich sieht also, welche Matrix benutzt wurde. ANGEPASST (#291):
+  # Bis dahin war die Gegenprobe der Hauptlauf und der Sollwert der
+  # Malus-Lauf; den gibt es fuer die Regionalligen nicht mehr.
+  nord <- as.matrix(erg[["rl_nord"]])
+  verschoben <- nord[c(4:nrow(nord), 1:3), , drop = FALSE]
+  rownames(verschoben) <- rownames(nord)
   expect_gt(groesste_abweichung(
-    aufstieg_erwartet("Nord", erg, paarungen, nord = erg[["rl_nord"]], bayern = erg[["rl_bayern"]]),
+    aufstieg_erwartet("Nord", erg, paarungen, nord = verschoben),
     aufstieg_erwartet("Nord", erg, paarungen)
   ), 1e-3)
 
@@ -806,6 +819,85 @@ test_that("die Aufstiegsspiele rechnen mit der aktuellen ELO aus /league-details
   if (!is.null(erg[["rl_nord_aufstieg"]])) {
     expect_gt(groesste_abweichung(erg[["rl_nord_aufstieg"]], soll_start), 1e-6,
               label = "Abstand der Aufstiegsspalte zur Rechnung mit Start-ELO")
+  }
+})
+
+# --- #291: Meister und Aufstieg aus EINEM Lauf -----------------------------
+#
+# Bis Oktober 2026 kam bei Nord und Bayern die Meisterspalte der
+# Aufstiegsseite aus dem Hauptlauf, die Aufstiegsspalte aus einem zweiten
+# Lauf mit -50-Malus. Zwei unabhaengige Monte-Carlo-Laeufe: Die Siegquote
+# (Aufstieg / Meister) war nur naeherungsweise eine, und im Grenzfall stand
+# "Meister 0, Aufstieg <1" auf der Seite. Seit #291 gibt es fuer die
+# Regionalligen keinen Malus-Lauf mehr (Par. 55b Nr. 3.1 DFB-SpO greift
+# 2026/27 bei keiner RL-Zweitvertretung, ADR 0008).
+
+test_that("eine Regionalliga wird je Runde einmal simuliert, 3. Liga und 2. Frauen-BL zweimal", {
+  lauf <- standardlauf()
+
+  # Harness-Probe: Die Fake-TeamList traegt auch in den Regionalligen
+  # gepflegte -50 (NO02, NO12, ...). Ein Malus-Lauf fiele also auf.
+  tl <- lauf$teamlist
+  expect_true(any(tl$Promotion[as.character(tl$League) == "84"] < 0))
+
+  for (key in unname(RL_SCHLUESSEL)) {
+    alle <- Filter(function(p) setequal(as.character(p$team_names), teams_von(key)),
+                   lauf$simulate)
+    expect_length(alle, 1L)
+    expect_length(payloads_von(lauf, key, malus = TRUE), 0L)
+  }
+  for (key in c("dritte_liga", "zweite_frauen_bundesliga")) {
+    expect_length(payloads_von(lauf, key, malus = FALSE), 1L)
+    expect_length(payloads_von(lauf, key, malus = TRUE), 1L)
+  }
+  # Zehn Ligen, zwei davon mit Malus-Lauf.
+  expect_length(lauf$simulate, 12L)
+
+  # Und kein Platzmatrix-Objekt eines RL-Malus-Laufs in den Ergebnissen.
+  expect_length(grep("_aufstiegstabelle$", names(lauf$ergebnisse[[1]])), 0L)
+})
+
+test_that("#291: auf der Aufstiegsseite gilt Aufstieg <= Meister, die Siegquote bleibt <= 100 %", {
+  # Ein Malus-Lauf, der die Meisterchancen anderen Teams gibt als der
+  # Hauptlauf -- genau die Lage, in der zwei Laeufe "Meister 0, Aufstieg >0"
+  # ergaben. Ohne RL-Malus-Lauf darf das keine Rolle mehr spielen.
+  lauf <- lauf_ausfuehren(malus_versatz = 3L)
+  erg <- lauf$ergebnisse[[1]]
+
+  gen <- local({
+    source(rcode("generate_static_site.R"), local = TRUE)
+    environment()
+  })
+  data_env <- new.env(parent = emptyenv())
+  for (k in names(erg)) {
+    assign(gen$.ergebnis_objektname(k), erg[[k]], envir = data_env)
+  }
+  daten <- gen$.aufstiegsdaten(unname(RL_SCHLUESSEL), data_env)
+  playoff <- Filter(function(d) isTRUE(d$playoff), daten)
+  expect_setequal(names(playoff), c("Nord", "Bayern"))
+
+  for (staffel in names(playoff)) {
+    d <- playoff[[staffel]]
+    ohne_meister <- names(d$meister)[d$meister == 0]
+    # Harness-Probe: Es gibt Teams ohne Meisterchance -- sonst prueft der
+    # Regressionsfall nichts.
+    expect_gt(length(ohne_meister), 0L)
+    expect_true(all(d$aufstieg[ohne_meister] == 0),
+                info = sprintf("%s: Meister 0, Aufstieg > 0 fuer %s", staffel,
+                               paste(ohne_meister[d$aufstieg[ohne_meister] > 0],
+                                     collapse = ", ")))
+    expect_true(all(d$aufstieg <= d$meister + 1e-12),
+                info = sprintf("%s: Aufstieg > Meister", staffel))
+
+    mit_meister <- d$meister > 0
+    quote <- d$aufstieg[mit_meister] / d$meister[mit_meister]
+    expect_true(all(quote <= 1 + 1e-12),
+                info = sprintf("%s: Siegquote ueber 100 %%", staffel))
+    # Was die Seite zeigt, kommt aus .siegquote() -- nie mehr als prozent(1).
+    for (team in names(d$meister)[mit_meister]) {
+      expect_false(identical(gen$.siegquote(d$aufstieg[[team]], d$meister[[team]]), ""),
+                   info = sprintf("%s/%s: Siegquote fehlt", staffel, team))
+    }
   }
 })
 
@@ -986,9 +1078,10 @@ test_that("(a) eine neu simulierte Regionalliga mischt mit der gueltigen Zaehlun
   expect_length(lauf$ergebnisse, 2L)
   expect_length(lauf$sim_marken, 2L)
 
-  # Harness-Probe: In Loop 3 liefen genau zwei Simulationen (Nord regulaer
-  # und Nord Aufstiegstabelle), die 3. Liga nicht.
-  expect_identical(lauf$sim_marken[[2]] - lauf$sim_marken[[1]], 2L)
+  # Harness-Probe: In Loop 3 lief genau eine Simulation (Nord, Hauptlauf),
+  # die 3. Liga nicht. ANGEPASST (#291): vorher zwei -- Nord hatte einen
+  # eigenen Malus-Lauf fuer die Aufstiegstabelle.
+  expect_identical(lauf$sim_marken[[2]] - lauf$sim_marken[[1]], 1L)
   spaeter <- lauf$simulate[seq(lauf$sim_marken[[1]] + 1L, lauf$sim_marken[[2]])]
   expect_true(all(vapply(spaeter, function(p) is.null(p$group_of_team), logical(1))))
 
@@ -1003,7 +1096,7 @@ test_that("(a) eine neu simulierte Regionalliga mischt mit der gueltigen Zaehlun
   expect_gleich(erg2[["rl_nord_abstieg"]], abstieg_erwartet("Nord", "rl_nord", erg2),
                 "Ergebnis_rl_nord_abstieg (Loop 3)")
 
-  # Bayerns Aufstieg haengt ueber die Doppelsumme an Nords Aufstiegstabelle
+  # Bayerns Aufstieg haengt ueber die Doppelsumme an Nords Prognose
   # und muss deshalb MIT gerechnet worden sein -- obwohl Bayern selbst nicht
   # neu simuliert wurde.
   expect_gleich(erg2[["rl_bayern_aufstieg"]], aufstieg_erwartet("Bayern", erg2, paarungen),
@@ -1076,7 +1169,7 @@ test_that("die Verdrahtung aendert die Zahl der Simulationen je Runde nicht", {
   lauf <- standardlauf()
   expect_identical(n_ligen(), 10L)
   # Eine je Liga plus der Malus-Lauf jeder Liga mit Aufstiegsbeschraenkung
-  # (3. Liga, 2. Frauen-BL, fuenf RL) -- dieselbe Formel wie in
+  # (3. Liga, 2. Frauen-BL; die RL seit #291 nicht mehr) -- dieselbe Formel wie in
   # test-update_all_leagues_loop-gating.R. Die Abstiegs- und Aufstiegsspalten sind
   # Rechnungen auf vorhandenen Ergebnissen, keine weiteren Simulationen.
   expect_identical(lauf$sim_marken[[1]], n_sims_pro_runde())
