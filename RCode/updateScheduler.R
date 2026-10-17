@@ -83,15 +83,39 @@ if (!file.exists(team_list_file)) {
 source("RCode/update_all_leagues_loop.R")
 source("RCode/checkAPILimits.R")
 
+# Der Takt des Normalbetriebs in Minuten: eine Runde je zwei Minuten.
+SCHEDULE_TAKT_MINUTES <- 2
+
 # Der Tagesplan als reine Rechnung (Stufe 4.2, #212): Zeitpunkt rein, Plan raus,
 # kein Schlafen, keine Meldung, kein API-Aufruf. Rechnet in Europe/Berlin,
 # unabhaengig von der Prozess-Zeitzone -- TZ setzt heute nur docker-compose,
 # nicht das Dockerfile.
+#
+# Das Fensterende (#287): Der Zweig "nach" beginnt nicht erst NACH 23:00,
+# sondern sobald hoechstens noch ein Takt (zwei Minuten) bleibt, also ab
+# 22:58. Grund ist der Prozess-Lebenslauf: Der Scheduler ist je Prozess ein
+# Tageslauf. Der regulaere Lauf endet, sobald die naechste Runde nicht mehr
+# vor dem Fensterende passt -- weniger als ein Takt davor --, Docker startet
+# den Container rund 19 s spaeter neu (`unless-stopped`), und erst der neue
+# Prozess schlaeft bis 11:00. Plante er stattdessen noch eine Runde (vorher
+# bei 22:58, 22:59 und 23:00 je eine), endete er nach ihr und startete
+# erneut -- am 05.10. sieben Neustarts zwischen 22:59 und 23:01, jeder mit
+# einem Komplettzyklus, der den eben beendeten nur wiederholte. Ab zwei
+# Minuten Restzeit passt keine zweite Runde mehr (die Runde selbst dauert
+# ~18 s); ein solcher Lauf ist immer genau dieser Kurzlauf. So bleibt pro
+# Abend der eine gewollte Neustart.
+#
+# Warum 22:58 und nicht erst 22:59: Das Fensterende des regulaeren Laufs
+# liegt bei 23:00:ss (Start 11:00:ss plus 720 Minuten), seine letzte Runde
+# endet also irgendwo zwischen 22:58:ss und 23:01 -- der Neustart kann
+# damit schon in 22:58 fallen. Vor 22:58 liegt er bei normalem Takt nie;
+# nur ein vom Regler gestreckter Takt kann den Tageslauf frueher beenden.
 plane_fenster <- function(jetzt,
                           start = SCHEDULE_START_MINUTES,
                           ende = SCHEDULE_END_MINUTES,
                           dauer_max = DURATION,
-                          tz = "Europe/Berlin") {
+                          tz = "Europe/Berlin",
+                          takt = SCHEDULE_TAKT_MINUTES) {
   lokal <- as.POSIXlt(jetzt, tz = tz)
   minuten <- lokal$hour * 60 + lokal$min
   deckeln <- function(m) if (dauer_max > 0 && m > dauer_max) dauer_max else m
@@ -99,7 +123,7 @@ plane_fenster <- function(jetzt,
     verfuegbar <- deckeln(ende - start)
     list(zweig = "vor", wartezeit_s = (start - minuten) * 60,
          verfuegbar = verfuegbar, ideal_loops = floor(verfuegbar / 2) + 1)
-  } else if (minuten > ende) {
+  } else if (ende - minuten <= takt) {
     verfuegbar <- deckeln(ende - start)
     list(zweig = "nach", wartezeit_s = ((24 * 60 - minuten) + start) * 60,
          verfuegbar = verfuegbar, ideal_loops = floor(verfuegbar / 2) + 1)
@@ -120,8 +144,17 @@ calculate_loops <- function(jetzt = Sys.time(), schlafen = Sys.sleep) {
       message(sprintf("Before %s - waiting %.1f hours for scheduled run time",
                       .format_schedule_time(SCHEDULE_START_MINUTES), plan$wartezeit_s / 3600))
     } else {
-      message(sprintf("After %s - waiting %.1f hours until tomorrow's scheduled run",
-                      .format_schedule_time(SCHEDULE_END_MINUTES), plan$wartezeit_s / 3600))
+      # Ab zwei Minuten vor dem Fensterende schon "nach" (#287) -- die
+      # Meldung sagt dann nicht "After 23:00", obwohl es noch 22:59 ist.
+      ende_text <- .format_schedule_time(SCHEDULE_END_MINUTES)
+      lokal <- as.POSIXlt(jetzt, tz = "Europe/Berlin")
+      if (lokal$hour * 60 + lokal$min < SCHEDULE_END_MINUTES) {
+        lage <- sprintf("No loop fits before %s", ende_text)
+      } else {
+        lage <- sprintf("After %s", ende_text)
+      }
+      message(sprintf("%s - waiting %.1f hours until tomorrow's scheduled run",
+                      lage, plan$wartezeit_s / 3600))
     }
     schlafen(plan$wartezeit_s)
   }
