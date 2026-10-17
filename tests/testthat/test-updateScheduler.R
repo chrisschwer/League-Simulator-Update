@@ -102,7 +102,7 @@ test_that("plane_fenster: nach dem Fenster wartet bis morgen 11:00 und plant das
   expect_equal(plan$ideal_loops, 361)
 })
 
-test_that("plane_fenster: die Grenzen 11:00 und 23:00 gehoeren zum Zweig 'im'", {
+test_that("plane_fenster: der Fensterbeginn 11:00 gehoert zum Zweig 'im'", {
   withr::local_envvar(c(DURATION = ""))
   env <- source_scheduler()
 
@@ -110,11 +110,69 @@ test_that("plane_fenster: die Grenzen 11:00 und 23:00 gehoeren zum Zweig 'im'", 
   expect_equal(plan_start$zweig, "im")
   expect_equal(plan_start$verfuegbar, 720)
   expect_equal(plan_start$ideal_loops, 361)
+})
 
-  plan_ende <- env$plane_fenster(as.POSIXct("2026-09-27 23:00:00", tz = "Europe/Berlin"))
-  expect_equal(plan_ende$zweig, "im")
-  expect_equal(plan_ende$verfuegbar, 0)
-  expect_equal(plan_ende$ideal_loops, 1)
+# Das Fensterende (#287). Der Scheduler ist je Prozess ein Tageslauf: Der
+# regulaere Lauf endet, sobald die naechste Runde nicht mehr vor 23:00 passt
+# -- also weniger als ein Takt (zwei Minuten) vor dem Ende --, und Docker
+# startet den Container rund 19 s spaeter neu. Plant der neue Prozess dann
+# noch eine Runde, endet er nach ihr und startet wieder neu: am 05.10. sieben
+# Neustarts zwischen 22:59 und 23:01. Gewollt ist genau einer. Deshalb geht
+# jeder Start, der keine zweite Runde mehr vor 23:00 unterbringt -- also ab
+# zwei Minuten Restzeit, 22:58 --, direkt in den Schlaf bis 11:00.
+fensterende_faelle <- function(datum, tz) {
+  lapply(c("22:57", "22:58", "22:59", "23:00", "23:01"), function(uhr) {
+    as.POSIXct(paste0(datum, " ", uhr, ":30"), tz = tz)
+  })
+}
+
+test_that("plane_fenster: ab zwei Minuten vor 23:00 schlaeft der Scheduler bis 11:00 (#287)", {
+  withr::local_envvar(c(DURATION = ""))
+  env <- source_scheduler()
+
+  # Sommer- (CEST) und Winterzeit (CET), jeweils als Berliner Ortszeit.
+  for (datum in c("2026-09-27", "2026-12-05")) {
+    zeiten <- fensterende_faelle(datum, "Europe/Berlin")
+    plaene <- lapply(zeiten, env$plane_fenster)
+    names(plaene) <- c("22:57", "22:58", "22:59", "23:00", "23:01")
+
+    # 22:57 bleibt im Fenster: Bei normalem Takt endet der regulaere Lauf
+    # nie vor 22:58 (sein Fensterende liegt bei 23:00:ss), ein Neustart
+    # faellt also nicht hierher.
+    expect_equal(plaene[["22:57"]]$zweig, "im", info = datum)
+    expect_equal(plaene[["22:57"]]$verfuegbar, 3, info = datum)
+    expect_equal(plaene[["22:57"]]$ideal_loops, 2, info = datum)
+
+    # Ab 22:58 kein Lauf mehr: schlafen bis morgen 11:00 und dann das
+    # volle Fenster planen.
+    for (uhr in c("22:58", "22:59", "23:00", "23:01")) {
+      plan <- plaene[[uhr]]
+      minuten <- as.numeric(substr(uhr, 1, 2)) * 60 + as.numeric(substr(uhr, 4, 5))
+      expect_equal(plan$zweig, "nach", info = paste(datum, uhr))
+      expect_equal(plan$wartezeit_s, ((24 * 60 - minuten) + 11 * 60) * 60,
+                   info = paste(datum, uhr))
+      expect_equal(plan$verfuegbar, 720, info = paste(datum, uhr))
+      expect_equal(plan$ideal_loops, 361, info = paste(datum, uhr))
+    }
+
+    # Genau um 23:00 sind es zwoelf Stunden, nicht null und nicht 24.
+    expect_equal(plaene[["23:00"]]$wartezeit_s, 12 * 3600, info = datum)
+  }
+})
+
+test_that("plane_fenster: das Fensterende gilt in Berliner Zeit, auch bei UTC-Prozess (#287)", {
+  withr::local_envvar(c(DURATION = ""))
+  env <- source_scheduler()
+  withr::local_timezone("UTC")
+
+  # Sommerzeit: 20:59 UTC = 22:59 CEST, 20:57 UTC = 22:57 CEST.
+  expect_equal(env$plane_fenster(as.POSIXct("2026-09-27 20:59:30", tz = "UTC"))$zweig, "nach")
+  expect_equal(env$plane_fenster(as.POSIXct("2026-09-27 20:57:30", tz = "UTC"))$zweig, "im")
+  # Winterzeit: 21:59 UTC = 22:59 CET, 21:57 UTC = 22:57 CET.
+  expect_equal(env$plane_fenster(as.POSIXct("2026-12-05 21:59:30", tz = "UTC"))$zweig, "nach")
+  expect_equal(env$plane_fenster(as.POSIXct("2026-12-05 21:57:30", tz = "UTC"))$zweig, "im")
+  # Gegenprobe: 20:59 UTC im Winter ist 21:59 CET -- mitten im Fenster.
+  expect_equal(env$plane_fenster(as.POSIXct("2026-12-05 20:59:30", tz = "UTC"))$zweig, "im")
 })
 
 test_that("plane_fenster: dauer_max deckelt in allen drei Zweigen gleichermassen", {
@@ -223,6 +281,28 @@ test_that("calculate_loops: Huelle nach dem Fenster schlaeft bis morgen", {
   ))
 
   expect_equal(geschlafen, 41400)
+})
+
+test_that("calculate_loops: Huelle um 22:59 faehrt keinen Kurzlauf, sondern schlaeft bis 11:00 (#287)", {
+  withr::local_envvar(c(DURATION = ""))
+  env <- source_scheduler()
+  env$checkAPILimits <- function(n, ...) n
+  env$api_limits_plan_reduziert <- function() FALSE
+  geschlafen <- NULL
+
+  expect_message(
+    res <- env$calculate_loops(
+      jetzt = as.POSIXct("2026-10-05 22:59:29", tz = "Europe/Berlin"),
+      schlafen = function(s) geschlafen <<- s
+    ),
+    "waiting 12.0 hours"
+  )
+
+  # 12 h 01 min bis 11:00, danach der volle Tagesplan -- nicht eine Runde
+  # mit null Minuten Fenster.
+  expect_equal(geschlafen, 721 * 60)
+  expect_equal(res$loops, 361)
+  expect_equal(res$duration, 720)
 })
 
 test_that("calculate_loops: Huelle reicht ein reduziertes Kontingent von checkAPILimits durch", {
