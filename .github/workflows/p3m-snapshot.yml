@@ -28,7 +28,7 @@ concurrency:
 jobs:
   gate:
     name: Erster Montag im Monat?
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       run: ${{ steps.check.outputs.run }}
     steps:
@@ -50,7 +50,7 @@ jobs:
     name: Snapshot anheben und PR oeffnen
     needs: gate
     if: needs.gate.outputs.run == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write        # Branch deps/p3m-snapshot-<datum> pushen
       pull-requests: write   # PR oeffnen

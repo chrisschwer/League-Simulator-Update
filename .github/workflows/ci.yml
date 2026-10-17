@@ -15,10 +15,14 @@ env:
   IMAGE_NAME: chrisschwer/league-simulator
   CACHE_TAG: cache
 
+# Runner bewusst auf ubuntu-24.04 (Noble) gepinnt statt ubuntu-latest: Das
+# Image baut auf rocker/r-ver (Noble) und zieht P3M-Binaerpakete fuer
+# __linux__/noble. Der Wechsel auf ein neues Ubuntu geschieht in EINEM Zug
+# (Basis-Image, P3M-URL, Runner), nicht wenn GitHub das Label umhaengt.
 jobs:
   rust-quality:
     name: Rust quality (fmt + clippy + test)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: league-simulator-rust
@@ -55,7 +59,7 @@ jobs:
 
   r-lint:
     name: R lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
@@ -63,7 +67,7 @@ jobs:
       - name: Set up R
         uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05  # v2
         with:
-          r-version: '4.3.1'
+          r-version: '4.6.1'  # wie rocker/r-ver im Dockerfile
           use-public-rspm: true
 
       # Version gepinnt: Der Job blockiert, und jede lintr-Version bringt
@@ -92,7 +96,7 @@ jobs:
 
   image-build-and-test:
     name: Image build + in-image testthat
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
@@ -232,7 +236,7 @@ jobs:
 
   push-image:
     name: Push image to Docker Hub
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [rust-quality, image-build-and-test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
@@ -273,7 +277,7 @@ jobs:
 
   report-failure:
     name: Open or update CI failure issue
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [image-build-and-test, rust-quality]
     if: failure() && github.event_name == 'push' && github.ref == 'refs/heads/main' && (needs.image-build-and-test.result == 'failure' || needs.rust-quality.result == 'failure')
     steps:
