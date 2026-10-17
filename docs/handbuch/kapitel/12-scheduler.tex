@@ -29,6 +29,15 @@ geschrieben werden.
         (Issue~\#287).
   \item Die Fensterrechnung erfolgt ausdrücklich in \code{Europe/Berlin},
         unabhängig von der Zeitzone des Prozesses.
+  \item Die Schlafdauer ist die echte Zeitspanne bis zum nächsten
+        Fensterbeginn (heute 11:00:00, wenn der Start davor liegt, sonst
+        morgen), sekundengenau und keine Differenz von Uhrzeiten. Das zählt
+        in den Nächten der Zeitumstellung: Die Nacht auf den letzten Sonntag
+        im März hat 23 Stunden, die auf den letzten Sonntag im Oktober 25.
+        Die frühere Rechnung in Uhrzeit-Minuten weckte den Scheduler im
+        Frühjahr erst um 12 Uhr (die erste Stunde fehlte) und im Herbst
+        schon um 10 Uhr. Er lief dann sein volles 720-Minuten-Fenster bis
+        22 Uhr und brauchte für die letzte Stunde einen zusätzlichen Neustart.
 \end{itemize}
 
 \section{Takt und Live-Gating}

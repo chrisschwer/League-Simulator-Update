@@ -14,6 +14,7 @@ The League Simulator runs as a single Docker container that combines the Rust si
 - **Active hours:** 11:00 – 23:00 Berlin time (`updateScheduler.R` enforces both bounds; the 11:00 start covers the 2. Frauen-Bundesliga, which kicks off from 11:00).
 - **Loop frequency:** every 2 minutes inside the active window (Rust engine is fast enough to allow this).
 - **Outside the window:** the scheduler sleeps until the next 11:00. Each process is one day-run: it exits once the next loop no longer fits before 23:00, Docker restarts the container (`unless-stopped`), and the new process sleeps until 11:00. A start from 22:58 on (at most one 2-minute cadence left) already counts as "after the window", so there is exactly **one restart per evening** — `RestartCount` should rise by one a day, not by ~7 (#287).
+- **Daylight saving:** the sleep is the real elapsed time from now until the next 11:00:00 Berlin time (today if still ahead, otherwise tomorrow), to the second. It is not a difference of wall-clock minutes. The night into the last Sunday of March has 23 hours and the one into the last Sunday of October has 25. The old wall-clock calculation woke the scheduler at 12:00 in spring, which missed the first hour, and at 10:00 in autumn. It then ran a full 720-minute window until 22:00 and needed an extra restart for the last hour.
 
 ## Required environment variables
 
