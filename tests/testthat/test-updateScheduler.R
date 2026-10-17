@@ -143,20 +143,22 @@ test_that("plane_fenster: ab zwei Minuten vor 23:00 schlaeft der Scheduler bis 1
     expect_equal(plaene[["22:57"]]$verfuegbar, 3, info = datum)
     expect_equal(plaene[["22:57"]]$ideal_loops, 2, info = datum)
 
-    # Ab 22:58 kein Lauf mehr: schlafen bis morgen 11:00 und dann das
-    # volle Fenster planen.
+    # Ab 22:58 kein Lauf mehr: schlafen bis morgen 11:00:00 und dann das
+    # volle Fenster planen. Die Faelle liegen auf hh:mm:30, die Wartezeit
+    # zielt sekundengenau auf 11:00:00 -- daher 30 s weniger als die volle
+    # Minutenrechnung.
     for (uhr in c("22:58", "22:59", "23:00", "23:01")) {
       plan <- plaene[[uhr]]
       minuten <- as.numeric(substr(uhr, 1, 2)) * 60 + as.numeric(substr(uhr, 4, 5))
       expect_equal(plan$zweig, "nach", info = paste(datum, uhr))
-      expect_equal(plan$wartezeit_s, ((24 * 60 - minuten) + 11 * 60) * 60,
+      expect_equal(plan$wartezeit_s, ((24 * 60 - minuten) + 11 * 60) * 60 - 30,
                    info = paste(datum, uhr))
       expect_equal(plan$verfuegbar, 720, info = paste(datum, uhr))
       expect_equal(plan$ideal_loops, 361, info = paste(datum, uhr))
     }
 
-    # Genau um 23:00 sind es zwoelf Stunden, nicht null und nicht 24.
-    expect_equal(plaene[["23:00"]]$wartezeit_s, 12 * 3600, info = datum)
+    # Um 23:00:30 sind es zwoelf Stunden weniger 30 s, nicht null und nicht 24.
+    expect_equal(plaene[["23:00"]]$wartezeit_s, 12 * 3600 - 30, info = datum)
   }
 })
 
@@ -173,6 +175,144 @@ test_that("plane_fenster: das Fensterende gilt in Berliner Zeit, auch bei UTC-Pr
   expect_equal(env$plane_fenster(as.POSIXct("2026-12-05 21:57:30", tz = "UTC"))$zweig, "im")
   # Gegenprobe: 20:59 UTC im Winter ist 21:59 CET -- mitten im Fenster.
   expect_equal(env$plane_fenster(as.POSIXct("2026-12-05 20:59:30", tz = "UTC"))$zweig, "im")
+})
+
+# Die Zeitumstellung. Die Wartezeit ist die echte Spanne bis zum naechsten
+# Fensterstart in Berliner Zeit, nicht eine Uhrzeit-Differenz: In der Nacht
+# auf den letzten Sonntag im Maerz hat die Nacht 23 Stunden, in der Nacht auf
+# den letzten Sonntag im Oktober 25. Eine Rechnung in Uhrzeit-Minuten weckte
+# den Scheduler im Fruehjahr um 12:00 (erste Stunde verpasst) und im Herbst
+# um 10:00 (eine Stunde zu frueh, dann ein 720-Minuten-Lauf bis 22:00 und ein
+# zusaetzlicher Neustart). Geprueft wird jeweils die Wartezeit in Sekunden
+# und der Weckzeitpunkt in Berliner Zeit.
+weckzeit <- function(jetzt, plan) {
+  format(jetzt + plan$wartezeit_s, tz = "Europe/Berlin", "%Y-%m-%d %H:%M:%S")
+}
+
+# Faelle als Berliner Ortszeit und als derselbe Zeitpunkt in UTC.
+umstellung_faelle <- list(
+  # Fruehjahr 2027: So 28.03., 02:00 CET -> 03:00 CEST.
+  list(berlin = "2027-03-27 23:01:05", utc = "2027-03-27 22:01:05",
+       warte = 10 * 3600 + 58 * 60 + 55, weck = "2027-03-28 11:00:00", zweig = "nach"),
+  list(berlin = "2027-03-28 01:30:00", utc = "2027-03-28 00:30:00",
+       warte = 8.5 * 3600, weck = "2027-03-28 11:00:00", zweig = "vor"),
+  list(berlin = "2027-03-28 03:30:00", utc = "2027-03-28 01:30:00",
+       warte = 7.5 * 3600, weck = "2027-03-28 11:00:00", zweig = "vor"),
+  # Herbst 2026: So 25.10., 03:00 CEST -> 02:00 CET.
+  list(berlin = "2026-10-24 23:01:05", utc = "2026-10-24 21:01:05",
+       warte = 12 * 3600 + 58 * 60 + 55, weck = "2026-10-25 11:00:00", zweig = "nach"),
+  list(berlin = "2026-10-25 01:30:00", utc = "2026-10-24 23:30:00",
+       warte = 10.5 * 3600, weck = "2026-10-25 11:00:00", zweig = "vor"),
+  list(berlin = "2026-10-25 03:30:00", utc = "2026-10-25 02:30:00",
+       warte = 7.5 * 3600, weck = "2026-10-25 11:00:00", zweig = "vor")
+)
+
+test_that("plane_fenster: in den Naechten der Zeitumstellung weckt die Wartezeit genau um 11:00:00", {
+  withr::local_envvar(c(DURATION = ""))
+  env <- source_scheduler()
+
+  for (fall in umstellung_faelle) {
+    jetzt <- as.POSIXct(fall$berlin, tz = "Europe/Berlin")
+    plan <- env$plane_fenster(jetzt)
+    expect_equal(plan$zweig, fall$zweig, info = fall$berlin)
+    expect_equal(plan$wartezeit_s, fall$warte, info = fall$berlin)
+    expect_equal(weckzeit(jetzt, plan), fall$weck, info = fall$berlin)
+    expect_equal(plan$verfuegbar, 720, info = fall$berlin)
+    expect_equal(plan$ideal_loops, 361, info = fall$berlin)
+  }
+})
+
+test_that("plane_fenster: Zeitumstellung auch bei UTC-Zeitpunkt und UTC-Prozess", {
+  withr::local_envvar(c(DURATION = ""))
+  env <- source_scheduler()
+  withr::local_timezone("UTC")
+
+  for (fall in umstellung_faelle) {
+    jetzt <- as.POSIXct(fall$utc, tz = "UTC")
+    plan <- env$plane_fenster(jetzt)
+    expect_equal(plan$zweig, fall$zweig, info = fall$utc)
+    expect_equal(plan$wartezeit_s, fall$warte, info = fall$utc)
+    expect_equal(weckzeit(jetzt, plan), fall$weck, info = fall$utc)
+  }
+})
+
+# Normaltage ohne Umstellung, Sommer- (27.09.) und Winterzeit (05.12.), mit
+# und ohne Sekundenanteil: Die Wartezeit zielt auf 11:00:00, nicht auf die
+# volle Minute.
+normaltag_faelle <- list(
+  list(berlin = "2026-09-27 10:15:00", utc = "2026-09-27 08:15:00",
+       warte = 45 * 60, weck = "2026-09-27 11:00:00", zweig = "vor"),
+  list(berlin = "2026-09-27 10:15:20", utc = "2026-09-27 08:15:20",
+       warte = 45 * 60 - 20, weck = "2026-09-27 11:00:00", zweig = "vor"),
+  list(berlin = "2026-09-27 23:30:00", utc = "2026-09-27 21:30:00",
+       warte = 11.5 * 3600, weck = "2026-09-28 11:00:00", zweig = "nach"),
+  list(berlin = "2026-09-27 23:30:45", utc = "2026-09-27 21:30:45",
+       warte = 11.5 * 3600 - 45, weck = "2026-09-28 11:00:00", zweig = "nach"),
+  list(berlin = "2026-12-05 10:15:00", utc = "2026-12-05 09:15:00",
+       warte = 45 * 60, weck = "2026-12-05 11:00:00", zweig = "vor"),
+  list(berlin = "2026-12-05 10:15:20", utc = "2026-12-05 09:15:20",
+       warte = 45 * 60 - 20, weck = "2026-12-05 11:00:00", zweig = "vor"),
+  list(berlin = "2026-12-05 23:30:00", utc = "2026-12-05 22:30:00",
+       warte = 11.5 * 3600, weck = "2026-12-06 11:00:00", zweig = "nach"),
+  list(berlin = "2026-12-05 23:30:45", utc = "2026-12-05 22:30:45",
+       warte = 11.5 * 3600 - 45, weck = "2026-12-06 11:00:00", zweig = "nach")
+)
+
+test_that("plane_fenster: an Normaltagen zielt die Wartezeit sekundengenau auf 11:00:00", {
+  withr::local_envvar(c(DURATION = ""))
+  env <- source_scheduler()
+
+  for (fall in normaltag_faelle) {
+    jetzt <- as.POSIXct(fall$berlin, tz = "Europe/Berlin")
+    plan <- env$plane_fenster(jetzt)
+    expect_equal(plan$zweig, fall$zweig, info = fall$berlin)
+    expect_equal(plan$wartezeit_s, fall$warte, info = fall$berlin)
+    expect_equal(weckzeit(jetzt, plan), fall$weck, info = fall$berlin)
+  }
+
+  withr::local_timezone("UTC")
+  for (fall in normaltag_faelle) {
+    jetzt <- as.POSIXct(fall$utc, tz = "UTC")
+    plan <- env$plane_fenster(jetzt)
+    expect_equal(plan$zweig, fall$zweig, info = fall$utc)
+    expect_equal(plan$wartezeit_s, fall$warte, info = fall$utc)
+    expect_equal(weckzeit(jetzt, plan), fall$weck, info = fall$utc)
+  }
+})
+
+test_that("plane_fenster: der Weckzeitpunkt folgt dem Parameter start, nicht fest 11:00", {
+  withr::local_envvar(c(DURATION = ""))
+  env <- source_scheduler()
+  start <- 9 * 60 + 30
+
+  vor <- as.POSIXct("2027-03-28 01:30:00", tz = "Europe/Berlin")
+  plan_vor <- env$plane_fenster(vor, start = start)
+  expect_equal(plan_vor$zweig, "vor")
+  expect_equal(weckzeit(vor, plan_vor), "2027-03-28 09:30:00")
+  expect_equal(plan_vor$wartezeit_s, 7 * 3600)
+
+  nach <- as.POSIXct("2026-10-24 23:30:00", tz = "Europe/Berlin")
+  plan_nach <- env$plane_fenster(nach, start = start)
+  expect_equal(plan_nach$zweig, "nach")
+  expect_equal(weckzeit(nach, plan_nach), "2026-10-25 09:30:00")
+  expect_equal(plan_nach$wartezeit_s, 11 * 3600)
+})
+
+test_that("calculate_loops: Huelle schlaeft in der Fruehjahrsnacht genau bis 11:00:00", {
+  withr::local_envvar(c(DURATION = ""))
+  env <- source_scheduler()
+  env$checkAPILimits <- function(n, ...) n
+  env$api_limits_plan_reduziert <- function() FALSE
+  geschlafen <- NULL
+
+  res <- suppressMessages(env$calculate_loops(
+    jetzt = as.POSIXct("2027-03-27 23:01:05", tz = "Europe/Berlin"),
+    schlafen = function(s) geschlafen <<- s
+  ))
+
+  expect_equal(geschlafen, 10 * 3600 + 58 * 60 + 55)
+  expect_equal(res$loops, 361)
+  expect_equal(res$duration, 720)
 })
 
 test_that("plane_fenster: dauer_max deckelt in allen drei Zweigen gleichermassen", {
@@ -298,9 +438,9 @@ test_that("calculate_loops: Huelle um 22:59 faehrt keinen Kurzlauf, sondern schl
     "waiting 12.0 hours"
   )
 
-  # 12 h 01 min bis 11:00, danach der volle Tagesplan -- nicht eine Runde
-  # mit null Minuten Fenster.
-  expect_equal(geschlafen, 721 * 60)
+  # 12 h 00 min 31 s bis 11:00:00, danach der volle Tagesplan -- nicht eine
+  # Runde mit null Minuten Fenster.
+  expect_equal(geschlafen, 721 * 60 - 29)
   expect_equal(res$loops, 361)
   expect_equal(res$duration, 720)
 })

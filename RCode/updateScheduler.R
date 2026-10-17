@@ -110,6 +110,25 @@ SCHEDULE_TAKT_MINUTES <- 2
 # endet also irgendwo zwischen 22:58:ss und 23:01 -- der Neustart kann
 # damit schon in 22:58 fallen. Vor 22:58 liegt er bei normalem Takt nie;
 # nur ein vom Regler gestreckter Takt kann den Tageslauf frueher beenden.
+#
+# Die Wartezeit (Zweige "vor" und "nach") ist die echte Spanne von `jetzt`
+# bis zum naechsten Fensterstart in Berliner Zeit -- heute, wenn `jetzt` davor
+# liegt, sonst morgen. Frueher rechnete sie in Uhrzeit-Minuten und unterstellte
+# damit, dass jede Nacht 24 Stunden hat. In der Nacht der Umstellung auf
+# Sommerzeit (23 Stunden) wachte der Scheduler deshalb erst um 12:00 auf und
+# verpasste die erste Stunde; in der Herbstnacht (25 Stunden) schon um 10:00
+# und lief dann mit dem vollen 720-Minuten-Fenster bis 22:00, gefolgt von
+# einem zusaetzlichen Neustart fuer die letzte Stunde. Die Sekunden von
+# `jetzt` gehen mit ein: Das Ziel ist 11:00:00, nicht die volle Minute.
+naechster_fensterstart <- function(jetzt, start = SCHEDULE_START_MINUTES,
+                                   tz = "Europe/Berlin") {
+  uhrzeit <- sprintf("%02d:%02d:00", start %/% 60, start %% 60)
+  tag <- as.Date(format(jetzt, tz = tz, "%Y-%m-%d"))
+  ziel <- as.POSIXct(paste(tag, uhrzeit), tz = tz)
+  if (ziel <= jetzt) ziel <- as.POSIXct(paste(tag + 1, uhrzeit), tz = tz)
+  ziel
+}
+
 plane_fenster <- function(jetzt,
                           start = SCHEDULE_START_MINUTES,
                           ende = SCHEDULE_END_MINUTES,
@@ -119,13 +138,17 @@ plane_fenster <- function(jetzt,
   lokal <- as.POSIXlt(jetzt, tz = tz)
   minuten <- lokal$hour * 60 + lokal$min
   deckeln <- function(m) if (dauer_max > 0 && m > dauer_max) dauer_max else m
+  wartezeit <- function() {
+    ziel <- naechster_fensterstart(jetzt, start = start, tz = tz)
+    as.numeric(difftime(ziel, jetzt, units = "secs"))
+  }
   if (minuten < start) {
     verfuegbar <- deckeln(ende - start)
-    list(zweig = "vor", wartezeit_s = (start - minuten) * 60,
+    list(zweig = "vor", wartezeit_s = wartezeit(),
          verfuegbar = verfuegbar, ideal_loops = floor(verfuegbar / 2) + 1)
   } else if (ende - minuten <= takt) {
     verfuegbar <- deckeln(ende - start)
-    list(zweig = "nach", wartezeit_s = ((24 * 60 - minuten) + start) * 60,
+    list(zweig = "nach", wartezeit_s = wartezeit(),
          verfuegbar = verfuegbar, ideal_loops = floor(verfuegbar / 2) + 1)
   } else {
     verfuegbar <- deckeln(ende - minuten)
