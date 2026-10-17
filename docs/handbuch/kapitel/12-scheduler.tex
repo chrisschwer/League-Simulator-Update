@@ -17,8 +17,16 @@ geschrieben werden.
         eine zweite Quelle, die beim nächsten Verschieben des Fensters
         unbemerkt das Fenster beschneiden würde.
   \item Außerhalb des Fensters schläft der Prozess bis zum nächsten
-        Fensterbeginn. Endet ein Tageslauf um 23 Uhr, startet Docker den
-        Container neu (\code{restart: unless-stopped}).
+        Fensterbeginn. Jeder Prozess ist ein Tageslauf: Er endet, sobald die
+        nächste Runde nicht mehr vor 23 Uhr passt, und Docker startet den
+        Container neu (\code{restart: unless-stopped}). Der neue Prozess
+        schläft dann bis 11 Uhr -- pro Abend genau ein Neustart.
+  \item Als „nach dem Fenster“ gilt deshalb schon ein Start ab
+        \textbf{22:58 Uhr}, also wenn höchstens noch ein Takt (zwei Minuten)
+        bleibt. Vorher plante ein Start um 22:58 bis 23:00 noch eine Runde,
+        endete nach ihr und startete erneut -- rund sieben Neustarts je Abend,
+        die \code{RestartCount} als Absturzanzeige unbrauchbar machten
+        (Issue~\#287).
   \item Die Fensterrechnung erfolgt ausdrücklich in \code{Europe/Berlin},
         unabhängig von der Zeitzone des Prozesses.
 \end{itemize}
