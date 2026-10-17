@@ -6,8 +6,11 @@
 # - Binaer: Ein Kaltbau (z. B. nach neuem Digest von rocker/r-ver, 17.10.2026)
 #   kompiliert nichts und dauert Sekunden statt vieler Minuten.
 # - Fester Snapshot: gleiche Paketversionen bei jedem Bau, auch ohne Cache.
-#   2026-10-12 liefert fuer alle Laufzeitpakete exakt die Versionen des Images
-#   8c1f35d (letzter gruener main-Build am 13.10.2026). Anheben bewusst.
+#   Der erste Snapshot (12.10.2026) lieferte fuer alle Laufzeitpakete exakt
+#   die Versionen des Images 8c1f35d (letzter gruener main-Build am
+#   13.10.2026). Angehoben wird per PR: monatlich automatisch durch
+#   .github/workflows/p3m-snapshot.yml, dessen CI ohne Cache baut.
+#   Das Datum nur in der ARG-Zeile unten pflegen, der Workflow ersetzt dort.
 # URL-Form /cran/__linux__/<ubuntu-codename>/<datum>: rocker/r-ver:4.6.1 ist
 # Ubuntu 24.04 "noble". Binaerpakete liefert P3M nur bei passendem
 # HTTPUserAgent; den setzt rocker in Rprofile.site, der Bau prueft das.

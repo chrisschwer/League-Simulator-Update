@@ -1,0 +1,192 @@
+# Hebt den Posit-Package-Manager-Snapshot (ARG P3M_SNAPSHOT im Dockerfile)
+# einmal im Monat an und oeffnet dafuer einen PR gegen main.
+#
+# Warum: Dependabot kennt weder R/CRAN noch dieses ARG und meldet beim
+# Basis-Image rocker/r-ver nur neue Tags, keine Neubauten desselben Tags. Der
+# Bump-PR zwingt die CI zu einem Bau ohne Cache (siehe ci.yml, no-cache fuer
+# Branches deps/p3m-snapshot-*), damit Basis-Image, apt-Schichten und
+# R-Pakete gemeinsam frisch gebaut und getestet werden.
+# Doku: docs/deployment/README.md, Abschnitt "Image-Pflege".
+name: P3M snapshot bump
+
+on:
+  schedule:
+    # Jeden Montag 05:17 UTC; der Job "gate" laesst nur den ersten Montag im
+    # Monat (Tag 1-7) durch. NICHT '0 5 1-7 * 1' schreiben: Sind Tag-im-Monat
+    # und Wochentag beide eingeschraenkt, verknuepft cron sie mit ODER -- das
+    # liefe an den Tagen 1-7 UND an jedem Montag.
+    - cron: '17 5 * * 1'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p3m-snapshot
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: Erster Montag im Monat?
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - name: Tag im Monat pruefen (nur beim Zeitplan)
+        id: check
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          DAY=$(date -u +%-d)
+          if [ "$EVENT_NAME" = "schedule" ] && [ "$DAY" -gt 7 ]; then
+            echo "Tag $DAY > 7: nicht der erste Montag im Monat, nichts zu tun."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  bump:
+    name: Snapshot anheben und PR oeffnen
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # Branch deps/p3m-snapshot-<datum> pushen
+      pull-requests: write   # PR oeffnen
+      actions: write         # CI des Bump-Branches per workflow_dispatch anstossen
+    env:
+      # Optionales Secret. Fehlt es, arbeitet der Workflow mit GITHUB_TOKEN und
+      # stoesst die CI per workflow_dispatch an (siehe Schritt unten).
+      HAS_BUMP_TOKEN: ${{ secrets.P3M_BUMP_TOKEN != '' }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          ref: main
+          token: ${{ secrets.P3M_BUMP_TOKEN || github.token }}
+
+      - name: Snapshot anheben, Branch pushen, PR oeffnen
+        id: bump
+        env:
+          GH_TOKEN: ${{ secrets.P3M_BUMP_TOKEN || github.token }}
+          REPO: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+        run: |
+          set -euo pipefail
+
+          OLD=$(sed -n 's/^ARG P3M_SNAPSHOT=\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\)$/\1/p' Dockerfile)
+          if [ -z "$OLD" ]; then
+            echo "::error file=Dockerfile::Keine Zeile 'ARG P3M_SNAPSHOT=JJJJ-MM-TT' gefunden."
+            exit 1
+          fi
+          # Eine Woche zurueck: Am ersten Montag ist das der Montag davor, und
+          # P3M hat den Tag sicher fertig indexiert. (GNU date; der Runner
+          # ist Ubuntu. Lokal auf macOS: date -u -v-7d +%F.)
+          NEW=$(date -u -d '7 days ago' +%F)
+          echo "Snapshot: alt $OLD, Kandidat $NEW"
+
+          if [[ ! "$NEW" > "$OLD" ]]; then
+            echo "::notice::Snapshot $OLD ist nicht aelter als $NEW, nichts zu tun."
+            exit 0
+          fi
+
+          OPEN_PR=$(gh pr list --repo "$REPO" --state open --limit 100 \
+            --json number,headRefName \
+            --jq '[.[] | select(.headRefName | startswith("deps/p3m-snapshot-"))][0].number // empty')
+          if [ -n "$OPEN_PR" ]; then
+            echo "::notice::Offener Snapshot-PR #$OPEN_PR existiert bereits, kein zweiter."
+            exit 0
+          fi
+
+          INDEX_URL="https://p3m.dev/cran/__linux__/noble/${NEW}/src/contrib/PACKAGES"
+          if ! curl -fsS --retry 3 --retry-delay 10 -o /tmp/PACKAGES "$INDEX_URL"; then
+            echo "::error::P3M-Snapshot $NEW antwortet nicht ($INDEX_URL)."
+            exit 1
+          fi
+          if ! grep -q '^Package: ' /tmp/PACKAGES; then
+            echo "::error::Paketindex von $INDEX_URL ist leer oder kein PACKAGES-Format."
+            exit 1
+          fi
+          echo "Index ok: $(grep -c '^Package: ' /tmp/PACKAGES) Pakete."
+
+          # Ersetzt nur Fundstellen, die eindeutig der Snapshot sind (ARG und
+          # P3M-URL), nicht jedes Vorkommen des Datums in Prosa.
+          PATTERN="P3M_SNAPSHOT=${OLD}|__linux__/[a-z]+/${OLD}"
+          mapfile -t FILES < <(git grep -lE "$PATTERN" -- . || true)
+          if [ "${#FILES[@]}" -eq 0 ]; then
+            echo "::error::Keine Fundstelle fuer $OLD gefunden."
+            exit 1
+          fi
+          for f in "${FILES[@]}"; do
+            sed -i -E "s#P3M_SNAPSHOT=${OLD}#P3M_SNAPSHOT=${NEW}#g; s#(__linux__/[a-z]+/)${OLD}#\1${NEW}#g" "$f"
+            echo "Angepasst: $f"
+          done
+          # Restliche Erwaehnungen des alten Datums in Build-/Deploy-Dateien
+          # nur melden, nicht aendern (Prosa und ADR-Daten bleiben).
+          git grep -nF "$OLD" -- Dockerfile '*Dockerfile*' .github docs/deployment | sed 's/^/::notice::Altes Datum noch erwaehnt: /' || true
+
+          BRANCH="deps/p3m-snapshot-${NEW}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git commit -am "deps(docker): P3M-Snapshot ${OLD} -> ${NEW}"
+          # Bot-Branch: --force, falls ein geschlossener PR desselben Datums
+          # seinen Branch hinterlassen hat.
+          git push --force origin "HEAD:refs/heads/${BRANCH}"
+
+          if [ "$HAS_BUMP_TOKEN" = "true" ]; then
+            CI_HINWEIS="Der PR wurde mit \`P3M_BUMP_TOKEN\` geoeffnet, die CI laeuft daher normal als \`pull_request\`."
+          else
+            CI_HINWEIS="Der PR wurde mit \`GITHUB_TOKEN\` geoeffnet. Solche PRs loesen keine \`pull_request\`-Workflows aus; der Bump-Workflow hat die CI deshalb per \`workflow_dispatch\` auf \`${BRANCH}\` gestartet: ${SERVER_URL}/${REPO}/actions/workflows/ci.yml?query=branch%3A${BRANCH}. Die Checks stehen am Commit des PRs. Sollen zusaetzlich die \`pull_request\`-Checks (u. a. CodeQL) laufen: PR einmal schliessen und wieder oeffnen."
+          fi
+
+          BODY_FILE=$(mktemp)
+          cat > "$BODY_FILE" <<EOF
+          Monatlicher Bump des Posit-Package-Manager-Snapshots (\`.github/workflows/p3m-snapshot.yml\`).
+
+          **Snapshot:** \`${OLD}\` → \`${NEW}\`
+
+          Geaenderte Dateien: ${FILES[*]}
+
+          ## Verifikation
+          Die CI dieses PRs baut das Image **ohne Build-Cache** und mit frisch gezogenem Basis-Image (\`no-cache\` fuer Branches \`deps/p3m-snapshot-*\`, siehe \`ci.yml\`). Damit kommen neue R-Paketversionen, Sicherheitsupdates von \`rocker/r-ver:4.6.1\` und die apt-Schichten (libcurl, openssl, libxml2) gemeinsam durch Build und testthat.
+
+          ${CI_HINWEIS}
+
+          ## Vor dem Merge
+          - CI gruen (Image-Build + testthat im Image).
+          - Im Build-Log pruefen, dass die R-Pakete als Binaerpakete kommen (keine Kompilierung).
+          - Nach dem Merge baut \`push-image\` auf main das Produktionsimage; das Deployment auf Eddie bleibt ein eigener Schritt.
+          EOF
+
+          LABELS=()
+          for l in dependencies docker; do
+            if gh label list --repo "$REPO" --limit 200 --json name --jq '.[].name' | grep -qx "$l"; then
+              LABELS+=(--label "$l")
+            else
+              echo "::warning::Label '$l' existiert nicht, PR ohne dieses Label."
+            fi
+          done
+
+          if ! PR_URL=$(gh pr create --repo "$REPO" --base main --head "$BRANCH" \
+                 --title "deps(docker): P3M-Snapshot ${OLD} -> ${NEW}" \
+                 --body-file "$BODY_FILE" "${LABELS[@]}"); then
+            echo "::error::PR konnte nicht geoeffnet werden. Mit GITHUB_TOKEN braucht das die Repo-Einstellung Settings -> Actions -> General -> Workflow permissions -> 'Allow GitHub Actions to create and approve pull requests' (oder das Secret P3M_BUMP_TOKEN). Branch ${BRANCH} ist gepusht."
+            exit 1
+          fi
+          echo "PR: $PR_URL"
+          echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
+
+      - name: CI auf dem Bump-Branch starten (nur ohne P3M_BUMP_TOKEN)
+        if: steps.bump.outputs.branch != '' && env.HAS_BUMP_TOKEN != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ steps.bump.outputs.branch }}
+        run: |
+          set -euo pipefail
+          # workflow_dispatch ist die dokumentierte Ausnahme: Er startet auch,
+          # wenn GITHUB_TOKEN ihn ausloest.
+          gh workflow run ci.yml --repo "$REPO" --ref "$BRANCH"
+          echo "CI fuer $BRANCH per workflow_dispatch gestartet."
