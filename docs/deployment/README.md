@@ -52,6 +52,26 @@ docker-compose down
 
 Docker's `HEALTHCHECK` polls the Rust server's `http://localhost:8080/health` inside the container every 30 seconds (`docker compose ps` shows `healthy`). The port is not published to the host.
 
+## Image-Pflege
+
+Abhängigkeiten des Images kommen aus drei Quellen, und nur zwei davon pflegt Dependabot (`.github/dependabot.yml`, montags):
+
+| Quelle | Pflege |
+|---|---|
+| Cargo-Crates, GitHub Actions, `FROM`-Tags | Dependabot-PRs |
+| R-Pakete (`ARG P3M_SNAPSHOT` im `Dockerfile`, fester Snapshot des Posit Package Manager) | `.github/workflows/p3m-snapshot.yml` |
+| Neubauten desselben Basis-Tags (`rocker/r-ver:4.6.1` mit Sicherheitsupdates) und apt-Schichten (libcurl, openssl, libxml2) | ebenfalls über den Snapshot-PR, weil dessen CI ohne Cache baut |
+
+**Ablauf des Snapshot-Workflows:** Am ersten Montag im Monat (05:17 UTC) setzt er den Snapshot auf das Datum von vor sieben Tagen, prüft, dass `https://p3m.dev/cran/__linux__/noble/<datum>/src/contrib/PACKAGES` einen Index liefert, ersetzt das Datum in der ARG-Zeile und öffnet den PR `deps/p3m-snapshot-<datum>` mit den Labels `dependencies` und (falls vorhanden) `docker`. Ist schon ein solcher PR offen oder ist der Snapshot nicht älter, tut er nichts. Für Branches `deps/p3m-snapshot-*` baut die CI mit `no-cache` und `pull: true`, also Basis-Image, apt, R-Pakete und Rust komplett frisch.
+
+**Manuell auslösen:** `gh workflow run p3m-snapshot.yml` (oder Actions → „P3M snapshot bump“ → Run workflow). Die Prüfung „erster Montag“ gilt nur für den Zeitplan.
+
+**CI am PR:** PRs, die mit dem Standard-`GITHUB_TOKEN` geöffnet werden, lösen keine `pull_request`-Workflows aus. Der Workflow startet die CI deshalb selbst per `workflow_dispatch` auf dem Bump-Branch (die einzige Ereignisart, die `GITHUB_TOKEN` auslösen darf); die Läufe hängen am Commit des PRs. Wer zusätzlich die `pull_request`-Checks (u. a. CodeQL) sehen will, schließt den PR einmal und öffnet ihn wieder.
+
+**Voraussetzung (einmalig):** Damit `GITHUB_TOKEN` überhaupt PRs öffnen darf, muss unter Settings → Actions → General → Workflow permissions das Häkchen „Allow GitHub Actions to create and approve pull requests“ gesetzt sein. Alternative ohne diese Einstellung: ein Secret `P3M_BUMP_TOKEN` (Fine-grained PAT nur für dieses Repo, Rechte *Contents: Read and write* und *Pull requests: Read and write*). Ist es gesetzt, pusht und öffnet der Workflow damit; die CI läuft dann ganz normal als `pull_request`, der `workflow_dispatch`-Schritt entfällt.
+
+**Beim PR zu tun:** CI abwarten (Image-Build + testthat im Image), im Build-Log prüfen, dass die R-Pakete als Binärpakete kommen, mergen. `push-image` baut dann auf main das neue Produktionsimage; das Deployment auf Eddie ist ein eigener Schritt.
+
 ## Public site
 
 The rendered pages are served at <https://fussball.csdatascience.de>.

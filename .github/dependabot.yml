@@ -4,6 +4,14 @@
 # - Docker: scans Dockerfile, Dockerfile.build, league-simulator-rust/Dockerfile FROM lines
 # Schedule: every Monday so updates land at the start of the week and operators
 # can review them with the rest of the week's work.
+#
+# Nicht abgedeckt (Dependabot kennt kein R/CRAN und keine Build-ARGs):
+# - ARG P3M_SNAPSHOT im Dockerfile (R-Paketstand aus dem Posit Package Manager)
+# - Neubauten desselben Basis-Tags (rocker/r-ver:4.6.1 mit Sicherheitsupdates)
+# Dafuer gibt es .github/workflows/p3m-snapshot.yml: am ersten Montag im Monat
+# ein PR deps/p3m-snapshot-<datum>, dessen CI das Image ohne Cache baut.
+# Manuell: gh workflow run p3m-snapshot.yml. Details: docs/deployment/README.md,
+# Abschnitt "Image-Pflege".
 version: 2
 updates:
   - package-ecosystem: "cargo"

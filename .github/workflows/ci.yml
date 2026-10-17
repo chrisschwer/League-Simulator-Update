@@ -128,6 +128,13 @@ jobs:
           file: Dockerfile
           load: true
           tags: ${{ steps.meta.outputs.tag }}
+          # Snapshot-Bump-PRs (p3m-snapshot.yml, Branch deps/p3m-snapshot-*)
+          # bauen ohne Cache und mit frisch gezogenem Basis-Image: Dependabot
+          # meldet Neubauten von rocker/r-ver:4.6.1 nicht, und der Registry-
+          # Cache hielte sonst Rust-/apt-Schichten auf altem Stand. Normale
+          # PRs und main nutzen den Cache unveraendert.
+          pull: true
+          no-cache: ${{ startsWith(github.head_ref || github.ref_name, 'deps/p3m-snapshot-') }}
           cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:${{ env.CACHE_TAG }}
           cache-to: ${{ env.CACHE_TO }}
 
