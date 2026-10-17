@@ -31,11 +31,8 @@ thiserror = "2.0"
 anyhow = "1.0"
 
 [dev-dependencies]
-# Testing utilities
+# Benchmarks (benches/simulation_bench.rs; compiled by clippy --all-targets)
 criterion = { version = "0.8", features = ["html_reports"] }
-proptest = "1.4"
-assert_approx_eq = "1.1"
-tempfile = "3.8"
 # HTTP-handler tests use `tower::ServiceExt::oneshot` (util feature)
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
