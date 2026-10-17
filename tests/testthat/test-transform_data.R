@@ -296,6 +296,37 @@ test_that("transform_data behandelt JSON-null-Tore als offenes Spiel, auch bei S
   expect_equal(result$ToreGast[3], 0)
 })
 
+test_that("transform_data behandelt ein halbes Torpaar bei Status FT als offenes Spiel", {
+  # Nur ein Tor gesetzt ist ein Datenfehler beim Anbieter. Ging die Zeile so
+  # an /simulate, las Rust das Heimtor als "gespielt" und panickte am
+  # fehlenden Auswaertstor -- unter panic = "abort" starb der ganze Server
+  # (Security-Audit 2026-10-17). Jetzt lehnt Rust das halbe Paar mit 400 ab;
+  # damit die Liga trotzdem simuliert wird, muss es hier schon offen werden,
+  # wie in build_league_details_payload().
+  response <- jsonlite::fromJSON('{"response":[
+    {"fixture":{"id":1001,"status":{"short":"FT"}},
+     "teams":{"home":{"id":101,"name":"Team A"},"away":{"id":102,"name":"Team B"}},
+     "goals":{"home":3,"away":null}},
+    {"fixture":{"id":1002,"status":{"short":"FT"}},
+     "teams":{"home":{"id":103,"name":"Team C"},"away":{"id":104,"name":"Team D"}},
+     "goals":{"home":null,"away":2}},
+    {"fixture":{"id":1003,"status":{"short":"FT"}},
+     "teams":{"home":{"id":101,"name":"Team A"},"away":{"id":103,"name":"Team C"}},
+     "goals":{"home":1,"away":0}}
+  ]}')$response
+
+  teams <- create_test_teams_api()
+
+  result <- transform_data(response, teams)
+
+  # Beide halben Paare werden ganz offen, keine Seite bleibt stehen.
+  expect_true(all(is.na(result$ToreHeim[1:2])))
+  expect_true(all(is.na(result$ToreGast[1:2])))
+  # Das intakte 1:0 bleibt unberuehrt.
+  expect_equal(result$ToreHeim[3], 1)
+  expect_equal(result$ToreGast[3], 0)
+})
+
 test_that("transform_data drops non-regular-season rounds (relegation playoff)", {
   # API-Football delivers the relegation playoff as round "Final" within the
   # league fixture list (e.g. Bundesliga 16th vs. 2. Bundesliga 3rd). Those
