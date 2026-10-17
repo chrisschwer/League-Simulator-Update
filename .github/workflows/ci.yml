@@ -67,7 +67,7 @@ jobs:
       - name: Set up R
         uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05  # v2
         with:
-          r-version: '4.3.1'
+          r-version: '4.6.1'  # wie rocker/r-ver im Dockerfile
           use-public-rspm: true
 
       # Version gepinnt: Der Job blockiert, und jede lintr-Version bringt
