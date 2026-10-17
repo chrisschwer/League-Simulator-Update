@@ -1,5 +1,17 @@
 # Integrated League Simulator with Rust Engine
-# Stage 1: Rust binary | Stage 2: R build (compilers) | Stage 3: slim runtime
+# Stage 1: Rust binary | Stage 2: R library (binary packages) | Stage 3: slim runtime
+
+# R-Pakete kommen als Linux-Binaerpakete aus einem festen Snapshot des Posit
+# Package Manager (P3M), nicht als Quellpakete von cloud.r-project.org.
+# - Binaer: Ein Kaltbau (z. B. nach neuem Digest von rocker/r-ver, 17.10.2026)
+#   kompiliert nichts und dauert Sekunden statt vieler Minuten.
+# - Fester Snapshot: gleiche Paketversionen bei jedem Bau, auch ohne Cache.
+#   2026-10-12 liefert fuer alle Laufzeitpakete exakt die Versionen des Images
+#   8c1f35d (letzter gruener main-Build am 13.10.2026). Anheben bewusst.
+# URL-Form /cran/__linux__/<ubuntu-codename>/<datum>: rocker/r-ver:4.6.1 ist
+# Ubuntu 24.04 "noble". Binaerpakete liefert P3M nur bei passendem
+# HTTPUserAgent; den setzt rocker in Rprofile.site, der Bau prueft das.
+ARG P3M_SNAPSHOT=2026-10-12
 
 # ---- Stage 1: Build Rust binary ----
 FROM rust:1.99-alpine AS rust-builder
@@ -19,76 +31,39 @@ COPY league-simulator-rust/src/ ./src/
 COPY league-simulator-rust/test_data/ ./test_data/
 RUN cargo build --release && strip target/release/league-simulator-rust
 
-# ---- Stage 2: Build R library (needs compilers for source packages) ----
+# ---- Stage 2: Build R library (binary packages from P3M) ----
 FROM rocker/r-ver:4.6.1 AS r-builder
 
-RUN apt-get update && apt-get install -y \
-    libcurl4-openssl-dev \
-    libssl-dev \
-    libxml2-dev \
-    tzdata \
-    build-essential \
-    cmake \
-    libuv1-dev \
-    libfontconfig1-dev \
-    libcairo2-dev \
-    libfreetype6-dev \
-    libpng-dev \
-    libtiff5-dev \
-    libjpeg-dev \
-    && rm -rf /var/lib/apt/lists/*
+# Keine -dev-Bibliotheken und kein build-essential mehr: Aus P3M kommen
+# Binaerpakete, kompiliert wird nichts. Faellt ein Paket doch auf eine
+# Quellversion zurueck und braucht Systemheader, scheitert der Bau laut
+# (Pruefung unten) statt still.
+ARG P3M_SNAPSHOT
+ENV CRAN=https://p3m.dev/cran/__linux__/noble/${P3M_SNAPSHOT}
+RUN grep -q HTTPUserAgent /usr/local/lib/R/etc/Rprofile.site \
+    && echo "options(repos = c(CRAN = '${CRAN}'))" >> /usr/local/lib/R/etc/Rprofile.site
 
-# Install critical R packages first (core dependencies)
-RUN R --slave --no-restore -e " \
-    options(repos = c(CRAN = 'https://cloud.r-project.org')); \
-    core_pkgs <- c('httr', 'jsonlite', 'dplyr', 'tidyr', 'magrittr'); \
-    for (pkg in core_pkgs) { \
-        if (!require(pkg, character.only=TRUE, quietly=TRUE)) { \
-            install.packages(pkg, dependencies=TRUE); \
-            if (!require(pkg, character.only=TRUE, quietly=TRUE)) { \
-                stop(paste('Failed to install core package:', pkg)); \
-            } \
-        } \
-    }"
-
-# Install HTML rendering package with retries
-RUN R --slave --no-restore -e " \
-    options(repos = c(CRAN = 'https://cloud.r-project.org')); \
-    html_pkgs <- c('htmltools'); \
-    for (pkg in html_pkgs) { \
-        cat('Installing HTML rendering package:', pkg, '\n'); \
-        if (!require(pkg, character.only=TRUE, quietly=TRUE)) { \
-            install.packages(pkg, dependencies=TRUE, type='source'); \
-            if (!require(pkg, character.only=TRUE, quietly=TRUE)) { \
-                cat('WARNING: Failed to install', pkg, '- will try binary\n'); \
-                install.packages(pkg, dependencies=TRUE, type='binary'); \
-                if (!require(pkg, character.only=TRUE, quietly=TRUE)) { \
-                    stop(paste('Failed to install HTML rendering package:', pkg)); \
-                } \
-            } \
-        } \
-    }"
-
-# Install remaining packages from packagelist.txt
+# packagelist.txt mit den Standard-Abhaengigkeiten (Depends, Imports,
+# LinkingTo), ohne Suggests. Test-Pakete installiert die CI zur Testzeit aus
+# test_packagelist.txt (scripts/ci/testthat_ci.R), nicht das Produktionsimage.
 COPY packagelist.txt /tmp/
 RUN R --slave --no-restore -e " \
-    options(repos = c(CRAN = 'https://cloud.r-project.org')); \
+    stopifnot(identical(getOption('repos')[['CRAN']], Sys.getenv('CRAN'))); \
     pkgs <- readLines('/tmp/packagelist.txt'); \
-    pkgs <- pkgs[!grepl('^#|^[[:space:]]*$', pkgs)]; \
-    already_installed <- c('httr', 'jsonlite', 'dplyr', 'tidyr', 'magrittr', 'htmltools'); \
-    remaining_pkgs <- pkgs[!pkgs %in% already_installed]; \
-    for (pkg in remaining_pkgs) { \
-        if (!require(pkg, character.only=TRUE, quietly=TRUE)) { \
-            cat('Installing remaining package:', pkg, '\n'); \
-            install.packages(pkg, dependencies=TRUE); \
-            if (!require(pkg, character.only=TRUE, quietly=TRUE)) { \
-                cat('WARNING: Failed to install', pkg, '\n'); \
-            } \
-        } \
-    }"
+    pkgs <- trimws(pkgs[!grepl('^#|^[[:space:]]*$', pkgs)]); \
+    install.packages(pkgs, Ncpus = parallel::detectCores()); \
+    ok <- vapply(pkgs, requireNamespace, logical(1), quietly = TRUE); \
+    if (!all(ok)) stop('Pakete nicht installierbar: ', paste(pkgs[!ok], collapse = ', '))"
 
 # ---- Stage 3: Runtime (no compilers, non-root) ----
 FROM rocker/r-ver:4.6.1
+
+# Derselbe P3M-Snapshot wie im Build-Stage, damit Nachinstallationen im Image
+# (Test-Pakete der CI, scripts/ci/testthat_ci.R) dieselben Binaerpakete ziehen.
+ARG P3M_SNAPSHOT
+ENV CRAN=https://p3m.dev/cran/__linux__/noble/${P3M_SNAPSHOT}
+RUN grep -q HTTPUserAgent /usr/local/lib/R/etc/Rprofile.site \
+    && echo "options(repos = c(CRAN = '${CRAN}'))" >> /usr/local/lib/R/etc/Rprofile.site
 
 # Runtime (non -dev) libraries for the compiled R packages + curl for healthchecks.
 # rocker/r-ver:4.6.1 is Ubuntu 24.04 (Noble); several libs use the 64-bit-time_t

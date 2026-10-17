@@ -65,7 +65,15 @@ main <- function() {
   installiert <- rownames(installed.packages())
   fehlend <- setdiff(pkgs, installiert)
   if (length(fehlend) > 0) {
-    install.packages(fehlend, repos = "https://cloud.r-project.org")
+    # Im Image zeigt getOption("repos") auf den P3M-Snapshot aus dem Dockerfile
+    # (Binaerpakete, dieselben Versionen wie die Laufzeitpakete). Frueher stand
+    # hier fest cloud.r-project.org: auf Linux nur Quellpakete, also bei jedem
+    # CI-Lauf Kompilieren. Ohne gesetztes Repo (lokal) bleibt CRAN der Fallback.
+    cran <- unname(getOption("repos")["CRAN"])
+    if (length(cran) != 1 || is.na(cran) || cran %in% c("", "@CRAN@")) {
+      cran <- "https://cloud.r-project.org"
+    }
+    install.packages(fehlend, repos = c(CRAN = cran))
   }
 
   options(testthat.progress.max_fails = Inf)

@@ -13,3 +13,8 @@ stringr
 lubridate
 httptest
 withr
+# Direkt in den Tests benutzt (processx::run, sys::exec_background). Bis
+# Oktober 2026 kamen beide nur ueber dependencies = TRUE im Dockerfile ins
+# Image; seitdem stehen sie hier ausdruecklich.
+processx
+sys
