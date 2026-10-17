@@ -65,7 +65,7 @@ getrennte Wettbewerbe, ihre Ergebnisse also unabhängig.
 \paragraph{Nord: die zweite Kopplung.} Steigt der Nord-Meister auf, muss die
 Staffel einen Absteiger weniger stellen. Mit $p_M$ als Summe der
 Aufstiegswahrscheinlichkeiten der Staffel mischt der Code beide Fälle
-(\datei{RCode/update_all_leagues_loop.R:783--788}):
+(\datei{RCode/update_all_leagues_loop.R:775--780}):
 \begin{equation}
   w^{\text{Nord}} = \clamp_{[0,1]}\Bigl((1 - p_M)\, w[n_g(j)] + p_M\, w[\max(n_g(j) - 1,\ 0)]\Bigr).
 \end{equation}
@@ -104,9 +104,12 @@ diese Doppelsumme exakt (\datei{rl_aufstieg.R:120--190}):
 \begin{equation}\label{eq:rl-aufstieg}
   \boxed{\;P(X \text{ steigt auf}) = P_M(X) \cdot \sum_{Y} P_M(Y)\cdot P(X \text{ setzt sich gegen } Y \text{ durch})\;}
 \end{equation}
-Dabei ist $P_M$ die Meisterwahrscheinlichkeit aus dem Malus-Lauf
-(Abschnitt~\ref{sec:malus}), und $Y$ läuft über die Mannschaften der anderen
-Staffel. Es gilt immer $P(\text{Aufstieg}) < P(\text{Meister})$.
+Dabei ist $P_M$ die Meisterwahrscheinlichkeit aus dem Hauptlauf der
+Staffel, demselben, aus dem auch die Spalte \enquote{Meister} der
+Aufstiegsseite stammt, und $Y$ läuft über die Mannschaften der anderen
+Staffel. Einen Malus-Lauf gibt es für die Regionalligen nicht
+(Abschnitt~\ref{sec:malus}). Weil beide Größen aus einem Lauf kommen, gilt
+immer $P(\text{Aufstieg}) \le P(\text{Meister})$.
 
 \paragraph{Ein Duell über zwei Spiele.} Die Quote
 $P(X \text{ setzt sich gegen } Y \text{ durch})$ rechnet
@@ -140,7 +143,9 @@ zusätzlich die Siegquote
 \[
   \frac{P(\text{Aufstieg})}{P(\text{Meister})},
 \]
-also die Chance, die Aufstiegsspiele zu gewinnen, wenn man Meister wird. Ist
+also die Chance, die Aufstiegsspiele zu gewinnen, wenn man Meister wird. Sie
+ist die über die möglichen Gegner gemittelte Siegchance aus
+Gleichung~\eqref{eq:rl-aufstieg} und deshalb nie größer als 100~Prozent. Ist
 $P(\text{Meister}) = 0$, bleibt die Zelle leer.
 
 \section{Der Zweitvertretungs-Malus}\label{sec:malus}
@@ -155,8 +160,8 @@ Nach §\,55b Nr.~3.1 der DFB-Spielordnung gilt (ADR~0008):
         aufstiegsberechtigt, wenn die erste Mannschaft in der 3.~Liga spielt.
 \end{itemize}
 
-Das Modell rechnet für die betroffenen Ligen einen \emph{zweiten}
-Monte-Carlo-Lauf, in dem die nicht aufstiegsberechtigten Mannschaften mit
+Das Modell rechnet für die 3.~Liga und die 2.~Frauen-Bundesliga einen
+\emph{zweiten} Monte-Carlo-Lauf, in dem die nicht aufstiegsberechtigten Mannschaften mit
 $-50$ Punkten starten:
 \begin{equation}
   \text{adj\_points}_t = \text{Promotion}_t \in \{0,\ -50\}.
@@ -168,5 +173,16 @@ dieser Ligen stammen aus dem Malus-Lauf. Heatmap und Abstieg kommen aus dem
 Hauptlauf, in dem alle normal mitspielen.
 
 In der Saison 2026/27 tragen zwei Mannschaften der 3.~Liga und sechs der
-2.~Frauen-Bundesliga den Malus. In den Regionalligen trägt ihn derzeit
-niemand.
+2.~Frauen-Bundesliga den Malus.
+
+\paragraph{Kein Malus-Lauf in den Regionalligen.} In den Regionalligen
+spielt 2026/27 keine Erstvertretung einer Zweitvertretung in der 3.~Liga.
+Ein Malus-Lauf schlösse dort also niemanden aus. Bis Oktober 2026 rechnete
+das Modell ihn trotzdem; die Aufstiegsseite nahm dann bei den
+Playoff-Staffeln \enquote{Meister} aus dem Hauptlauf und \enquote{Aufstieg}
+aus dem Malus-Lauf, zwei unabhängigen Monte-Carlo-Läufen. Im Grenzfall
+stand dort eine Aufstiegschance über der Meisterchance (Issue~\#291). Seit
+dem 17.~Oktober 2026 entfällt der Lauf für alle fünf Staffeln. Der Fall,
+dass eine Zweitvertretung durch den gleichzeitigen Abstieg ihrer
+Erstvertretung in die 3.~Liga das Aufstiegsrecht verliert, ist damit nicht
+abgebildet (Kapitel~\ref{kap:grenzen}).

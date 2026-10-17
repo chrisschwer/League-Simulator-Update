@@ -70,6 +70,22 @@ Die Kopplung beruht auf dokumentierten Annahmen
         sind ausgelassen.
 \end{itemize}
 
+\subsection{Abstieg eines Zweitligisten und Aufstieg seiner Reserve}
+
+Der gleichzeitige Abstieg eines Zweitligisten in die 3.~Liga und Aufstieg
+seiner Zweitvertretung aus der Regionalliga wird bisher nicht
+berücksichtigt. Nach §\,55b Nr.~3.1 der DFB-Spielordnung entfiele das
+Aufstiegsrecht der Zweitvertretung in diesem Fall, weil ihr Verein im
+kommenden Spieljahr schon mit einer Mannschaft in der 3.~Liga spielt. Dann
+wäre der Nächstplatzierte ihrer Staffel aufstiegsberechtigt (ADR~0008).
+
+Das Modell rechnet die Regionalligen ohne Malus-Lauf
+(Abschnitt~\ref{sec:malus}). Um den Fall abzubilden, müsste es die
+Simulation der 2.~Bundesliga mit der der Regionalliga koppeln. Die
+Größenordnung ist klein: Nach einer Abschätzung vom 17.~Oktober 2026 liegt
+die Wahrscheinlichkeit bei rund 1~Prozent, und praktisch betrifft sie nur
+Hannover~96~II in der Regionalliga Nord.
+
 \subsection{Keine Prognose-Historie}
 
 Gespeichert wird nichts außer den Startwerten, und Monte Carlo ist nicht
@@ -102,14 +118,6 @@ könnten Kandidaten für Issues sein.
   \item[Zwei Erwartungsskalen]
         ELO-Update und Tormodell rechnen mit unterschiedlich skalierten
         Erwartungen (Abschnitt~\ref{sec:skalen}).
-  \item[Siegquote aus zwei Läufen]
-        Auf der Aufstiegsseite stammt \enquote{Meister} aus dem Hauptlauf und
-        \enquote{Aufstieg} aus dem Malus-Lauf. Wegen des Rauschens zweier
-        unabhängiger Monte-Carlo-Läufe ist der Quotient nur näherungsweise
-        die Quote der Aufstiegsspiele. Am 11.~Oktober 2026 zeigte die Seite
-        für eine Nord-Mannschaft \enquote{Meister 0} und \enquote{Aufstieg <1}.
-        Die Aufstiegschance übertraf also die Meisterchance, obwohl
-        Aufstieg Meisterschaft voraussetzt.
   \item[Gewertete Spiele in der Playoff-ELO]
         Die aktuelle ELO für die Aufstiegsspiele
         (\code{rl\_aktuelle\_elo}, \datei{RCode/rl_verdrahtung.R:113--121})

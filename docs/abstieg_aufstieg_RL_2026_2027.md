@@ -91,6 +91,11 @@ einen Verein, der „bereits mit einer Mannschaft am Spielbetrieb der 3. Liga de
 kommenden Spieljahrs teil[nimmt]"; die nächstplatzierte Mannschaft rückt nach.
 Praktisch ist damit jede zweite Mannschaft eines Drittligisten ausgeschlossen.
 
+> **Nachtrag 2026-10-17 (#291):** Die Regionalligen tragen in der Registry kein
+> `restrictions` mehr und bekommen keinen Malus-Lauf: 2026/27 spielt keine
+> Erstvertretung einer RL-Zweitvertretung in der 3. Liga. Siehe den Nachtrag in
+> [ADR 0008](adr/0008-zweitvertretungs-malus-nach-55b-nr-3-1.md).
+
 ---
 
 ## 2. Die fünf Staffeln im Einzelnen
