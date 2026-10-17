@@ -553,7 +553,10 @@ render_league_page <- function(view, data_env, output_dir,
   }
 
   # Link zur Verlaufsseite (Issue #184) -- nur, wenn es sie gibt. Der
-  # Generator entscheidet das vorab fuer alle Ligen.
+  # Generator entscheidet das vorab fuer alle Ligen, nach dem Dateibestand
+  # (Issue #289): Auch eine aus einem frueheren Zyklus behaltene Seite wird
+  # verlinkt. Fehlt in diesem Zyklus die Tabelle, steht der Link am Ende der
+  # Prognose.
   verlauf_link <- if (!is.null(verlauf_slug)) {
     paste0("<p class=\"verlauf-link\"><a href=\"", verlauf_slug,
            ".html\">ELO-Verlauf der Saison ansehen →</a></p>\n")
@@ -625,7 +628,7 @@ render_league_page <- function(view, data_env, output_dir,
     "<div class=\"panels\">\n",
     "<div class=\"scroll\">", top_html, "</div>\n",
     "<div class=\"scroll\">", bottom_html, "</div>\n",
-    "</div>\n</section>\n",
+    "</div>\n", if (is.null(league_entry)) verlauf_link else "", "</section>\n",
     tabelle_html,
     rueckblick_html,
     live_html,
@@ -649,9 +652,10 @@ render_league_page <- function(view, data_env, output_dir,
   "jeder Linie ist der heutige Stand."
 )
 
-# Die Verlaufsdaten aller Ligen, VOR dem Rendern: Die Menge entscheidet ueber
-# den Link auf der Ligaseite und ueber die Ziele der Navigation auf den
-# Verlaufsseiten. Ohne `matches` (Alt-Fixtures, Tests mit nur einer Tabelle)
+# Die Verlaufsdaten aller Ligen, VOR dem Rendern: Die Menge entscheidet, fuer
+# welche Ligen in diesem Zyklus eine Verlaufsseite geschrieben wird. Link und
+# Navigationsziele folgen danach dem Dateibestand (Issue #289, siehe
+# .verlauf_ziele_aus_bestand). Ohne `matches` (Alt-Fixtures, Tests mit nur einer Tabelle)
 # gibt es keinen Verlauf -- still, ohne Warnung. Scheitert die Aufbereitung,
 # fehlt nur diese eine Seite; die uebrige Site entsteht.
 .verlauf_je_liga <- function(views, league_data) {
@@ -671,6 +675,108 @@ render_league_page <- function(view, data_env, output_dir,
     }
   }
   daten
+}
+
+# --- Dateibestand ueber Zyklen (Issue #289) ---------------------------------
+#
+# Das Ausgabeverzeichnis ueberdauert die Zyklen. Fehlen einer Liga in einem
+# Zyklus die Verlaufsdaten oder scheitert das Schreiben, bleibt ihre
+# Verlaufsseite aus dem letzten guten Zyklus stehen: ein veralteter Stand,
+# den das Stale-Banner ueber den eingebetteten Zeitstempel kennzeichnet, ist
+# besser als ein 404 nach einem einmaligen Fehler. Die Navigation richtet
+# sich deshalb nach dem DATEIBESTAND, nicht nach den Daten des Zyklus --
+# sonst zeigte ein Link ins Leere oder liesse eine vorhandene Seite aus.
+
+# Ein Dateiname, wie ihn der Generator fuer Liga- und Verlaufsseiten vergibt.
+.SEITENNAME_MUSTER <- "^[a-z0-9][a-z0-9-]*\\.html$"
+.NAV_MUSTER <- "(?s)<nav aria-label=\"Ligen\">.*?</nav>"
+
+.seite_lesen <- function(pfad) {
+  paste(readLines(pfad, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
+}
+
+# Die Seitenart einer generierten Liga- oder Verlaufsseite, sonst NA. Erkannt
+# am Aufbau, den nur der Generator so schreibt: Navigation und Zeitstempel,
+# dazu der Prognose-Abschnitt (Ligaseite) bzw. die eingebetteten
+# Verlaufsdaten (Verlaufsseite). Methodik und Aufstiegsseite tragen keins
+# von beiden, die Fallback-Seite keine Navigation.
+.generierte_seitenart <- function(pfad) {
+  html <- tryCatch(.seite_lesen(pfad), error = function(e) "")
+  if (!grepl("<nav aria-label=\"Ligen\">", html, fixed = TRUE) ||
+        !grepl("<time id=\"generated\"", html, fixed = TRUE)) {
+    return(NA_character_)
+  }
+  if (grepl("<script type=\"application/json\" id=\"verlauf-daten\">", html, fixed = TRUE)) {
+    return("verlauf")
+  }
+  if (grepl("<section id=\"prognose\">", html, fixed = TRUE)) {
+    return("liga")
+  }
+  NA_character_
+}
+
+# Loescht Liga- und Verlaufsseiten von Ligen, die nicht mehr in
+# league_views() stehen (Registry-Wechsel). Nur Dateien direkt im
+# Ausgabeverzeichnis, nur mit dem Namensmuster des Generators und nur, wenn
+# der Inhalt sie als generierte Liga- oder Verlaufsseite ausweist. Assets,
+# Methodik, Aufstiegsseite, Fallback und fremde Dateien bleiben.
+.registryfremde_seiten_loeschen <- function(output_dir) {
+  views <- league_views()
+  bekannt <- paste0(c(
+    vapply(views, function(v) v$slug, character(1)),
+    unlist(lapply(views, function(v) v$verlauf_slug)),
+    "methodik", "index"
+  ), ".html")
+  kandidaten <- setdiff(list.files(output_dir, pattern = .SEITENNAME_MUSTER), bekannt)
+  geloescht <- character(0)
+  for (name in kandidaten) {
+    pfad <- file.path(output_dir, name)
+    if (!dir.exists(pfad) && !is.na(.generierte_seitenart(pfad)) && file.remove(pfad)) {
+      geloescht <- c(geloescht, name)
+    }
+  }
+  if (length(geloescht) > 0) {
+    message(sprintf("generate_static_site: Seiten ausserhalb der Registry geloescht: %s",
+                    paste(geloescht, collapse = ", ")))
+  }
+  invisible(geloescht)
+}
+
+# Navigationsziele aus dem Dateibestand: Liga-Slug -> verlauf_slug fuer jede
+# Liga der Registry, deren Verlaufsseite im Ausgabeverzeichnis liegt -- auch
+# fuer Ligen, die in diesem Zyklus keine Ergebnisse hatten.
+.verlauf_ziele_aus_bestand <- function(output_dir) {
+  views <- Filter(function(v) {
+    !is.null(v$verlauf_slug) &&
+      file.exists(file.path(output_dir, paste0(v$verlauf_slug, ".html")))
+  }, league_views())
+  ziele <- vapply(views, function(v) v$verlauf_slug, character(1))
+  names(ziele) <- vapply(views, function(v) v$slug, character(1))
+  ziele
+}
+
+# Ersetzt in einer behaltenen Seite nur die Navigation durch die aktuelle.
+# Alles andere -- Daten und eingebetteter Zeitstempel -- bleibt alt, damit
+# das Stale-Banner die Seite weiter als veraltet kennzeichnet. Scheitert das,
+# bleibt die Seite, wie sie ist (Warnung).
+.navigation_auffrischen <- function(pfad, current_slug, verlauf_ziele = NULL) {
+  tryCatch({
+    html <- .seite_lesen(pfad)
+    treffer <- gregexpr(.NAV_MUSTER, html, perl = TRUE)
+    if (length(treffer[[1]]) != 1L || treffer[[1]][1] == -1L) {
+      return(invisible(FALSE))
+    }
+    neu <- html
+    regmatches(neu, treffer) <- list(.nav_html(current_slug, verlauf_ziele))
+    if (!identical(neu, html)) {
+      .write_atomically(neu, pfad)
+    }
+    invisible(TRUE)
+  }, error = function(e) {
+    warning(sprintf("generate_static_site: Navigation in %s nicht aufgefrischt: %s",
+                    basename(pfad), conditionMessage(e)), call. = FALSE)
+    invisible(FALSE)
+  })
 }
 
 # JSON fuer <script type="application/json">: jedes "<" als \u003c (gueltiges
@@ -1148,11 +1254,8 @@ generate_static_site <- function(ergebnisse = NULL,
   }
   views <- views[renderbar]
 
-  # ELO-Verlauf (Issue #184): erst die Daten aller Ligen, dann rendern --
-  # die Menge steuert Link und Navigationsziele.
+  # ELO-Verlauf (Issue #184): erst die Daten aller Ligen, dann rendern.
   verlauf <- .verlauf_je_liga(views, league_data)
-  verlauf_ziele <- vapply(names(verlauf), function(k) views[[k]]$verlauf_slug, character(1))
-  names(verlauf_ziele) <- vapply(names(verlauf), function(k) views[[k]]$slug, character(1))
 
   # data_env traegt die Ergebnisse unter den Namen, die league_views() in
   # plot_source/top$source/bottom$source erwartet. Die namensbasierte
@@ -1165,30 +1268,76 @@ generate_static_site <- function(ergebnisse = NULL,
 
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
+  # Dateibestand (Issue #289): erst Registry-fremde Seiten weg, damit die
+  # Navigationsziele unten nur noch aus gueltigen Seiten entstehen.
+  .registryfremde_seiten_loeschen(output_dir)
+
+  # Scheitert eine Verlaufsseite (praktisch nur I/O), entstehen die uebrigen
+  # Seiten trotzdem; eine vorhandene Datei aus einem frueheren Zyklus bleibt
+  # dann stehen.
+  verlauf_schreiben <- function(keys, ziele) {
+    pfade <- vapply(keys, function(key) {
+      view <- views[[key]]
+      message(sprintf("generate_static_site: rendering %s", view$verlauf_slug))
+      tryCatch(
+        render_verlauf_page(view, verlauf[[key]], output_dir, now = now, mtime = now,
+                            verlauf_ziele = ziele),
+        error = function(e) {
+          warning(sprintf("generate_static_site: Verlaufsseite %s nicht geschrieben: %s",
+                          key, conditionMessage(e)), call. = FALSE)
+          NA_character_
+        }
+      )
+    }, character(1))
+    pfade[!is.na(pfade)]
+  }
+
+  # Die Ziele stehen erst nach dem Schreiben fest. Vorlaeufig: was schon da
+  # ist plus was jetzt entsteht. Scheitert dabei eine Seite, die es vorher
+  # nicht gab, zeigten die eben geschriebenen ins Leere -- sie werden mit den
+  # Zielen aus dem Dateibestand ein zweites Mal geschrieben.
+  vorlaeufig <- .verlauf_ziele_aus_bestand(output_dir)
+  neu_ziele <- vapply(views[names(verlauf)], function(v) v$verlauf_slug, character(1))
+  names(neu_ziele) <- vapply(views[names(verlauf)], function(v) v$slug, character(1))
+  vorlaeufig <- c(vorlaeufig, neu_ziele[setdiff(names(neu_ziele), names(vorlaeufig))])
+  verlauf_paths <- verlauf_schreiben(names(verlauf), vorlaeufig)
+  verlauf_ziele <- .verlauf_ziele_aus_bestand(output_dir)
+  if (!setequal(names(verlauf_ziele), names(vorlaeufig))) {
+    geschrieben <- names(verlauf)[vapply(names(verlauf), function(k) {
+      file.path(output_dir, paste0(views[[k]]$verlauf_slug, ".html")) %in% verlauf_paths
+    }, logical(1))]
+    verlauf_schreiben(geschrieben, verlauf_ziele)
+  }
+
+  # Behaltene Verlaufsseiten (keine Daten oder Schreibfehler in diesem
+  # Zyklus) bekommen die aktuelle Navigation; Daten und Zeitstempel bleiben
+  # alt, das Stale-Banner kennzeichnet sie.
+  alle_views <- league_views()
+  for (v in alle_views) {
+    if (is.null(v$verlauf_slug) || !(v$slug %in% names(verlauf_ziele))) next
+    pfad <- file.path(output_dir, paste0(v$verlauf_slug, ".html"))
+    if (!(pfad %in% verlauf_paths)) {
+      .navigation_auffrischen(pfad, v$slug, verlauf_ziele)
+    }
+  }
+
   league_paths <- vapply(names(views), function(key) {
     view <- views[[key]]
     message(sprintf("generate_static_site: rendering %s", view$slug))
     render_league_page(view, data_env, output_dir, now = now, mtime = now,
                        league_entry = league_data[[key]], view_key = key,
-                       verlauf_slug = if (key %in% names(verlauf)) view$verlauf_slug else NULL)
+                       verlauf_slug = if (view$slug %in% names(verlauf_ziele)) view$verlauf_slug else NULL)
   }, character(1))
 
-  # Scheitert eine Verlaufsseite (praktisch nur I/O), entstehen die uebrigen
-  # Seiten trotzdem.
-  verlauf_paths <- vapply(names(verlauf), function(key) {
-    view <- views[[key]]
-    message(sprintf("generate_static_site: rendering %s", view$verlauf_slug))
-    tryCatch(
-      render_verlauf_page(view, verlauf[[key]], output_dir, now = now, mtime = now,
-                          verlauf_ziele = verlauf_ziele),
-      error = function(e) {
-        warning(sprintf("generate_static_site: Verlaufsseite %s nicht geschrieben: %s",
-                        key, conditionMessage(e)), call. = FALSE)
-        NA_character_
-      }
-    )
-  }, character(1))
-  verlauf_paths <- verlauf_paths[!is.na(verlauf_paths)]
+  # Ligaseiten ohne Ergebnisse in diesem Zyklus bleiben ebenfalls stehen;
+  # auch sie bekommen die aktuelle Navigation (nach einem Registry-Wechsel
+  # zeigte ihre alte sonst auf geloeschte Seiten).
+  for (key in setdiff(names(alle_views), c(names(views), .AUFSTIEGSSEITE_SLUG))) {
+    pfad <- file.path(output_dir, paste0(alle_views[[key]]$slug, ".html"))
+    if (file.exists(pfad) && identical(.generierte_seitenart(pfad), "liga")) {
+      .navigation_auffrischen(pfad, alle_views[[key]]$slug)
+    }
+  }
 
   # Die Aufstiegsseite entsteht nur, wenn wenigstens eine Regionalliga
   # gerendert wurde. Ohne Staffeln waere sie eine leere Seite in der

@@ -20,7 +20,7 @@ ShinyApp/public/
 ├── <league>.html       # one per active league (ten since the Sept. 2026 expansion)
 ├── rl-aufstieg.html    # Regionalliga promotion page
 ├── methodik.html       # Methodik, content from RCode/site_assets/methodik_content.html
-├── <league>-verlauf.html  # ELO-Verlauf per league (#184); only when league data is present
+├── <league>-verlauf.html  # ELO-Verlauf per league (#184); written when league data is present, kept otherwise (#289)
 └── assets/
     ├── site.css
     ├── verlauf.js      # draws the ELO-Verlauf chart in the browser (#184)
@@ -44,6 +44,32 @@ decided **in the browser**: each page embeds its generation time in
 `<time id="generated" datetime="…">` and a few lines of inline JS reveal the
 hidden banner. A page that is no longer re-rendered therefore still warns
 its readers.
+
+### Files across cycles (#289)
+
+The output directory outlives the cycles; a cycle does not start from an
+empty directory. The generator therefore keeps navigation and file set in
+step:
+
+- **League without ELO-Verlauf in this cycle** (no `league_data` entry, no
+  `matches`, `elo_verlauf_daten()` fails) or **write error** for its
+  Verlauf page: the existing `<slug>-verlauf.html` from the last good cycle
+  stays. The league page and the navigation of the other Verlauf pages keep
+  linking it as long as the file exists. Its embedded timestamp stays old, so
+  the stale banner marks it after 24 h. Only its navigation block is
+  refreshed, so it never points at a deleted page and lists Verlauf pages
+  created since.
+- **Navigation follows the files, not the cycle's data:** the Verlauf
+  targets are taken from the files present after writing. A league whose
+  Verlauf page has never been written successfully gets no link.
+- **League without results in this cycle:** its league page stays as well
+  (with refreshed navigation).
+- **League no longer in the registry** (`league_views()`): its league page
+  and Verlauf page are deleted. Only files directly in the output directory
+  whose name follows the generator's pattern (`<slug>.html`,
+  `<slug>-verlauf.html`) **and** whose content marks them as a generated
+  league or Verlauf page are removed. `assets/`, `methodik.html`,
+  `rl-aufstieg.html`, subdirectories and any foreign file stay untouched.
 
 ## Serving it (production: named volume + Caddy)
 
