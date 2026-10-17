@@ -120,6 +120,15 @@ fn validate_request(payload: &SimulateRequest) -> Result<(), String> {
                 None => return Err(format!("schedule row {}: {} must not be null", i, name)),
             }
         }
+        // Die Simulation liest "gespielt" allein am Heimtor ab und entpackt
+        // dann das Auswaertstor: ein halbes Paar wuerde dort panicken, und
+        // unter panic = "abort" stuerbe der ganze Server.
+        if row[2].is_some() != row[3].is_some() {
+            return Err(format!(
+                "schedule row {}: goals must both be set or both be null",
+                i
+            ));
+        }
     }
     for (name, adj) in [
         ("adj_points", &payload.adj_points),

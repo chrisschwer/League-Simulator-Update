@@ -257,6 +257,43 @@ async fn simulate_rejects_out_of_range_team_index() {
     assert_bad_request(status, &body, "team_away index 3 out of range 1..=2");
 }
 
+// Ein halb gesetztes Torpaar (Datenfehler beim Anbieter) galt als
+// "gespielt", und das fehlende Auswaertstor wurde per unwrap() gelesen --
+// unter panic = "abort" starb daran der ganze Server, nicht nur die Anfrage.
+#[tokio::test]
+async fn simulate_rejects_home_goal_without_away_goal() {
+    let req = post_simulate_json(json!({
+        "schedule": [[1, 2, 3, null]],
+        "elo_values": [1500.0, 1500.0],
+        "iterations": 10
+    }));
+
+    let (status, body) = send(req).await;
+
+    assert_bad_request(
+        status,
+        &body,
+        "schedule row 0: goals must both be set or both be null",
+    );
+}
+
+#[tokio::test]
+async fn simulate_rejects_away_goal_without_home_goal() {
+    let req = post_simulate_json(json!({
+        "schedule": [[1, 2, null, 3]],
+        "elo_values": [1500.0, 1500.0],
+        "iterations": 10
+    }));
+
+    let (status, body) = send(req).await;
+
+    assert_bad_request(
+        status,
+        &body,
+        "schedule row 0: goals must both be set or both be null",
+    );
+}
+
 #[tokio::test]
 async fn simulate_rejects_excessive_iterations() {
     let req = post_simulate_json(json!({

@@ -363,7 +363,11 @@ transform_data <- function(fixtures, teams) {
   # Staerkeschaetzung trotzdem nicht bewegt, leistet nicht diese Funktion,
   # sondern das Flag `elo_neutral` im Simulations-Request (Issue #157).
   ergebnis_steht <- c("FT", "AET", "PEN", STATUS_AWARDED_SIM)
-  unfinished <- !df_final$fixture_status_short %in% ergebnis_steht
+  # Ein halbes Torpaar (Datenfehler beim Anbieter) ist kein Ergebnis: Rust
+  # lehnt es mit 400 ab, also wird das Spiel wie ein offenes simuliert --
+  # wie in build_league_details_payload().
+  halbes_paar <- is.na(df_final$ToreHeim) != is.na(df_final$ToreGast)
+  unfinished <- !df_final$fixture_status_short %in% ergebnis_steht | halbes_paar
 
   # elo_neutral entsteht HIER, in der aktuellen (noch unsortierten)
   # Zeilenreihenfolge von df_final -- und muss ab jetzt bei jeder weiteren
