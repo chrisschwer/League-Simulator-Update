@@ -75,7 +75,7 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 | `test-rl_abstiegskopplung.R` | 50 | phase5-regionalligen (8 Bl.), rl-abstiegskopplung |
 | `test-rl_abstiegskopplung-nord.R` | 19 | rl-nord-aufstiegskopplung |
 | `test-rl_aufstieg.R` | 37 | phase5-regionalligen (13 Bl.), rl-aufstieg |
-| `test-rl_verdrahtung.R` | 2 | rl-verdrahtung (2 Bl.) |
+| `test-rl_verdrahtung.R` | 6 (+4, #293: `rl_aktuelle_elo` sendet `elo_neutral` zeilengleich, laesst es ohne gewertetes Spiel weg, und die ELO bleibt ueber den echten Rust-Server stehen) | rl-verdrahtung (2 Bl.) |
 | `test-round_filter.R` | 8 (+3, Stufe 4.4a: `is_regular_season_round` aus `test-fixture_cache.R`) | phase5-regionalligen (5 Bl.) |
 | `test-rust_integration.R` | 4 | home-advantage-single-source, league-registry (1 Bl.), tormodell-rust-durchreichung |
 | `test-scripts-preview_site.R` | 6 | frauen-ligen-live (1 Bl.), preview-site |
@@ -96,7 +96,7 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 | `test-update_all_leagues_loop-gating.R` | 36 (−1, Stufe 4.4a: `checkAPILimits meldet, ob die Planung aus einem Fallback kam` nach `test-checkAPILimits.R`) | update-loop-gating |
 | `test-update_all_leagues_loop-rust.R` | 2 | rust-required |
 | `test-update_all_leagues_loop-sicherheitsnetz.R` | 4 | sicherheitsnetz-zeit |
-| `test-update_all_leagues_loop-verdrahtung.R` | 23 (+2, #291: eine Simulation je Regionalliga; Aufstieg <= Meister auf der Aufstiegsseite) | rl-verdrahtung (21 Bl.) |
+| `test-update_all_leagues_loop-verdrahtung.R` | 24 (+2, #291: eine Simulation je Regionalliga; Aufstieg <= Meister auf der Aufstiegsseite; +1, #293: `elo_neutral` reist bis `rl_aktuelle_elo()`) | rl-verdrahtung (21 Bl.) |
 | `test-updateScheduler.R` | 15 | frauen-ligen-aktivierung (4 Bl.) |
 | `test-waechter-ci-pfade.R` | 2 | ein-elo-walk (2 Bl.) |
 | `test-waechter-quelltext.R` | 9 | ein-elo-walk (3 Bl.), frauen-ligen-aktivierung (1 Bl.), kuerzel-tooltip (1 Bl.), modellkonstanten-nur-in-rust, phase5-regionalligen (1 Bl.) |

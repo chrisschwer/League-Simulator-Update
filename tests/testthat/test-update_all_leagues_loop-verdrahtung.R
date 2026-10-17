@@ -470,7 +470,9 @@ mit_rust_fake <- function(fake, expr) {
 lauf_ausfuehren <- function(loops = 1L, full_fetch_mindestens_alle = 3600,
                             teamlist = teamlist_datei(),
                             nord_ab_fetch2_beendet = FALSE,
-                            malus_versatz = 0L) {
+                            malus_versatz = 0L,
+                            elo_neutral_je_liga = list(),
+                            rl_elo_abfang = NULL) {
   # Vor dem Wechsel ins Repo-Root auswerten: Die TeamList-Datei und die
   # Registry werden ueber Pfade relativ zu tests/testthat gefunden.
   force(teamlist)
@@ -483,6 +485,16 @@ lauf_ausfuehren <- function(loops = 1L, full_fetch_mindestens_alle = 3600,
   keys <- reg$active_league_keys()
   ids <- vapply(keys, function(k) reg$league_registry()[[k]]$api_id, character(1))
   spielplaene <- lapply(stats::setNames(keys, keys), spielplan_von)
+  # Das Attribut, das transform_data() an gewertete Spiele haengt (#157);
+  # der transform_data-Stub unten gibt es mit dem Spielplan heraus.
+  for (key in names(elo_neutral_je_liga)) {
+    attr(spielplaene[[key]], "elo_neutral") <- elo_neutral_je_liga[[key]]
+  }
+  # Optional: rl_aktuelle_elo() durch eine Attrappe ersetzen, die sieht,
+  # was der Loop ihr uebergibt (#293).
+  if (!is.null(rl_elo_abfang)) {
+    stub(update_all_leagues_loop, "rl_aktuelle_elo", rl_elo_abfang)
+  }
   fetch_zaehler <- new.env()
 
   stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
@@ -819,6 +831,46 @@ test_that("die Aufstiegsspiele rechnen mit der aktuellen ELO aus /league-details
   if (!is.null(erg[["rl_nord_aufstieg"]])) {
     expect_gt(groesste_abweichung(erg[["rl_nord_aufstieg"]], soll_start), 1e-6,
               label = "Abstand der Aufstiegsspalte zur Rechnung mit Start-ELO")
+  }
+})
+
+# --- #293: das elo_neutral-Kennzeichen reist bis rl_aktuelle_elo() ----------
+#
+# rl_aktuelle_elo() liest die gewerteten Spiele aus attr(spielplan,
+# "elo_neutral") -- das Attribut, das transform_data() setzt. Der Loop legt
+# den Spielplan in spielplaene[[k]] ab und reicht ihn spaeter an
+# rl_aktuelle_elo() weiter. Ginge das Attribut dazwischen verloren (eine
+# Umsortierung, ein as.data.frame(), ein `[`), bewegte ein am gruenen Tisch
+# gewertetes Spiel die Playoff-ELO wieder -- ohne dass ein Test auf
+# rl_aktuelle_elo() allein es merkte. Waechter: heute schon gruen.
+
+test_that("der Loop reicht attr(spielplan, 'elo_neutral') unveraendert an rl_aktuelle_elo() weiter (#293)", {
+  n_nord <- nrow(spielplan_von("rl_nord"))
+  n_bayern <- nrow(spielplan_von("rl_bayern"))
+  kennzeichen <- list(
+    rl_nord = seq_len(n_nord) == 2L,
+    rl_bayern = seq_len(n_bayern) == 1L
+  )
+
+  gesehen <- new.env()
+  abfang <- function(spielplan, tormodell = list(), ...) {
+    teams <- names(spielplan)[5:ncol(spielplan)]
+    key <- names(LIGA_PRAEFIX)[match(substr(teams[[1]], 1, 2), LIGA_PRAEFIX)]
+    gesehen[[key]] <- list(elo_neutral = attr(spielplan, "elo_neutral"),
+                           zeilen = nrow(spielplan))
+    NULL
+  }
+
+  lauf_ausfuehren(elo_neutral_je_liga = kennzeichen, rl_elo_abfang = abfang)
+
+  # Harness-Probe: rl_aktuelle_elo() wurde fuer beide Playoff-Staffeln
+  # aufgerufen -- sonst bewiese der Vergleich unten nichts.
+  expect_setequal(ls(gesehen), c("rl_nord", "rl_bayern"))
+  for (key in names(kennzeichen)) {
+    expect_identical(gesehen[[key]]$elo_neutral, kennzeichen[[key]],
+                     label = sprintf("elo_neutral, das rl_aktuelle_elo() fuer %s sieht", key))
+    expect_identical(gesehen[[key]]$zeilen, length(kennzeichen[[key]]),
+                     label = sprintf("Zeilen des Spielplans fuer %s", key))
   }
 })
 

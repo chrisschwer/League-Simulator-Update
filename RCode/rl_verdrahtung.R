@@ -134,6 +134,20 @@ rl_aktuelle_elo <- function(spielplan, tormodell = list(),
     tormodell
   )
 
+  # Am gruenen Tisch gewertete Spiele (AWD, WO) zaehlen fuer die Tabelle,
+  # bewegen aber die ELO nicht -- in der Simulation, auf der Ligaseite und
+  # auf der Verlaufsseite. Die Playoff-ELO muss denselben Stand sehen, sonst
+  # rechnete das Aufstiegsspiel mit einer Staerke, die es sonst nirgends gibt
+  # (#293). transform_data() haengt das Kennzeichen zeilengleich an den
+  # Spielplan. Die Tore bleiben im Schedule stehen; das Kennzeichen, nicht
+  # ihr Weglassen, haelt das Spiel aus dem ELO-Walk -- wie bei /simulate.
+  # Nur senden, wenn ein Spiel gewertet ist (dieselbe Regel wie in
+  # simulate_league_rust()); sonst bleibt der Payload unveraendert.
+  elo_neutral <- attr(spielplan, "elo_neutral")
+  if (!is.null(elo_neutral) && any(elo_neutral)) {
+    payload$elo_neutral <- as.logical(elo_neutral)
+  }
+
   antwort <- tryCatch(
     fetch_league_details(payload, base_url = base_url),
     error = function(e) NULL

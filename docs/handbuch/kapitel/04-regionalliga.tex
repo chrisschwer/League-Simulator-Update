@@ -118,7 +118,9 @@ $P(X \text{ setzt sich gegen } Y \text{ durch})$ rechnet
 \begin{enumerate}
   \item Die Torerwartungen beider Spiele liefert der Endpunkt
         \code{/match-preview}, mit der \emph{aktuellen} ELO beider
-        Mannschaften. Im Hinspiel hat Nord Heimrecht, im Rückspiel Bayern.
+        Mannschaften. Gewertete Spiele bewegen sie auch hier nicht
+        (\code{rl\_aktuelle\_elo} sendet \code{elo\_neutral}, Issue~\#293).
+        Im Hinspiel hat Nord Heimrecht, im Rückspiel Bayern.
   \item Die Tordifferenz eines Spiels ist verteilt als
         \[
           P(D = d) = \sum_{i} \pi_{\lambda_X}(i)\,\pi_{\lambda_Y}(i - d),
