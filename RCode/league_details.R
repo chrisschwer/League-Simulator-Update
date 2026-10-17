@@ -239,10 +239,13 @@ rueckblick_matches <- function(details) {
 
   nachhol <- nachholspiel_markierung(details)
   beginn <- .spieltag_beginn(details)
+  # Ein Spiel ohne lesbare Runde (NA aus extract_fixture_details) gehoert in
+  # kein Fenster; sonst entstuende beim Subsetting eine Komplett-NA-Zeile.
+  lesbar <- !is.na(details$round)
 
   # Fertig: Vor Beginn von A+1 steht in A nichts mehr aus. Eigene verlegte
   # Spiele (Nachholspiele) halten A nicht offen, laufende schon.
-  regulaer_a <- details$round == aktuell & !nachhol
+  regulaer_a <- lesbar & details$round == aktuell & !nachhol
   fertig <- all(details$status[regulaer_a] %in% c(STATUS_ERGEBNIS, STATUS_VERSCHOBEN))
 
   untere <- if (fertig) aktuell else aktuell - 1L
@@ -253,7 +256,7 @@ rueckblick_matches <- function(details) {
   im_fenster <- details$round <= aktuell &
     (details$round >= untere | (!is.na(kickoff) & kickoff >= anker))
 
-  auswahl <- details$status %in% STATUS_ERGEBNIS & im_fenster
+  auswahl <- lesbar & details$status %in% STATUS_ERGEBNIS & im_fenster
   rows <- details[auswahl, ]
   rows$nachholspiel <- nachhol[auswahl] | rows$round < untere
   rows <- rows[order(rows$kickoff), ]
@@ -266,7 +269,9 @@ ausblick_matches <- function(details) {
   empty$nachholspiel <- logical(0)
 
   aktuell <- current_matchday(details)
-  offen_status <- !(details$status %in% c(STATUS_ERGEBNIS, STATUS_LIVE, STATUS_VERSCHOBEN))
+  # Ohne lesbare Runde kein Fenster -- wie im Rueckblick.
+  offen_status <- !(details$status %in% c(STATUS_ERGEBNIS, STATUS_LIVE, STATUS_VERSCHOBEN)) &
+    !is.na(details$round)
   if (!any(offen_status)) {
     return(empty)
   }

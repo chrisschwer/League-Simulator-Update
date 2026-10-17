@@ -72,6 +72,31 @@ gsd_gen_schreibfehler <- function(slug) {
   gen
 }
 
+# Scheitert eine Ligaseite, entstehen die uebrigen Seiten trotzdem und die
+# alte Datei bleibt stehen -- wie bei den Verlaufsseiten. Vorher brach der
+# ganze Zyklus ab, der Scheduler beendete sich und startete in einer
+# Schleife neu, solange der Datensatz im Feed stand (Security-Audit
+# 2026-10-17).
+test_that("scheitert eine Ligaseite, bleibt ihre alte Datei stehen und die uebrigen Seiten entstehen", {
+  gen <- source_module("generate_static_site")
+  original <- gen$render_league_page
+  gen$render_league_page <- function(view, ...) {
+    if (identical(view$slug, "index")) stop("kaputter Datensatz")
+    original(view, ...)
+  }
+  out <- withr::local_tempdir()
+  gsd_zyklus(out, gsd_beide(), gsd_zyklus1)
+  alt_index <- gsd_seite(out, "index")
+
+  expect_warning(gsd_zyklus(out, gsd_beide(), gsd_zyklus2, gen = gen),
+                 "Ligaseite bundesliga nicht geschrieben: kaputter Datensatz")
+
+  expect_identical(gsd_seite(out, "index"), alt_index)
+  neu <- format(gsd_zyklus2, "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+  expect_identical(gsd_zeitstempel(gsd_seite(out, "2-bundesliga")), neu)
+  expect_identical(gsd_zeitstempel(gsd_seite(out, "methodik")), neu)
+})
+
 test_that("fehlen einer Liga die Verlaufsdaten, bleibt ihre Seite aus dem letzten guten Zyklus und bleibt verlinkt", {
   kaputt <- verlauf_beispiel()
   kaputt$tabelle$elo[kaputt$tabelle$team_id == 104] <- 1500
