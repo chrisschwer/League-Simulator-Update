@@ -93,8 +93,21 @@ könnten Kandidaten für Issues sein.
         gehen nicht ein.
   \item[Abgesagte Spiele werden simuliert]
         Ein Spiel mit Status CANC wird in der Prognose so behandelt, als
-        fände es noch statt. Die ELO-Verlaufsseite behandelt es dagegen als
-        endgültig ausgefallen.
+        fände es noch statt. Das ist Absicht: Bei api-football ist CANC
+        nicht verlässlich endgültig. Todesfelde gegen Norderstedt
+        (Regionalliga Nord 2024/25) wurde am 21.04.2025 nachgeholt, steht
+        in der API aber bis heute als CANC, ohne Ersatz-Spiel. Die
+        ELO-Verlaufsseite zählt CANC nur bei der Frage, ob die Saison
+        vorbei ist, als erledigt (Issue~\#292).
+  \item[Rückzug eines Vereins]
+        Zieht sich ein Verein während der Saison zurück (Türkgücü München,
+        3.~Liga 2021/22; Türkspor Dortmund und KFC Uerdingen, Regionalliga
+        West 2024/25), setzt die API seine Restspiele auf CANC. Seine
+        bereits gespielten Spiele bleiben aber als beendet stehen, obwohl
+        der Verband sie annulliert. Auch ein kampflos gewertetes Spiel kann
+        als CANC statt als AWD kommen. Die Prognose bildet einen Rückzug
+        deshalb nicht richtig ab; dafür braucht es einen Eingriff von Hand
+        (Issue~\#292).
   \item[Kein Rückgang zur Mitte]
         Die ELO wird beim Saisonwechsel 1:1 übertragen. Viele ELO-Systeme
         ziehen die Werte zwischen zwei Saisons ein Stück zum Mittel zurück,

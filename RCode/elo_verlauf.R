@@ -45,8 +45,10 @@ elo_verlauf_daten <- function(league_entry) {
 
   nachhol <- nachholspiel_markierung(m)
   gespielt <- !is.na(m$played) & m$played
-  # Abgesagte Spiele (CANC) werden nie nachgeholt; ohne Ausnahme hielte ein
-  # einziges die Saison fuer immer offen.
+  # Abgesagte Spiele (CANC) traegt die API nicht nach -- auch nicht, wenn
+  # sie doch noch stattfinden (RL Nord 24/25, Issue #292). Ohne Ausnahme
+  # hielte ein einziges die Saison fuer immer offen. Die Prognose simuliert
+  # CANC dagegen weiter: Sie fragt, ob das Spiel noch Punkte bringen kann.
   saison_laeuft <- any(!(m$status %in% c(STATUS_ERGEBNIS, "CANC")))
 
   name_von <- stats::setNames(as.character(tab$name), as.character(tab$team_id))
