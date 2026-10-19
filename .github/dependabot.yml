@@ -35,7 +35,7 @@ updates:
     open-pull-requests-limit: 3
     labels:
       - "dependencies"
-      - "github-actions"
+      - "github_actions"
     groups:
       gh-actions:
         patterns: ["*"]
