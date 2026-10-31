@@ -628,6 +628,86 @@ render_ausblick <- function(ausblick, runde) {
   )
 }
 
+# --- Hingucker der Woche -----------------------------------------------------
+
+# "Worum es geht" fuer ein Team: die Ausgaenge der Saison mit mindestens 1 %,
+# ohne Mittelfeld, nach Gewicht. Hat ein Team nichts ausser dem Mittelfeld vor
+# sich, sagt die Zeile das.
+.hingucker_einsatz <- function(name, platz, ausgaenge) {
+  ausg <- ausgaenge[names(ausgaenge) != "Mittelfeld" & ausgaenge >= 0.01]
+  ausg <- sort(ausg, decreasing = TRUE)
+  teile <- if (length(ausg) > 0) {
+    paste0(vapply(seq_along(ausg), function(i) {
+      paste0(htmltools::htmlEscape(names(ausg)[i]), " <b>", .zone_prozent(ausg[[i]]),
+             "</b>")
+    }, character(1)), collapse = " · ")
+  } else {
+    "Tabellenmittelfeld"
+  }
+  platz_text <- if (is.na(platz)) "" else paste0("<span class=\"hg-platz\">Platz ", platz, "</span>")
+  paste0("<p class=\"hg-team\"><strong>", htmltools::htmlEscape(name), "</strong> ",
+         platz_text, "<span class=\"hg-ziele\">", teile, "</span></p>\n")
+}
+
+.hingucker_spiel <- function(row, rang) {
+  kopf <- paste0("<p class=\"hg-kopf\"><span class=\"hg-rang\">", rang,
+                 "</span><span class=\"hg-liga\">",
+                 htmltools::htmlEscape(row$liga_label), "</span></p>\n")
+  index <- paste0(
+    "<details class=\"hg-index\"><summary>Wie der Hingucker-Wert entsteht</summary>",
+    "<p>Spielausgang ", .komma(row$d_spiel, 1), " × ",
+    htmltools::htmlEscape(row$home_name), " ", .komma(row$d_heim, 1), " × ",
+    htmltools::htmlEscape(row$away_name), " ", .komma(row$d_gast, 1),
+    " = <b>", .komma(row$score, 1), "</b></p></details>\n"
+  )
+  paste0(
+    "<article class=\"hingucker-spiel\">\n", kopf,
+    "<div class=\"matches\">\n", .ausblick_zeile(row), "</div>\n",
+    "<div class=\"hg-einsatz\">\n",
+    .hingucker_einsatz(row$home_name, row$platz_heim, row$ausgaenge_heim[[1]]),
+    .hingucker_einsatz(row$away_name, row$platz_gast, row$ausgaenge_gast[[1]]),
+    "</div>\n", index, "</article>\n"
+  )
+}
+
+# Die Hingucker-Sektion: die ersten `anzahl` Zeilen von `kandidaten` (bereits
+# nach Score sortiert, siehe hingucker_kandidaten()). `fenster` ist der
+# Datumstext fuer den Untertitel. Ohne Kandidaten steht eine Leermeldung statt
+# einer leeren Seite.
+render_hingucker <- function(kandidaten, fenster, anzahl = 5L) {
+  kopf <- paste0(
+    "<section id=\"hingucker\">\n",
+    "<p class=\"eyebrow\">Hingucker der Woche</p>\n"
+  )
+  if (is.null(kandidaten) || nrow(kandidaten) == 0L) {
+    return(paste0(
+      kopf, "<h2>Keine Spiele im Blick</h2>\n",
+      "<p class=\"sectionlead\">Im Zeitraum ", fenster, " liegen keine offenen ",
+      "Spiele mit Prognose vor.</p>\n</section>\n"
+    ))
+  }
+  top <- utils::head(kandidaten, anzahl)
+  spiele <- vapply(seq_len(nrow(top)), function(i) {
+    .hingucker_spiel(top[i, , drop = FALSE], i)
+  }, character(1))
+  titel <- if (nrow(top) == 1L) "Das spannendste Spiel" else
+    paste0("Die ", nrow(top), " spannendsten Spiele")
+
+  paste0(
+    kopf, "<h2>", titel, "</h2>\n",
+    "<p class=\"sectionlead\">", fenster, ", über alle Ligen. Ein Spiel ist ",
+    "umso interessanter, je knapper sein Ausgang ist und je offener die ",
+    "Saison beider Teams noch ist. Gemessen wird beides als effektive Zahl ",
+    "möglicher Ausgänge (Inverser Simpson-Index); der Hingucker-Wert ist ihr ",
+    "Produkt.</p>\n",
+    "<p class=\"oddslegend\">Balken: <span class=\"chip h\"></span><b>Sieg Heim</b>",
+    "<span class=\"chip x\"></span><b>Remis</b>",
+    "<span class=\"chip a\"></span><b>Sieg Gast</b> — Angaben in Prozent</p>\n",
+    "<div class=\"hingucker-liste\">\n", paste0(spiele, collapse = ""),
+    "</div>\n</section>\n"
+  )
+}
+
 # Kuerzel-Tooltips zum Antippen. `title` zeigt den Namen nur bei Mausberuehrung;
 # Touch-Geraete haben kein Hover. Ein Tipp (oder Enter/Fokus per Tastatur) auf
 # ein abbr.kz blendet den Namen als kleines Label darunter ein, ein Tipp

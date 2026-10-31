@@ -15,7 +15,7 @@ Berechnet nach jedem Spiel Wahrscheinlichkeiten für die Endplatzierung in zehn 
 **Scheduler**: Der Dauerprozess, der täglich 11:00–23:00 (Berlin) alle zwei Minuten Ergebnisse holt, bei Bedarf simuliert und die statische Seite rendert. Der frühe Start deckt die Vormittagsspiele der 2. Frauen-Bundesliga ab (Anstoß ab 11:00).
 **Live-Poll**: Die billige Einzelanfrage nach laufenden Spielen aller aktiven Ligen, die der Scheduler fast jeden Loop stellt — ein Request, unabhängig von der Ligazahl.
 **Vollabruf**: Der teure Abruf aller Saisonspiele einer Liga; nur nach Spielende oder alle 30 Loops.
-**Statische Seite**: Die vom Scheduler gerenderten HTML-Seiten — je Liga eine, dazu die Aufstiegsseite der Regionalligen und die Methodik-Seite (September 2026: zwölf; bis zum Relaunch 2026: drei Seiten samt PNG-Heatmaps). Die Navigation ist seit dem Ligen-Ausbau zweistufig, gruppiert nach `nav_group` der **Liga-Registry**. _Avoid_: Shiny-App, Dashboard (historisch)
+**Statische Seite**: Die vom Scheduler gerenderten HTML-Seiten — je Liga eine, dazu die Aufstiegsseite der Regionalligen, die Hingucker-Seite und die Methodik-Seite (September 2026: zwölf; bis zum Relaunch 2026: drei Seiten samt PNG-Heatmaps). Die Navigation ist seit dem Ligen-Ausbau zweistufig, gruppiert nach `nav_group` der **Liga-Registry**. _Avoid_: Shiny-App, Dashboard (historisch)
 **Stale-Banner**: Hinweis auf der Seite, wenn die Prognose älter als 24 Stunden ist; clientseitig ermittelt.
 **Umzugsbanner**: Die letzte, inhaltslose App auf shinyapps.io mit Verweis auf die neue Adresse (September 2026).
 **Ligatabelle**: Die aus den Spielergebnissen berechnete aktuelle Tabelle einer Liga samt ELO und Δ ELO seit Saisonbeginn; standardmäßig nach Platz sortiert, clientseitig auch nach Punkten oder ELO sortierbar.
@@ -26,6 +26,9 @@ Berechnet nach jedem Spiel Wahrscheinlichkeiten für die Endplatzierung in zehn 
 **Ausblick**: Sektion je Liga-Seite mit den offenen, nicht verschobenen Spielen des aktuellen und des kommenden Spieltags plus **Nachholspielen**, deren Termin vor dem Ende des kommenden Spieltags liegt; je Spiel Termin, 1/X/2 und Score-Matrix. Ein verlegtes Spiel zieht das Fenster nicht auf (#276).
 **Nachholspiel**: Spiel, dessen Anstoß nach Beginn eines späteren Spieltags liegt — auch ein verlegtes Spiel des aktuellen Spieltags. In Rückblick und Ausblick mit seinem Spieltag gekennzeichnet.
 **Score-Matrix**: Die analytisch aus dem Poisson-Tormodell berechnete Wahrscheinlichkeitsmatrix Heimtore × Auswärtstore eines einzelnen Spiels; kein Monte-Carlo-Ergebnis.
+**Hingucker der Woche**: Die statische Seite mit den fünf interessantesten offenen Spielen der nächsten sieben Berliner Kalendertage (heute inklusive) über alle Ligen. Je Spiel die Ausblick-Zeile, dazu für beide Teams, worum es in der Saison noch geht. Interessant heißt: knapp und bedeutsam, gemessen als **Effektive Zahl** ([ADR 0010](docs/adr/0010-hingucker-score-aus-effektiven-zahlen.md)).
+**Effektive Zahl**: Der Inverse Simpson-Index `1 / Σ pᵢ²` einer Verteilung: wie viele gleich wahrscheinliche Ausgänge sie wert wäre (1 = ein Ausgang sicher, k = k Ausgänge gleich wahrscheinlich). Der **Hingucker-Wert** eines Spiels ist das Produkt aus der Effektiven Zahl des Spielausgangs (Sieg/Remis/Niederlage) und der beider Teams über ihre **Saisonausgänge**.
+**Saisonausgang**: Eine Zone, in der ein Team die Saison beenden kann — Meister, Champions League, …, Relegation, Abstieg — plus „Mittelfeld" für alles Übrige. Die Zonen sind die der Panels aus `league_views()`; sie überlappen nicht.
 **Methodik-Seite**: Die statische Seite mit den Erläuterungen des Prognosemodells (Basis: Blogartikel „Was die Prognosen mit Schach zu tun haben“, 2015, aktualisiert).
 **Wechselgemeinschaft**: Die Menge von Ligen, zwischen denen Mannschaften auf- und absteigen. Innerhalb einer Wechselgemeinschaft müssen alle Ligen dasselbe **Tormodell** benutzen, weil ELO das Einzige ist, was ein Team über eine Ligagrenze mitnimmt. Es gibt zwei: Herren (78, 79, 80, 83–87) und Frauen (82, 1034). _Avoid_: Ligafamilie, Liga-Gruppe
 **Tormodell**: Das Paar `tore_slope`/`tore_intercept`, das aus der ELO-Differenz die Torerwartung beider Seiten macht. Es gilt `E[Tore/Spiel] = 2 × tore_intercept`, weil die ELO-Steigungen sich aufheben. Je **Wechselgemeinschaft** ein Wert.
@@ -46,7 +49,7 @@ Berechnet nach jedem Spiel Wahrscheinlichkeiten für die Endplatzierung in zehn 
 ## Relationships
 
 - Eine **Prognose** entsteht aus Spielergebnissen + **TeamList** per Simulation.
-- Der **Scheduler** erzeugt aus den **Ergebnissen** genau eine **Statische Seite** (September 2026: zwölf Unterseiten).
+- Der **Scheduler** erzeugt aus den **Ergebnissen** genau eine **Statische Seite** (Oktober 2026: dreiundzwanzig Unterseiten).
 - **Ergebnis3_Aufstieg** speist nur die Aufstiegstabelle der 3. Liga; Heatmap und Abstiegstabelle kommen aus **Ergebnis3**.
 - **Ligatabelle**, **Rückblick**, **Ausblick** und **Score-Matrix** entstehen deterministisch zur Renderzeit aus TeamList + Spielergebnissen ([ADR 0002](docs/adr/0002-spieldetails-deterministisch-zur-renderzeit.md)); nur die **Prognose** braucht die Monte-Carlo-Simulation.
 - Die **Abstiegskopplung** verbindet die 3. Liga mit den fünf **Staffeln**; sie ist die einzige Stelle, an der die Prognose einer Liga in die einer anderen eingeht.

@@ -1,9 +1,9 @@
 # Static Site
 
 After each simulation cycle the scheduler renders twelve prognosis pages (one per
-active league, plus the Regionalliga promotion page and Methodik) and, for each
+active league, plus the Regionalliga promotion page, Hingucker der Woche and Methodik) and, for each
 league with league data, one ELO-Verlauf page (`<slug>-verlauf.html`, #184) —
-22 pages in total — into
+23 pages in total — into
 `STATIC_SITE_DIR` (default `ShinyApp/public`, `/app/ShinyApp/public` in the
 container). A plain web server serves that directory — there is no Shiny
 runtime, no `rsconnect`, and no deployment credentials.
@@ -19,6 +19,7 @@ ShinyApp/public/
 ├── index.html          # Bundesliga
 ├── <league>.html       # one per active league (ten since the Sept. 2026 expansion)
 ├── rl-aufstieg.html    # Regionalliga promotion page
+├── hingucker.html      # Hingucker der Woche: the five most interesting games of the next seven days
 ├── methodik.html       # Methodik, content from RCode/site_assets/methodik_content.html
 ├── <league>-verlauf.html  # ELO-Verlauf per league (#184); written when league data is present, kept otherwise (#289)
 └── assets/
@@ -145,7 +146,7 @@ docker compose logs -f scheduler
 
 ```bash
 docker compose ps                                   # fussball-scheduler healthy
-docker run --rm -v fussball-site:/v alpine ls -la /v  # 22 HTML + assets/, owner 1001
+docker run --rm -v fussball-site:/v alpine ls -la /v  # 23 HTML + assets/, owner 1001
 curl -sI https://fussball.example.org/              # 200, Cache-Control: no-cache
 curl -s  https://fussball.example.org/ | grep -c Saisonprognose
 ```

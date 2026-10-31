@@ -102,8 +102,9 @@ fixture_zehn_ligen <- function(pfad, nord_abstieg_t1 = 0.37) {
 
 ALLE_SEITEN <- c("index", "2-bundesliga", "3-liga", "frauen-bundesliga",
                  "2-frauen-bundesliga", "rl-nord", "rl-nordost", "rl-west",
-                 "rl-suedwest", "rl-bayern", "rl-aufstieg", "methodik")
-NEUE_SEITEN <- setdiff(ALLE_SEITEN, c("index", "2-bundesliga", "3-liga", "methodik"))
+                 "rl-suedwest", "rl-bayern", "rl-aufstieg", "hingucker", "methodik")
+NEUE_SEITEN <- setdiff(ALLE_SEITEN, c("index", "2-bundesliga", "3-liga", "hingucker",
+                                      "methodik"))
 
 test_that("preview_site.R reicht die Objekte aller zehn Ligen durch -- die RL-Seiten entstehen", {
   fixture <- withr::local_tempfile(fileext = ".Rds")
@@ -148,7 +149,7 @@ test_that("eine alte Fixture mit nur vier Objekten rendert weiterhin (ShinyApp/d
   lauf <- preview_ausfuehren(fixture, out)
   expect_identical(lauf$status, 0L, info = paste(lauf$ausgabe, collapse = "\n"))
 
-  for (slug in c("index", "2-bundesliga", "3-liga", "methodik")) {
+  for (slug in c("index", "2-bundesliga", "3-liga", "hingucker", "methodik")) {
     expect_true(file.exists(file.path(out, paste0(slug, ".html"))), info = slug)
   }
   # Keine Seite fuer Ligen, die die Fixture nicht kennt.
