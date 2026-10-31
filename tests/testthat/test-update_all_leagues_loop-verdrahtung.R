@@ -864,8 +864,11 @@ test_that("der Loop reicht attr(spielplan, 'elo_neutral') unveraendert an rl_akt
   lauf_ausfuehren(elo_neutral_je_liga = kennzeichen, rl_elo_abfang = abfang)
 
   # Harness-Probe: rl_aktuelle_elo() wurde fuer beide Playoff-Staffeln
-  # aufgerufen -- sonst bewiese der Vergleich unten nichts.
-  expect_setequal(ls(gesehen), c("rl_nord", "rl_bayern"))
+  # aufgerufen -- sonst bewiese der Vergleich unten nichts. Dazu kommen die
+  # drei Profiligen, deren Relegationen (relegation_2bl.R) die aktuelle ELO
+  # brauchen; fuer sie gibt es hier kein Kennzeichen.
+  expect_setequal(ls(gesehen), c("rl_nord", "rl_bayern", "bundesliga",
+                                 "zweite_bundesliga", "dritte_liga"))
   for (key in names(kennzeichen)) {
     expect_identical(gesehen[[key]]$elo_neutral, kennzeichen[[key]],
                      label = sprintf("elo_neutral, das rl_aktuelle_elo() fuer %s sieht", key))
@@ -1841,4 +1844,27 @@ test_that("der Generator haengt die Abschnitte auch ohne Loop an eine RL-Seite -
   for (id in c("tabelle", "rueckblick", "ausblick")) {
     expect_false(grepl(sprintf("<section id=\"%s\">", id), nordost, fixed = TRUE), info = id)
   }
+})
+
+# --- Relegationen der Profiligen: "Aufstieg/Abstieg gesamt" -------------------
+
+test_that("der Loop berechnet die Relegationsspalten der Profiligen aus den Ergebnissen", {
+  lauf <- standardlauf()
+  erg <- lauf$ergebnisse[[length(lauf$ergebnisse)]]
+
+  expect_true(all(c("bundesliga_gesamt", "zweite_bundesliga_gesamt",
+                    "dritte_liga_gesamt") %in% names(erg)),
+              info = paste(utils::tail(lauf$msgs, 5), collapse = " | "))
+  expect_identical(colnames(erg$bundesliga_gesamt), "Abstieg gesamt")
+  expect_identical(colnames(erg$zweite_bundesliga_gesamt),
+                   c("Aufstieg gesamt", "Abstieg gesamt"))
+  expect_identical(colnames(erg$dritte_liga_gesamt), "Aufstieg gesamt")
+
+  for (key in c("bundesliga_gesamt", "zweite_bundesliga_gesamt", "dritte_liga_gesamt")) {
+    werte <- as.matrix(erg[[key]])
+    expect_false(anyNA(werte), info = key)
+    expect_true(all(werte >= 0 & werte <= 1 + 1e-9), info = key)
+  }
+  # Die Zeilen sind die Teams der jeweiligen Prognose.
+  expect_setequal(rownames(erg$bundesliga_gesamt), rownames(as.matrix(erg$bundesliga)))
 })

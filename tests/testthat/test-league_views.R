@@ -12,7 +12,7 @@ test_that("Bundesliga is the canonical index page", {
                c("Meister", "Champions League", "Europa League",
                  "Conference League Quali"))
   expect_equal(v$top$filter_cols, 1:6)
-  expect_equal(v$bottom$labels, c("Relegation", "Abstieg"))
+  expect_equal(v$bottom$labels, c("Relegation", "Abstieg", "Abstieg gesamt"))
   expect_equal(v$bottom$filter_cols, 16:18)
 })
 
@@ -22,7 +22,8 @@ test_that("2. Bundesliga uses Ergebnis2 for every panel", {
   expect_equal(v$plot_source, "Ergebnis2")
   expect_equal(v$top$source, "Ergebnis2")
   expect_equal(v$bottom$source, "Ergebnis2")
-  expect_equal(v$top$labels, c("Aufstieg", "Relegation Bundesliga"))
+  expect_equal(v$top$labels,
+               c("Aufstieg", "Relegation Bundesliga", "Aufstieg gesamt"))
   expect_equal(v$top$filter_cols, 1:3)
 })
 
@@ -33,7 +34,8 @@ test_that("3. Liga draws its top table from Ergebnis3_Aufstieg but its bottom fr
   expect_equal(v$plot_source, "Ergebnis3")
   expect_equal(v$top$source, "Ergebnis3_Aufstieg")
   expect_equal(v$bottom$source, "Ergebnis3")
-  expect_equal(v$top$labels, c("Aufstieg", "Relegation", "DFB-Pokal"))
+  expect_equal(v$top$labels,
+               c("Aufstieg", "Relegation", "Aufstieg gesamt", "DFB-Pokal"))
   expect_equal(v$top$filter_cols, 1:4)
   expect_equal(v$bottom$labels, "Abstieg")
   expect_equal(v$bottom$filter_cols, 17:20)
@@ -295,4 +297,31 @@ test_that("jede Liga traegt einen eigenen verlauf_slug, die Bundesliga bundeslig
   expect_identical(unname(vs[andere]), paste0(unname(slugs[andere]), "-verlauf"))
   expect_false(any(vs %in% c(slugs, "methodik", "rl-aufstieg")))
   expect_null(views[["rl-aufstieg"]]$verlauf_slug)
+})
+
+test_that("die Relegationen der Profiligen sind optionale berechnete Spalten", {
+  # "Aufstieg gesamt" / "Abstieg gesamt" stehen NEBEN den Platzsummen. Fehlt
+  # das Objekt, faellt nur die Spalte weg: computed_optional.
+  v <- source_module("league_views")$league_views()
+  panels <- list(
+    bundesliga = list(v$bundesliga$bottom, "Ergebnis_bundesliga_gesamt",
+                      c(FALSE, FALSE, TRUE)),
+    zweite_oben = list(v$zweite_bundesliga$top, "Ergebnis_zweite_bundesliga_gesamt",
+                       c(FALSE, FALSE, TRUE)),
+    zweite_unten = list(v$zweite_bundesliga$bottom, "Ergebnis_zweite_bundesliga_gesamt",
+                        c(FALSE, FALSE, TRUE)),
+    dritte = list(v$dritte_liga$top, "Ergebnis_dritte_liga_gesamt",
+                  c(FALSE, FALSE, TRUE, FALSE))
+  )
+  for (name in names(panels)) {
+    panel <- panels[[name]][[1]]
+    expect_true(isTRUE(panel$computed_optional), info = name)
+    expect_identical(panel$computed_source, panels[[name]][[2]], info = name)
+    expect_identical(as.logical(panel$computed), panels[[name]][[3]], info = name)
+    # groups traegt nur die Platzspalten.
+    expect_equal(ncol(panel$groups), sum(!panel$computed), info = name)
+  }
+  # Die Regionalligen bleiben das Gegenteil: dort ist die berechnete Spalte
+  # der Inhalt der Seite, nicht optional.
+  expect_null(v$rl_nord$top$computed_optional)
 })

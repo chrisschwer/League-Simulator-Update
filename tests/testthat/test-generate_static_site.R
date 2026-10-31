@@ -1298,3 +1298,52 @@ test_that("der Blog-Link oeffnet einen neuen Tab, auch auf der Fallback-Seite", 
   expect_match(html, 'target="_blank" rel="noopener"', fixed = TRUE)
   expect_false(grepl("blank_", html, fixed = TRUE))
 })
+
+# ---------------------------------------------------------------------------
+# Relegationen der Profiligen: optionale berechnete Spalten
+# ---------------------------------------------------------------------------
+
+test_that("Bundesliga-Seite zeigt Abstieg gesamt, wenn das Objekt da ist", {
+  gen <- source_module("generate_static_site")
+  out <- withr::local_tempdir()
+  env <- make_data_env()
+  teams <- rownames(env$Ergebnis)
+  env$Ergebnis_bundesliga_gesamt <- data.frame(
+    `Abstieg gesamt` = stats::setNames(rep(0.37, length(teams)), teams),
+    check.names = FALSE
+  )
+
+  html <- read_html(render_bundesliga(gen, env, out))
+
+  expect_true(grepl("Abstieg gesamt", html, fixed = TRUE))
+  # Die Seite rundet auf ganze Prozent; 37 steht nirgends sonst in der
+  # gleichverteilten Prognose (1/18 = 6 %, 3/18 = 17 %).
+  expect_true(grepl("<td>37</td>", html, fixed = TRUE))
+})
+
+test_that("Bundesliga-Seite bleibt ohne das Objekt bestehen, nur die Spalte fehlt", {
+  gen <- source_module("generate_static_site")
+  out <- withr::local_tempdir()
+  env <- make_data_env()
+
+  html <- read_html(render_bundesliga(gen, env, out))
+
+  expect_false(grepl("Abstieg gesamt", html, fixed = TRUE))
+  # Die Platzsummen bleiben.
+  expect_true(grepl(">Relegation<", html, fixed = TRUE))
+  expect_true(grepl(">Abstieg<", html, fixed = TRUE))
+})
+
+test_that("2. Bundesliga und 3. Liga rendern auch ohne ihre Relegationsspalten", {
+  gen <- source_module("generate_static_site")
+  out <- withr::local_tempdir()
+  env <- make_data_env()
+  now <- as.POSIXct("2026-07-26 14:30:00", tz = "Europe/Berlin")
+
+  for (key in c("zweite_bundesliga", "dritte_liga")) {
+    path <- gen$render_league_page(gen$league_views()[[key]], env, out, now = now)
+    html <- read_html(path)
+    expect_false(grepl("gesamt", html, fixed = TRUE), info = key)
+    expect_true(grepl(">Aufstieg<", html, fixed = TRUE), info = key)
+  }
+})

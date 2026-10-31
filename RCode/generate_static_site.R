@@ -284,6 +284,18 @@ render_heatmap <- function(result, namen = NULL) {
   m
 }
 
+# Das Panel ohne seine berechneten Spalten -- fuer `computed_optional`, wenn
+# das Objekt fehlt. `groups` traegt ohnehin nur die Platzspalten, es muss also
+# nichts umgerechnet werden.
+.ohne_berechnete_spalten <- function(panel) {
+  behalten <- !.panel_computed(panel)
+  panel$labels <- panel$labels[behalten]
+  panel$computed <- NULL
+  panel$computed_source <- NULL
+  panel$computed_optional <- NULL
+  panel
+}
+
 #' Rendert ein Panel als Tabelle.
 #'
 #' @param data_obj Prognosematrix (Teams x Plaetze) fuer die Platzgruppen des
@@ -529,6 +541,12 @@ render_league_page <- function(view, data_env, output_dir,
   # bleibt es NULL -- render_panel_table() bricht dann mit dem Namen der
   # Spalte ab, statt eine leere Spalte zu rendern.
   panel_html <- function(panel) {
+    # Optionale berechnete Spalte (Relegationen der Profiligen): Fehlt das
+    # Objekt, entfaellt nur die Spalte, nicht die Seite.
+    if (isTRUE(panel$computed_optional) && !is.null(panel$computed_source) &&
+          !exists(panel$computed_source, envir = data_env, inherits = FALSE)) {
+      panel <- .ohne_berechnete_spalten(panel)
+    }
     computed_obj <- if (!is.null(panel$computed_source)) {
       get(panel$computed_source, envir = data_env)
     } else {
@@ -1232,11 +1250,16 @@ generate_static_site <- function(ergebnisse = NULL,
   vorhandene_objekte <- vapply(names(vorhanden), .ergebnis_objektname,
                                character(1))
   renderbar <- names(views)[vapply(names(views), function(key) {
+    # Optionale berechnete Spalten (computed_optional) zaehlen nicht mit:
+    # Ohne sie bleibt die Seite richtig, nur schmaler.
+    quelle_berechnet <- function(panel) {
+      if (isTRUE(panel$computed_optional)) NULL else panel$computed_source
+    }
     quellen <- unique(c(views[[key]]$plot_source,
                         views[[key]]$top$source,
-                        views[[key]]$top$computed_source,
+                        quelle_berechnet(views[[key]]$top),
                         views[[key]]$bottom$source,
-                        views[[key]]$bottom$computed_source))
+                        quelle_berechnet(views[[key]]$bottom)))
     all(quellen %in% vorhandene_objekte)
   }, logical(1))]
 

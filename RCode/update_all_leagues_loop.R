@@ -132,6 +132,7 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
   source("RCode/aufstiegsspiele.R")
   source("RCode/rl_aufstieg.R")
   source("RCode/rl_verdrahtung.R")
+  source("RCode/relegation_2bl.R")
 
   # Die Ligen dieses Laufs. Reihenfolge = Registry-Reihenfolge und damit
   # Fetch-Reihenfolge; sie ist Vertrag (test-update_all_leagues_loop.R).
@@ -601,6 +602,7 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
       #
       # Die Schleife bleibt INLINE: Die Tests stubben leagueSimulatorRust()
       # gegen die Umgebung dieser Funktion.
+      simuliert <- character(0)
       for (key in sim_keys) {
         if (!(i == 1 || !setequal(beendet[[key]], beendet_new[[key]]))) {
           next
@@ -688,7 +690,51 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
 
         if (isTRUE(sim_ok)) {
           simulation_executed <- TRUE
+          simuliert <- c(simuliert, key)
         }
+      }
+
+      # --- Relegationen der Profiligen: "Aufstieg/Abstieg gesamt" ---------
+      #
+      # Bundesliga 16. gegen 2. Bundesliga 3. und 2. Bundesliga 16. gegen
+      # 3. Liga 3. (RCode/relegation_2bl.R). Eine Rechnung auf vorhandenen
+      # Ergebnissen, keine weitere /simulate-Anfrage -- aber mehrere hundert
+      # /match-preview-Aufrufe fuer die Tor-Raten. Deshalb nur, wenn eine der
+      # drei Ligen diese Runde neu simuliert wurde; sonst aendert sich an der
+      # Rechnung nichts.
+      #
+      # Alle drei Spielplaene muessen DIESE Runde da sein (sonst fehlt die
+      # aktuelle ELO). Fehlt eine oder scheitert die Rechnung, bleibt die
+      # Spalte der letzten Runde stehen -- und fehlt sie ganz, entfaellt nur
+      # die Spalte, nicht die Seite (computed_optional in league_views()).
+      rel_keys <- c("bundesliga", "zweite_bundesliga", "dritte_liga")
+      if (length(intersect(simuliert, rel_keys)) > 0 &&
+            all(rel_keys %in% names(spielplaene))) {
+        tryCatch({
+          rel_prognosen <- list(
+            bundesliga = ergebnisse[["bundesliga"]],
+            zweite_bundesliga = ergebnisse[["zweite_bundesliga"]],
+            # Der berechtigte Dritte der 3. Liga: Zweitvertretungen stehen in
+            # der Aufstiegsprognose unten.
+            dritte_liga = ergebnisse[["dritte_liga_aufstieg"]]
+          )
+          rel_elos <- lapply(stats::setNames(rel_keys, rel_keys), function(k) {
+            rl_aktuelle_elo(spielplaene[[k]], goal_model_args(liga_ids[[k]]))
+          })
+          rel_tormodell <- lapply(stats::setNames(rel_keys, rel_keys), function(k) {
+            goal_model_args(liga_ids[[k]])
+          })
+          rel_spalten <- relegation_spalten(rel_prognosen, rel_elos,
+                                            tore_args = rel_tormodell)
+          for (k in names(rel_spalten)) {
+            ergebnisse[[paste0(k, "_gesamt")]] <- rel_spalten[[k]]
+          }
+        }, error = function(e) {
+          message(sprintf(
+            "Loop %d: Relegationen der Profiligen uebersprungen: %s",
+            i, conditionMessage(e)
+          ))
+        })
       }
 
       # --- Regionalligen: Abstiegs- und Aufstiegsspalten ------------------

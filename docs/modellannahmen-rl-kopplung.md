@@ -302,6 +302,23 @@ Alle senken die Absteigerzahl und treten selten auf:
 
 ---
 
+### 5.8 Die Relegationen der Profiligen — *modelliert, mit Annahmen*
+
+Bundesliga 16. gegen 2. Bundesliga 3. und 2. Bundesliga 16. gegen den berechtigten Dritten der 3. Liga (`RCode/relegation_2bl.R`). Bis September 2026 zeigten die Seiten dafür nur die Platzsumme P(Platz 16) bzw. P(Platz 3). Jetzt steht daneben die Zahl hinter dem Duell: „Aufstieg gesamt" = P(Platz 1–2) + P(Platz 3) · P(Sieg), „Abstieg gesamt" = P(Platz 17–18) + P(Platz 16) · P(Niederlage).
+
+Die Rechnung ist exakt, weil die drei Ligen kein Spiel teilen: Wer in der einen Liga auf Platz 16 steht, ist unabhängig davon, wer in der anderen Dritter wird. Das Duell hängt nur von den beiden beteiligten Mannschaften ab (dieselbe Unabhängigkeit wie bei der Abstiegskopplung, ADR 0006).
+
+**Modus.** Hin- und Rückspiel, gewertet wird die Gesamttordifferenz, keine Auswärtstorregel (seit 2021/22 abgeschafft). Bei Gleichstand Verlängerung, danach Elfmeterschießen 50:50. Die Verlängerung wird im Stadion des Rückspiels gespielt, trägt also den Heimvorteil des Rückspiel-Gastgebers (`zweikampf_quote(verlaengerung = "rueckspiel")`). Damit hängt das Ergebnis von der Reihenfolge der Heimrechte ab.
+
+| Annahme | Stand | Folge, wenn sie falsch ist |
+|---|---|---|
+| Hinspiel bei der **Aufstiegsseite** (Drittligist) in der 3.-Liga-Relegation, beim **Bundesligisten** in der Bundesliga-Relegation | Suchtreffer-Ausschnitte von dfb.de/dfl.de und die Ergebnisse 2026; **nicht** am Wortlaut der Spielordnung geprüft | Die Reihenfolge kehrt sich um. Der Effekt ist der Heimvorteil der Verlängerung, also klein, aber nicht null. |
+| Das Rückspiel-Heimrecht nach Ruhetagen ist nicht modelliert | bewusst | Ein Ausschnitt nennt die Regel, dass der Verein mit weniger Ruhetagen vor dem Hinspiel das Heimrecht im Rückspiel bekommt. Hier steht die Reihenfolge fest. |
+| **Aktuelle ELO**, nicht die ELO am Saisonende je Iteration | wie bei den Aufstiegsspielen Nord–Bayern (§ 5.6) | Die ELO am Saisonende streut je Iteration; die aktuelle ist ihr Erwartungswert. Das Duell ist nichtlinear in der ELO, die Abweichung ist klein. |
+| Ist der Dritte der 3. Liga eine gesperrte Zweitvertretung, tritt der **nächste Berechtigte** an | der Code rechnete so schon (Spalte 3 von `Ergebnis3_Aufstieg`); im Regelwerk nicht gefunden | Der Gegner der 2. BL wäre ein anderer. |
+
+Beim Saisonwechsel zu prüfen: Hinspiel-Heimrecht gegen die Spielordnung der neuen Saison (`RELEGATIONEN` in `RCode/relegation_2bl.R`).
+
 ## 6. Beim Saisonwechsel zu prüfen
 
 Diese Werte sind **jahresabhängig** und stehen nicht in einer Ordnung, aus der
