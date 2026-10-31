@@ -104,18 +104,20 @@ sperrverteilung <- function(muster, p_niederlage) {
   teams <- colnames(klassen)
   gesamt <- sum(muster$counts)
 
-  ausgaenge <- list()
-  gewichte <- numeric(0)
+  # Zustand in einer eigenen Umgebung, nicht per <<- im umgebenden Frame.
+  zustand <- new.env()
+  zustand$ausgaenge <- list()
+  zustand$gewichte <- numeric(0)
   merke <- function(abgestiegen, w) {
     if (w <= 0) {
       return(invisible(NULL))
     }
     schluessel <- paste(as.integer(abgestiegen), collapse = "")
-    if (is.null(ausgaenge[[schluessel]])) {
-      ausgaenge[[schluessel]] <<- abgestiegen
-      gewichte[schluessel] <<- 0
+    if (is.null(zustand$ausgaenge[[schluessel]])) {
+      zustand$ausgaenge[[schluessel]] <- abgestiegen
+      zustand$gewichte[schluessel] <- 0
     }
-    gewichte[schluessel] <<- gewichte[schluessel] + w
+    zustand$gewichte[schluessel] <- zustand$gewichte[schluessel] + w
   }
 
   for (i in seq_len(nrow(klassen))) {
@@ -141,9 +143,9 @@ sperrverteilung <- function(muster, p_niederlage) {
     }
   }
 
-  abstieg <- do.call(rbind, unname(ausgaenge))
+  abstieg <- do.call(rbind, unname(zustand$ausgaenge))
   colnames(abstieg) <- teams
-  list(teams = teams, abstieg = abstieg, gewicht = unname(gewichte))
+  list(teams = teams, abstieg = abstieg, gewicht = unname(zustand$gewichte))
 }
 
 # Maskenindex (0-basiert) je Ausgang fuer die Reserven einer Staffel.
