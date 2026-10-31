@@ -1007,16 +1007,6 @@ render_verlauf_page <- function(view, daten, output_dir, now = Sys.time(),
   )
 }
 
-#' Rendert die Seite "Aufstieg in die 3. Liga".
-#'
-#' @param view Die Ansicht aus league_views()[["rl-aufstieg"]].
-#' @param aufstiegsdaten Benannte Liste je Staffel mit den Elementen
-#'   `meister` (benannter Vektor P(Meister)), `aufstieg` (benannter Vektor
-#'   P(Aufstieg)) und `playoff` (TRUE, wenn die Staffel die Aufstiegsspiele
-#'   bestreitet). Die Zuordnung, WELCHE Staffel das ist, faellt in
-#'   aufstiegsmodus() und wird hier nur mitgefuehrt -- der Renderer darf
-#'   keine Staffel als Playoff-Staffel verdrahten, sonst waere die Seite ab
-#'   der naechsten Rotation lautlos falsch.
 # Fussnote zur dynamischen Aufstiegssperre (#322): je betroffener Reserve die
 # Wahrscheinlichkeit, dass ihre Erstmannschaft in der 3. Liga spielt und sie
 # deshalb nicht aufsteigen darf. Leer, wenn keine Reserve ein Risiko traegt.
@@ -1040,12 +1030,23 @@ render_verlauf_page <- function(view, daten, output_dir, now = Sys.time(),
   paste0(
     "<p class=\"legend\">Aufstiegssperre: Eine Reserve darf nicht in die ",
     "3. Liga aufsteigen, wenn ihre Erstmannschaft dort spielt. Die ",
-    "Wahrscheinlichkeit, dass das eintritt (Abstieg der Erstmannschaft aus der ",
-    "2. Bundesliga, auch über die Relegation), und die Aufstiegswerte oben ",
-    "berücksichtigt sie: ", paste(teile, collapse = ", "), ".</p>\n"
+    "Aufstiegswerte oben berücksichtigen, dass die Erstmannschaft noch aus der ",
+    "2. Bundesliga absteigen kann (auch über die Relegation). ",
+    "Wahrscheinlichkeit, dass die Reserve gesperrt ist: ",
+    paste(teile, collapse = ", "), ".</p>\n"
   )
 }
 
+#' Rendert die Seite "Aufstieg in die 3. Liga".
+#'
+#' @param view Die Ansicht aus league_views()[["rl-aufstieg"]].
+#' @param aufstiegsdaten Benannte Liste je Staffel mit den Elementen
+#'   `meister` (benannter Vektor P(Meister)), `aufstieg` (benannter Vektor
+#'   P(Aufstieg)) und `playoff` (TRUE, wenn die Staffel die Aufstiegsspiele
+#'   bestreitet). Die Zuordnung, WELCHE Staffel das ist, faellt in
+#'   aufstiegsmodus() und wird hier nur mitgefuehrt -- der Renderer darf
+#'   keine Staffel als Playoff-Staffel verdrahten, sonst waere die Seite ab
+#'   der naechsten Rotation lautlos falsch.
 .render_aufstiegsseite <- function(view, aufstiegsdaten, output_dir,
                                    now = Sys.time(), mtime = now) {
   .copy_assets(output_dir)

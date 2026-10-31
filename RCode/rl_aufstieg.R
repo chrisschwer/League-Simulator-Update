@@ -427,6 +427,12 @@ erster_berechtigter <- function(prognose) {
 #' Die Teams ohne Aufstiegsberechtigung: Zeilen ohne jede Masse im Rang unter
 #' den Berechtigten. Leer, wenn die Prognose kein solches Attribut traegt.
 nicht_berechtigt <- function(prognose) {
+  # Nach der Sperrmischung (rl_sperre.R) tragen auch sicher Gesperrte ueberall
+  # null; die Verzichtenden hat mit_sperrmischung() vorher festgehalten.
+  basis <- attr(prognose, "verzichtet_basis")
+  if (!is.null(basis)) {
+    return(basis)
+  }
   rang <- attr(prognose, "eligible_rank_probabilities")
   if (is.null(rang)) {
     return(character(0))

@@ -128,9 +128,14 @@ sperrverteilung <- function(muster, p_niederlage) {
       merke(direkt, w)
     } else if (length(relegation) == 1L) {
       p <- p_niederlage[[teams[[relegation]]]]
-      if (is.null(p) || is.na(p) || p < 0 || p > 1) {
+      # 0 ist keine gueltige Quote: relegation_duell() traegt 0 fuer Teams
+      # ohne Masse auf dem Relegationsplatz. Das trifft eine veraltete Quote
+      # (Duell einer frueheren Runde), und die Rechnung hielte einen Verein
+      # auf dem Relegationsplatz fuer sicher.
+      if (is.null(p) || is.na(p) || p <= 0 || p > 1) {
         stop(sprintf(
-          "sperrverteilung: keine gueltige P(Niederlage) fuer %s", teams[[relegation]]
+          "sperrverteilung: keine gueltige P(Niederlage) fuer %s (veraltete Relegationsquote?)",
+          teams[[relegation]]
         ), call. = FALSE)
       }
       verliert <- direkt
@@ -223,6 +228,12 @@ mit_sperrmischung <- function(prognose, gewichte, risiko = NULL) {
   }
   namen <- rownames(as.matrix(prognose))
   je_maske <- lapply(rang, function(m) as.matrix(m)[namen, , drop = FALSE])
+
+  # Wer VERZICHTET, steht in Maske 0 (niemand dynamisch gesperrt) ohne jede
+  # Masse. Nach der Mischung traegt aber auch eine sicher gesperrte Reserve
+  # ueberall null -- sie darf nicht als Verzichtender gelten. Deshalb wird die
+  # Menge der Verzichtenden hier festgehalten, vor dem Mischen.
+  attr(prognose, "verzichtet_basis") <- rownames(je_maske[[1L]])[rowSums(je_maske[[1L]]) == 0]
   gemischt <- Reduce(`+`, Map(function(m, w) m * w, je_maske, gewichte))
 
   attr(prognose, "erster_je_maske") <- vapply(

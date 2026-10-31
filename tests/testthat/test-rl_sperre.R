@@ -226,3 +226,30 @@ test_that("rl_aufstiegsprognose rechnet die Aufstiegsspiele mit Sperrgewichten g
                                  p_sieg = ps, rotation = rot)
   expect_false(isTRUE(all.equal(gem$Aufstieg, ohne$Aufstieg, tolerance = 1e-6)))
 })
+
+# --- Sicher gesperrt ist nicht "verzichtet" -------------------------------------
+
+test_that("eine sicher gesperrte Reserve gilt nach der Mischung nicht als Verzichtende", {
+  m <- sperre_modul()
+  prog <- matrix(c(0.6, 0.4, 0.4, 0.6, 0.0, 0.0), 3, byrow = TRUE,
+                 dimnames = list(c("RES", "T", "V"), c("1", "2")))
+  m0 <- matrix(c(0.6, 0.4, 0.4, 0.6, 0, 0), 3, byrow = TRUE, dimnames = dimnames(prog))  # V verzichtet
+  m1 <- matrix(c(0, 0, 1, 0.5, 0, 0), 3, byrow = TRUE, dimnames = dimnames(prog))       # RES gesperrt
+
+  # P(gesperrt) = 1: RES traegt in der Mischung ueberall null ...
+  mix <- mit_sperrmischung({ attr(prog, "eligible_rank_probabilities") <- list(m0, m1); prog },
+                             c(0, 1))
+  expect_true(all(attr(mix, "eligible_rank_probabilities")[[1]]["RES", ] == 0))
+  # ... ist aber kein Verzichtender; nur V ist es.
+  expect_identical(m$nicht_berechtigt(mix), "V")
+
+  # Bei 0,99 dasselbe Bild.
+  mix99 <- mit_sperrmischung({ attr(prog, "eligible_rank_probabilities") <- list(m0, m1); prog },
+                               c(0.01, 0.99))
+  expect_identical(m$nicht_berechtigt(mix99), "V")
+})
+
+test_that("eine veraltete Relegationsquote 0 bricht ab statt die Reserve fuer sicher zu halten", {
+  expect_error(sperrverteilung(toy_muster(), c(A = 0.5, B = 0, C = 0.8)),
+               "veraltete Relegationsquote")
+})
