@@ -66,8 +66,11 @@ relegation_plaetze <- function(key, n) {
   list(
     aufstieg = seq_len(aufstieg_n),
     relegation_hoch = aufstieg_n + 1L,
-    relegation_runter = if (identical(key, "dritte_liga")) NA_integer_
-                        else n - abstieg_n,
+    relegation_runter = if (identical(key, "dritte_liga")) {
+      NA_integer_
+    } else {
+      n - abstieg_n
+    },
     abstieg = seq.int(n - abstieg_n + 1L, n)
   )
 }
