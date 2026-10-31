@@ -194,7 +194,7 @@ rl_aktuelle_elo <- function(spielplan, tormodell = list(),
 #' @return Benannte Liste Staffel -> data.frame(Aufstieg), oder eine leere
 #'   Liste, wenn die Rechnung nicht moeglich ist.
 rl_aufstiegsspalten <- function(prognosen, elos, saison,
-                                tormodell = list()) {
+                                tormodell = list(), sperre = NULL) {
   modus <- tryCatch(aufstiegsmodus(saison), error = function(e) NULL)
   if (is.null(modus) || length(modus$playoff) != 2L) {
     return(list())
@@ -227,7 +227,9 @@ rl_aufstiegsspalten <- function(prognosen, elos, saison,
   for (staffel in reihenfolge) {
     spalte <- tryCatch(
       rl_aufstiegsprognose(staffel, prognosen, season = saison,
-                           paarungen = paarungen),
+                           paarungen = paarungen,
+                           sperrgewichte = .sperrgewichte_paar(sperre, staffel,
+                                                               setdiff(reihenfolge, staffel))),
       error = function(e) NULL
     )
     if (!is.null(spalte)) {
@@ -235,6 +237,17 @@ rl_aufstiegsspalten <- function(prognosen, elos, saison,
     }
   }
   spalten
+}
+
+# Gemeinsame Gewichte der Sperr-Masken zweier Staffeln aus `sperre`
+# (list(verteilung, erst = Staffel -> Kurznamen der Erstmannschaften)); NULL,
+# wenn es keine gibt.
+.sperrgewichte_paar <- function(sperre, staffel, gegner) {
+  if (is.null(sperre) || is.null(sperre$erst[[staffel]]) ||
+        is.null(sperre$erst[[gegner]])) {
+    return(NULL)
+  }
+  sperr_gewichte_paar(sperre$verteilung, sperre$erst[[staffel]], sperre$erst[[gegner]])
 }
 
 #' Aufstiegsspalten der Direktaufsteiger-Staffeln MIT Aufstiegsverzicht.

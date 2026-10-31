@@ -225,15 +225,28 @@ rl_zonen <- function(view_key, data_env) {
   # erst am Saisonende. Eine Aufstiegszone an einem festen Platz behauptete
   # dann etwas anderes als Aufstiegsseite und Panel; sie entfaellt, und die
   # Fussnote nennt das Nachruecken.
-  verzichtet <- attr(hole(.ergebnis_objektname(paste0(view_key, "_aufstieg"))),
-                     "verzichtet")
+  aufstiegsobjekt <- hole(.ergebnis_objektname(paste0(view_key, "_aufstieg")))
+  verzichtet <- attr(aufstiegsobjekt, "verzichtet")
+  sperr_risiko <- attr(aufstiegsobjekt, "sperr_risiko")
 
+  gesperrt <- FALSE
   aufstieg <- numeric(teams)
   if (length(verzichtet) > 0L) {
     # Keine Aufstiegszone.
   } else if (isTRUE(eintrag$promotion_slots >= 1L)) {
     # Direkter Aufstiegsplatz: keine Wahrscheinlichkeit im Spiel.
     aufstieg[seq_len(min(eintrag$promotion_slots, teams))] <- 1
+    # Ausser einer Reserve, deren Erstmannschaft noch absteigen kann (#322):
+    # Platz 1 steigt auf, wenn der Meister NICHT gesperrt ist. Die Sperre ist
+    # unabhaengig vom Staffelverlauf, also gilt exakt
+    # P(Meister gesperrt) = SUMME_r P(r Meister) * P(r gesperrt).
+    if (length(sperr_risiko) > 0L && identical(as.integer(eintrag$promotion_slots), 1L)) {
+      prognose <- hole(.ergebnis_objektname(view_key))
+      if (!is.null(prognose) && all(names(sperr_risiko) %in% rownames(prognose))) {
+        aufstieg[1] <- 1 - sum(prognose[names(sperr_risiko), 1] * sperr_risiko)
+        gesperrt <- TRUE
+      }
+    }
   } else {
     # Nur ueber das Aufstiegsspiel. Fehlt die Spalte, bleibt Gruen leer --
     # die Abstiegslinien sind davon unberuehrt und bleiben vollstaendig.
@@ -249,7 +262,8 @@ rl_zonen <- function(view_key, data_env) {
     # verschiedene Aussagen -- nur Bayern hat eine Abstiegsrelegation.
     relegation = attr(abstiegsobjekt, "platz_relegation"),
     aufstieg = aufstieg,
-    verzichtet = as.character(verzichtet)
+    verzichtet = as.character(verzichtet),
+    gesperrt = isTRUE(gesperrt)
   )
 }
 
@@ -351,8 +365,17 @@ render_zonen_fussnote <- function(zonen, regel) {
     character(0)
   }
 
+  sperrsatz <- if (isTRUE(zonen$gesperrt)) {
+    paste0("Platz 1 steigt auf, sofern der Meister nicht wegen der ",
+           "Aufstiegssperre einer Reserve (Erstmannschaft in der 3. Liga) ",
+           "ausscheidet; dann rückt der nächste Berechtigte nach.")
+  } else {
+    character(0)
+  }
+
   saetze <- c(
     verzichtssatz,
+    sperrsatz,
     eintrag(zonen$aufstieg, "aufstieg", "Aufstieg"),
     eintrag(zonen$relegation, "relegation", "Relegation"),
     eintrag(zonen$abstieg, "abstieg", "Abstieg")

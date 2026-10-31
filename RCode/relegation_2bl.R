@@ -231,6 +231,13 @@ relegation_spalten <- function(prognosen, elos, tore_args = list(),
   }
   if (length(zweite) > 0L) {
     ergebnis$zweite_bundesliga <- data.frame(zweite, check.names = FALSE)
+    # P(verliert die Relegation | steht auf Platz 16), je Team: Die
+    # dynamische Aufstiegssperre der Regionalliga-Reserven braucht sie, um den
+    # Abstieg einer Erstmannschaft ueber die Relegation aufzuloesen (#322).
+    if (!is.null(z)) {
+      attr(ergebnis$zweite_bundesliga, "p_abstieg_niederlage") <-
+        z$p_abstieg_niederlage
+    }
   }
   ergebnis
 }
@@ -251,6 +258,11 @@ relegation_spalten_ergaenzen <- function(neu, alt) {
   }
   for (spalte in setdiff(colnames(alt), colnames(neu))) {
     neu[[spalte]] <- alt[rownames(neu), spalte]
+  }
+  # Auch die Duell-Quote reist mit: Faellt das Duell dieser Runde aus, soll
+  # die dynamische Aufstiegssperre (#322) nicht ihre Grundlage verlieren.
+  if (is.null(attr(neu, "p_abstieg_niederlage"))) {
+    attr(neu, "p_abstieg_niederlage") <- attr(alt, "p_abstieg_niederlage")
   }
   neu
 }

@@ -421,6 +421,19 @@ rust_fake <- function(malus_versatz = 0L) {
           lapply(seq_len(n), function(i) as.list(mat[i, ]))
         })
       }
+      # Verfolgte Teams (#322): feste gemeinsame Klassenvektoren, 70 % sonst,
+      # 20 % direkter Abstieg, 10 % Relegationsplatz -- je fuer ALLE
+      # verfolgten Teams gleichzeitig (Muster mit nur dem ersten Team belegt).
+      if (!is.null(payload$tracked_teams)) {
+        t <- length(payload$tracked_teams)
+        muster <- function(erstes, anteil) {
+          klassen <- rep(0L, t)
+          klassen[[1]] <- erstes
+          list(classes = as.list(klassen),
+               count = as.integer(round(anteil * payload$iterations)))
+        }
+        antwort$tracked_class_patterns <- list(muster(0L, 0.7), muster(1L, 0.2), muster(2L, 0.1))
+      }
       if (!is.null(payload$group_of_team)) {
         if (!identical(as.integer(payload$iterations), N_ITER_LOOP)) {
           stop(sprintf(
@@ -966,6 +979,63 @@ test_that("ein Aufstiegsverzicht in der RL Nord laeuft durch Aufstiegsspalte UND
   expect_identical(attr(spalte, "verzichtet"), verzichter)
   expect_false(is.null(erg[["rl_nord_abstieg"]]))
   expect_false(any(grepl("fehlgeschlagen", lauf$msgs)))
+})
+
+# --- Dynamische Aufstiegssperre (#322) -------------------------------------
+
+test_that("eine Reserve mit Erstmannschaft in der 2. BL bekommt die gemischte Aufstiegsspalte", {
+  tl <- teamlist_df(character(0))
+  reg_id <- function(key) registry_env()$league_registry()[[key]]$api_id
+  reserve <- teams_von("rl_west")[[2]]
+  erst <- teams_von("zweite_bundesliga")[[3]]
+  tl$Erstvertretung_TeamID <- NA_integer_
+  tl$Erstvertretung_ShortText <- ""
+  zeile_reserve <- tl$ShortText == reserve & tl$League == reg_id("rl_west")
+  zeile_erst <- tl$ShortText == erst & tl$League == reg_id("zweite_bundesliga")
+  tl$Erstvertretung_TeamID[zeile_reserve] <- tl$TeamID[zeile_erst]
+  tl$Erstvertretung_ShortText[zeile_reserve] <- erst
+  pfad <- tempfile("TeamList_sperre_", fileext = ".csv")
+  utils::write.table(tl, pfad, sep = ";", quote = FALSE, row.names = FALSE)
+
+  lauf <- lauf_ausfuehren(teamlist = pfad)
+  erg <- lauf$ergebnisse[[1]]
+
+  # Die 2. BL fragt die Klassenzaehlung an, die Staffel West schickt beide
+  # Masken (niemand gesperrt / Reserve gesperrt), die uebrigen keine.
+  zb <- Filter(function(p) setequal(as.character(p$team_names), teams_von("zweite_bundesliga")),
+               lauf$simulate)[[1]]
+  # Verfolgt wird die Erstmannschaft, als 0-basierte Position in team_names.
+  expect_identical(as.integer(zb$tracked_teams),
+                   match(erst, as.character(zb$team_names)) - 1L)
+  expect_identical(as.integer(zb$tracked_direct_places), 2L)
+  expect_identical(as.integer(zb$tracked_playoff_places), 1L)
+  west <- Filter(function(p) setequal(as.character(p$team_names), teams_von("rl_west")),
+                 lauf$simulate)[[1]]
+  masken <- west$eligibility_masks
+  if (!is.matrix(masken)) masken <- do.call(rbind, masken)
+  expect_identical(NROW(masken), 2L)
+  expect_true(all(masken[1, ]))
+  expect_identical(which(!masken[2, ]), match(reserve, as.character(west$team_names)))
+  for (key in c("rl_nordost", "rl_suedwest", "rl_nord", "rl_bayern")) {
+    p <- Filter(function(p) setequal(as.character(p$team_names), teams_von(key)),
+                lauf$simulate)[[1]]
+    expect_null(p$eligibility_masks, info = key)
+  }
+
+  # Die Spalte ist die Mischung: P(gesperrt) = 0,2 + 0,1 * P(Niederlage),
+  # also zwischen 0,2 und 0,3.
+  spalte <- erg[["rl_west_aufstieg"]]
+  expect_false(is.null(spalte))
+  risiko <- attr(spalte, "sperr_risiko")
+  expect_identical(names(risiko), reserve)
+  expect_gt(risiko[[reserve]], 0.2)
+  expect_lt(risiko[[reserve]], 0.3)
+  roh <- attr(erg[["rl_west"]], "eligible_rank_probabilities")
+  soll <- (1 - risiko[[reserve]]) * roh[[1]][reserve, 1] + risiko[[reserve]] * roh[[2]][reserve, 1]
+  expect_equal(spalte[reserve, "Aufstieg"], soll, tolerance = 1e-9)
+  expect_equal(sum(spalte$Aufstieg), 1, tolerance = 1e-9)
+  # Die Heatmap-Matrix bleibt die des Hauptlaufs.
+  expect_null(attr(erg[["rl_west"]], "sperr_gewichte"))
 })
 
 # --- #291: Meister und Aufstieg aus EINEM Lauf -----------------------------

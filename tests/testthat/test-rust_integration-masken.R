@@ -65,3 +65,32 @@ test_that("Integration: alle berechtigt ergibt dieselbe Verteilung wie die Tabel
   expect_equal(unname(rang), unname(unclass(erg)[rownames(rang), ]), tolerance = 1e-12,
                check.attributes = FALSE)
 })
+
+test_that("Integration: verfolgte Teams liefern gemeinsame Klassenvektoren (#322)", {
+  env <- skip_if_no_rust(masken_env())
+  n <- 4000
+  erg <- fn(env, "leagueSimulatorRust")(
+    masken_spielplan(), n = n, numberTeams = 4,
+    trackedTeams = c("DDD", "BBB"), trackedDirectPlaces = 2, trackedPlayoffPlaces = 1
+  )
+  muster <- attr(erg, "tracked_class_patterns")
+  expect_false(is.null(muster))
+  expect_identical(colnames(muster$classes), c("DDD", "BBB"))
+  expect_equal(sum(muster$counts), n)
+
+  # Die Randverteilung aus den Mustern ist die der Prognosematrix (Plaetze 3
+  # und 4 = direkter Abstieg, Platz 2 = Relegationsplatz): dieselben Laeufe.
+  direkt <- sum(muster$counts[muster$classes[, "DDD"] == 1L]) / n
+  expect_equal(direkt, sum(erg["DDD", 3:4]), tolerance = 1e-12)
+  rel <- sum(muster$counts[muster$classes[, "BBB"] == 2L]) / n
+  expect_equal(rel, erg["BBB", 2], tolerance = 1e-12)
+})
+
+test_that("Integration: ein Kurzname ausserhalb des Spielplans bricht ab", {
+  env <- skip_if_no_rust(masken_env())
+  expect_error(
+    fn(env, "leagueSimulatorRust")(masken_spielplan(), n = 100, numberTeams = 4,
+                                    trackedTeams = "ZZZ", trackedDirectPlaces = 2),
+    "nicht im Spielplan"
+  )
+})

@@ -27,3 +27,14 @@ Das löst den bisherigen zweiten Simulationslauf mit −50 Punkten ab (3. Liga, 
 ## Nachtrag: gemeinsame Klassenzählung für die dynamische Sperre (#322, Schritt 3a)
 
 Für die Aufstiegssperre aus dem Abstieg der Zweitligisten braucht R die **gemeinsame** Verteilung, in welcher Tabellenklasse die verfolgten Erstmannschaften der 2. Bundesliga enden. Die Prognosematrix liefert nur Randverteilungen, und die Teams sind negativ korreliert, weil nur wenige Plätze absteigen. Die Engine nimmt deshalb optional `tracked_teams` (0-basierte Indizes), `tracked_direct_places` und `tracked_playoff_places` entgegen und liefert `tracked_class_patterns`: je Klassenvektor (0 = sonst, 1 = direkter Abstieg, 2 = Relegationsplatz, in der Reihenfolge der Anfrage) die Häufigkeit über alle Iterationen. Die Zahl der Muster ist durch die Plätze begrenzt, nicht durch die Zahl der Iterationen: Bei 9 verfolgten Teams, 2 direkten Abstiegsplätzen und 1 Relegationsplatz sind theoretisch 379 Muster möglich, bei 10 Teams 516. Das ist für Speicher und Laufzeit unkritisch. Die Relegation selbst löst R auf (sie hängt an der 3. Liga, die die Engine nicht kennt). Ohne die Felder ändert sich nichts, und die Prognosematrix bleibt bitgleich.
+
+## Nachtrag: dynamische Aufstiegssperre (#322, Schritt 3b)
+
+Die Aufstiegssperre einer Regionalliga-Reserve hängt am Abstieg ihrer Erstmannschaft aus der 2. Bundesliga (`Erstvertretung_TeamID` in der TeamList). Die Staffel wird weiter **einmal** simuliert; sie schickt alle 2^k Masken der Reserven mit Zweitliga-Erstmannschaft (höchstens 8 je Staffel) und bekommt den Rang unter den Berechtigten je Maske zurück. R mischt mit `P(S)` (`RCode/rl_sperre.R`):
+
+- `P(S)` kommt aus den gemeinsamen Klassenvektoren der 2. Bundesliga (`tracked_class_patterns`, 3a). Der Sechzehnte steigt mit `P(Niederlage)` ab, der Quote aus `relegation_duell()` (Attribut `p_abstieg_niederlage` der Spalte „Abstieg gesamt"). Die Mischung `Σ_S P(S)·M_S` ist exakt, weil die Ligen kein Spiel teilen.
+- Nord und Bayern hängen an derselben 2. Bundesliga. Die Aufstiegsspiele rechnen deshalb gemeinsam über die Maskenpaare, `aufstiegswahrscheinlichkeit_gemeinsam()`, nicht mit Randverteilungen. Mit unabhängigen Gewichten ergibt sie genau die bisherige Doppelsumme.
+- Die Rohprognose in `ergebnisse` (Liste der Masken, Heatmap, Meister) bleibt unberührt; gemischt wird in jedem Render neu, weil sich `P(S)` mit der 2. Bundesliga und der 3. Liga ändert. Fehlt die Abstiegsverteilung oder die Relegationsquote, rechnen die Staffeln ohne die Sperre (Meldung im Log).
+- Anzeige: Die Aufstiegsseite nennt je betroffener Reserve `P(gesperrt)`. Die Aufstiegszone an Platz 1 einer Direktstaffel sinkt auf `1 − Σ_r P(r Meister)·P(r gesperrt)`, exakt, weil die Sperre vom Staffelverlauf unabhängig ist.
+
+Nicht modelliert: Erstmannschaften, die heute in der 3. Liga spielen, und die Abstiegsfolgen der Sperre (Handbuch Kap. 6).

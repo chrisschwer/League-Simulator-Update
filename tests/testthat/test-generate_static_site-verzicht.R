@@ -63,3 +63,31 @@ test_that("das obere Panel einer Direktstaffel liest die Aufstiegsspalte, wenn e
   expect_true(grepl("<td>60</td>", ohne, fixed = TRUE))
   expect_false(grepl("<td>✓</td>", ohne, fixed = TRUE))
 })
+
+# --- Dynamische Aufstiegssperre (#322): Fussnote mit dem Sperrrisiko --------
+
+test_that("die Aufstiegsseite nennt das Sperrrisiko je betroffener Reserve", {
+  gen <- source_module("generate_static_site")
+  out <- withr::local_tempdir()
+  env <- verzicht_env()
+  aufstieg <- verzicht_aufstieg()
+  attr(aufstieg, "verzichtet") <- character(0)
+  attr(aufstieg, "sperr_risiko") <- c(T2 = 0.31)
+  env$Ergebnis_rl_west_aufstieg <- aufstieg
+
+  daten <- gen$.aufstiegsdaten("rl_west", env)
+  expect_identical(daten$West$sperr_risiko, c(T2 = 0.31))
+  html <- read_html(gen$.render_aufstiegsseite(gen$league_views()[["rl-aufstieg"]],
+                                               daten, out))
+  expect_true(grepl("Aufstiegssperre", html, fixed = TRUE))
+  expect_true(grepl("31&nbsp;%", html, fixed = TRUE) || grepl("31 %", html, fixed = TRUE))
+})
+
+test_that("ohne Sperrrisiko steht keine Fussnote zur Aufstiegssperre auf der Seite", {
+  gen <- source_module("generate_static_site")
+  out <- withr::local_tempdir()
+  daten <- gen$.aufstiegsdaten("rl_west", verzicht_env())
+  html <- read_html(gen$.render_aufstiegsseite(gen$league_views()[["rl-aufstieg"]],
+                                               daten, out))
+  expect_false(grepl("Aufstiegssperre", html, fixed = TRUE))
+})

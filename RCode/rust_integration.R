@@ -65,7 +65,10 @@ simulate_league_rust <- function(schedule, elo_values, team_names,
                                  tore_intercept = NULL,
                                  group_of_team = NULL,
                                  relegation_places = NULL,
-                                 eligibility_masks = NULL) {
+                                 eligibility_masks = NULL,
+                                 tracked_teams = NULL,
+                                 tracked_direct_places = NULL,
+                                 tracked_playoff_places = NULL) {
   # Convert schedule matrix to list format for JSON
   schedule_list <- lapply(seq_len(nrow(schedule)), function(i) {
     goals_home <- if (is.na(schedule[i, 3])) NULL else as.integer(schedule[i, 3])
@@ -132,6 +135,26 @@ simulate_league_rust <- function(schedule, elo_values, team_names,
     payload$eligibility_masks <- lapply(eligibility_masks, as.logical)
   }
 
+  # Verfolgte Teams (#322): Die Engine zaehlt, in welcher Tabellenklasse sie
+  # gemeinsam enden (0 = sonst, 1 = direkter Abstieg, 2 = Relegationsplatz).
+  # `tracked_teams` sind KURZNAMEN aus `team_names`; die Engine will
+  # 0-basierte Positionen. Ein Kurzname ausserhalb von `team_names` bricht ab:
+  # Eine stillschweigend verworfene Zuordnung zaehlte das falsche Team.
+  if (!is.null(tracked_teams) && length(tracked_teams) > 0L) {
+    pos <- match(as.character(tracked_teams), as.character(team_names))
+    if (anyNA(pos)) {
+      stop(sprintf(
+        "tracked_teams: nicht im Spielplan: %s",
+        paste(tracked_teams[is.na(pos)], collapse = ", ")
+      ), call. = FALSE)
+    }
+    payload$tracked_teams <- as.integer(pos - 1L)
+    payload$tracked_direct_places <- as.integer(tracked_direct_places)
+    if (!is.null(tracked_playoff_places)) {
+      payload$tracked_playoff_places <- as.integer(tracked_playoff_places)
+    }
+  }
+
   # digits = NA: volle Praezision statt der vier Nachkommastellen, auf die
   # jsonlite sonst rundet. Bei tore_slope (0,0024058833) waeren das 0,245 %
   # Fehler -- der Parameter ist klein genug, dass die Rundung ihn in einer
@@ -188,6 +211,21 @@ simulate_league_rust <- function(schedule, elo_values, team_names,
         colnames(mat) <- seq_len(ncol(mat))
         mat
       })
+    },
+    # Gemeinsame Klassenvektoren der verfolgten Teams: Matrix Muster x Teams
+    # (Spaltennamen = Kurznamen in der Reihenfolge von `tracked_teams`) und
+    # die Haeufigkeit je Muster. NULL ohne verfolgte Teams.
+    tracked_class_patterns = if (is.null(result$tracked_class_patterns) ||
+                                   is.null(payload$tracked_teams)) {
+      NULL
+    } else {
+      muster <- result$tracked_class_patterns
+      klassen <- do.call(rbind, lapply(muster, function(m) as.integer(unlist(m$classes))))
+      colnames(klassen) <- as.character(tracked_teams)
+      list(
+        classes = klassen,
+        counts = vapply(muster, function(m) as.numeric(m$count), numeric(1))
+      )
     }
   ))
 }
@@ -218,7 +256,9 @@ leagueSimulatorRust <- function(season, n = 10000,
                                 adjGoalsAgainst = rep_len(0, numberTeams),
                                 adjGoalDiff = rep_len(0, numberTeams),
                                 groupOfTeam = NULL, relegationPlaces = NULL,
-                                eligibilityMasks = NULL) {
+                                eligibilityMasks = NULL,
+                                trackedTeams = NULL, trackedDirectPlaces = NULL,
+                                trackedPlayoffPlaces = NULL) {
   # Caller (update_all_leagues_loop) has already asserted Rust availability.
   # Per-call connection checks were removed in issue #77 Phase 1; a Rust API
   # call failure surfaces via stop() in simulate_league_rust() below.
@@ -278,7 +318,10 @@ leagueSimulatorRust <- function(season, n = 10000,
     tore_intercept = toreIntercept,
     group_of_team = groupOfTeam,
     relegation_places = relegationPlaces,
-    eligibility_masks = eligibilityMasks
+    eligibility_masks = eligibilityMasks,
+    tracked_teams = trackedTeams,
+    tracked_direct_places = trackedDirectPlaces,
+    tracked_playoff_places = trackedPlayoffPlaces
   )
 
   end_time <- Sys.time()
@@ -323,6 +366,12 @@ leagueSimulatorRust <- function(season, n = 10000,
       result$eligible_rank_probabilities,
       function(m) m[rownames(distribution), , drop = FALSE]
     )
+  }
+
+  # Gemeinsame Klassenvektoren der verfolgten Teams (#322), als Attribut aus
+  # demselben Grund wie oben.
+  if (!is.null(result$tracked_class_patterns)) {
+    attr(distribution, "tracked_class_patterns") <- result$tracked_class_patterns
   }
 
   return(distribution)

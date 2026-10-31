@@ -150,41 +150,56 @@ ist die über die möglichen Gegner gemittelte Siegchance aus
 Gleichung~\eqref{eq:rl-aufstieg} und deshalb nie größer als 100~Prozent. Ist
 $P(\text{Meister}) = 0$, bleibt die Zelle leer.
 
-\section{Der Zweitvertretungs-Malus}\label{sec:malus}
+\section{Aufstiegsberechtigung und Aufstiegssperre}\label{sec:malus}
 
 Zweite Mannschaften von Profivereinen dürfen nicht in jede Liga aufsteigen.
-Nach §\,55b Nr.~3.1 der DFB-Spielordnung gilt (ADR~0008):
+Nach §\,55b Nr.~3.1 der DFB-Spielordnung gilt (ADR~0008, ADR~0009):
 
 \begin{itemize}
   \item In der 3.~Liga und der 2.~Frauen-Bundesliga sind Zweitvertretungen
         grundsätzlich nicht aufstiegsberechtigt.
   \item In der Regionalliga ist eine Zweitvertretung nur dann nicht
-        aufstiegsberechtigt, wenn die erste Mannschaft in der 3.~Liga spielt.
+        aufstiegsberechtigt, wenn die erste Mannschaft im kommenden Spieljahr
+        in der 3.~Liga spielt (\emph{Aufstiegssperre}).
 \end{itemize}
 
-Das Modell rechnet für die 3.~Liga und die 2.~Frauen-Bundesliga einen
-\emph{zweiten} Monte-Carlo-Lauf, in dem die nicht aufstiegsberechtigten Mannschaften mit
-$-50$ Punkten starten:
+Dazu kommt der \emph{Aufstiegsverzicht}: Ein Verein kann für eine Saison auf
+den Aufstieg verzichten (TeamList-Spalte \code{Aufstiegsverzicht}).
+
+\paragraph{Masken statt zweitem Lauf.} Das Modell simuliert jede Liga
+\emph{einmal}. Die Engine wertet dieselbe Abschlusstabelle zusätzlich unter
+einer oder mehreren \emph{Berechtigungsmasken} aus und zählt, auf welchem Rang
+\emph{unter den Berechtigten} jedes Team steht. Ein nicht berechtigter Meister
+vererbt seinen Aufstieg an den nächsten Berechtigten. Wer nicht berechtigt ist,
+steht in der TeamList (\code{Promotion}, \code{Aufstiegsverzicht}) und wird
+nicht aus dem Kürzel erraten. Heatmap und Abstieg kommen unverändert aus dem
+Tabellenlauf. Bis Oktober 2026 rechnete das Modell stattdessen einen zweiten
+Lauf, in dem Gesperrte mit $-50$ Punkten starteten; die Maske ersetzt ihn
+(ADR~0009).
+
+\paragraph{Dynamische Sperre durch den Abstieg der Erstmannschaft.}
+Spielt die Erstmannschaft einer Regionalliga-Reserve heute in der
+2.~Bundesliga, steht erst am Saisonende fest, ob die Reserve gesperrt ist: Die
+Erstmannschaft muss direkt absteigen oder die Relegation (Platz~16 gegen den
+berechtigten Dritten der 3.~Liga) verlieren. Das Modell rechnet das exakt als
+Mischung
 \begin{equation}
-  \text{adj\_points}_t = \text{Promotion}_t \in \{0,\ -50\}.
+  P(\text{Aufstieg}) = \sum_S P(S)\, M_S ,
 \end{equation}
-Wer den Malus trägt, steht in der gepflegten Spalte \code{Promotion} der
-Stammdatei und wird nicht aus dem Kürzel erraten. Minus 50 Punkte nehmen eine
-Mannschaft praktisch aus dem Rennen um die oberen Plätze. Die Aufstiegsspalten
-dieser Ligen stammen aus dem Malus-Lauf. Heatmap und Abstieg kommen aus dem
-Hauptlauf, in dem alle normal mitspielen.
+wobei $S$ die \emph{Menge} der gesperrten Reserven, $P(S)$ ihre gemeinsame
+Verteilung und $M_S$ das Staffelergebnis unter der Maske \enquote{$S$ gesperrt}
+ist. Das ist exakt, weil 2.~Bundesliga, 3.~Liga und die Staffeln kein Spiel
+teilen. Die gemeinsame Verteilung zählt die Engine in der 2.~Bundesliga
+(höchstens zwei Teams steigen direkt ab, die Reserven verschiedener Vereine
+sind also gekoppelt), die Relegation des Sechzehnten löst R mit der
+Gewinnwahrscheinlichkeit des Relegationsduells (zwei Spiele, Verlängerung mit
+Heimvorteil des Rückspiel-Gastgebers) auf. Nord und
+Bayern hängen an derselben 2.~Bundesliga; die Doppelsumme der Aufstiegsspiele
+läuft deshalb über die gemeinsamen Gewichte beider Staffeln. Die Aufstiegsseite
+nennt je betroffener Reserve die Wahrscheinlichkeit, dass sie gesperrt ist; die
+Aufstiegszone an Platz~1 der Ligatabelle sinkt um die Wahrscheinlichkeit
+eines gesperrten Meisters.
 
-In der Saison 2026/27 tragen zwei Mannschaften der 3.~Liga und sechs der
-2.~Frauen-Bundesliga den Malus.
-
-\paragraph{Kein Malus-Lauf in den Regionalligen.} In den Regionalligen
-spielt 2026/27 keine Erstvertretung einer Zweitvertretung in der 3.~Liga.
-Ein Malus-Lauf schlösse dort also niemanden aus. Bis Oktober 2026 rechnete
-das Modell ihn trotzdem; die Aufstiegsseite nahm dann bei den
-Playoff-Staffeln \enquote{Meister} aus dem Hauptlauf und \enquote{Aufstieg}
-aus dem Malus-Lauf, zwei unabhängigen Monte-Carlo-Läufen. Im Grenzfall
-stand dort eine Aufstiegschance über der Meisterchance (Issue~\#291). Seit
-dem 17.~Oktober 2026 entfällt der Lauf für alle fünf Staffeln. Der Fall,
-dass eine Zweitvertretung durch den gleichzeitigen Abstieg ihrer
-Erstvertretung in die 3.~Liga das Aufstiegsrecht verliert, ist damit nicht
-abgebildet (Kapitel~\ref{kap:grenzen}).
+Welche Erstmannschaft zu welcher Reserve gehört, steht in den TeamList-Spalten
+\code{Erstvertretung\_TeamID} und \code{Erstvertretung\_ShortText}; die API
+liefert diese Zuordnung nicht.

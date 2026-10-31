@@ -133,6 +133,7 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
   source("RCode/rl_aufstieg.R")
   source("RCode/rl_verdrahtung.R")
   source("RCode/relegation_2bl.R")
+  source("RCode/rl_sperre.R")
 
   # Die Ligen dieses Laufs. Reihenfolge = Registry-Reihenfolge und damit
   # Fetch-Reihenfolge; sie ist Vertrag (test-update_all_leagues_loop.R).
@@ -604,6 +605,14 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
       # Die Schleife bleibt INLINE: Die Tests stubben leagueSimulatorRust()
       # gegen die Umgebung dieser Funktion.
       simuliert <- character(0)
+
+      # Reserven mit Erstmannschaft in der 2. Bundesliga (#322): Ob sie
+      # aufsteigen duerfen, haengt am Abstieg ihrer Erstmannschaft. Leer, wo
+      # die TeamList die Spalten nicht traegt -- dann bleibt alles wie bisher.
+      erst_zuordnung <- erstvertretungen_zweite_liga(
+        TeamList, liga_ids[["zweite_bundesliga"]]
+      )
+
       for (key in sim_keys) {
         if (!(i == 1 || !setequal(beendet[[key]], beendet_new[[key]]))) {
           next
@@ -646,6 +655,7 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
           # (Promotion < 0, Aufstiegsverzicht; berechtigung_aus_teamlist()),
           # nicht das Endzeichen des Kurznamens (Issue #196, ADR 0007).
           masken <- NULL
+          sperrbar <- NULL
           if (has_promotion_restriction(liga_ids[[key]])) {
             masken <- list(berechtigung_aus_teamlist(spielplan, TeamList,
                                                      liga_ids[[key]]))
@@ -661,14 +671,51 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
             if (!all(berechtigt)) {
               masken <- list(berechtigt)
             }
+
+            # Dynamische Sperre (#322): Reserven, deren Erstmannschaft in der
+            # 2. Bundesliga spielt. Die Engine wertet dieselbe Tabelle unter
+            # ALLEN 2^k Sperr-Kombinationen aus; welche Kombination wie
+            # wahrscheinlich ist, mischt der RL-Block unten (rl_sperre.R).
+            kurznamen <- names(spielplan)[5:ncol(spielplan)]
+            sperrbar <- sperrbare_reserven(erst_zuordnung, kurznamen, liga_ids[[key]])
+            if (nrow(sperrbar) > 0L) {
+              if (nrow(sperrbar) > 8L) {
+                stop("mehr als 8 sperrbare Reserven in einer Staffel: ",
+                     paste(sperrbar$reserve, collapse = ", "))
+              }
+              masken <- sperr_masken(berechtigt, kurznamen, sperrbar$reserve)
+            } else {
+              sperrbar <- NULL
+            }
+          }
+
+          # Die 2. Bundesliga zaehlt zusaetzlich, in welcher Klasse die
+          # Erstmannschaften der Reserven gemeinsam enden (direkter Abstieg,
+          # Relegationsplatz, sonst) -- Grundlage von P(S).
+          verfolgt <- NULL
+          if (identical(key, "zweite_bundesliga") && nrow(erst_zuordnung) > 0L) {
+            verfolgt <- unique(erst_zuordnung$erst[
+              erst_zuordnung$erst %in% names(spielplan)[5:ncol(spielplan)]
+            ])
+            if (length(verfolgt) == 0L) verfolgt <- NULL
           }
 
           ergebnisse[[key]] <- leagueSimulatorRust(
             spielplan, n = n,
             groupOfTeam = zuordnung, relegationPlaces = plaetze,
             toreSlope = tormodell$tore_slope, toreIntercept = tormodell$tore_intercept,
-            eligibilityMasks = masken
+            eligibilityMasks = masken,
+            trackedTeams = verfolgt,
+            trackedDirectPlaces = if (is.null(verfolgt)) NULL else rl_relegation_places(liga_ids[[key]]),
+            trackedPlayoffPlaces = if (is.null(verfolgt)) NULL else 1L
           )
+          if (!is.null(sperrbar)) {
+            # Welche Reserven in welcher Reihenfolge hinter den Masken stehen:
+            # bleibt an der Prognose, weil sie Runden ueberlebt, in denen die
+            # Staffel nicht neu simuliert wird.
+            attr(ergebnisse[[key]], "sperr_reserven") <- sperrbar$reserve
+            attr(ergebnisse[[key]], "sperr_erst") <- sperrbar$erst
+          }
           beendet[[key]] <- beendet_new[[key]]
 
           # Die Zaehlung ueberlebt den Loop (s. oben) -- aber nur, wenn die
@@ -804,6 +851,50 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
         # Nachtrag 2026-10-17). Aufstieg <= Meister gilt dabei nur, solange
         # niemand verzichtet; mit Verzicht erbt der naechste Berechtigte
         # (ADR 0009), und die Siegquote rechnet auf P(erster Berechtigter).
+        # Dynamische Aufstiegssperre (#322): P(S) aus dem Abstieg der
+        # Erstmannschaften. Jede Runde neu gemischt, nicht nur wenn die
+        # Staffel simuliert wurde -- die Gewichte aendern sich mit der
+        # 2. Bundesliga und der 3. Liga. Die Rohprognose in `ergebnisse`
+        # (Liste der 2^k Masken) bleibt dafuer unberuehrt.
+        sperre <- NULL
+        tryCatch({
+          muster <- attr(ergebnisse[["zweite_bundesliga"]], "tracked_class_patterns")
+          p_nieder <- attr(ergebnisse[["zweite_bundesliga_gesamt"]], "p_abstieg_niederlage")
+          if (!is.null(muster) && !is.null(p_nieder)) {
+            sperre <- list(verteilung = sperrverteilung(muster, p_nieder), erst = list())
+          } else if (!is.null(muster) || any(vapply(rl_keys, function(k) {
+            !is.null(attr(ergebnisse[[k]], "sperr_reserven"))
+          }, logical(1)))) {
+            message(sprintf(
+              paste0("Loop %d: dynamische Aufstiegssperre: keine Abstiegsverteilung ",
+                     "der 2. Bundesliga bzw. keine Relegationsquote -- die Staffeln ",
+                     "rechnen ohne die Sperre."), i
+            ))
+          }
+        }, error = function(e) {
+          message(sprintf(
+            "Loop %d: dynamische Aufstiegssperre uebersprungen: %s",
+            i, conditionMessage(e)
+          ))
+        })
+
+        # Die Prognose einer Staffel mit eingemischter Sperre (oder die
+        # Rohprognose, wo es keine gibt).
+        gemischt <- function(k) {
+          prognose <- ergebnisse[[k]]
+          reserven <- attr(prognose, "sperr_reserven")
+          erst <- attr(prognose, "sperr_erst")
+          if (is.null(sperre) || is.null(reserven)) {
+            return(prognose)
+          }
+          sperre$erst[[rl_staffel[[k]]]] <<- erst
+          mit_sperrmischung(
+            prognose,
+            sperr_gewichte(sperre$verteilung, erst),
+            risiko = sperr_risiko(sperre$verteilung, reserven, erst)
+          )
+        }
+
         prognosen <- list()
         aktuelle_elos <- list()
         for (k in rl_keys[rl_staffel[rl_keys] %in% playoff]) {
@@ -811,7 +902,11 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
           if (is.null(prognose) || is.null(rownames(as.matrix(prognose)))) {
             next
           }
-          prognosen[[rl_staffel[[k]]]] <- prognose
+          prognosen[[rl_staffel[[k]]]] <- tryCatch(gemischt(k), error = function(e) {
+            message(sprintf("Loop %d: Sperre fuer %s uebersprungen: %s", i, k,
+                            conditionMessage(e)))
+            prognose
+          })
           # spielplaene[[k]] fehlt, wenn k diese Runde nicht erfolgreich
           # abgerufen/transformiert wurde (Issue #208-Isolation) -- die alte
           # Prognose bleibt dann stehen (s. oben), nur die aktuelle ELO fuer
@@ -829,7 +924,7 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
         }
 
         aufstiegsspalten <- rl_aufstiegsspalten(
-          prognosen, aktuelle_elos, saison
+          prognosen, aktuelle_elos, saison, sperre = sperre
         )
         for (k in rl_keys) {
           spalte <- aufstiegsspalten[[rl_staffel[[k]]]]
@@ -844,7 +939,11 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
         direkt_prognosen <- list()
         for (k in rl_keys) {
           if (!is.null(ergebnisse[[k]])) {
-            direkt_prognosen[[rl_staffel[[k]]]] <- ergebnisse[[k]]
+            direkt_prognosen[[rl_staffel[[k]]]] <- tryCatch(gemischt(k), error = function(e) {
+              message(sprintf("Loop %d: Sperre fuer %s uebersprungen: %s", i, k,
+                              conditionMessage(e)))
+              ergebnisse[[k]]
+            })
           }
         }
         direktspalten <- rl_direktaufstiegsspalten(direkt_prognosen, saison)
