@@ -423,6 +423,22 @@ berechtigung_aus_teamlist <- function(spielplan, teams, liga, mit_sperre = TRUE)
   kurznamen <- names(spielplan)[5:ncol(spielplan)]
   berechtigt <- rep(TRUE, length(kurznamen))
 
+  # Ein Verzicht bei einem Verein dieser Liga, dessen League-Spalte aber eine
+  # andere Liga nennt, wuerde vom Filter unten lautlos verworfen. Das meldet
+  # die Funktion, denn ein Verzicht wird selten und bewusst eingetragen.
+  if (!is.null(teams$League) && !is.null(teams$Aufstiegsverzicht)) {
+    fremd <- as.character(teams$League) != as.character(liga) &
+      teams$ShortText %in% kurznamen &
+      .als_wahrheitswert(teams$Aufstiegsverzicht)
+    if (any(fremd)) {
+      warning(sprintf(
+        "Aufstiegsverzicht ignoriert: %s steht im Spielplan der Liga %s, aber mit League = %s in der TeamList.",
+        paste(teams$ShortText[fremd], collapse = ", "), liga,
+        paste(unique(teams$League[fremd]), collapse = ", ")
+      ), call. = FALSE)
+    }
+  }
+
   if (!is.null(teams$League)) {
     teams <- teams[as.character(teams$League) == as.character(liga), ]
   }

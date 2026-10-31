@@ -939,6 +939,35 @@ test_that("ein Aufstiegsverzicht in der RL West sendet eine Maske und liefert di
   }
 })
 
+test_that("ein Aufstiegsverzicht in der RL Nord laeuft durch Aufstiegsspalte UND Abstiegskopplung", {
+  tl <- teamlist_df(character(0))
+  verzichter <- teams_von("rl_nord")[[1]]
+  tl$Aufstiegsverzicht <- ifelse(tl$ShortText == verzichter, "ja", "")
+  pfad <- tempfile("TeamList_verzicht_nord_", fileext = ".csv")
+  utils::write.table(tl, pfad, sep = ";", quote = FALSE, row.names = FALSE)
+
+  lauf <- lauf_ausfuehren(teamlist = pfad)
+  erg <- lauf$ergebnisse[[1]]
+
+  nord <- Filter(function(p) setequal(as.character(p$team_names), teams_von("rl_nord")),
+                 lauf$simulate)
+  expect_length(nord, 1L)
+  maske <- stats::setNames(as.logical(unlist(nord[[1]]$eligibility_masks)),
+                           as.character(nord[[1]]$team_names))
+  expect_false(maske[[verzichter]])
+  expect_identical(sum(!maske), 1L)
+
+  # Die Aufstiegsspalte wird gebaut (Aufstiegsspiele), der Verzichtende
+  # steht mit null darin, und die Abstiegskopplung, die dort
+  # sum(Aufstieg) liest, laeuft ohne Fehler bis zur Abstiegsspalte durch.
+  spalte <- erg[["rl_nord_aufstieg"]]
+  expect_false(is.null(spalte))
+  expect_equal(spalte[verzichter, "Aufstieg"], 0)
+  expect_identical(attr(spalte, "verzichtet"), verzichter)
+  expect_false(is.null(erg[["rl_nord_abstieg"]]))
+  expect_false(any(grepl("fehlgeschlagen", lauf$msgs)))
+})
+
 # --- #291: Meister und Aufstieg aus EINEM Lauf -----------------------------
 #
 # Bis Oktober 2026 kam bei Nord und Bayern die Meisterspalte der

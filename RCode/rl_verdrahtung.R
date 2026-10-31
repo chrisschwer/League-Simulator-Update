@@ -181,7 +181,8 @@ rl_aktuelle_elo <- function(spielplan, tormodell = list(),
 #'   derselben, aus der die Aufstiegsseite die Meisterspalte liest. Einen
 #'   eigenen Lauf mit -50-Malus gibt es fuer die Regionalligen seit #291 nicht
 #'   mehr (ADR 0008, Nachtrag 2026-10-17): Meister und Aufstieg aus einem
-#'   Lauf, damit Aufstieg <= Meister gilt.
+#'   Lauf. Aufstieg <= Meister gilt nur ohne Verzicht; mit Verzicht erbt der
+#'   naechste Berechtigte den Aufstieg (ADR 0009).
 #' @param elos Benannte Liste Staffel -> aktueller ELO-Vektor.
 #' @param saison Startjahr der Saison.
 #' @param tormodell Abweichendes Tormodell (ADR 0004). Leer fuer die

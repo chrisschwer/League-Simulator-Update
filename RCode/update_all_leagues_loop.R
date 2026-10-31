@@ -801,8 +801,9 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
         # Prognosen der Playoff-Staffeln: der HAUPTLAUF, derselbe, aus dem
         # die Meisterspalte der Aufstiegsseite kommt (#291). Einen
         # Malus-Lauf gibt es fuer die Regionalligen nicht mehr (ADR 0008,
-        # Nachtrag 2026-10-17); so gilt Aufstieg <= Meister schon durch die
-        # Rechnung, und die Siegquote ist wirklich eine.
+        # Nachtrag 2026-10-17). Aufstieg <= Meister gilt dabei nur, solange
+        # niemand verzichtet; mit Verzicht erbt der naechste Berechtigte
+        # (ADR 0009), und die Siegquote rechnet auf P(erster Berechtigter).
         prognosen <- list()
         aktuelle_elos <- list()
         for (k in rl_keys[rl_staffel[rl_keys] %in% playoff]) {

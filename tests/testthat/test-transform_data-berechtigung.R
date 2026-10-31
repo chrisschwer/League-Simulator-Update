@@ -68,3 +68,23 @@ test_that("fehlt die Spalte Aufstiegsverzicht, verzichtet niemand", {
   sp <- berechtigung_spielplan(c("AAA", "CCC"))
   expect_identical(berechtigung_aus_teamlist(sp, berechtigung_teamlist(), 80), c(TRUE, TRUE))
 })
+
+test_that("ein Verzicht bei abweichender League-Spalte wird gemeldet statt verworfen", {
+  sp <- berechtigung_spielplan(c("CCC", "AAA", "BBB"))
+  tl <- berechtigung_teamlist(Aufstiegsverzicht = c("", "", "", ""))
+  tl$Aufstiegsverzicht[tl$ShortText == "CCC"] <- "ja"
+  tl$League[tl$ShortText == "CCC"] <- 81   # Tippfehler in der League-Spalte
+
+  expect_warning(
+    erg <- berechtigung_aus_teamlist(sp, tl, 80, mit_sperre = FALSE),
+    "Aufstiegsverzicht ignoriert: CCC"
+  )
+  expect_identical(erg, c(TRUE, TRUE, TRUE))
+})
+
+test_that("ohne abweichende League-Spalte gibt es keine Warnung", {
+  sp <- berechtigung_spielplan(c("CCC", "AAA", "BBB"))
+  tl <- berechtigung_teamlist(Aufstiegsverzicht = c("", "", "", ""))
+  tl$Aufstiegsverzicht[tl$ShortText == "CCC"] <- "ja"
+  expect_no_warning(berechtigung_aus_teamlist(sp, tl, 80, mit_sperre = FALSE))
+})

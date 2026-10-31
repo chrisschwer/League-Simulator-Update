@@ -918,8 +918,10 @@ render_verlauf_page <- function(view, daten, output_dir, now = Sys.time(),
 
 #' Die Siegquote einer Zeile als Prozenttext.
 #'
-#' Siegquote = P(Aufstieg) / P(Meister) -- die ueber den Gegner
-#' ausintegrierte Zweikampfquote.
+#' Siegquote = P(Aufstieg) / P(erster Berechtigter) -- die ueber den Gegner
+#' ausintegrierte Zweikampfquote. Ohne Verzicht ist der erste Berechtigte der
+#' Meister; mit Verzicht erbt ihn der naechste Berechtigte (ADR 0009). Der
+#' Aufrufer uebergibt den passenden Nenner im Argument `meister`.
 #'
 #' WO ES KEINE MEISTERCHANCE GIBT, BLEIBT DIE ZELLE LEER. Der Quotient ist
 #' dort 0/0, also undefiniert. Eine 0 waere eine Aussage ueber die
@@ -928,9 +930,10 @@ render_verlauf_page <- function(view, daten, output_dir, now = Sys.time(),
 #' waeren ein sichtbarer Rechenfehler auf einer veroeffentlichten Seite.
 #' Dieselbe Konvention wie in der Heatmap, wo eine Null-Zelle leer bleibt.
 #'
-#' Der Grenzfall P(Aufstieg) > 0 bei P(Meister) = 0 ist rechnerisch
-#' unmoeglich und deshalb ein Datenfehler -- auch er bleibt leer, statt eine
-#' Unendlichkeit auf die Seite zu bringen.
+#' Der Grenzfall P(Aufstieg) > 0 bei Nenner = 0 ist rechnerisch unmoeglich
+#' und deshalb ein Datenfehler -- auch er bleibt leer, statt eine
+#' Unendlichkeit auf die Seite zu bringen. (P(Aufstieg) > 0 bei P(Meister) = 0
+#' ist dagegen regulaer: ein Nachruecker.)
 #' Der Rueckgabewert ist der von prozent() -- also die Zahl, das Haekchen
 #' oder "<1" --, nur der undefinierte Fall wird zu "". So bleibt die
 #' Formatierung an EINER Stelle; eine eigene Umwandlung in Text hier haette
@@ -1045,7 +1048,10 @@ render_verlauf_page <- function(view, daten, output_dir, now = Sys.time(),
     "Drei Staffeln stellen ihren Aufsteiger direkt, die beiden übrigen ",
     "ermitteln den vierten in zwei Aufstiegsspielen gegeneinander. ",
     "<em>Meister</em> ist die Wahrscheinlichkeit, die Staffel zu gewinnen, ",
-    "<em>Aufstieg</em> die, danach auch in der 3. Liga zu stehen. Die ",
+    "<em>Aufstieg</em> die, danach auch in der 3. Liga zu stehen. Beides ",
+    "kann auseinanderfallen: Verzichtet ein Meister oder darf er nicht ",
+    "aufsteigen, rückt der nächste berechtigte Verein nach, und dessen ",
+    "<em>Aufstieg</em> kann höher sein als sein <em>Meister</em>. Die ",
     "<em>Siegquote</em> ist der Anteil davon, also die Chance in den ",
     "Aufstiegsspielen; wo direkt aufgestiegen wird, gibt es sie nicht.</p>\n",
     paste0(tabellen, collapse = ""),
