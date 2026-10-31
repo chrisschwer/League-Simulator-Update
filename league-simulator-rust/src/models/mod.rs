@@ -208,7 +208,7 @@ pub struct SimulationResult {
     /// ueber alle Teams auf 1, soweit mindestens `rang` Teams berechtigt sind.
     pub eligible_rank_probabilities: Option<Vec<Vec<Vec<f64>>>>,
 
-    /// Gemeinsame Klassenvektoren der verfolgten Teams, absteigend nach
+    /// Gemeinsame Klassenvektoren der verfolgten Teams, aufsteigend nach
     /// Klassencode sortiert (deterministische Reihenfolge). Die Haeufigkeiten
     /// summieren sich auf die Iterationszahl. `classes[i]` gehoert zum i-ten
     /// Eintrag von `tracked_teams` -- in der Reihenfolge der ANFRAGE, nicht
