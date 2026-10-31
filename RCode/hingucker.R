@@ -1,18 +1,16 @@
 # Hingucker der Woche: welche Spiele der naechsten sieben Tage lohnen den Blick?
 #
 # Ein Spiel ist interessant, wenn es knapp ist UND wenn es fuer beide Teams um
-# etwas geht. Beides misst derselbe Index, der Inverse Simpson-Index
-#
-#   D = 1 / sum(p_i^2)
-#
-# die "effektive Zahl" gleich wahrscheinlicher Ausgaenge: D = 1, wenn ein
-# Ausgang sicher ist, D = k, wenn k Ausgaenge gleich wahrscheinlich sind.
+# etwas geht. Beides misst derselbe Index, der Inverse Simpson-Index: Eins
+# durch die Summe der quadrierten Wahrscheinlichkeiten. Er ist die "effektive
+# Zahl" gleich wahrscheinlicher Ausgaenge, also D = 1, wenn ein Ausgang sicher
+# ist, und D = k, wenn k Ausgaenge gleich wahrscheinlich sind.
 #
 #   D_Spiel   aus (Sieg Heim, Remis, Sieg Gast)            1 .. 3
 #   D_Team    aus den Ausgaengen der Saison (Meister, CL,   1 .. k
 #             EL, ..., Mittelfeld, Relegation, Abstieg)
 #
-#   Score = D_Spiel * D_Heim * D_Gast
+# Der Hingucker-Wert ist das Produkt aus D_Spiel, D_Heim und D_Gast.
 #
 # Das Produkt ist bewusst einfach. D_Team misst, wie OFFEN die Saison eines
 # Teams noch ist -- nicht, ob gerade dieses Spiel etwas daran aendert. Und das
@@ -260,8 +258,9 @@ hingucker_kandidaten <- function(views, data_env, league_data, now = Sys.time(),
 # Der Untertitel nennt das Fenster: "31.10. – 6.11.".
 hingucker_fenster_text <- function(now = Sys.time(), tage = HINGUCKER_TAGE) {
   heute <- .hg_berliner_tag(now)
-  tag <- function(d) paste0(as.integer(format(d, "%d")), ".",
-                            as.integer(format(d, "%m")), ".")
+  tag <- function(d) {
+    paste0(as.integer(format(d, "%d")), ".", as.integer(format(d, "%m")), ".")
+  }
   paste0(tag(heute), " – ", tag(heute + tage - 1L))
 }
 
