@@ -864,8 +864,11 @@ test_that("der Loop reicht attr(spielplan, 'elo_neutral') unveraendert an rl_akt
   lauf_ausfuehren(elo_neutral_je_liga = kennzeichen, rl_elo_abfang = abfang)
 
   # Harness-Probe: rl_aktuelle_elo() wurde fuer beide Playoff-Staffeln
-  # aufgerufen -- sonst bewiese der Vergleich unten nichts.
-  expect_setequal(ls(gesehen), c("rl_nord", "rl_bayern"))
+  # aufgerufen -- sonst bewiese der Vergleich unten nichts. Dazu kommen die
+  # drei Profiligen, deren Relegationen (relegation_2bl.R) die aktuelle ELO
+  # brauchen; fuer sie gibt es hier kein Kennzeichen.
+  expect_setequal(ls(gesehen), c("rl_nord", "rl_bayern", "bundesliga",
+                                 "zweite_bundesliga", "dritte_liga"))
   for (key in names(kennzeichen)) {
     expect_identical(gesehen[[key]]$elo_neutral, kennzeichen[[key]],
                      label = sprintf("elo_neutral, das rl_aktuelle_elo() fuer %s sieht", key))
@@ -1842,3 +1845,59 @@ test_that("der Generator haengt die Abschnitte auch ohne Loop an eine RL-Seite -
     expect_false(grepl(sprintf("<section id=\"%s\">", id), nordost, fixed = TRUE), info = id)
   }
 })
+
+# --- Relegationen der Profiligen: "Aufstieg/Abstieg gesamt" -------------------
+
+test_that("der Loop berechnet die Relegationsspalten der Profiligen aus den Ergebnissen", {
+  lauf <- standardlauf()
+  erg <- lauf$ergebnisse[[length(lauf$ergebnisse)]]
+
+  expect_true(all(c("bundesliga_gesamt", "zweite_bundesliga_gesamt",
+                    "dritte_liga_gesamt") %in% names(erg)),
+              info = paste(utils::tail(lauf$msgs, 5), collapse = " | "))
+  expect_identical(colnames(erg$bundesliga_gesamt), "Abstieg gesamt")
+  expect_identical(colnames(erg$zweite_bundesliga_gesamt),
+                   c("Aufstieg gesamt", "Abstieg gesamt"))
+  expect_identical(colnames(erg$dritte_liga_gesamt), "Aufstieg gesamt")
+
+  for (key in c("bundesliga_gesamt", "zweite_bundesliga_gesamt", "dritte_liga_gesamt")) {
+    werte <- as.matrix(erg[[key]])
+    expect_false(anyNA(werte), info = key)
+    expect_true(all(werte >= 0 & werte <= 1 + 1e-9), info = key)
+  }
+  # Die Zeilen sind die Teams der jeweiligen Prognose.
+  expect_setequal(rownames(erg$bundesliga_gesamt), rownames(as.matrix(erg$bundesliga)))
+  # Plausibilitaet: Jeder Relegationssieger von unten verdraengt genau einen
+  # Verlierer von oben. Summe "Aufstieg gesamt" der 2. BL minus ihre 2 direkten
+  # Aufsteiger = Summe "Abstieg gesamt" der Bundesliga minus 2 Direktabsteiger.
+  expect_equal(sum(erg$zweite_bundesliga_gesamt[["Aufstieg gesamt"]]) - 2,
+               sum(erg$bundesliga_gesamt[["Abstieg gesamt"]]) - 2,
+               tolerance = 1e-9)
+  # Dasselbe zwischen 2. BL (Abstieg) und 3. Liga (Aufstieg).
+  expect_equal(sum(erg$zweite_bundesliga_gesamt[["Abstieg gesamt"]]) - 2,
+               sum(erg$dritte_liga_gesamt[["Aufstieg gesamt"]]) - 2,
+               tolerance = 1e-9)
+})
+
+test_that("Teilausfall im Loop: ohne ELO der 3. Liga bleibt die 2. BL vollstaendig und es wird geloggt", {
+  # rl_aktuelle_elo() liefert fuer die 3. Liga NULL (Serverfehler), fuer alle
+  # anderen Ligen den Stand aus dem Spielplan.
+  abfang <- function(spielplan, tormodell = list(), ...) {
+    teams <- names(spielplan)[5:ncol(spielplan)]
+    if (substr(teams[[1]], 1, 2) == LIGA_PRAEFIX[["dritte_liga"]]) {
+      return(NULL)
+    }
+    stats::setNames(as.numeric(spielplan[1, 5:ncol(spielplan)]), teams)
+  }
+  lauf <- lauf_ausfuehren(rl_elo_abfang = abfang)
+  erg <- lauf$ergebnisse[[length(lauf$ergebnisse)]]
+
+  expect_true(any(grepl("keine aktuelle ELO", lauf$msgs, fixed = TRUE)),
+              info = paste(utils::tail(lauf$msgs, 5), collapse = " | "))
+  # Das Duell 2. BL - 3. Liga fehlt: weder "Abstieg gesamt" der 2. BL noch die
+  # Spalte der 3. Liga entstehen; "Aufstieg gesamt" der 2. BL bleibt.
+  expect_true("Aufstieg gesamt" %in% colnames(erg$zweite_bundesliga_gesamt))
+  expect_null(erg$dritte_liga_gesamt)
+  expect_false("Abstieg gesamt" %in% colnames(erg$zweite_bundesliga_gesamt))
+})
+

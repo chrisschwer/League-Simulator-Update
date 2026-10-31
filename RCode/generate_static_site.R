@@ -284,6 +284,29 @@ render_heatmap <- function(result, namen = NULL) {
   m
 }
 
+# TRUE, wenn das Objekt der berechneten Spalten existiert UND alle Labels
+# des Panels, die als berechnet gelten, als Spalte darin stehen.
+.berechnete_spalten_da <- function(panel, data_env) {
+  if (!exists(panel$computed_source, envir = data_env, inherits = FALSE)) {
+    return(FALSE)
+  }
+  obj <- get(panel$computed_source, envir = data_env)
+  all(panel$labels[.panel_computed(panel)] %in%
+        colnames(as.data.frame(obj)))
+}
+
+# Das Panel ohne seine berechneten Spalten -- fuer `computed_optional`, wenn
+# das Objekt fehlt. `groups` traegt ohnehin nur die Platzspalten, es muss also
+# nichts umgerechnet werden.
+.ohne_berechnete_spalten <- function(panel) {
+  behalten <- !.panel_computed(panel)
+  panel$labels <- panel$labels[behalten]
+  panel$computed <- NULL
+  panel$computed_source <- NULL
+  panel$computed_optional <- NULL
+  panel
+}
+
 #' Rendert ein Panel als Tabelle.
 #'
 #' @param data_obj Prognosematrix (Teams x Plaetze) fuer die Platzgruppen des
@@ -529,6 +552,16 @@ render_league_page <- function(view, data_env, output_dir,
   # bleibt es NULL -- render_panel_table() bricht dann mit dem Namen der
   # Spalte ab, statt eine leere Spalte zu rendern.
   panel_html <- function(panel) {
+    # Optionale berechnete Spalte (Relegationen der Profiligen): Fehlt das
+    # Objekt, entfaellt nur die Spalte, nicht die Seite.
+    # Fehlt nur EINE der Spalten im Objekt (Teilausfall der Duellrechnung:
+    # relegation_spalten() liefert dann ein Objekt mit weniger Spalten),
+    # entfaellt das berechnete Panel-Stueck ebenso -- die Pruefung gilt den
+    # Spalten, nicht nur dem Objekt.
+    if (isTRUE(panel$computed_optional) && !is.null(panel$computed_source) &&
+          !.berechnete_spalten_da(panel, data_env)) {
+      panel <- .ohne_berechnete_spalten(panel)
+    }
     computed_obj <- if (!is.null(panel$computed_source)) {
       get(panel$computed_source, envir = data_env)
     } else {
@@ -1232,11 +1265,16 @@ generate_static_site <- function(ergebnisse = NULL,
   vorhandene_objekte <- vapply(names(vorhanden), .ergebnis_objektname,
                                character(1))
   renderbar <- names(views)[vapply(names(views), function(key) {
+    # Optionale berechnete Spalten (computed_optional) zaehlen nicht mit:
+    # Ohne sie bleibt die Seite richtig, nur schmaler.
+    quelle_berechnet <- function(panel) {
+      if (isTRUE(panel$computed_optional)) NULL else panel$computed_source
+    }
     quellen <- unique(c(views[[key]]$plot_source,
                         views[[key]]$top$source,
-                        views[[key]]$top$computed_source,
+                        quelle_berechnet(views[[key]]$top),
                         views[[key]]$bottom$source,
-                        views[[key]]$bottom$computed_source))
+                        quelle_berechnet(views[[key]]$bottom)))
     all(quellen %in% vorhandene_objekte)
   }, logical(1))]
 

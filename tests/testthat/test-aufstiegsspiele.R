@@ -1000,3 +1000,66 @@ test_that("Integration: die ganze Kette -- Rust-Raten -> p_sieg_matrix -> rl_auf
   expect_equal(df_nord["B", "Aufstieg"], erwartet[["B"]], tolerance = 1e-9)
   expect_equal(sum(df_nord$Aufstieg) + sum(df_bayern$Aufstieg), 1, tolerance = 1e-12)
 })
+
+
+# --- Verlaengerung mit Heimvorteil (Relegation der Profiligen) ---------------
+
+test_that("verlaengerung = \"rueckspiel\": die Verlaengerung rechnet mit den Rueckspiel-Raten", {
+  # Hinspiel bei A, Rueckspiel bei B. Die Verlaengerung findet im Stadion des
+  # Rueckspiels statt, also hat B Heimvorteil -- A's Quote sinkt gegenueber
+  # der neutralen Verlaengerung ("ausgelost").
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
+  q <- fn(env, "zweikampf_quote")
+
+  hin <- c(1.55, 1.05)
+  rueck <- c(1.10, 1.50)
+  neutral <- (hin + rueck) / 2
+
+  neutral_quote <- q(hin, rueck, neutral, max_tore = MAX_TORE_EXAKT)
+  rueckspiel_quote <- q(hin, rueck, neutral, max_tore = MAX_TORE_EXAKT,
+                        verlaengerung = "rueckspiel")
+  expect_lt(rueckspiel_quote, neutral_quote)
+
+  # Der Default bleibt "ausgelost": Die Aufstiegsspiele Nord gegen Bayern
+  # aendern sich nicht.
+  expect_identical(
+    q(hin, rueck, neutral, max_tore = MAX_TORE_EXAKT, verlaengerung = "ausgelost"),
+    neutral_quote
+  )
+})
+
+test_that("verlaengerung = \"rueckspiel\" ohne Heimvorteil in den Raten gleicht der neutralen Rechnung", {
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
+  q <- fn(env, "zweikampf_quote")
+
+  roh <- c(1.4, 1.2)
+  expect_equal(
+    q(roh, roh, roh, max_tore = MAX_TORE_EXAKT, verlaengerung = "rueckspiel"),
+    q(roh, roh, roh, max_tore = MAX_TORE_EXAKT),
+    tolerance = 1e-12
+  )
+})
+
+test_that("verlaengerung = \"rueckspiel\": Tausch der Heimrechte kehrt die Quote um", {
+  # Aus Sicht von B sind Hin- und Rueckspiel vertauscht. Mit Heimvorteil in
+  # der Verlaengerung ist die Summe nur dann 1, wenn B's Hinspiel A's
+  # RUECKspiel ist -- also wenn die Rollen samt Reihenfolge getauscht werden.
+  env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_aufstieg", "aufstiegsspiele")
+  q <- fn(env, "zweikampf_quote")
+
+  hin <- c(1.55, 1.05)
+  rueck <- c(1.10, 1.50)
+  neutral <- (hin + rueck) / 2
+  aus_sicht_a <- q(hin, rueck, neutral, max_tore = MAX_TORE_EXAKT,
+                   verlaengerung = "rueckspiel")
+  # B hat das Hinspiel: B's Raten im ersten Spiel sind die von A's
+  # Rueckspiel (gespiegelt), usw.
+  aus_sicht_b <- q(rev(rueck), rev(hin), rev(neutral), max_tore = MAX_TORE_EXAKT,
+                   verlaengerung = "rueckspiel")
+  # Verschiedene Heimrechtsfolge -> die beiden Sichten summieren sich NICHT
+  # auf 1: Dieselbe Paarung mit getauschter Reihenfolge ist ein anderes Duell.
+  expect_false(isTRUE(all.equal(aus_sicht_a + aus_sicht_b, 1, tolerance = 1e-9)))
+  # Aber jede Quote liegt in [0, 1].
+  expect_true(aus_sicht_a >= 0 && aus_sicht_a <= 1)
+  expect_true(aus_sicht_b >= 0 && aus_sicht_b <= 1)
+})

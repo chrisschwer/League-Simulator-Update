@@ -51,7 +51,7 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 | `test-elo_aggregation.R` | 12 | ein-elo-walk (12 Bl.) |
 | `test-elo_calibration.R` | 30 | elo-calibration |
 | `test-fixture_cache.R` | 6 (−3, Stufe 4.4a: die drei `is_regular_season_round`-Blöcke nach `test-round_filter.R`) | fixture-cache |
-| `test-generate_static_site.R` | 64 | frauen-ligen-live (11 Bl.), generate-static-site, live-na-guard, n-ligen-entflechtung (5 Bl.), phase5-regionalligen (15 Bl.) |
+| `test-generate_static_site.R` | 66 | frauen-ligen-live (11 Bl.), generate-static-site, live-na-guard, n-ligen-entflechtung (5 Bl.), phase5-regionalligen (15 Bl.) |
 | `test-generate_static_site-js.R` | 4 | — (neu in Stufe 4.6: Veraltet-Hinweis in Node + jsdom) |
 | `test-generate_static_site-tooltip.R` | 10 | kuerzel-tooltip (10 Bl.) |
 | `test-input_handler.R` | 7 | — (neu in Stufe 4.5: `input_handler.R` hatte keinen eigenen Test, nur Stubs in `test-interactive_prompts.R`) |
@@ -74,6 +74,7 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 | `test-retrieveResults-rate-limit-header.R` | 5 | rate-limit-header |
 | `test-rl_abstiegskopplung.R` | 50 | phase5-regionalligen (8 Bl.), rl-abstiegskopplung |
 | `test-rl_abstiegskopplung-nord.R` | 19 | rl-nord-aufstiegskopplung |
+| `test-relegation_2bl.R` | 9 | — (neu mit den Relegationen der Profiligen) |
 | `test-rl_aufstieg.R` | 37 | phase5-regionalligen (13 Bl.), rl-aufstieg |
 | `test-rl_verdrahtung.R` | 6 (+4, #293: `rl_aktuelle_elo` sendet `elo_neutral` zeilengleich, laesst es ohne gewertetes Spiel weg, und die ELO bleibt ueber den echten Rust-Server stehen) | rl-verdrahtung (2 Bl.) |
 | `test-round_filter.R` | 8 (+3, Stufe 4.4a: `is_regular_season_round` aus `test-fixture_cache.R`) | phase5-regionalligen (5 Bl.) |

@@ -47,6 +47,13 @@
 #
 # Die Reihenfolge der Eintraege in `computed` ist die der `labels`; `groups`
 # traegt nur die Spalten, fuer die `computed` FALSE ist.
+#
+# `computed_optional = TRUE` (Relegationen der Profiligen): Die berechnete
+# Spalte ist eine ZUSAETZLICHE Zahl neben den Platzsummen, nicht der Inhalt
+# der Seite. Fehlt ihr Objekt (Duellrechnung ausgefallen, alte Fixture), faellt
+# nur die Spalte weg -- die Seite bleibt. Ohne das Flag gilt das Gegenteil:
+# Bei den Regionalligen waere eine Seite ohne berechnete Spalte falsch, und
+# der Generator laesst sie dann aus.
 
 league_views <- function() {
   views <- list(
@@ -65,8 +72,11 @@ league_views <- function() {
       ),
       bottom = list(
         source = "Ergebnis",
+        computed = c(FALSE, FALSE, TRUE),
+        computed_source = "Ergebnis_bundesliga_gesamt",
+        computed_optional = TRUE,
         filter_cols = 16:18,
-        labels = c("Relegation", "Abstieg"),
+        labels = c("Relegation", "Abstieg", "Abstieg gesamt"),
         groups = cbind(c(16, 16), c(17, 18))
       )
     ),
@@ -78,14 +88,20 @@ league_views <- function() {
       teams = 18L,
       top = list(
         source = "Ergebnis2",
+        computed = c(FALSE, FALSE, TRUE),
+        computed_source = "Ergebnis_zweite_bundesliga_gesamt",
+        computed_optional = TRUE,
         filter_cols = 1:3,
-        labels = c("Aufstieg", "Relegation Bundesliga"),
+        labels = c("Aufstieg", "Relegation Bundesliga", "Aufstieg gesamt"),
         groups = cbind(c(1, 2), c(3, 3))
       ),
       bottom = list(
         source = "Ergebnis2",
+        computed = c(FALSE, FALSE, TRUE),
+        computed_source = "Ergebnis_zweite_bundesliga_gesamt",
+        computed_optional = TRUE,
         filter_cols = 16:18,
-        labels = c("Relegation 3. Liga", "Abstieg"),
+        labels = c("Relegation 3. Liga", "Abstieg", "Abstieg gesamt"),
         groups = cbind(c(16, 16), c(17, 18))
       )
     ),
@@ -97,8 +113,11 @@ league_views <- function() {
       teams = 20L,
       top = list(
         source = "Ergebnis3_Aufstieg",
+        computed = c(FALSE, FALSE, TRUE, FALSE),
+        computed_source = "Ergebnis_dritte_liga_gesamt",
+        computed_optional = TRUE,
         filter_cols = 1:4,
-        labels = c("Aufstieg", "Relegation", "DFB-Pokal"),
+        labels = c("Aufstieg", "Relegation", "Aufstieg gesamt", "DFB-Pokal"),
         groups = cbind(c(1, 2), c(3, 3), c(4, 4))
       ),
       bottom = list(

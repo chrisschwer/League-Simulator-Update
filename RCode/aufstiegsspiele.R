@@ -83,8 +83,17 @@ verlaengerung_lambda <- function(lambda_90) {
 #' @param neutral c(a, b): dito ohne Heimvorteil. Daraus folgt die
 #'   Verlaengerungs-Rate neutral / 3.
 #' @param max_tore Groesste beruecksichtigte Torzahl je Team und Spiel.
+#' @param verlaengerung Wer in der Verlaengerung Heimvorteil hat.
+#'   "ausgelost" (Default, Aufstiegsspiele Nord gegen Bayern): niemand, die
+#'   Verlaengerung rechnet mit den neutralen Raten. "rueckspiel" (Relegation
+#'   der Profiligen): Die Verlaengerung wird im Stadion des Rueckspiels
+#'   gespielt, also traegt B den Heimvorteil -- gerechnet mit den
+#'   Rueckspiel-Raten durch 3. Damit haengt das Ergebnis von der Reihenfolge
+#'   der Heimrechte ab.
 #' @return Eine Zahl in [0, 1]: P(A setzt sich durch).
-zweikampf_quote <- function(hin, rueck, neutral, max_tore = 15) {
+zweikampf_quote <- function(hin, rueck, neutral, max_tore = 15,
+                            verlaengerung = c("ausgelost", "rueckspiel")) {
+  verlaengerung <- match.arg(verlaengerung)
   pruefe_rate(hin, "hin", "zweikampf_quote")
   pruefe_rate(rueck, "rueck", "zweikampf_quote")
   pruefe_rate(neutral, "neutral", "zweikampf_quote")
@@ -104,9 +113,12 @@ zweikampf_quote <- function(hin, rueck, neutral, max_tore = 15) {
   p_a_vorn <- sum(gesamt[d > 0])
   p_gleich <- sum(gesamt[d == 0])
 
-  # Gleichstand -> Verlaengerung mit den NEUTRALEN Raten (das Heimrecht der
-  # Verlaengerung ist ausgelost, nicht ermittelbar), 30 Minuten.
-  ev <- verlaengerung_lambda(c(neutral[[1]], neutral[[2]]))
+  # Gleichstand -> Verlaengerung, 30 Minuten. Bei "ausgelost" mit den
+  # NEUTRALEN Raten (das Heimrecht der Verlaengerung ist ausgelost, nicht
+  # ermittelbar); bei "rueckspiel" mit den Rueckspiel-Raten, weil die
+  # Verlaengerung im Stadion des Rueckspiels stattfindet.
+  ev_basis <- if (identical(verlaengerung, "rueckspiel")) rueck else neutral
+  ev <- verlaengerung_lambda(c(ev_basis[[1]], ev_basis[[2]]))
   d_ev <- tordifferenz_verteilung(ev[[1]], ev[[2]], max_tore = max_tore)
   e <- -max_tore:max_tore
   p_a_ev <- sum(d_ev[e > 0])
@@ -122,9 +134,12 @@ zweikampf_quote <- function(hin, rueck, neutral, max_tore = 15) {
 #'   hin_b, rueck_a, rueck_b, neutral_a, neutral_b (Tor-Raten), eine Zeile
 #'   je Paar -- so, wie zweikampf_paarungen_rust() es liefert.
 #' @param max_tore Wird an zweikampf_quote() durchgereicht.
+#' @param verlaengerung Wird an zweikampf_quote() durchgereicht.
 #' @return Matrix mit dimnames list(unique(a), unique(b)) und
 #'   M[a, b] = P(a setzt sich gegen b durch).
-p_sieg_matrix <- function(paarungen, max_tore = 15) {
+p_sieg_matrix <- function(paarungen, max_tore = 15,
+                          verlaengerung = c("ausgelost", "rueckspiel")) {
+  verlaengerung <- match.arg(verlaengerung)
   if (!is.data.frame(paarungen)) {
     stop(sprintf(
       "p_sieg_matrix: paarungen muss ein data.frame sein, ist aber '%s'.",
@@ -170,7 +185,8 @@ p_sieg_matrix <- function(paarungen, max_tore = 15) {
       c(z$hin_a, z$hin_b),
       c(z$rueck_a, z$rueck_b),
       c(z$neutral_a, z$neutral_b),
-      max_tore = max_tore
+      max_tore = max_tore,
+      verlaengerung = verlaengerung
     )
   }
 
