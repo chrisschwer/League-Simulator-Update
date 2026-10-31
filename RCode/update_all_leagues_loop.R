@@ -721,6 +721,19 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
           rel_elos <- lapply(stats::setNames(rel_keys, rel_keys), function(k) {
             rl_aktuelle_elo(spielplaene[[k]], goal_model_args(liga_ids[[k]]))
           })
+          # rl_aktuelle_elo() faengt Serverfehler selbst ab und gibt NULL
+          # zurueck -- der error-Zweig unten springt dann nicht an. Ohne diese
+          # Meldung bliebe eine Spalte unbemerkt veraltet.
+          for (k in rel_keys) {
+            if (is.null(rel_elos[[k]])) {
+              message(sprintf(
+                paste0("Loop %d: Relegationen der Profiligen: keine aktuelle ",
+                       "ELO fuer %s -- die betroffenen Spalten bleiben auf ",
+                       "dem Stand der letzten Runde."),
+                i, k
+              ))
+            }
+          }
           rel_tormodell <- lapply(stats::setNames(rel_keys, rel_keys), function(k) {
             goal_model_args(liga_ids[[k]])
           })
