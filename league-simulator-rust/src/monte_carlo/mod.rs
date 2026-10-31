@@ -1,7 +1,8 @@
-use crate::models::{Season, SimulationParams, SimulationResult};
+use crate::models::{ClassPattern, Season, SimulationParams, SimulationResult};
 use crate::simulation::{calculate_table, simulate_season_in_place};
 use rand::{rngs::StdRng, RngExt, SeedableRng};
 use rayon::prelude::*;
+use std::collections::HashMap;
 
 /// Run Monte Carlo simulations in parallel to get probability distribution.
 /// Matches the logic in simulationsCPP.R and leagueSimulatorCPP.R.
@@ -72,6 +73,9 @@ fn run_monte_carlo_simulation_with_seeds(
         group_counts: Vec<Vec<usize>>,
         /// Dritter Zaehler: `[maske][team][rang_unter_berechtigten - 1]`.
         mask_counts: Vec<Vec<Vec<usize>>>,
+        /// Vierter Zaehler: Haeufigkeit je gemeinsamem Klassenvektor der
+        /// verfolgten Teams. Leer ohne `tracked_teams`.
+        class_counts: HashMap<Vec<u8>, usize>,
     }
 
     let n_masks = params.eligibility_masks.as_ref().map_or(0, |m| m.len());
@@ -92,7 +96,23 @@ fn run_monte_carlo_simulation_with_seeds(
         _ => None,
     };
 
-    type Gezaehlt = (Vec<Vec<usize>>, Vec<Vec<usize>>, Vec<Vec<Vec<usize>>>);
+    // Verfolgte Teams nur mit den direkten Abstiegsplaetzen (Klasse 1);
+    // Klasse 2 haengt zusaetzlich an tracked_playoff_places.
+    let tracked_setup = match (params.tracked_teams.as_ref(), params.tracked_direct_places) {
+        (Some(teams), Some(direct)) => Some((
+            teams.clone(),
+            direct,
+            params.tracked_playoff_places.unwrap_or(0),
+        )),
+        _ => None,
+    };
+
+    type Gezaehlt = (
+        Vec<Vec<usize>>,
+        Vec<Vec<usize>>,
+        Vec<Vec<Vec<usize>>>,
+        HashMap<Vec<u8>, usize>,
+    );
     let gezaehlt: Gezaehlt = seeds
         .par_iter()
         .fold(
@@ -105,6 +125,7 @@ fn run_monte_carlo_simulation_with_seeds(
                     None => Vec::new(),
                 },
                 mask_counts: empty_mask_counts(),
+                class_counts: HashMap::new(),
             },
             |mut state, &seed| {
                 let mut rng = StdRng::seed_from_u64(seed);
@@ -173,10 +194,40 @@ fn run_monte_carlo_simulation_with_seeds(
                     }
                 }
 
+                // Klasse je verfolgtem Team aus seinem Tabellenplatz: die
+                // letzten `direct` Plaetze = 1, die `playoff` darueber = 2.
+                if let Some((teams, direct, playoff)) = &tracked_setup {
+                    let mut platz_von_team = vec![0usize; n_teams];
+                    for standing in &table.standings {
+                        platz_von_team[standing.team_id] = standing.position;
+                    }
+                    let muster: Vec<u8> = teams
+                        .iter()
+                        .map(|&t| {
+                            let platz = platz_von_team[t];
+                            if platz > n_teams - direct {
+                                1
+                            } else if platz > n_teams - direct - playoff {
+                                2
+                            } else {
+                                0
+                            }
+                        })
+                        .collect();
+                    *state.class_counts.entry(muster).or_insert(0) += 1;
+                }
+
                 state
             },
         )
-        .map(|state| (state.counts, state.group_counts, state.mask_counts))
+        .map(|state| {
+            (
+                state.counts,
+                state.group_counts,
+                state.mask_counts,
+                state.class_counts,
+            )
+        })
         .reduce(
             || {
                 (
@@ -188,6 +239,7 @@ fn run_monte_carlo_simulation_with_seeds(
                         None => Vec::new(),
                     },
                     empty_mask_counts(),
+                    HashMap::new(),
                 )
             },
             // Dieselbe kommutative Addition wie bisher, jetzt fuer beide
@@ -211,11 +263,14 @@ fn run_monte_carlo_simulation_with_seeds(
                         }
                     }
                 }
+                for (muster, anzahl) in b.3 {
+                    *a.3.entry(muster).or_insert(0) += anzahl;
+                }
                 a
             },
         );
 
-    let (position_counts, relegation_group_counts, mask_counts) = gezaehlt;
+    let (position_counts, relegation_group_counts, mask_counts, class_counts) = gezaehlt;
 
     // Convert counts to probabilities
     let mut probability_matrix = vec![vec![0.0; n_teams]; n_teams];
@@ -271,7 +326,19 @@ fn run_monte_carlo_simulation_with_seeds(
             .collect()
     });
 
+    // Nach Klassenvektor sortiert, damit die Ausgabe nicht von der
+    // HashMap-Reihenfolge abhaengt.
+    let tracked_class_patterns = tracked_setup.as_ref().map(|_| {
+        let mut muster: Vec<ClassPattern> = class_counts
+            .into_iter()
+            .map(|(classes, count)| ClassPattern { classes, count })
+            .collect();
+        muster.sort_by(|a, b| a.classes.cmp(&b.classes));
+        muster
+    });
+
     SimulationResult {
+        tracked_class_patterns,
         eligible_rank_probabilities,
         relegation_group_counts: if group_setup.is_some() {
             Some(relegation_group_counts)
