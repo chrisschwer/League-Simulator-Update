@@ -225,11 +225,14 @@ rl_aufstiegsprognose <- function(staffel, prognosen, season, p_sieg = NULL,
       staffel
     ), call. = FALSE)
   }
-  p_meister <- meisterwahrscheinlichkeit(prognose)
+  # P(erster Berechtigter): ohne Aufstiegsverzicht ist das P(Meister), mit
+  # Verzicht rueckt der naechste Berechtigte nach (ADR 0009).
+  p_meister <- erster_berechtigter(prognose)
 
-  # Direktaufsteiger: P(Aufstieg) ist P(Meister), ohne Zwischenschritt.
+  # Direktaufsteiger: P(Aufstieg) ist P(erster Berechtigter), ohne
+  # Zwischenschritt.
   if (staffel %in% modus$direkt) {
-    return(data.frame(Aufstieg = p_meister, row.names = names(p_meister)))
+    return(.aufstiegsspalte(p_meister, p_meister, prognose))
   }
 
   gegner <- setdiff(modus$playoff, staffel)
@@ -304,9 +307,20 @@ rl_aufstiegsprognose <- function(staffel, prognosen, season, p_sieg = NULL,
   }
 
   p <- aufstiegswahrscheinlichkeit(
-    p_meister, meisterwahrscheinlichkeit(prognose_gegner), p_sieg
+    p_meister, erster_berechtigter(prognose_gegner), p_sieg
   )
-  data.frame(Aufstieg = p, row.names = names(p))
+  .aufstiegsspalte(p, p_meister, prognose)
+}
+
+# Der data.frame der Aufstiegsspalte mit zwei Zusatzinformationen als
+# Attribut, die die Aufstiegsseite braucht:
+#   p_erster_berechtigter  der Nenner der Siegquote (ohne Verzicht = P(Meister))
+#   verzichtet             die Teams ohne Aufstiegsberechtigung
+.aufstiegsspalte <- function(p, p_erster, prognose) {
+  d <- data.frame(Aufstieg = p, row.names = names(p))
+  attr(d, "p_erster_berechtigter") <- p_erster
+  attr(d, "verzichtet") <- nicht_berechtigt(prognose)
+  d
 }
 
 #' P(Meister) je Team: die erste Spalte der Prognosematrix.
@@ -321,4 +335,46 @@ meisterwahrscheinlichkeit <- function(prognose) {
   p <- prognose[, 1L]
   names(p) <- rownames(prognose)
   p
+}
+
+#' P(erster Berechtigter) je Team: der Rang 1 unter den Aufstiegsberechtigten.
+#'
+#' Traegt die Prognose das Attribut `eligible_rank_probabilities` (die Engine
+#' liefert es, wenn die Staffel Teams ohne Aufstiegsberechtigung hat, siehe
+#' ADR 0009), ist es die erste Spalte der ersten Maske -- ein gesperrter
+#' Meister vererbt seinen Platz an den naechsten Berechtigten. Ohne das
+#' Attribut verzichtet niemand, und es ist P(Meister).
+#'
+#' Zugeordnet wird ueber die Teamnamen, nicht ueber die Position.
+erster_berechtigter <- function(prognose) {
+  rang <- attr(prognose, "eligible_rank_probabilities")
+  if (is.null(rang)) {
+    return(meisterwahrscheinlichkeit(prognose))
+  }
+  namen <- rownames(as.matrix(prognose))
+  m <- as.matrix(rang[[1L]])
+  fehlend <- setdiff(namen, rownames(m))
+  if (length(fehlend)) {
+    stop(sprintf(
+      paste0(
+        "erster_berechtigter: der Rang unter den Berechtigten kennt nicht: ",
+        "%s. Ohne Zeile bliebe nur die Zuordnung ueber die Position."
+      ),
+      paste(fehlend, collapse = ", ")
+    ), call. = FALSE)
+  }
+  p <- m[namen, 1L]
+  names(p) <- namen
+  p
+}
+
+#' Die Teams ohne Aufstiegsberechtigung: Zeilen ohne jede Masse im Rang unter
+#' den Berechtigten. Leer, wenn die Prognose kein solches Attribut traegt.
+nicht_berechtigt <- function(prognose) {
+  rang <- attr(prognose, "eligible_rank_probabilities")
+  if (is.null(rang)) {
+    return(character(0))
+  }
+  m <- as.matrix(rang[[1L]])
+  rownames(m)[rowSums(m) == 0]
 }

@@ -649,6 +649,18 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
           if (has_promotion_restriction(liga_ids[[key]])) {
             masken <- list(berechtigung_aus_teamlist(spielplan, TeamList,
                                                      liga_ids[[key]]))
+          } else if (!is.null(league_registry()[[key]]$staffel)) {
+            # Regionalligen: nur der Aufstiegsverzicht (#320). Die
+            # Zweitvertretungs-Sperre gilt dort nicht (ADR 0008, Nachtrag
+            # 2026-10-17: keine Erstvertretung spielt in der 3. Liga). Eine
+            # Maske nur, wenn jemand verzichtet -- sonst bleibt der Lauf wie
+            # er war, und die Seite zeigt P(Aufstieg) = P(Meister).
+            berechtigt <- berechtigung_aus_teamlist(spielplan, TeamList,
+                                                    liga_ids[[key]],
+                                                    mit_sperre = FALSE)
+            if (!all(berechtigt)) {
+              masken <- list(berechtigt)
+            }
           }
 
           ergebnisse[[key]] <- leagueSimulatorRust(
@@ -675,7 +687,7 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
           # rl_aufstiegsprognose(); deshalb duerfen sie hier nie hinein.
           # test-league_registry.R pinnt, dass sie keine `restrictions`
           # tragen.)
-          if (!is.null(masken)) {
+          if (!is.null(masken) && has_promotion_restriction(liga_ids[[key]])) {
             rang <- attr(ergebnisse[[key]], "eligible_rank_probabilities")[[1]]
             if (is.null(rang)) {
               stop("Engine lieferte keinen Rang unter den Berechtigten fuer ", key)
@@ -820,6 +832,23 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
         )
         for (k in rl_keys) {
           spalte <- aufstiegsspalten[[rl_staffel[[k]]]]
+          if (!is.null(spalte)) {
+            ergebnisse[[paste0(k, "_aufstieg")]] <- spalte
+          }
+        }
+
+        # Direktstaffeln mit Aufstiegsverzicht: Aufstieg = P(erster
+        # Berechtigter) statt P(Meister) (#320). Nur fuer Staffeln, in denen
+        # tatsaechlich jemand verzichtet.
+        direkt_prognosen <- list()
+        for (k in rl_keys) {
+          if (!is.null(ergebnisse[[k]])) {
+            direkt_prognosen[[rl_staffel[[k]]]] <- ergebnisse[[k]]
+          }
+        }
+        direktspalten <- rl_direktaufstiegsspalten(direkt_prognosen, saison)
+        for (k in rl_keys) {
+          spalte <- direktspalten[[rl_staffel[[k]]]]
           if (!is.null(spalte)) {
             ergebnisse[[paste0(k, "_aufstieg")]] <- spalte
           }

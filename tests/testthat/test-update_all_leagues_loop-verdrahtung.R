@@ -898,6 +898,47 @@ test_that("der Loop reicht attr(spielplan, 'elo_neutral') unveraendert an rl_akt
   }
 })
 
+# --- Aufstiegsverzicht (#320): Maske und Aufstiegsspalte einer Direktstaffel ---
+
+test_that("ein Aufstiegsverzicht in der RL West sendet eine Maske und liefert die Aufstiegsspalte", {
+  tl <- teamlist_df(character(0))
+  verzichter <- teams_von("rl_west")[[1]]
+  tl$Aufstiegsverzicht <- ifelse(tl$ShortText == verzichter, "ja", "")
+  pfad <- tempfile("TeamList_verzicht_", fileext = ".csv")
+  utils::write.table(tl, pfad, sep = ";", quote = FALSE, row.names = FALSE)
+
+  lauf <- lauf_ausfuehren(teamlist = pfad)
+  erg <- lauf$ergebnisse[[1]]
+
+  # Harness-Probe: Die Zielliga und ihre ID stimmen.
+  expect_true(verzichter %in% teams_von("rl_west"))
+
+  west <- Filter(function(p) setequal(as.character(p$team_names), teams_von("rl_west")),
+                 lauf$simulate)
+  expect_length(west, 1L)
+  maske <- stats::setNames(as.logical(unlist(west[[1]]$eligibility_masks)),
+                           as.character(west[[1]]$team_names))
+  expect_false(maske[[verzichter]])
+  expect_identical(sum(!maske), 1L)
+
+  # Die Aufstiegsspalte der Direktstaffel existiert, der Verzichtende steht
+  # darin mit null und ist als verzichtet gekennzeichnet.
+  spalte <- erg[["rl_west_aufstieg"]]
+  expect_false(is.null(spalte))
+  expect_equal(spalte[verzichter, "Aufstieg"], 0)
+  expect_identical(attr(spalte, "verzichtet"), verzichter)
+  expect_equal(sum(spalte$Aufstieg), 1, tolerance = 1e-9)
+
+  # Alle uebrigen Regionalligen sendeten keine Maske (niemand verzichtet) und
+  # haben deshalb keine Direktaufstiegsspalte.
+  for (key in c("rl_nordost", "rl_suedwest")) {
+    p <- Filter(function(p) setequal(as.character(p$team_names), teams_von(key)),
+                lauf$simulate)[[1]]
+    expect_null(p$eligibility_masks, info = key)
+    expect_null(erg[[paste0(key, "_aufstieg")]], info = key)
+  }
+})
+
 # --- #291: Meister und Aufstieg aus EINEM Lauf -----------------------------
 #
 # Bis Oktober 2026 kam bei Nord und Bayern die Meisterspalte der

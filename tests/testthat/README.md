@@ -52,6 +52,7 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 | `test-elo_calibration.R` | 30 | elo-calibration |
 | `test-fixture_cache.R` | 6 (−3, Stufe 4.4a: die drei `is_regular_season_round`-Blöcke nach `test-round_filter.R`) | fixture-cache |
 | `test-generate_static_site.R` | 66 | frauen-ligen-live (11 Bl.), generate-static-site, live-na-guard, n-ligen-entflechtung (5 Bl.), phase5-regionalligen (15 Bl.) |
+| `test-generate_static_site-verzicht.R` | 3 | aufstiegsverzicht (Aufstiegsseite, Direktstaffel-Panel) |
 | `test-generate_static_site-js.R` | 4 | — (neu in Stufe 4.6: Veraltet-Hinweis in Node + jsdom) |
 | `test-generate_static_site-tooltip.R` | 10 | kuerzel-tooltip (10 Bl.) |
 | `test-input_handler.R` | 7 | — (neu in Stufe 4.5: `input_handler.R` hatte keinen eigenen Test, nur Stubs in `test-interactive_prompts.R`) |
@@ -78,6 +79,7 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 | `test-rl_aufstieg.R` | 37 | phase5-regionalligen (13 Bl.), rl-aufstieg |
 | `test-rl_verdrahtung.R` | 6 (+4, #293: `rl_aktuelle_elo` sendet `elo_neutral` zeilengleich, laesst es ohne gewertetes Spiel weg, und die ELO bleibt ueber den echten Rust-Server stehen) | rl-verdrahtung (2 Bl.) |
 | `test-round_filter.R` | 8 (+3, Stufe 4.4a: `is_regular_season_round` aus `test-fixture_cache.R`) | phase5-regionalligen (5 Bl.) |
+| `test-rl_aufstieg-verzicht.R` | 5 | aufstiegsverzicht (erster Berechtigter, Direktstaffeln, Aufstiegsspiele) |
 | `test-rust_integration-masken.R` | 3 | eligibility-masks (Server-Integration, ADR 0009) |
 | `test-rust_integration.R` | 4 | home-advantage-single-source, league-registry (1 Bl.), tormodell-rust-durchreichung |
 | `test-scripts-preview_site.R` | 6 | frauen-ligen-live (1 Bl.), preview-site |

@@ -319,6 +319,10 @@ Die Rechnung ist exakt, weil die drei Ligen kein Spiel teilen: Wer in der einen 
 
 Beim Saisonwechsel zu prüfen: Hinspiel-Heimrecht gegen die Spielordnung der neuen Saison (`RELEGATIONEN` in `RCode/relegation_2bl.R`).
 
+### 5.9 Aufstiegsverzicht in den Regionalligen — *modelliert, mit Annahmen* (#320)
+
+Verzichtet ein Verein (TeamList-Spalte `Aufstiegsverzicht`), rückt der **nächste Berechtigte der Abschlusstabelle** nach, auch in die Aufstiegsspiele Nord–Bayern. Das Regelwerk schweigt zum Nachrücken; es ist eine Annahme. **Nicht modelliert:** Ein Verzicht kann die Zahl der Absteiger verringern (Nordost A. Nr. 6); die Abstiegsrechnung ignoriert das.
+
 ## 6. Beim Saisonwechsel zu prüfen
 
 Diese Werte sind **jahresabhängig** und stehen nicht in einer Ordnung, aus der

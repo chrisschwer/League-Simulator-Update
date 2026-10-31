@@ -235,3 +235,34 @@ rl_aufstiegsspalten <- function(prognosen, elos, saison,
   }
   spalten
 }
+
+#' Aufstiegsspalten der Direktaufsteiger-Staffeln MIT Aufstiegsverzicht.
+#'
+#' Die Direktstaffeln lesen ihr oberes Panel sonst als gewoehnliche
+#' Platzgruppe (P(Aufstieg) = P(Meister)). Hat eine von ihnen Teams ohne
+#' Aufstiegsberechtigung, stimmt das nicht mehr: Der Aufstieg geht an den
+#' ersten BERECHTIGTEN. Nur fuer solche Staffeln entsteht hier eine Spalte
+#' (erkennbar am Attribut `eligible_rank_probabilities` der Prognose); die
+#' uebrigen bleiben bei der Platzgruppe, damit sich an ihren Seiten nichts
+#' aendert.
+#'
+#' @param prognosen Benannte Liste Staffel -> Prognosematrix (mit Attribut).
+#' @param saison Startjahr der Saison.
+#' @return Benannte Liste Staffel -> data.frame(Aufstieg); leer, wenn keine
+#'   Direktstaffel einen Verzicht hat oder der Modus der Saison unbekannt ist.
+rl_direktaufstiegsspalten <- function(prognosen, saison) {
+  modus <- tryCatch(aufstiegsmodus(saison), error = function(e) NULL)
+  if (is.null(modus)) {
+    return(list())
+  }
+  spalten <- list()
+  for (staffel in intersect(modus$direkt, names(prognosen))) {
+    prognose <- prognosen[[staffel]]
+    if (is.null(attr(prognose, "eligible_rank_probabilities"))) {
+      next
+    }
+    spalten[[staffel]] <- rl_aufstiegsprognose(staffel, prognosen, season = saison)
+  }
+  spalten
+}
+
