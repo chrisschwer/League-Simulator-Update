@@ -10,7 +10,7 @@ Wer aufsteigen darf, ist nicht dasselbe wie wer oben steht. Eine **Zweitvertretu
 
 Die Engine nimmt im Request eine Liste von **Masken** entgegen (`eligibility_masks`, je Maske ein bool je Team). Zu jeder Maske zählt sie auf **derselben Abschlusstabelle** jeder Iteration, auf welchem Rang *unter den Berechtigten* jedes berechtigte Team steht, und liefert `eligible_rank_probabilities[maske][team][rang]` (Teams in der Reihenfolge der Prognosematrix, Gesperrte tragen null). Ohne das Feld ändert sich nichts.
 
-Das löst den bisherigen zweiten Simulationslauf mit −50 Punkten ab (3. Liga, 2. Frauen-Bundesliga). Ein Vergleichstest (`test-rust_integration-masken.R`) zeigt, dass beide Wege dieselbe Verteilung liefern (Monte-Carlo-Toleranz, bei 40.000 Iterationen im Mittel 0,004 Abweichung). Das Ergebnis ist sogar *exakter*, weil es keine zwei unabhängigen Zufallsläufe mehr gibt: „Meister" und „Aufstieg" stammen aus denselben Iterationen.
+Das löst den bisherigen zweiten Simulationslauf mit −50 Punkten ab (3. Liga, 2. Frauen-Bundesliga). Ein Vergleichstest (`test-rust_integration-masken.R`) zeigt, dass beide Wege dieselbe Verteilung liefern (Monte-Carlo-Toleranz; eine Handprobe mit 40.000 Iterationen ergab höchstens 0,004 Abweichung) — und ein Rust-Test mit festen Seeds zeigt exakte Gleichheit, weil die Punkte der Gesperrten den Spielverlauf nicht beeinflussen. Das Ergebnis ist sogar *exakter*, weil es keine zwei unabhängigen Zufallsläufe mehr gibt: „Meister" und „Aufstieg" stammen aus denselben Iterationen.
 
 ## Warum nicht anders
 

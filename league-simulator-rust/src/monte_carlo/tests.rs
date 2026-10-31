@@ -315,3 +315,73 @@ fn test_parallel_performance() {
         "Simulation should complete in reasonable time"
     );
 }
+
+/// Vier Teams, Hin- und Rueckspiele, alle offen.
+fn double_round_robin_open() -> Season {
+    let mut matches = Vec::new();
+    for h in 0..4 {
+        for a in 0..4 {
+            if h != a {
+                matches.push(Match {
+                    team_home: h,
+                    team_away: a,
+                    goals_home: None,
+                    goals_away: None,
+                    elo_neutral: false,
+                });
+            }
+        }
+    }
+    Season {
+        matches,
+        team_elos: vec![1700.0, 1600.0, 1500.0, 1450.0],
+        number_teams: 4,
+    }
+}
+
+/// Die Berechtigungsmaske ersetzt den frueheren zweiten Lauf mit -50 Punkten
+/// (ADR 0009). Mit festem Seed und denselben Parametern muessen beide Wege
+/// EXAKT dieselbe Verteilung liefern: Die Punkte der Gesperrten aendern den
+/// Spielverlauf nicht (der ELO-Walk haengt nur an den Toren), und mit hoechstens
+/// 18 Punkten stehen Teams mit -50 sicher am Tabellenende -- ihre Plaetze
+/// sind dann genau die uebrigen Raenge der Berechtigten.
+#[test]
+fn eligibility_mask_equals_minus_50_run_exactly_with_fixed_seed() {
+    let season = double_round_robin_open();
+    let names: Vec<String> = ["AAA", "BBB", "CCC", "DDD"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+
+    let mit_maske = SimulationParams {
+        iterations: 3000,
+        eligibility_masks: Some(vec![vec![false, true, false, true]]),
+        ..SimulationParams::default()
+    };
+    let mit_malus = SimulationParams {
+        iterations: 3000,
+        adj_points: Some(vec![-50, 0, -50, 0]),
+        ..SimulationParams::default()
+    };
+
+    let a = run_monte_carlo_simulation_seeded(&season, &mit_maske, names.clone(), 7);
+    let b = run_monte_carlo_simulation_seeded(&season, &mit_malus, names.clone(), 7);
+    let rang = &a.eligible_rank_probabilities.as_ref().unwrap()[0];
+
+    for team in ["BBB", "DDD"] {
+        let zeile_a = a.team_names.iter().position(|n| n == team).unwrap();
+        let zeile_b = b.team_names.iter().position(|n| n == team).unwrap();
+        // Rang 1 und 2 unter den Berechtigten = Platz 1 und 2 im Malus-Lauf.
+        assert_eq!(
+            &rang[zeile_a][..2],
+            &b.probability_matrix[zeile_b][..2],
+            "{team}"
+        );
+        // Mehr als zwei Berechtigte gibt es nicht.
+        assert!(rang[zeile_a][2..].iter().all(|&p| p == 0.0));
+    }
+    for team in ["AAA", "CCC"] {
+        let zeile = a.team_names.iter().position(|n| n == team).unwrap();
+        assert!(rang[zeile].iter().all(|&p| p == 0.0), "{team}");
+    }
+}

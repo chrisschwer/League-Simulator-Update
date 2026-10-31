@@ -33,7 +33,7 @@ der Unterschied ist nicht akademisch.
 | Regionalligen (83–87) | **nur**, wenn die Erstvertretung in der 3. Liga spielt | genau der Fall des § 55b Nr. 3.1 |
 
 Umgesetzt (#206): Der Update-Loop liest den Malus seit September 2026 aus der
-Spalte `Promotion` der TeamList (`malus_aus_teamlist()`), nicht mehr aus dem
+Spalte `Promotion` der TeamList (heute `berechtigung_aus_teamlist()`, früher `malus_aus_teamlist()`), nicht mehr aus dem
 Endzeichen des Kurznamens. Welche Ligen überhaupt einen Malus-Lauf bekommen,
 sagt die Registry; **welche Teams** ihn tragen, entscheidet die gepflegte
 Spalte. Der Saisonwechsel schlägt sie nach der Drei-Fälle-Regel oben vor

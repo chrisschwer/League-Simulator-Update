@@ -25,7 +25,8 @@
 #     Aufstiegsspielen Nord gegen Bayern).
 #   - Ist der Dritte der 3. Liga eine gesperrte Zweitvertretung, tritt der
 #     naechste Berechtigte an: Die Verteilung kommt aus Ergebnis3_Aufstieg,
-#     in dem Zweitvertretungen unten stehen.
+#     dem Rang unter den Berechtigten, in dem Zweitvertretungen Nullzeilen
+#     tragen (ADR 0009).
 #
 # Wie aufstiegsspiele.R kennt diese Datei keine Tormodell-Konstante: Die
 # Tor-Raten holt zweikampf_paarungen_rust() beim Rust-Server (ADR 0002).

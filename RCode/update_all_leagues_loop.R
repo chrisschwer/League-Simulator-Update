@@ -157,8 +157,9 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
 
   # Initialize result objects to ensure they exist
   # Prognosen je Liga. `dritte_liga_aufstieg` ist kein eigener Ligaslot,
-  # sondern der zweite Lauf der 3. Liga mit -50-Malus fuer Zweitvertretungen;
-  # league_views() loest ihn ueber seinen Namen auf.
+  # sondern der Rang unter den Aufstiegsberechtigten aus dem Lauf der 3. Liga
+  # (Zweitvertretungen tragen null, ADR 0009); league_views() loest ihn ueber
+  # seinen Namen auf.
   ergebnisse <- list()
 
   # Die Auszaehlung der Drittliga-Absteiger je Staffel, ueber Loops hinweg
@@ -630,8 +631,8 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
           # Tormodell je Wechselgemeinschaft (ADR 0004, Issue #205): leere
           # Liste fuer die Herren-Ligen, damit der Rust-Server seine Defaults
           # behaelt (ADR 0002); nur die Frauen-Ligen (82, 1034) weichen ab.
-          # Eine Quelle fuer BEIDE Simulationslaeufe dieser Liga -- Hauptlauf
-          # und, weiter unten, der Malus-Lauf fuer die Aufstiegstabelle.
+          # Eine Quelle fuer den Lauf dieser Liga, in dem auch die
+          # Aufstiegsmasken mitlaufen.
           tormodell <- goal_model_args(liga_ids[[key]])
 
           # Ligen mit Aufstiegssperre fuer Zweitvertretungen (3. Liga,
@@ -717,8 +718,8 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
           rel_prognosen <- list(
             bundesliga = ergebnisse[["bundesliga"]],
             zweite_bundesliga = ergebnisse[["zweite_bundesliga"]],
-            # Der berechtigte Dritte der 3. Liga: Zweitvertretungen stehen in
-            # der Aufstiegsprognose unten.
+            # Der berechtigte Dritte der 3. Liga: Rang unter den
+            # Berechtigten, Zweitvertretungen tragen dort Nullzeilen.
             dritte_liga = ergebnisse[["dritte_liga_aufstieg"]]
           )
           rel_elos <- lapply(stats::setNames(rel_keys, rel_keys), function(k) {
