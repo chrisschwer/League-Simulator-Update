@@ -234,6 +234,26 @@ relegation_spalten <- function(prognosen, elos, tore_args = list(),
   ergebnis
 }
 
+#' Ergaenzt die neuen Relegationsspalten um die der letzten Runde.
+#'
+#' Faellt ein Duell aus (z. B. weil die ELO einer Liga fehlt), liefert
+#' relegation_spalten() fuer die 2. Bundesliga nur noch eine ihrer beiden
+#' Spalten. Das Objekt der letzten Runde wuerde damit verkuerzt, und die Seite
+#' liesse die fehlende Spalte nicht mehr rendern. Spalten, die `neu` nicht
+#' mitbringt, bleiben deshalb aus `alt` stehen (nach Teamnamen zugeordnet).
+#'
+#' @param neu data.frame dieser Runde.
+#' @param alt data.frame der letzten Runde oder NULL.
+relegation_spalten_ergaenzen <- function(neu, alt) {
+  if (!is.data.frame(alt)) {
+    return(neu)
+  }
+  for (spalte in setdiff(colnames(alt), colnames(neu))) {
+    neu[[spalte]] <- alt[rownames(neu), spalte]
+  }
+  neu
+}
+
 .pruefe_relegation_eingang <- function(p, elo, seite) {
   if (is.null(names(p)) || is.null(names(elo))) {
     stop(sprintf(

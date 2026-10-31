@@ -727,7 +727,9 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
           rel_spalten <- relegation_spalten(rel_prognosen, rel_elos,
                                             tore_args = rel_tormodell)
           for (k in names(rel_spalten)) {
-            ergebnisse[[paste0(k, "_gesamt")]] <- rel_spalten[[k]]
+            ergebnisse[[paste0(k, "_gesamt")]] <- relegation_spalten_ergaenzen(
+              rel_spalten[[k]], ergebnisse[[paste0(k, "_gesamt")]]
+            )
           }
         }, error = function(e) {
           message(sprintf(

@@ -284,6 +284,17 @@ render_heatmap <- function(result, namen = NULL) {
   m
 }
 
+# TRUE, wenn das Objekt der berechneten Spalten existiert UND alle Labels
+# des Panels, die als berechnet gelten, als Spalte darin stehen.
+.berechnete_spalten_da <- function(panel, data_env) {
+  if (!exists(panel$computed_source, envir = data_env, inherits = FALSE)) {
+    return(FALSE)
+  }
+  obj <- get(panel$computed_source, envir = data_env)
+  all(panel$labels[.panel_computed(panel)] %in%
+        colnames(as.data.frame(obj)))
+}
+
 # Das Panel ohne seine berechneten Spalten -- fuer `computed_optional`, wenn
 # das Objekt fehlt. `groups` traegt ohnehin nur die Platzspalten, es muss also
 # nichts umgerechnet werden.
@@ -543,8 +554,12 @@ render_league_page <- function(view, data_env, output_dir,
   panel_html <- function(panel) {
     # Optionale berechnete Spalte (Relegationen der Profiligen): Fehlt das
     # Objekt, entfaellt nur die Spalte, nicht die Seite.
+    # Fehlt nur EINE der Spalten im Objekt (Teilausfall der Duellrechnung:
+    # relegation_spalten() liefert dann ein Objekt mit weniger Spalten),
+    # entfaellt das berechnete Panel-Stueck ebenso -- die Pruefung gilt den
+    # Spalten, nicht nur dem Objekt.
     if (isTRUE(panel$computed_optional) && !is.null(panel$computed_source) &&
-          !exists(panel$computed_source, envir = data_env, inherits = FALSE)) {
+          !.berechnete_spalten_da(panel, data_env)) {
       panel <- .ohne_berechnete_spalten(panel)
     }
     computed_obj <- if (!is.null(panel$computed_source)) {

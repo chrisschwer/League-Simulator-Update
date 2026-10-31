@@ -232,3 +232,21 @@ test_that("relegation_spalten laesst eine Liga weg, wenn ihre Eingaben fehlen", 
 
   expect_length(spalten(list(), list(), paarungen_fn = rel_paarungen_attrappe), 0L)
 })
+
+test_that("relegation_spalten_ergaenzen behaelt Spalten der letzten Runde bei Teilausfall", {
+  env <- rel_module()
+  ergaenzen <- fn(env, "relegation_spalten_ergaenzen")
+  alt <- data.frame(`Aufstieg gesamt` = c(A = 0.1, B = 0.2),
+                    `Abstieg gesamt` = c(A = 0.3, B = 0.4), check.names = FALSE)
+  # Neue Runde: nur "Aufstieg gesamt", Teams in anderer Reihenfolge.
+  neu <- data.frame(`Aufstieg gesamt` = c(B = 0.5, A = 0.6), check.names = FALSE)
+
+  erg <- ergaenzen(neu, alt)
+
+  expect_identical(colnames(erg), c("Aufstieg gesamt", "Abstieg gesamt"))
+  expect_equal(erg[["Aufstieg gesamt"]], c(0.5, 0.6))
+  # Die alte Spalte ist nach Teamnamen zugeordnet, nicht nach Position.
+  expect_equal(erg[["Abstieg gesamt"]], c(0.4, 0.3))
+  # Ohne Vorgaenger bleibt alles, wie es ist.
+  expect_identical(ergaenzen(neu, NULL), neu)
+})

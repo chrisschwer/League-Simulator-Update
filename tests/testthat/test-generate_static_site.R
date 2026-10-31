@@ -1334,6 +1334,28 @@ test_that("Bundesliga-Seite bleibt ohne das Objekt bestehen, nur die Spalte fehl
   expect_true(grepl(">Abstieg<", html, fixed = TRUE))
 })
 
+test_that("2. Bundesliga rendert bei Teilausfall: fehlende Spalte entfaellt, Seite bleibt", {
+  gen <- source_module("generate_static_site")
+  out <- withr::local_tempdir()
+  env <- make_data_env()
+  teams <- rownames(env$Ergebnis)
+  now <- as.POSIXct("2026-07-26 14:30:00", tz = "Europe/Berlin")
+  # Nur "Aufstieg gesamt": das Duell 2. BL - 3. Liga ist ausgefallen, das
+  # Objekt existiert, aber die Spalte "Abstieg gesamt" steht nicht darin.
+  env$Ergebnis_zweite_bundesliga_gesamt <- data.frame(
+    `Aufstieg gesamt` = stats::setNames(rep(0.37, length(teams)), teams),
+    check.names = FALSE
+  )
+
+  path <- gen$render_league_page(gen$league_views()$zweite_bundesliga, env,
+                                 out, now = now)
+  html <- read_html(path)
+
+  expect_true(grepl("Aufstieg gesamt", html, fixed = TRUE))
+  expect_false(grepl("Abstieg gesamt", html, fixed = TRUE))
+  expect_true(grepl(">Abstieg<", html, fixed = TRUE))
+})
+
 test_that("2. Bundesliga und 3. Liga rendern auch ohne ihre Relegationsspalten", {
   gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
