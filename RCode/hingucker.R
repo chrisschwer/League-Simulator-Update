@@ -207,64 +207,17 @@ hingucker_kandidaten <- function(views, data_env, league_data, now = Sys.time(),
   heute <- .hg_berliner_tag(now)
   letzter <- heute + tage - 1L
 
-  spalten <- c("fixture_id", "round", "kickoff", "status", "zeit_offen",
-               "nachholspiel", "home_name", "away_name", "p_home_win",
-               "p_draw", "p_away_win", "score_matrix")
-
+  # Eine Liga mit kaputten Daten faellt allein aus; die uebrigen bleiben im
+  # Rennen. Ein Fehler in der Auswahl soll keine ganze Seite kosten.
   je_liga <- lapply(names(views), function(key) {
-    eintrag <- league_data[[key]]
-    if (is.null(eintrag) || is.null(eintrag$matches) || nrow(eintrag$matches) == 0L) {
-      return(NULL)
-    }
-    ausgaenge <- tryCatch(liga_ausgaenge(views[[key]], data_env),
-                          error = function(e) NULL)
-    if (is.null(ausgaenge)) {
-      return(NULL)
-    }
-
-    m <- eintrag$matches
-    tag <- .hg_berliner_tag(m$kickoff)
-    im_fenster <- m$status == "NS" & !is.na(tag) & tag >= heute & tag <= letzter
-    if (!any(im_fenster)) {
-      return(NULL)
-    }
-    m <- m[im_fenster, , drop = FALSE]
-
-    kuerzel <- stats::setNames(as.character(eintrag$teams$ShortText),
-                               as.character(eintrag$teams$TeamID))
-    heim <- unname(kuerzel[as.character(m$home_id)])
-    gast <- unname(kuerzel[as.character(m$away_id)])
-    bekannt <- heim %in% rownames(ausgaenge) & gast %in% rownames(ausgaenge)
-    if (!any(bekannt)) {
-      return(NULL)
-    }
-    m <- m[bekannt, , drop = FALSE]
-    heim <- heim[bekannt]
-    gast <- gast[bekannt]
-
-    platz <- stats::setNames(eintrag$tabelle$platz,
-                             as.character(eintrag$tabelle$kuerzel))
-
-    d_spiel <- mapply(function(h, x, a) inverse_simpson(c(h, x, a)),
-                      m$p_home_win, m$p_draw, m$p_away_win)
-    d_heim <- vapply(heim, function(k) inverse_simpson(ausgaenge[k, ]), numeric(1))
-    d_gast <- vapply(gast, function(k) inverse_simpson(ausgaenge[k, ]), numeric(1))
-
-    out <- m[, spalten, drop = FALSE]
-    out$liga <- key
-    # display_name, nicht nav_label: "Bundesliga" gibt es bei Herren und Frauen.
-    out$liga_label <- league_registry()[[key]]$display_name
-    out$heim_kuerzel <- heim
-    out$gast_kuerzel <- gast
-    out$platz_heim <- unname(platz[heim])
-    out$platz_gast <- unname(platz[gast])
-    out$d_spiel <- unname(d_spiel)
-    out$d_heim <- unname(d_heim)
-    out$d_gast <- unname(d_gast)
-    out$score <- out$d_spiel * out$d_heim * out$d_gast
-    out$ausgaenge_heim <- lapply(heim, function(k) ausgaenge[k, ])
-    out$ausgaenge_gast <- lapply(gast, function(k) ausgaenge[k, ])
-    out
+    tryCatch(
+      .hg_liga_kandidaten(key, views[[key]], league_data[[key]], data_env, heute, letzter),
+      error = function(e) {
+        warning(sprintf("hingucker_kandidaten: Liga %s uebersprungen: %s",
+                        key, conditionMessage(e)), call. = FALSE)
+        NULL
+      }
+    )
   })
 
   alle <- do.call(rbind, Filter(Negate(is.null), je_liga))
@@ -274,6 +227,66 @@ hingucker_kandidaten <- function(views, data_env, league_data, now = Sys.time(),
   alle <- alle[order(-alle$score, as.numeric(alle$kickoff)), , drop = FALSE]
   rownames(alle) <- NULL
   alle
+}
+
+# Die Kandidaten EINER Liga; NULL, wenn sie keine hat. Liest `matches` so, wie
+# build_league_page_data() es im Betrieb liefert (siehe test-hingucker.R,
+# "Betriebsdaten"): alle Spiele der Liga mit den Endpunktspalten.
+.hg_liga_kandidaten <- function(key, view, eintrag, data_env, heute, letzter) {
+  spalten <- c("fixture_id", "round", "kickoff", "status", "zeit_offen",
+               "nachholspiel", "home_name", "away_name", "p_home_win",
+               "p_draw", "p_away_win", "score_matrix")
+
+  if (is.null(eintrag) || is.null(eintrag$matches) || nrow(eintrag$matches) == 0L) {
+    return(NULL)
+  }
+  ausgaenge <- liga_ausgaenge(view, data_env)
+  if (is.null(ausgaenge)) {
+    return(NULL)
+  }
+
+  m <- eintrag$matches
+  tag <- .hg_berliner_tag(m$kickoff)
+  im_fenster <- m$status == "NS" & !is.na(tag) & tag >= heute & tag <= letzter
+  if (!any(im_fenster)) {
+    return(NULL)
+  }
+  m <- m[im_fenster, , drop = FALSE]
+
+  kuerzel <- stats::setNames(as.character(eintrag$teams$ShortText),
+                             as.character(eintrag$teams$TeamID))
+  heim <- unname(kuerzel[as.character(m$home_id)])
+  gast <- unname(kuerzel[as.character(m$away_id)])
+  bekannt <- heim %in% rownames(ausgaenge) & gast %in% rownames(ausgaenge)
+  if (!any(bekannt)) {
+    return(NULL)
+  }
+  m <- m[bekannt, , drop = FALSE]
+  heim <- heim[bekannt]
+  gast <- gast[bekannt]
+
+  platz <- stats::setNames(eintrag$tabelle$platz, as.character(eintrag$tabelle$kuerzel))
+
+  d_spiel <- mapply(function(h, x, a) inverse_simpson(c(h, x, a)),
+                    m$p_home_win, m$p_draw, m$p_away_win)
+  d_heim <- vapply(heim, function(k) inverse_simpson(ausgaenge[k, ]), numeric(1))
+  d_gast <- vapply(gast, function(k) inverse_simpson(ausgaenge[k, ]), numeric(1))
+
+  out <- m[, spalten, drop = FALSE]
+  out$liga <- key
+  # display_name, nicht nav_label: "Bundesliga" gibt es bei Herren und Frauen.
+  out$liga_label <- league_registry()[[key]]$display_name
+  out$heim_kuerzel <- heim
+  out$gast_kuerzel <- gast
+  out$platz_heim <- unname(platz[heim])
+  out$platz_gast <- unname(platz[gast])
+  out$d_spiel <- unname(d_spiel)
+  out$d_heim <- unname(d_heim)
+  out$d_gast <- unname(d_gast)
+  out$score <- out$d_spiel * out$d_heim * out$d_gast
+  out$ausgaenge_heim <- lapply(heim, function(k) ausgaenge[k, ])
+  out$ausgaenge_gast <- lapply(gast, function(k) ausgaenge[k, ])
+  out
 }
 
 # Der Untertitel nennt das Fenster: "31.10. – 6.11.".

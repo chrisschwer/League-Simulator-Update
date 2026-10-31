@@ -112,3 +112,21 @@ test_that("ein zweiter Zyklus loescht die Hingucker-Seite nicht als registryfrem
 
   expect_true(file.exists(file.path(out, "hingucker.html")))
 })
+
+test_that("scheitert die Auswahl als Ganzes, entsteht die Seite mit Hinweis statt eines 404", {
+  gen <- source_module("generate_static_site")
+  gen$hingucker_kandidaten <- function(...) stop("kaputt")
+  out <- withr::local_tempdir()
+
+  expect_warning(
+    suppressMessages(gen$generate_static_site(
+      ergebnisse = ergebnisse_aus_env(make_data_env()), output_dir = out,
+      now = gsh_jetzt, league_data = NULL
+    )),
+    "Hingucker-Auswahl gescheitert"
+  )
+
+  html <- html_lesen(file.path(out, "hingucker.html"))
+  expect_match(html, "Auswahl derzeit nicht verfügbar", fixed = TRUE)
+  expect_match(html, '<nav aria-label="Ligen">', fixed = TRUE)
+})

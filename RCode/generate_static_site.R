@@ -1113,10 +1113,21 @@ render_verlauf_page <- function(view, daten, output_dir, now = Sys.time(),
                                    now = Sys.time(), mtime = now) {
   .copy_assets(output_dir)
 
-  kandidaten <- hingucker_kandidaten(views, data_env, league_data, now = now)
+  # Die Navigation verlinkt die Seite immer. Scheitert die Auswahl als Ganzes,
+  # entsteht sie deshalb mit einem Hinweis statt gar nicht (404).
+  kandidaten <- tryCatch(
+    hingucker_kandidaten(views, data_env, league_data, now = now),
+    error = function(e) {
+      warning(sprintf("generate_static_site: Hingucker-Auswahl gescheitert: %s",
+                      conditionMessage(e)), call. = FALSE)
+      structure(list(), fehler = TRUE)
+    }
+  )
+  fehler <- isTRUE(attr(kandidaten, "fehler"))
+  if (fehler) kandidaten <- NULL
   message("generate_static_site: ", hingucker_logzeile(kandidaten))
   inhalt <- render_hingucker(kandidaten, hingucker_fenster_text(now),
-                             anzahl = HINGUCKER_ANZAHL)
+                             anzahl = HINGUCKER_ANZAHL, fehler = fehler)
 
   html <- paste0(
     "<!doctype html>\n<html lang=\"de\">\n<head>\n",

@@ -3,7 +3,7 @@ library(testthat)
 # Hingucker der Woche: Inverser Simpson-Index, Saisonausgaenge je Liga und die
 # Auswahl der Spiele der naechsten sieben Tage.
 
-hg <- source_module("hingucker", "league_views")
+hg <- source_module("hingucker", "league_views", "league_details")
 
 # 18 Teams T1..T18, jede Platzwahrscheinlichkeit 1/18.
 hg_gleichverteilt <- function(teams = 18L) {
@@ -328,4 +328,71 @@ test_that("hingucker_logzeile nennt den besten Score je Liga, hoechsten zuerst",
                paste0("hingucker: 3 Spiele im Fenster, bester Score je Liga: ",
                       "Regionalliga Bayern 30.0 | Bundesliga 20.0"))
   expect_equal(hg$hingucker_logzeile(NULL), "hingucker: keine Spiele im Fenster")
+})
+
+# ---------------------------------------------------------------------------
+# Betriebsdaten: die Form, die build_league_page_data() wirklich liefert
+# ---------------------------------------------------------------------------
+
+# Die Hand-Fixtures oben tragen alle Spalten, die hingucker_kandidaten() liest.
+# Diese Tests nehmen stattdessen die echte Ausgabe von build_league_page_data()
+# (Fixtures und Endpoint-Antwort aus helper-seitendaten.R): Eine Spalte, die
+# nur in den Handtabellen existiert, faellt hier auf.
+
+hg_betriebsview <- function() {
+  list(nav_label = "Bundesliga", plot_source = "Erg",
+       top = list(source = "Erg", labels = "Meister", groups = cbind(c(1, 1))),
+       bottom = list(source = "Erg", labels = "Abstieg", groups = cbind(c(-1, -1))))
+}
+
+hg_betriebsenv <- function() {
+  env <- new.env()
+  env$Erg <- as.table(matrix(0.25, 4, 4, dimnames = list(c("ALP", "BET", "GAM", "DEL"),
+                                                         as.character(1:4))))
+  env
+}
+
+test_that("Betriebsdaten: hingucker_kandidaten laeuft mit der Ausgabe von build_league_page_data", {
+  pd <- hg$build_league_page_data(nested_league_fixtures(), teamlist_all_leagues(),
+                                  fetch_fn = function(...) canned_page_response())
+  # Das offene Spiel 2003 (BET - GAM) liegt am 04.09.; "heute" ist der 02.09.
+  jetzt <- as.POSIXct("2026-09-02 10:00", tz = "UTC")
+
+  expect_no_warning(
+    k <- hg$hingucker_kandidaten(list(bundesliga = hg_betriebsview()),
+                                 hg_betriebsenv(), list(bundesliga = pd), now = jetzt)
+  )
+
+  expect_equal(k$fixture_id, 2003)
+  expect_false(k$nachholspiel)
+  expect_equal(k$home_name, "SV Beta")
+  expect_gt(k$score, 1)
+})
+
+test_that("matches tragen die Nachholspiel-Markierung wie Rueckblick und Ausblick", {
+  pd <- hg$build_league_page_data(nested_league_fixtures(), teamlist_all_leagues(),
+                                  fetch_fn = function(...) canned_page_response())
+
+  expect_true("nachholspiel" %in% names(pd$matches))
+  expect_type(pd$matches$nachholspiel, "logical")
+  expect_length(pd$matches$nachholspiel, nrow(pd$matches))
+})
+
+test_that("eine Liga mit kaputten Daten faellt allein aus, die uebrigen bleiben", {
+  pd <- hg$build_league_page_data(nested_league_fixtures(), teamlist_all_leagues(),
+                                  fetch_fn = function(...) canned_page_response())
+  kaputt <- pd
+  kaputt$matches$nachholspiel <- NULL   # die Spalte, die im Betrieb gefehlt hat
+  jetzt <- as.POSIXct("2026-09-02 10:00", tz = "UTC")
+  views <- list(bundesliga = hg_betriebsview(), frauen_bundesliga = hg_betriebsview())
+  env <- hg_betriebsenv()
+
+  expect_warning(
+    k <- hg$hingucker_kandidaten(views, env,
+                                 list(bundesliga = pd, frauen_bundesliga = kaputt),
+                                 now = jetzt),
+    "frauen_bundesliga uebersprungen"
+  )
+
+  expect_equal(k$liga, "bundesliga")
 })

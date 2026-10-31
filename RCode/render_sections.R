@@ -697,12 +697,20 @@ render_ausblick <- function(ausblick, runde) {
 # Die Hingucker-Sektion: die ersten `anzahl` Zeilen von `kandidaten` (bereits
 # nach Score sortiert, siehe hingucker_kandidaten()). `fenster` ist der
 # Datumstext fuer den Untertitel. Ohne Kandidaten steht eine Leermeldung statt
-# einer leeren Seite.
-render_hingucker <- function(kandidaten, fenster, anzahl = 5L) {
+# einer leeren Seite; `fehler` zeigt statt dessen einen Hinweis.
+render_hingucker <- function(kandidaten, fenster, anzahl = 5L, fehler = FALSE) {
   kopf <- paste0(
     "<section id=\"hingucker\">\n",
     "<p class=\"eyebrow\">Hingucker der Woche</p>\n"
   )
+  if (fehler) {
+    return(paste0(
+      kopf, "<h2>Auswahl derzeit nicht verfügbar</h2>\n",
+      "<p class=\"sectionlead\">Die Auswahl für ", fenster, " konnte in diesem ",
+      "Durchlauf nicht berechnet werden. Beim nächsten Durchlauf wird sie ",
+      "erneut versucht.</p>\n</section>\n"
+    ))
+  }
   if (is.null(kandidaten) || nrow(kandidaten) == 0L) {
     return(paste0(
       kopf, "<h2>Keine Spiele im Blick</h2>\n",
