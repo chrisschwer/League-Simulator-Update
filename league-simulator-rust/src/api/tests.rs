@@ -1118,3 +1118,104 @@ async fn match_preview_rejects_missing_elo() {
         "Meldung sollte elo_home nennen, war: {text:?}"
     );
 }
+
+// --- eligible_rank_probabilities: Rang unter den Berechtigten je Maske ------
+//
+// Aufstiegsberechtigung (ADR 0009): Zu jeder Maske zaehlt die Engine auf
+// DERSELBEN Abschlusstabelle, auf welchem Rang unter den Berechtigten jedes
+// berechtigte Team steht. Ein gesperrter Meister vererbt seinen Aufstieg an
+// den naechsten Berechtigten.
+
+fn mask_payload(iterations: usize, masks: Value) -> Value {
+    let mut payload = relegation_payload(iterations);
+    let obj = payload.as_object_mut().unwrap();
+    obj.remove("group_of_team");
+    obj.remove("relegation_places");
+    obj.insert("eligibility_masks".to_string(), masks);
+    payload
+}
+
+#[tokio::test]
+async fn masks_all_eligible_equals_probability_matrix() {
+    let payload = mask_payload(2000, json!([[true, true, true, true]]));
+    let (status, body) = send(post_simulate_json(payload)).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let matrix = body["probability_matrix"].as_array().unwrap();
+    let rang = body["eligible_rank_probabilities"][0].as_array().unwrap();
+    assert_eq!(matrix.len(), rang.len());
+    // Sind alle berechtigt, ist der Rang unter den Berechtigten der Platz.
+    for (a, b) in matrix.iter().zip(rang) {
+        assert_eq!(a, b);
+    }
+}
+
+#[tokio::test]
+async fn masks_ineligible_team_has_zero_and_columns_sum_to_one() {
+    // Team AAA (Index 0) gesperrt.
+    let payload = mask_payload(2000, json!([[false, true, true, true]]));
+    let (status, body) = send(post_simulate_json(payload)).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let names = body["team_names"].as_array().unwrap();
+    let rang = body["eligible_rank_probabilities"][0].as_array().unwrap();
+    let mut spalten = [0.0f64; 4];
+    for (i, row) in rang.iter().enumerate() {
+        let row: Vec<f64> = row
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_f64().unwrap())
+            .collect();
+        if names[i] == "AAA" {
+            assert!(row.iter().all(|&p| p == 0.0), "gesperrt: {:?}", row);
+        }
+        for (k, p) in row.iter().enumerate() {
+            spalten[k] += p;
+        }
+    }
+    // Drei Berechtigte: Raenge 1..3 summieren auf 1, Rang 4 gibt es nicht.
+    for s in &spalten[..3] {
+        assert!((s - 1.0).abs() < 1e-9, "Spaltensumme {}", s);
+    }
+    assert_eq!(spalten[3], 0.0);
+}
+
+#[tokio::test]
+async fn masks_barred_champion_passes_rank_one_on() {
+    // AAA gesperrt: P(Rang 1 unter Berechtigten) der uebrigen ist mindestens
+    // so gross wie ihre P(Platz 1) in der Tabelle.
+    let payload = mask_payload(
+        4000,
+        json!([[true, true, true, true], [false, true, true, true]]),
+    );
+    let (_, body) = send(post_simulate_json(payload)).await;
+    let r = &body["eligible_rank_probabilities"];
+    for i in 0..4 {
+        let alle = r[0][i][0].as_f64().unwrap();
+        let ohne = r[1][i][0].as_f64().unwrap();
+        // Dieselben Iterationen: Wer ohne Sperre Erster ist, bleibt es.
+        assert!(ohne + 1e-12 >= alle || r[1][i].as_array().unwrap().iter().all(|v| v == 0.0));
+    }
+}
+
+#[tokio::test]
+async fn masks_rejects_wrong_length() {
+    let payload = mask_payload(100, json!([[true, true, true]]));
+    let (status, body) = send(post_simulate_json(payload)).await;
+    assert_bad_request(
+        status,
+        &body,
+        "eligibility_masks[0] must have one entry per team",
+    );
+}
+
+#[tokio::test]
+async fn simulate_without_masks_has_no_eligible_rank_probabilities() {
+    let (status, body) = send(post_simulate_json(relegation_payload(100))).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        body.get("eligible_rank_probabilities").is_none()
+            || body["eligible_rank_probabilities"].is_null()
+    );
+}

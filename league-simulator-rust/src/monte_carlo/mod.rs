@@ -70,7 +70,12 @@ fn run_monte_carlo_simulation_with_seeds(
         /// Teams auf einem Abstiegsplatz landeten. Leer, wenn keine
         /// Staffel-Zuordnung uebergeben wurde.
         group_counts: Vec<Vec<usize>>,
+        /// Dritter Zaehler: `[maske][team][rang_unter_berechtigten - 1]`.
+        mask_counts: Vec<Vec<Vec<usize>>>,
     }
+
+    let n_masks = params.eligibility_masks.as_ref().map_or(0, |m| m.len());
+    let empty_mask_counts = || vec![vec![vec![0usize; n_teams]; n_teams]; n_masks];
 
     // Staffel-Auszaehlung nur, wenn beides vorliegt. Die Zeilenzahl kommt aus
     // group_count, nicht aus dem Maximum der Zuordnung: Eine Staffel ohne
@@ -87,7 +92,8 @@ fn run_monte_carlo_simulation_with_seeds(
         _ => None,
     };
 
-    let gezaehlt: (Vec<Vec<usize>>, Vec<Vec<usize>>) = seeds
+    type Gezaehlt = (Vec<Vec<usize>>, Vec<Vec<usize>>, Vec<Vec<Vec<usize>>>);
+    let gezaehlt: Gezaehlt = seeds
         .par_iter()
         .fold(
             || IterState {
@@ -98,6 +104,7 @@ fn run_monte_carlo_simulation_with_seeds(
                     Some((_, places, n_groups)) => vec![vec![0usize; places + 1]; *n_groups],
                     None => Vec::new(),
                 },
+                mask_counts: empty_mask_counts(),
             },
             |mut state, &seed| {
                 let mut rng = StdRng::seed_from_u64(seed);
@@ -146,10 +153,30 @@ fn run_monte_carlo_simulation_with_seeds(
                     }
                 }
 
+                // Rang unter den Berechtigten: Teams in Tabellenreihenfolge
+                // durchgehen und nur die berechtigten zaehlen. Dieselbe
+                // Tabelle fuer alle Masken -- die Liga wird nicht erneut
+                // simuliert.
+                if let Some(masks) = &params.eligibility_masks {
+                    let mut team_auf_platz = vec![0usize; n_teams];
+                    for standing in &table.standings {
+                        team_auf_platz[standing.position - 1] = standing.team_id;
+                    }
+                    for (m, mask) in masks.iter().enumerate() {
+                        let mut rang = 0usize;
+                        for &team in &team_auf_platz {
+                            if mask[team] {
+                                state.mask_counts[m][team][rang] += 1;
+                                rang += 1;
+                            }
+                        }
+                    }
+                }
+
                 state
             },
         )
-        .map(|state| (state.counts, state.group_counts))
+        .map(|state| (state.counts, state.group_counts, state.mask_counts))
         .reduce(
             || {
                 (
@@ -160,6 +187,7 @@ fn run_monte_carlo_simulation_with_seeds(
                         }
                         None => Vec::new(),
                     },
+                    empty_mask_counts(),
                 )
             },
             // Dieselbe kommutative Addition wie bisher, jetzt fuer beide
@@ -176,11 +204,18 @@ fn run_monte_carlo_simulation_with_seeds(
                         *cell_a += cell_b;
                     }
                 }
+                for (mask_a, mask_b) in a.2.iter_mut().zip(b.2) {
+                    for (row_a, row_b) in mask_a.iter_mut().zip(mask_b) {
+                        for (cell_a, cell_b) in row_a.iter_mut().zip(row_b) {
+                            *cell_a += cell_b;
+                        }
+                    }
+                }
                 a
             },
         );
 
-    let (position_counts, relegation_group_counts) = gezaehlt;
+    let (position_counts, relegation_group_counts, mask_counts) = gezaehlt;
 
     // Convert counts to probabilities
     let mut probability_matrix = vec![vec![0.0; n_teams]; n_teams];
@@ -218,7 +253,26 @@ fn run_monte_carlo_simulation_with_seeds(
         };
     }
 
+    // Masken-Ergebnis in derselben Zeilenordnung wie die sortierte Matrix.
+    let eligible_rank_probabilities = params.eligibility_masks.as_ref().map(|_| {
+        mask_counts
+            .iter()
+            .map(|per_team| {
+                team_rankings
+                    .iter()
+                    .map(|&(team_id, _)| {
+                        per_team[team_id]
+                            .iter()
+                            .map(|&c| c as f64 / params.iterations as f64)
+                            .collect()
+                    })
+                    .collect()
+            })
+            .collect()
+    });
+
     SimulationResult {
+        eligible_rank_probabilities,
         relegation_group_counts: if group_setup.is_some() {
             Some(relegation_group_counts)
         } else {
