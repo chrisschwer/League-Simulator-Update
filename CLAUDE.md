@@ -108,3 +108,17 @@ When adding helper functions in `RCode/` that operators run outside the producti
   Typical usage is ~500 requests on an idle day, up to ~3,900 on a full match
   day (#190) — both well within the daily 7,500 quota.
 
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues (`gh`-CLI), Repo chrisschwer/League-Simulator-Update. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Standard-Vokabular: needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context; das Glossar ist `CONTEXT.md` (nicht `GLOSSARY.md`), ADRs in `docs/adr/`. See `docs/agents/domain.md`.
