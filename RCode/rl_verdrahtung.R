@@ -265,4 +265,3 @@ rl_direktaufstiegsspalten <- function(prognosen, saison) {
   }
   spalten
 }
-
