@@ -78,6 +78,7 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 | `test-rl_aufstieg.R` | 37 | phase5-regionalligen (13 Bl.), rl-aufstieg |
 | `test-rl_verdrahtung.R` | 6 (+4, #293: `rl_aktuelle_elo` sendet `elo_neutral` zeilengleich, laesst es ohne gewertetes Spiel weg, und die ELO bleibt ueber den echten Rust-Server stehen) | rl-verdrahtung (2 Bl.) |
 | `test-round_filter.R` | 8 (+3, Stufe 4.4a: `is_regular_season_round` aus `test-fixture_cache.R`) | phase5-regionalligen (5 Bl.) |
+| `test-rust_integration-masken.R` | 3 | eligibility-masks (Server-Integration, ADR 0009) |
 | `test-rust_integration.R` | 4 | home-advantage-single-source, league-registry (1 Bl.), tormodell-rust-durchreichung |
 | `test-scripts-preview_site.R` | 6 | frauen-ligen-live (1 Bl.), preview-site |
 | `test-scripts-season_transition.R` | 5 | season-transition-cleanup-wrapper, season-transition-csv-snapshot |
@@ -92,6 +93,7 @@ Seit Stufe 2 erzwingt `test-waechter-teststruktur.R` die Regel.
 | `test-team_history_resolver.R` | 7 | team-history-resolver |
 | `test-team_record_builder.R` | 9 | team-record-builder |
 | `test-transform_data.R` | 30 | elo-walk-reihenfolge (10 Bl.), gewertete-spiele (2 Bl.), rundenfilter-schutznetz (7 Bl.), transform_data |
+| `test-transform_data-berechtigung.R` | 6 | berechtigung_aus_teamlist (Sperre, Aufstiegsverzicht) |
 | `test-transform_data-kuerzel.R` | 23 | kuerzel-vertrag, teamlist-eindeutigkeit |
 | `test-update_all_leagues_loop.R` | 6 | n-ligen-entflechtung (4 Bl.), update-loop-league-data |
 | `test-update_all_leagues_loop-gating.R` | 36 (−1, Stufe 4.4a: `checkAPILimits meldet, ob die Planung aus einem Fallback kam` nach `test-checkAPILimits.R`) | update-loop-gating |

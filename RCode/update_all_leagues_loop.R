@@ -634,10 +634,27 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
           # und, weiter unten, der Malus-Lauf fuer die Aufstiegstabelle.
           tormodell <- goal_model_args(liga_ids[[key]])
 
+          # Ligen mit Aufstiegssperre fuer Zweitvertretungen (3. Liga,
+          # 2. Frauen-Bundesliga; Registry: has_promotion_restriction())
+          # bekommen im SELBEN Lauf eine Maske der Aufstiegsberechtigten.
+          # Die Engine zaehlt dann auf derselben Abschlusstabelle den Rang
+          # unter den Berechtigten -- das loest den frueheren zweiten Lauf
+          # mit -50-Malus ab (ADR 0009) und schliesst die Unschaerfe aus, dass
+          # Haupt- und Aufstiegstabelle aus zwei Zufallslaeufen stammen.
+          # WELCHE Teams nicht berechtigt sind, sagt die TeamList
+          # (Promotion < 0, Aufstiegsverzicht; berechtigung_aus_teamlist()),
+          # nicht das Endzeichen des Kurznamens (Issue #196, ADR 0007).
+          masken <- NULL
+          if (has_promotion_restriction(liga_ids[[key]])) {
+            masken <- list(berechtigung_aus_teamlist(spielplan, TeamList,
+                                                     liga_ids[[key]]))
+          }
+
           ergebnisse[[key]] <- leagueSimulatorRust(
             spielplan, n = n,
             groupOfTeam = zuordnung, relegationPlaces = plaetze,
-            toreSlope = tormodell$tore_slope, toreIntercept = tormodell$tore_intercept
+            toreSlope = tormodell$tore_slope, toreIntercept = tormodell$tore_intercept,
+            eligibilityMasks = masken
           )
           beendet[[key]] <- beendet_new[[key]]
 
@@ -651,32 +668,18 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
             }
           }
 
-          # Ligen, aus denen Zweitvertretungen nicht aufsteigen duerfen
-          # (3. Liga, 2. Frauen-Bundesliga), brauchen eine eigene
-          # Aufstiegstabelle: ein zweiter Lauf, in dem sie -50 Punkte tragen
-          # und damit aus dem Rennen sind. Welche Ligen das sind, sagt die
-          # Registry (has_promotion_restriction()). Die Regionalligen gehoeren
-          # seit #291 nicht mehr dazu: Ihre Aufstiegsspalte rechnet unten auf
-          # dem Hauptlauf (ADR 0008, Nachtrag 2026-10-17).
-          #
-          # WELCHE Teams den Abzug tragen, sagt die Spalte Promotion der
-          # TeamList (malus_aus_teamlist(), transform_data.R) -- nicht mehr
-          # das Endzeichen des Kurznamens (Issue #196). Die Werte pflegt
-          # Christoph von Hand; der Loop leitet nichts aus Namen ab
-          # (ADR 0007). Welche LIGEN ueberhaupt einen zweiten Lauf bekommen,
-          # bleibt die Frage der Registry.
-          #
-          # Der Lauf landet unter "<key>_aufstieg" -- dort liest die View
-          # das obere Panel. (Bei den Regionalligen traegt derselbe Name die
-          # BERECHNETE Aufstiegsspalte aus rl_aufstiegsprognose(); deshalb
-          # duerfen sie hier nie hinein. test-league_registry.R pinnt, dass
-          # sie keine `restrictions` tragen.)
-          if (has_promotion_restriction(liga_ids[[key]])) {
-            adj_points <- malus_aus_teamlist(spielplan, TeamList, liga_ids[[key]])
-            ergebnisse[[paste0(key, "_aufstieg")]] <-
-              leagueSimulatorRust(spielplan, n = n, adjPoints = adj_points,
-                                  toreSlope = tormodell$tore_slope,
-                                  toreIntercept = tormodell$tore_intercept)
+          # Die Aufstiegstabelle ("<key>_aufstieg") ist der Rang unter den
+          # Berechtigten aus demselben Lauf. (Bei den Regionalligen traegt
+          # derselbe Name die BERECHNETE Aufstiegsspalte aus
+          # rl_aufstiegsprognose(); deshalb duerfen sie hier nie hinein.
+          # test-league_registry.R pinnt, dass sie keine `restrictions`
+          # tragen.)
+          if (!is.null(masken)) {
+            rang <- attr(ergebnisse[[key]], "eligible_rank_probabilities")[[1]]
+            if (is.null(rang)) {
+              stop("Engine lieferte keinen Rang unter den Berechtigten fuer ", key)
+            }
+            ergebnisse[[paste0(key, "_aufstieg")]] <- rang
           }
 
           TRUE

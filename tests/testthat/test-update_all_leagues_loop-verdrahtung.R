@@ -400,6 +400,27 @@ rust_fake <- function(malus_versatz = 0L) {
         simulations_performed = payload$iterations,
         time_ms = 1L
       )
+      # Aufstiegsberechtigung (ADR 0009): Rang unter den Berechtigten je
+      # Maske. Der Fake gibt den Berechtigten eine ANDERE Verteilung als dem
+      # Hauptlauf (die des frueheren Malus-Laufs), mit Nullzeilen fuer die
+      # Nicht-Berechtigten -- so ist zu sehen, welche Tabelle gelesen wurde.
+      if (!is.null(payload$eligibility_masks)) {
+        masken <- payload$eligibility_masks
+        # parse_body() vereinfacht gleich lange Arrays zu einer Matrix.
+        if (is.matrix(masken)) {
+          masken <- lapply(seq_len(nrow(masken)), function(i) masken[i, ])
+        }
+        antwort$eligible_rank_probabilities <- lapply(masken, function(mk) {
+          mk <- as.logical(unlist(mk))
+          k <- sum(mk)
+          mat <- matrix(0, nrow = n, ncol = n)
+          if (k > 0L) {
+            mat[which(mk), seq_len(k)] <-
+              verschiebungsmatrix(k, GEWICHTE$malus[[min(zaehler, 2L)]])
+          }
+          lapply(seq_len(n), function(i) as.list(mat[i, ]))
+        })
+      }
       if (!is.null(payload$group_of_team)) {
         if (!identical(as.integer(payload$iterations), N_ITER_LOOP)) {
           stop(sprintf(
@@ -887,7 +908,7 @@ test_that("der Loop reicht attr(spielplan, 'elo_neutral') unveraendert an rl_akt
 # Regionalligen keinen Malus-Lauf mehr (Par. 55b Nr. 3.1 DFB-SpO greift
 # 2026/27 bei keiner RL-Zweitvertretung, ADR 0008).
 
-test_that("eine Regionalliga wird je Runde einmal simuliert, 3. Liga und 2. Frauen-BL zweimal", {
+test_that("jede Liga wird je Runde einmal simuliert; 3. Liga und 2. Frauen-BL senden eine Berechtigungsmaske", {
   lauf <- standardlauf()
 
   # Harness-Probe: Die Fake-TeamList traegt auch in den Regionalligen
@@ -900,13 +921,37 @@ test_that("eine Regionalliga wird je Runde einmal simuliert, 3. Liga und 2. Frau
                    lauf$simulate)
     expect_length(alle, 1L)
     expect_length(payloads_von(lauf, key, malus = TRUE), 0L)
+    # Die Regionalligen senden (noch) keine Maske: Es verzichtet niemand.
+    expect_null(alle[[1]]$eligibility_masks)
   }
   for (key in c("dritte_liga", "zweite_frauen_bundesliga")) {
     expect_length(payloads_von(lauf, key, malus = FALSE), 1L)
-    expect_length(payloads_von(lauf, key, malus = TRUE), 1L)
+    # Kein zweiter Lauf mit -50-Malus mehr (ADR 0009) ...
+    expect_length(payloads_von(lauf, key, malus = TRUE), 0L)
+    # ... stattdessen EINE Maske im selben Lauf: Zweitvertretungen
+    # (Promotion < 0) sind nicht berechtigt, alle anderen schon.
+    p <- payloads_von(lauf, key, malus = FALSE)[[1]]
+    expect_identical(NROW(p$eligibility_masks), 1L)
+    maske <- as.logical(unlist(p$eligibility_masks))
+    soll <- tl$Promotion[match(as.character(p$team_names), tl$ShortText)] >= 0
+    expect_identical(maske, soll, info = key)
+    expect_true(any(!maske), info = paste("Harness-Probe: gesperrtes Team in", key))
   }
-  # Zehn Ligen, zwei davon mit Malus-Lauf.
-  expect_length(lauf$simulate, 12L)
+  # Zehn Ligen, je ein Lauf.
+  expect_length(lauf$simulate, 10L)
+
+  # Die Aufstiegstabelle ist der Rang unter den Berechtigten, mit Nullzeilen
+  # fuer die Gesperrten.
+  erg <- lauf$ergebnisse[[1]]
+  for (key in c("dritte_liga", "zweite_frauen_bundesliga")) {
+    tabelle <- as.matrix(erg[[paste0(key, "_aufstieg")]])
+    p <- payloads_von(lauf, key, malus = FALSE)[[1]]
+    maske <- stats::setNames(as.logical(unlist(p$eligibility_masks)),
+                             as.character(p$team_names))
+    expect_true(all(rowSums(tabelle[names(maske)[!maske], , drop = FALSE]) == 0), info = key)
+    expect_equal(unname(colSums(tabelle)[seq_len(sum(maske))]), rep(1, sum(maske)),
+                 tolerance = 1e-9, info = key)
+  }
 
   # Und kein Platzmatrix-Objekt eines RL-Malus-Laufs in den Ergebnissen.
   expect_length(grep("_aufstiegstabelle$", names(lauf$ergebnisse[[1]])), 0L)

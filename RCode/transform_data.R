@@ -433,3 +433,66 @@ transform_data <- function(fixtures, teams) {
 
   return(df_final)
 }
+
+#' Aufstiegsberechtigung je Team in SPIELPLAN-Reihenfolge, aus der TeamList.
+#'
+#' Ein Team ist NICHT berechtigt, wenn es
+#'   - eine Zweitvertretung mit `Promotion < 0` ist und die Liga diese Sperre
+#'     kennt (`mit_sperre = TRUE`: 3. Liga, 2. Frauen-Bundesliga), oder
+#'   - in der Spalte `Aufstiegsverzicht` markiert ist (nur diese Saison; die
+#'     Spalte ist optional, fehlt sie, verzichtet niemand).
+#'
+#' Die Regionalligen rufen mit `mit_sperre = FALSE` auf: Ihre Reserven tragen
+#' zwar `Promotion = -50`, sind 2026/27 aber berechtigt (ADR 0008, Nachtrag
+#' 2026-10-17).
+#'
+#' Das Ergebnis ist die Maske fuer die Engine (eligibility_masks). Wie bei
+#' malus_aus_teamlist() wird auf die Liga gefiltert, weil Kurznamen nur
+#' innerhalb einer Liga eindeutig sind; Teams ohne Zeile gelten als
+#' berechtigt.
+#'
+#' @param spielplan Simulations-Data-Frame, Teamspalten ab Spalte 5.
+#' @param teams TeamList mit ShortText, optional Promotion, Aufstiegsverzicht.
+#' @param liga Liga-ID.
+#' @param mit_sperre Ob die Zweitvertretungs-Sperre (Promotion < 0) gilt.
+#' @return Logischer Vektor, so lang wie die Zahl der Teamspalten.
+berechtigung_aus_teamlist <- function(spielplan, teams, liga, mit_sperre = TRUE) {
+  kurznamen <- names(spielplan)[5:ncol(spielplan)]
+  berechtigt <- rep(TRUE, length(kurznamen))
+
+  if (!is.null(teams$League)) {
+    teams <- teams[as.character(teams$League) == as.character(liga), ]
+  }
+  zeile <- match(kurznamen, teams$ShortText)
+
+  if (isTRUE(mit_sperre) && !is.null(teams$Promotion)) {
+    promotion <- as.numeric(teams$Promotion)[zeile]
+    berechtigt <- berechtigt & !(!is.na(promotion) & promotion < 0)
+  }
+
+  if (!is.null(teams$Aufstiegsverzicht)) {
+    verzicht <- .als_wahrheitswert(teams$Aufstiegsverzicht)[zeile]
+    berechtigt <- berechtigt & !(!is.na(verzicht) & verzicht)
+  }
+
+  berechtigt
+}
+
+# Liest ein von Hand gepflegtes Ja/Nein-Feld: 1/0, TRUE/FALSE, ja/nein.
+# Leer und NA gelten als "nein". Alles andere bricht ab -- ein Tippfehler in
+# einem Verzichtsfeld darf nicht lautlos als "kein Verzicht" durchgehen.
+.als_wahrheitswert <- function(x) {
+  roh <- tolower(trimws(as.character(x)))
+  wert <- rep(FALSE, length(roh))
+  ja <- roh %in% c("1", "true", "ja", "wahr", "yes")
+  nein <- is.na(roh) | roh %in% c("", "0", "false", "nein", "falsch", "no", "na")
+  unbekannt <- !(ja | nein)
+  if (any(unbekannt)) {
+    stop(sprintf(
+      "Aufstiegsverzicht: unlesbarer Wert %s. Erlaubt: 1/0, TRUE/FALSE, ja/nein oder leer.",
+      paste(shQuote(unique(roh[unbekannt])), collapse = ", ")
+    ), call. = FALSE)
+  }
+  wert[ja] <- TRUE
+  wert
+}

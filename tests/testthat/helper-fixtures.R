@@ -312,7 +312,10 @@ n_ligen <- function() length(source_module("league_registry")$league_ids())
 n_sims_pro_runde <- function() {
   env <- source_module("league_registry")
   ids <- env$league_ids()
-  length(ids) + sum(vapply(ids, env$has_promotion_restriction, logical(1)))
+  # Eine /simulate-Anfrage je Liga. Die Ligen mit Aufstiegssperre
+  # (has_promotion_restriction) bekommen ihre Aufstiegstabelle seit ADR 0009
+  # aus einer Berechtigungsmaske im selben Lauf, nicht mehr aus einem zweiten.
+  length(ids)
 }
 
 # Minimal stand-in for transform_data()'s output: leagueSimulatorRust() is

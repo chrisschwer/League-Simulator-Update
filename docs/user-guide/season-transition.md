@@ -47,8 +47,10 @@ Nach dem Lauf steht der Entwurf, nicht die TeamList. Zu tun bleibt:
    Ohne sie entfällt für diese Teams die Abstiegskopplung der Regionalligen
    ([ADR 0006](../adr/0006-abstiegskopplung-der-regionalligen.md)).
 4. **Zweitvertretungs-Status prüfen** (Spalte `Promotion`, 0 oder −50). Sie
-   entscheidet im Update-Loop über den −50-Malus; abgeleitet wird nichts mehr
-   aus dem Kürzel.
+   entscheidet im Update-Loop über die Aufstiegssperre (Berechtigungsmaske,
+   ADR 0009); abgeleitet wird nichts mehr aus dem Kürzel. Die optionale Spalte
+   `Aufstiegsverzicht` wird nicht übernommen: Ein Verzicht gilt nur für die
+   Saison, für die er eingetragen wurde.
 5. **Umbenennen**: `mv RCode/TeamList_<Jahr>_entwurf.csv RCode/TeamList_<Jahr>.csv`
 
 Erst danach ist die Saison umgestellt.
