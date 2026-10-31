@@ -15,7 +15,12 @@ Beide Eigenschaften misst derselbe Index, der Inverse Simpson-Index `D = 1 / Σ 
 
 `Hingucker-Wert = D_Spiel × D_Heim × D_Gast`. Das Fenster sind die Berliner Kalendertage heute bis heute + 6; nur offene Spiele (`NS`) zählen.
 
-Saisonausgänge sind die Zonen, die `league_views()` für die Panels der Seite führt (Meister, CL, EL, …, Relegation, Abstieg), dazu „Mittelfeld" als Rest. Wo Zonen aus verschiedenen Läufen stammen (3. Liga) oder sich überlappen (Regionalliga: Aufstieg ⊂ Meister, dort „Aufstiegsspiele" als Differenz), wird so zerlegt, dass die Ausgänge disjunkt sind und sich auf 1 summieren. Berechnete Zusatzspalten (`computed_optional`, etwa „Abstieg gesamt") zählen nicht mit.
+Saisonausgänge sind die Zonen, die `league_views()` für die Panels der Seite führt (Meister, CL, EL, …, Relegation, Abstieg), dazu „Mittelfeld“ als Rest. Sie müssen disjunkt sein und sich auf 1 summieren:
+
+- **3. Liga, 2. Frauen-Bundesliga:** Das obere Panel ist der Rang unter den Berechtigten (`Ergebnis3_Aufstieg`, [ADR 0009](0009-aufstiegsberechtigung-als-masken.md); gesperrte Zweitvertretungen tragen null), das untere der Tabellenplatz. Beide stammen aus demselben Lauf, und der Rang unter den Berechtigten ist höchstens der Tabellenplatz. Die Zonen überlappen also nicht; eine Normierung auf Zeilensumme 1 fängt nur Rundung und entartete Eingaben ab.
+- **Regionalliga Nord und Bayern:** Aufstieg ist ein Teil der Meisterschaft (nur der Sieger der Aufstiegsspiele steigt auf). Neben „Aufstieg“ steht deshalb „Aufstiegsspiele verloren“ (P(spielt) − P(Aufstieg)). P(spielt) ist die Wahrscheinlichkeit, erster Berechtigter zu sein (`p_erster_berechtigter`); wer verzichtet, spielt nicht und trägt null.
+- **Regionalliga Nordost, West, SüdWest:** Gibt es einen Aufstiegsverzicht, ist „Aufstieg“ P(erster Berechtigter) aus `aufstieg_source` statt P(Platz 1), wie auf der Ligaseite.
+- **Zusatzzahlen** (`computed_optional`, etwa „Abstieg gesamt“) zählen nicht mit.
 
 ## Warum so einfach
 

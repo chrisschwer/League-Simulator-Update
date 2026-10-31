@@ -91,8 +91,25 @@ test_that("optionale berechnete Spalten zaehlen nicht als eigener Ausgang", {
   expect_equal(unname(rowSums(aus)), rep(1, 18))
 })
 
-test_that("die 3. Liga liest oberes und unteres Panel aus ihren eigenen Quellen und normiert", {
+test_that("die 3. Liga liest das obere Panel als Rang unter den Berechtigten, das untere als Tabellenplatz", {
   env <- new.env()
+  env$Ergebnis3 <- hg_gleichverteilt(20L)
+  # Eine gesperrte Zweitvertretung traegt im oberen Panel null (ADR 0009).
+  top <- unclass(hg_gleichverteilt(20L))
+  top["T2", ] <- 0
+  env$Ergebnis3_Aufstieg <- as.table(top)
+
+  aus <- hg$liga_ausgaenge(hg_views("dritte_liga")$dritte_liga, env)
+
+  expect_equal(unname(aus["T2", c("Aufstieg", "Relegation", "DFB-Pokal")]), c(0, 0, 0))
+  expect_equal(unname(aus["T2", "Abstieg"]), 4 / 20)
+  expect_equal(unname(aus["T1", "Aufstieg"]), 2 / 20)
+  expect_equal(unname(rowSums(aus)), rep(1, 20))
+})
+
+test_that("die Normierung faengt entartete Eingaben ab: die Zeilensumme bleibt 1", {
+  env <- new.env()
+  env$Ergebnis3 <- hg_gleichverteilt(20L)
   top <- unclass(hg_gleichverteilt(20L))
   top["T1", ] <- c(0.7, rep(0.3 / 19, 19))
   env$Ergebnis3_Aufstieg <- as.table(top)
@@ -102,7 +119,6 @@ test_that("die 3. Liga liest oberes und unteres Panel aus ihren eigenen Quellen 
 
   aus <- hg$liga_ausgaenge(hg_views("dritte_liga")$dritte_liga, env)
 
-  # Aufstieg 0,7 + 0,3/19 und Abstieg 0,7 + 3 * 0,3/19 -> Summe > 1, normiert.
   expect_equal(unname(rowSums(aus)), rep(1, 20))
   expect_equal(unname(aus["T1", "Mittelfeld"]), 0)
 })
@@ -121,11 +137,53 @@ test_that("Regionalliga Bayern: Aufstiegsspiele und Abstieg kommen aus den berec
   aus <- hg$liga_ausgaenge(hg_views("rl_bayern")$rl_bayern, env)
 
   expect_equal(colnames(aus),
-               c("Aufstieg", "Aufstiegsspiele", "Mittelfeld", "Relegation", "Abstieg"))
+               c("Aufstieg", "Aufstiegsspiele verloren", "Mittelfeld", "Relegation", "Abstieg"))
   expect_equal(unname(aus["T1", "Aufstieg"]), 0.02)
   # Meister (1/19) minus Aufstieg: die Ueberlappung zaehlt nur einmal.
-  expect_equal(unname(aus["T1", "Aufstiegsspiele"]), 1 / 19 - 0.02)
+  expect_equal(unname(aus["T1", "Aufstiegsspiele verloren"]), 1 / 19 - 0.02)
   expect_equal(unname(rowSums(aus)), rep(1, 19))
+})
+
+test_that("Verzicht in Nord oder Bayern: wer verzichtet, spielt keine Aufstiegsspiele", {
+  teams <- paste0("T", 1:19)
+  env <- new.env()
+  env$Ergebnis_rl_bayern <- hg_gleichverteilt(19L)
+  # T1 verzichtet (spielt nie), T2 rueckt nach und spielt mit 10 %.
+  aufstieg <- data.frame(Aufstieg = c(0, 0.04, rep(0.01, 17)), row.names = teams)
+  attr(aufstieg, "p_erster_berechtigter") <- stats::setNames(c(0, 0.1, rep(1 / 19, 17)), teams)
+  attr(aufstieg, "verzichtet") <- "T1"
+  env$Ergebnis_rl_bayern_aufstieg <- aufstieg
+  env$Ergebnis_rl_bayern_abstieg <- data.frame(Relegation = rep(0.1, 19),
+                                               Abstieg = rep(0.1, 19), row.names = teams)
+
+  aus <- hg$liga_ausgaenge(hg_views("rl_bayern")$rl_bayern, env)
+
+  expect_equal(unname(aus["T1", "Aufstieg"]), 0)
+  expect_equal(unname(aus["T1", "Aufstiegsspiele verloren"]), 0)
+  # Das Meisterplus von T1 (1/19) fliesst ins Mittelfeld, nicht in Aufstiegsspiele.
+  expect_equal(unname(aus["T1", "Mittelfeld"]), 0.8)
+  # T2 spielt mit 10 %, davon steigt 4 % auf.
+  expect_equal(unname(aus["T2", "Aufstiegsspiele verloren"]), 0.06)
+  expect_equal(unname(rowSums(aus)), rep(1, 19))
+})
+
+test_that("Verzicht in einer Direktstaffel: Aufstieg ist P(erster Berechtigter), nicht P(Platz 1)", {
+  teams <- paste0("T", 1:18)
+  env <- new.env()
+  env$Ergebnis_rl_west <- hg_gleichverteilt(18L)
+  m <- unclass(env$Ergebnis_rl_west)
+  m["T1", ] <- c(0.6, rep(0.4 / 17, 17))   # T1 haette gute Chancen auf Platz 1 ...
+  env$Ergebnis_rl_west <- as.table(m)
+  aufstieg <- data.frame(Aufstieg = c(0, 0.5, rep(0.5 / 16, 16)), row.names = teams)
+  attr(aufstieg, "verzichtet") <- "T1"       # ... verzichtet aber
+  env$Ergebnis_rl_west_aufstieg <- aufstieg
+  env$Ergebnis_rl_west_abstieg <- data.frame(Abstieg = rep(0.1, 18), row.names = teams)
+
+  aus <- hg$liga_ausgaenge(hg_views("rl_west")$rl_west, env)
+
+  expect_equal(unname(aus["T1", "Aufstieg"]), 0)
+  expect_equal(unname(aus["T2", "Aufstieg"]), 0.5)
+  expect_equal(unname(rowSums(aus)), rep(1, 18))
 })
 
 test_that("liga_ausgaenge liefert NULL, wenn eine tragende Quelle fehlt", {

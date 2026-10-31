@@ -71,6 +71,15 @@ inverse_simpson <- function(p) {
 # Zahlen ("Abstieg gesamt" neben "Abstieg"), keine eigenen Ausgaenge: Sie
 # zaehlten dieselbe Masse doppelt und bleiben draussen.
 .hg_panel_spalten <- function(panel, data_env) {
+  # Direktstaffel mit Aufstiegsverzicht (#320): Existiert das Objekt der
+  # Aufstiegsspalte, ersetzt es die Platzgruppe -- wie in render_league_page().
+  # Gezaehlt wird dann der erste Berechtigte, nicht Platz 1; ein verzichtender
+  # Meister traegt keine Aufstiegswahrscheinlichkeit.
+  if (!is.null(panel$aufstieg_source) &&
+        !is.null(.hg_hole(panel$aufstieg_source, data_env))) {
+    panel <- list(source = panel$aufstieg_source, computed = TRUE,
+                  labels = panel$labels)
+  }
   computed <- if (is.null(panel$computed)) {
     rep(FALSE, length(panel$labels))
   } else {
@@ -120,14 +129,20 @@ inverse_simpson <- function(p) {
 # Die Saisonausgaenge einer Liga als Matrix Teams x Ausgaenge, Zeilensumme 1.
 #
 # Die Ausgaenge sind die Zonen aus league_views() -- dieselben, die Panels und
-# Tabelle zeigen --, der Rest ist "Mittelfeld". Fuer die Regionalligen mit
-# Aufstiegsspielen (Nord, Bayern) ist P(Aufstieg) kleiner als P(Meister): Die
-# Differenz steht als eigener Ausgang "Aufstiegsspiele", damit sich die
-# Ausgaenge nicht ueberlappen.
+# Tabelle zeigen --, der Rest ist "Mittelfeld".
 #
-# Bei der 3. Liga stammt das obere Panel aus einem anderen Lauf (Malus fuer
-# Zweitvertretungen) als das untere. Die Zeilensumme kann dort knapp ueber 1
-# liegen; sie wird dann auf 1 normiert.
+# Regionalliga Nord und Bayern: Der Meister (bei Verzicht: der erste
+# Berechtigte) spielt Aufstiegsspiele, nur der Sieger steigt auf. Damit sich
+# Aufstieg und Aufstiegsspiele nicht ueberlappen, steht dort neben "Aufstieg"
+# der Ausgang "Aufstiegsspiele verloren" (P(spielt) minus P(Aufstieg)). Wer
+# verzichtet, spielt nicht: P(spielt) ist null, der Ausgang entfaellt.
+#
+# 3. Liga und 2. Frauen-Bundesliga: Das obere Panel ist der Rang unter den
+# Berechtigten (Ergebnis3_Aufstieg, ADR 0009; gesperrte Zweitvertretungen
+# tragen null), das untere der Tabellenplatz. Beide stammen aus demselben Lauf.
+# Der Rang unter den Berechtigten ist hoechstens der Tabellenplatz, die Zonen
+# ueberlappen also nicht und die Zeilensumme ist hoechstens 1. Die Normierung
+# unten faengt nur Rundung und entartete Eingaben ab.
 #
 # NULL, wenn eine tragende Quelle fehlt: Eine Liga ohne Ausgaenge wird nicht
 # bewertet, statt mit halben Zonen falsch zu rangieren.
@@ -148,9 +163,15 @@ liga_ausgaenge <- function(view, data_env) {
     meister <- oben[["Meister"]]
     aufstieg <- oben[["Aufstieg"]][names(meister)]
     aufstieg[is.na(aufstieg)] <- 0
+    # Wer die Aufstiegsspiele bestreitet: der erste Berechtigte (Attribut des
+    # Aufstiegsobjekts); ohne das Attribut verzichtet niemand, dann der Meister.
+    erster <- attr(.hg_hole(view$top$computed_source, data_env), "p_erster_berechtigter")
+    spielt <- if (is.null(erster)) meister else unname(erster[names(meister)])
+    spielt[is.na(spielt)] <- 0
     oben[["Meister"]] <- NULL
     # pmax() verwirft die Namen; die Zuordnung unten laeuft ueber sie.
-    oben[["Aufstiegsspiele"]] <- stats::setNames(pmax(0, meister - aufstieg), names(meister))
+    oben[["Aufstiegsspiele verloren"]] <-
+      stats::setNames(pmax(0, spielt - aufstieg), names(meister))
   }
 
   je_team <- function(spalte) {
