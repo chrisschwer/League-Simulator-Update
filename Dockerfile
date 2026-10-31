@@ -27,12 +27,12 @@ WORKDIR /build
 # and re-runs only when Cargo.toml/Cargo.lock change, not on every code edit.
 COPY league-simulator-rust/Cargo.toml league-simulator-rust/Cargo.lock ./
 RUN mkdir src && echo 'fn main() {}' > src/main.rs \
-    && cargo build --release \
+    && cargo build --release --locked \
     && rm -rf src target/release/league-simulator-rust* target/release/deps/league_simulator_rust*
 
 COPY league-simulator-rust/src/ ./src/
 COPY league-simulator-rust/test_data/ ./test_data/
-RUN cargo build --release && strip target/release/league-simulator-rust
+RUN cargo build --release --locked && strip target/release/league-simulator-rust
 
 # ---- Stage 2: Build R library (binary packages from P3M) ----
 FROM rocker/r-ver:4.6.1 AS r-builder
