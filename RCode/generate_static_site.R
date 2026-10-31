@@ -31,6 +31,8 @@ source(file.path(.gss_dir, "league_registry.R"), local = TRUE)
 source(file.path(.gss_dir, "render_sections.R"), local = TRUE)
 # Verlaufsdaten je Liga (Issue #184).
 source(file.path(.gss_dir, "elo_verlauf.R"), local = TRUE)
+# Hingucker der Woche: Index und Auswahl der Spiele.
+source(file.path(.gss_dir, "hingucker.R"), local = TRUE)
 
 BLOG_URL <- "http://30punkte.wordpress.com"
 SITE_WORDMARK <- "30 Punkte"
@@ -39,6 +41,9 @@ SITE_TAGLINE <- paste0(
   "— nach jedem Spiel neu gerechnet."
 )
 STALE_THRESHOLD_HOURS <- 24
+
+# Die Hingucker-Seite ist keine Liga und steht wie Methodik neben der Ligaliste.
+.HINGUCKER_SLUG <- "hingucker"
 
 # The four nav destinations, in display order. Methodik has no league_views()
 # entry of its own (it carries no panels/heatmap), so it is appended as a
@@ -455,8 +460,11 @@ render_panel_table <- function(data_obj, panel, computed_obj = NULL,
     )
   }, character(1))
 
+  # Hingucker und Methodik sind keine Ligen: eine gruppenlose Zeile.
   methodik <- paste0(
     "<div class=\"nav-row\"><span class=\"nav-group\"></span>",
+    link(list(slug = .HINGUCKER_SLUG, nav_label = "Hingucker")),
+    "<span class=\"sep\">·</span>",
     link(list(slug = "methodik", nav_label = "Methodik")),
     "</div>"
   )
@@ -766,7 +774,7 @@ render_league_page <- function(view, data_env, output_dir,
   bekannt <- paste0(c(
     vapply(views, function(v) v$slug, character(1)),
     unlist(lapply(views, function(v) v$verlauf_slug)),
-    "methodik", "index"
+    "methodik", .HINGUCKER_SLUG, "index"
   ), ".html")
   kandidaten <- setdiff(list.files(output_dir, pattern = .SEITENNAME_MUSTER), bekannt)
   geloescht <- character(0)
@@ -1093,6 +1101,46 @@ render_verlauf_page <- function(view, daten, output_dir, now = Sys.time(),
   )
 
   out_path <- file.path(output_dir, "methodik.html")
+  .write_atomically(html, out_path)
+  invisible(out_path)
+}
+
+# Die Seite "Hingucker der Woche": die fuenf interessantesten offenen Spiele
+# der naechsten sieben Tage ueber alle gerenderten Ligen (siehe hingucker.R).
+# Sie entsteht in jedem Zyklus, auch ohne Spiele oder ohne league_data -- die
+# Navigation verlinkt sie immer, und eine Leermeldung ist besser als ein 404.
+.render_hingucker_page <- function(output_dir, views, data_env, league_data,
+                                   now = Sys.time(), mtime = now) {
+  .copy_assets(output_dir)
+
+  # Die Navigation verlinkt die Seite immer. Scheitert die Auswahl als Ganzes,
+  # entsteht sie deshalb mit einem Hinweis statt gar nicht (404).
+  kandidaten <- tryCatch(
+    hingucker_kandidaten(views, data_env, league_data, now = now),
+    error = function(e) {
+      warning(sprintf("generate_static_site: Hingucker-Auswahl gescheitert: %s",
+                      conditionMessage(e)), call. = FALSE)
+      structure(list(), fehler = TRUE)
+    }
+  )
+  fehler <- isTRUE(attr(kandidaten, "fehler"))
+  if (fehler) kandidaten <- NULL
+  message("generate_static_site: ", hingucker_logzeile(kandidaten))
+  inhalt <- render_hingucker(kandidaten, hingucker_fenster_text(now),
+                             anzahl = HINGUCKER_ANZAHL, fehler = fehler)
+
+  html <- paste0(
+    "<!doctype html>\n<html lang=\"de\">\n<head>\n",
+    .head_html("Hingucker der Woche"),
+    "</head>\n<body>\n<div class=\"wrap\">\n",
+    .masthead_html(.HINGUCKER_SLUG), "\n",
+    .stale_banner_html(), "\n",
+    inhalt,
+    .footer_html(mtime), "\n",
+    .stale_script, "\n</div>\n</body>\n</html>\n"
+  )
+
+  out_path <- file.path(output_dir, paste0(.HINGUCKER_SLUG, ".html"))
   .write_atomically(html, out_path)
   invisible(out_path)
 }
@@ -1454,10 +1502,24 @@ generate_static_site <- function(ergebnisse = NULL,
                                              mtime = now)
   }
 
+  # Scheitert nur diese Seite (kaputter Datensatz einer Liga), bleibt die
+  # Datei des letzten guten Zyklus stehen -- wie bei den Ligaseiten.
+  message("generate_static_site: rendering ", .HINGUCKER_SLUG)
+  hingucker_path <- tryCatch(
+    .render_hingucker_page(output_dir, views, data_env, league_data,
+                           now = now, mtime = now),
+    error = function(e) {
+      warning(sprintf("generate_static_site: Hingucker-Seite nicht geschrieben: %s",
+                      conditionMessage(e)), call. = FALSE)
+      character(0)
+    }
+  )
+
   message("generate_static_site: rendering methodik")
   methodik_path <- .render_methodik_page(output_dir, now = now, mtime = now)
 
-  paths <- c(unname(league_paths), unname(verlauf_paths), aufstiegs_path, methodik_path)
+  paths <- c(unname(league_paths), unname(verlauf_paths), aufstiegs_path,
+             hingucker_path, methodik_path)
 
   message(sprintf("generate_static_site: wrote %d pages to %s",
                   length(paths), output_dir))

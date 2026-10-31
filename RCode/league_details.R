@@ -505,6 +505,10 @@ build_league_page_data <- function(fixtures, teams,
 
     # matches: Details-Zeile i <-> Response-Index i-1 (positionsgleich).
     matches <- cbind(details, parsed$matches)
+    # Nachholspiel-Markierung auch hier: Rueckblick und Ausblick bekommen sie
+    # mit ihrem Fenster, `matches` (alle Spiele, z. B. fuer den Hingucker der
+    # Woche) hat kein Fenster und brauchte sie sonst selbst.
+    matches$nachholspiel <- nachholspiel_markierung(details)
 
     # tabelle: Grundgerüst aus build_league_table(), angereichert um Name
     # (id-Join, NIE positional), ELO (current_elos in Teams-Reihenfolge,

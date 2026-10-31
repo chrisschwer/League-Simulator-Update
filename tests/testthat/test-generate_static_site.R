@@ -332,8 +332,10 @@ test_that("generate_static_site rendert nur die Ligen, fuer die Daten vorliegen"
     now = as.POSIXct("2026-07-26 14:30:00", tz = "Europe/Berlin")
   )
 
-  expect_length(paths, 4)
-  for (f in c("index.html", "2-bundesliga.html", "3-liga.html", "methodik.html")) {
+  # Drei Ligen, Hingucker und Methodik.
+  expect_length(paths, 5)
+  for (f in c("index.html", "2-bundesliga.html", "3-liga.html", "hingucker.html",
+              "methodik.html")) {
     expect_true(file.exists(file.path(out, f)), info = f)
   }
   # Ohne Ergebnisse keine Seite -- die Datei darf nicht halb gefuellt
@@ -839,7 +841,7 @@ test_that("generate_static_site nimmt eine benannte Ergebnisliste", {
     )
   )
 
-  expect_length(paths, 4)
+  expect_length(paths, 5)
   expect_true(file.exists(file.path(out, "index.html")))
   expect_true(file.exists(file.path(out, "3-liga.html")))
 })
@@ -1064,7 +1066,7 @@ alle_ergebnisse <- function() {
   ergebnisse
 }
 
-test_that("generate_static_site schreibt zehn Liga-Seiten und die Methodik", {
+test_that("generate_static_site schreibt zehn Liga-Seiten, Hingucker und die Methodik", {
   gen <- source_module("generate_static_site")
   out <- withr::local_tempdir()
 
@@ -1074,12 +1076,12 @@ test_that("generate_static_site schreibt zehn Liga-Seiten und die Methodik", {
     ergebnisse = alle_ergebnisse()
   )
 
-  # Zehn Liga-Seiten, die Aufstiegsseite und Methodik.
-  expect_length(paths, 12)
+  # Zehn Liga-Seiten, die Aufstiegsseite, Hingucker und Methodik.
+  expect_length(paths, 13)
   for (f in c("index.html", "2-bundesliga.html", "3-liga.html",
               "frauen-bundesliga.html", "2-frauen-bundesliga.html",
               paste0(RL_SLUGS, ".html"),
-              paste0(AUFSTIEGSSEITE_SLUG, ".html"), "methodik.html")) {
+              paste0(AUFSTIEGSSEITE_SLUG, ".html"), "hingucker.html", "methodik.html")) {
     expect_true(file.exists(file.path(out, f)), info = f)
   }
 })

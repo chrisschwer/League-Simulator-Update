@@ -225,6 +225,22 @@ table.beispiel th{font-family:var(--sans);font-size:12px;font-weight:500;color:v
   text-align:left;padding:4px 22px 4px 0;border-bottom:1px solid var(--ink)}
 table.beispiel td{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;
   padding:5px 22px 5px 0;border-bottom:.5px solid var(--rule-soft)}
+/* Hingucker der Woche */
+.hingucker-liste{display:flex;flex-direction:column;gap:28px}
+.hingucker-spiel{border-top:1px solid var(--rule);padding-top:12px}
+.hg-kopf{display:flex;align-items:baseline;gap:12px;margin:0 0 2px;font-family:var(--sans);font-size:12px;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.hg-rang{font-family:var(--mono);font-size:20px;font-weight:500;letter-spacing:0;color:var(--ink)}
+.hingucker-spiel .match{border-bottom:none;padding-bottom:6px}
+.hg-einsatz{font-family:var(--sans);font-size:13.5px;color:var(--ink-2)}
+.hg-team{margin:2px 0;line-height:1.5}
+.hg-team strong{font-weight:600;color:var(--ink)}
+.hg-platz{margin-left:6px;color:var(--ink-3)}
+.hg-ziele{display:block}
+.hg-ziele b{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.hg-index{margin-top:8px;font-family:var(--sans);font-size:12px;color:var(--ink-3)}
+.hg-index summary{cursor:pointer}
+.hg-index p{margin:6px 0 0}
 table.beispiel td:first-child{font-family:var(--serif);font-size:15px}
 
 @media (max-width:760px){
