@@ -505,3 +505,45 @@ test_that("die RL-Seite traegt Zonenlinien und Fussnote", {
   expect_match(html, 'data-zonen="platz"', fixed = TRUE)
   expect_match(html, 'data-zone="abstieg"', fixed = TRUE)
 })
+
+# --- Aufstiegsverzicht (#320): keine Aufstiegszone an einem festen Platz ---
+
+mk_aufstieg_verzicht <- function(teams = 18L, verzichtet = "T1") {
+  df <- data.frame(Aufstieg = c(0, 1, numeric(teams - 2L)),
+                   row.names = paste0("T", seq_len(teams)))
+  attr(df, "verzichtet") <- verzichtet
+  df
+}
+
+test_that("verzichtet in einer Direktstaffel jemand, entfaellt die Aufstiegszone", {
+  gen <- source_module("generate_static_site")
+
+  for (key in c("rl_nordost", "rl_west", "rl_suedwest")) {
+    env <- new.env()
+    assign(paste0("Ergebnis_", key, "_abstieg"), mk_abstieg(18L), envir = env)
+    assign(paste0("Ergebnis_", key, "_aufstieg"), mk_aufstieg_verzicht(), envir = env)
+
+    zonen <- gen$rl_zonen(key, env)
+    expect_true(all(zonen$aufstieg == 0), info = key)
+    expect_identical(zonen$verzichtet, "T1", info = key)
+  }
+})
+
+test_that("ohne Verzicht bleibt die Aufstiegszone der Direktstaffel wie bisher", {
+  gen <- source_module("generate_static_site")
+  zonen <- gen$rl_zonen("rl_west", mk_env(Ergebnis_rl_west_abstieg = mk_abstieg(18L)))
+  expect_equal(zonen$aufstieg[1], 1)
+  expect_length(zonen$verzichtet, 0L)
+})
+
+test_that("die Fussnote nennt Verzicht und Nachruecken statt einer Aufstiegsliste", {
+  gen <- source_module("generate_static_site")
+  html <- gen$render_zonen_fussnote(
+    zonen = list(abstieg = numeric(18), aufstieg = numeric(18),
+                 verzichtet = "Verein 1"),
+    regel = "Regel."
+  )
+  expect_match(html, "Keine Aufstiegszone: Verein 1 verzichtet", fixed = TRUE)
+  expect_match(html, "rückt nach", fixed = TRUE)
+  expect_false(grepl("Aufstieg — Platz", html, fixed = TRUE))
+})
