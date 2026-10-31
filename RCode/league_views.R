@@ -223,6 +223,11 @@ league_views <- function() {
       teams = 18L,
       top = list(
         source = "Ergebnis_rl_nordost",
+        # Hat die Staffel Teams ohne Aufstiegsberechtigung (Verzicht, #320),
+        # liest das Panel stattdessen dieses Objekt: Aufstieg = P(erster
+        # Berechtigter). Ohne Verzicht gibt es das Objekt nicht, und es bleibt
+        # bei der Platzgruppe.
+        aufstieg_source = "Ergebnis_rl_nordost_aufstieg",
         filter_cols = 1L,
         labels = "Aufstieg",
         groups = cbind(c(1, 1))
@@ -241,6 +246,11 @@ league_views <- function() {
       teams = 18L,
       top = list(
         source = "Ergebnis_rl_west",
+        # Hat die Staffel Teams ohne Aufstiegsberechtigung (Verzicht, #320),
+        # liest das Panel stattdessen dieses Objekt: Aufstieg = P(erster
+        # Berechtigter). Ohne Verzicht gibt es das Objekt nicht, und es bleibt
+        # bei der Platzgruppe.
+        aufstieg_source = "Ergebnis_rl_west_aufstieg",
         filter_cols = 1L,
         labels = "Aufstieg",
         groups = cbind(c(1, 1))
@@ -259,6 +269,11 @@ league_views <- function() {
       teams = 18L,
       top = list(
         source = "Ergebnis_rl_suedwest",
+        # Hat die Staffel Teams ohne Aufstiegsberechtigung (Verzicht, #320),
+        # liest das Panel stattdessen dieses Objekt: Aufstieg = P(erster
+        # Berechtigter). Ohne Verzicht gibt es das Objekt nicht, und es bleibt
+        # bei der Platzgruppe.
+        aufstieg_source = "Ergebnis_rl_suedwest_aufstieg",
         filter_cols = 1L,
         labels = "Aufstieg",
         groups = cbind(c(1, 1))

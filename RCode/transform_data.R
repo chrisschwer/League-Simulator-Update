@@ -150,6 +150,74 @@ pruefe_kuerzel_vertrag <- function(teams) {
   verstoesse
 }
 
+#' Prueft die Spalten Erstvertretung_TeamID / Erstvertretung_ShortText.
+#'
+#' Die Spalten benennen zu jeder Zweitvertretung ihre Erstmannschaft (#322):
+#' ob diese nach der Saison in der 3. Liga spielt, entscheidet, ob die
+#' Reserve in der Regionalliga aufsteigen darf. Die API liefert die Zuordnung
+#' nicht, sie wird von Hand gepflegt -- und ein Fehler darin faellt nirgends
+#' sonst auf. Geprueft wird deshalb, was sich pruefen laesst:
+#'   - beide Spalten stehen zusammen oder gar nicht,
+#'   - die Erstvertretung-TeamID gibt es in der TeamList und ist nicht die
+#'     der Reserve selbst,
+#'   - der Erstvertretung_ShortText ist der Kurzname dieser TeamID (er ist
+#'     nur eine Lesehilfe; stimmt er nicht, passt die ID nicht zum gemeinten
+#'     Verein).
+#' Leere Zellen sind erlaubt: Nicht jede Zeile ist eine Zweitvertretung.
+#'
+#' Sammelnd, wie pruefe_kuerzel_vertrag(), damit der Saisonwechsel die
+#' Funktion spaeter fuer den Konfliktbericht nutzen kann.
+#'
+#' @param teams data.frame der TeamList.
+#' @return Character-Vektor der Verstoesse, leer wenn alles stimmt oder die
+#'   Spalten fehlen (TeamList vor #322).
+pruefe_erstvertretung <- function(teams) {
+  hat_id <- "Erstvertretung_TeamID" %in% names(teams)
+  hat_kurz <- "Erstvertretung_ShortText" %in% names(teams)
+  if (!hat_id && !hat_kurz) {
+    return(character(0))
+  }
+  if (hat_id != hat_kurz) {
+    return(sprintf(
+      "Spalte %s fehlt: Erstvertretung_TeamID und Erstvertretung_ShortText stehen zusammen",
+      if (hat_id) "Erstvertretung_ShortText" else "Erstvertretung_TeamID"
+    ))
+  }
+
+  id <- trimws(as.character(teams$Erstvertretung_TeamID))
+  kurz <- trimws(as.character(teams$Erstvertretung_ShortText))
+  id[is.na(id)] <- ""
+  kurz[is.na(kurz)] <- ""
+  eigene_id <- as.character(teams$TeamID)
+
+  verstoesse <- character(0)
+  for (i in which(id != "" | kurz != "")) {
+    name <- sprintf("%s (TeamID %s)", teams$ShortText[[i]], eigene_id[[i]])
+    if (id[[i]] == "") {
+      verstoesse <- c(verstoesse, sprintf(
+        "%s: Erstvertretung_ShortText %s ohne Erstvertretung_TeamID", name, kurz[[i]]
+      ))
+      next
+    }
+    ziel <- match(id[[i]], eigene_id)
+    if (is.na(ziel)) {
+      verstoesse <- c(verstoesse, sprintf(
+        "%s: Erstvertretung_TeamID %s kommt in der TeamList nicht vor", name, id[[i]]
+      ))
+    } else if (identical(id[[i]], eigene_id[[i]])) {
+      verstoesse <- c(verstoesse, sprintf(
+        "%s: Erstvertretung_TeamID %s ist die Zeile selbst", name, id[[i]]
+      ))
+    } else if (kurz[[i]] != as.character(teams$ShortText[[ziel]])) {
+      verstoesse <- c(verstoesse, sprintf(
+        "%s: Erstvertretung_ShortText '%s' passt nicht zur TeamID %s (dort: '%s')",
+        name, kurz[[i]], id[[i]], teams$ShortText[[ziel]]
+      ))
+    }
+  }
+  verstoesse
+}
+
 #' @param file_path Pfad zur TeamList-CSV (Semikolon-getrennt).
 #' @return data.frame der TeamList.
 load_team_list <- function(file_path) {
@@ -193,6 +261,13 @@ load_team_list <- function(file_path) {
       "load_team_list: %s verletzt den Kuerzel-Vertrag:\n  - %s",
       file_path, paste(verstoesse, collapse = "\n  - ")
     ), call. = FALSE)
+  }
+
+  # Die Erstvertretung-Zuordnung wird von Hand gepflegt. Ein Fehler darin
+  # WARNT, statt die ganze TeamList abzulehnen: Er betrifft nur die
+  # Aufstiegssperre der Regionalligen, nicht jede Liga.
+  for (v in pruefe_erstvertretung(teams)) {
+    warning(sprintf("load_team_list: %s: %s", file_path, v), call. = FALSE)
   }
 
   teams
@@ -422,6 +497,28 @@ transform_data <- function(fixtures, teams) {
 berechtigung_aus_teamlist <- function(spielplan, teams, liga, mit_sperre = TRUE) {
   kurznamen <- names(spielplan)[5:ncol(spielplan)]
   berechtigt <- rep(TRUE, length(kurznamen))
+
+  # Ein Verzicht bei einem Verein dieser Liga, dessen League-Spalte aber eine
+  # andere Liga nennt, wuerde vom Filter unten lautlos verworfen. Das meldet
+  # die Funktion, denn ein Verzicht wird selten und bewusst eingetragen.
+  # Geprueft werden nur Vereine, deren Kuerzel im Spielplan steht, die aber
+  # KEINE eigene Zeile in dieser Liga haben (Kuerzel sind nur je Liga
+  # eindeutig: RWE gibt es in Liga 80 und 85), und erst deren Verzichtswerte
+  # werden gelesen -- ein Tippfehler bei einem Verein einer anderen Liga darf
+  # diese Liga nicht lahmlegen.
+  if (!is.null(teams$League) && !is.null(teams$Aufstiegsverzicht)) {
+    in_liga <- as.character(teams$League) == as.character(liga)
+    ohne_eigene_zeile <- setdiff(kurznamen, teams$ShortText[which(in_liga)])
+    fremd <- which(!in_liga & teams$ShortText %in% ohne_eigene_zeile)
+    fremd <- fremd[.als_wahrheitswert(teams$Aufstiegsverzicht[fremd])]
+    if (length(fremd) > 0) {
+      warning(sprintf(
+        "Aufstiegsverzicht ignoriert: %s steht im Spielplan der Liga %s, aber mit League = %s in der TeamList.",
+        paste(teams$ShortText[fremd], collapse = ", "), liga,
+        paste(unique(teams$League[fremd]), collapse = ", ")
+      ), call. = FALSE)
+    }
+  }
 
   if (!is.null(teams$League)) {
     teams <- teams[as.character(teams$League) == as.character(liga), ]

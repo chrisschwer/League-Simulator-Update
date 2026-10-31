@@ -566,6 +566,14 @@ render_league_page <- function(view, data_env, output_dir,
     # relegation_spalten() liefert dann ein Objekt mit weniger Spalten),
     # entfaellt das berechnete Panel-Stueck ebenso -- die Pruefung gilt den
     # Spalten, nicht nur dem Objekt.
+    # Direktstaffel mit Aufstiegsverzicht (#320): Existiert das Objekt der
+    # Aufstiegsspalte, ersetzt es die Platzgruppe -- die Spalte heisst
+    # weiter "Aufstieg", gezaehlt wird aber der erste Berechtigte.
+    if (!is.null(panel$aufstieg_source) &&
+          exists(panel$aufstieg_source, envir = data_env, inherits = FALSE)) {
+      panel <- list(source = panel$aufstieg_source, computed = TRUE,
+                    labels = panel$labels)
+    }
     if (isTRUE(panel$computed_optional) && !is.null(panel$computed_source) &&
           !.berechnete_spalten_da(panel, data_env)) {
       panel <- .ohne_berechnete_spalten(panel)
@@ -918,8 +926,10 @@ render_verlauf_page <- function(view, daten, output_dir, now = Sys.time(),
 
 #' Die Siegquote einer Zeile als Prozenttext.
 #'
-#' Siegquote = P(Aufstieg) / P(Meister) -- die ueber den Gegner
-#' ausintegrierte Zweikampfquote.
+#' Siegquote = P(Aufstieg) / P(erster Berechtigter) -- die ueber den Gegner
+#' ausintegrierte Zweikampfquote. Ohne Verzicht ist der erste Berechtigte der
+#' Meister; mit Verzicht erbt ihn der naechste Berechtigte (ADR 0009). Der
+#' Aufrufer uebergibt den passenden Nenner im Argument `meister`.
 #'
 #' WO ES KEINE MEISTERCHANCE GIBT, BLEIBT DIE ZELLE LEER. Der Quotient ist
 #' dort 0/0, also undefiniert. Eine 0 waere eine Aussage ueber die
@@ -928,9 +938,10 @@ render_verlauf_page <- function(view, daten, output_dir, now = Sys.time(),
 #' waeren ein sichtbarer Rechenfehler auf einer veroeffentlichten Seite.
 #' Dieselbe Konvention wie in der Heatmap, wo eine Null-Zelle leer bleibt.
 #'
-#' Der Grenzfall P(Aufstieg) > 0 bei P(Meister) = 0 ist rechnerisch
-#' unmoeglich und deshalb ein Datenfehler -- auch er bleibt leer, statt eine
-#' Unendlichkeit auf die Seite zu bringen.
+#' Der Grenzfall P(Aufstieg) > 0 bei Nenner = 0 ist rechnerisch unmoeglich
+#' und deshalb ein Datenfehler -- auch er bleibt leer, statt eine
+#' Unendlichkeit auf die Seite zu bringen. (P(Aufstieg) > 0 bei P(Meister) = 0
+#' ist dagegen regulaer: ein Nachruecker.)
 #' Der Rueckgabewert ist der von prozent() -- also die Zahl, das Haekchen
 #' oder "<1" --, nur der undefinierte Fall wird zu "". So bleibt die
 #' Formatierung an EINER Stelle; eine eigene Umwandlung in Text hier haette
@@ -949,12 +960,20 @@ render_verlauf_page <- function(view, daten, output_dir, now = Sys.time(),
 #' der Quotient ist dann trivial 1 und sagt nichts. Die Zelle bleibt leer,
 #' wie ueberall sonst, wo das Modell zu einer Frage nichts weiss.
 .aufstiegs_zeile <- function(team, meister, aufstieg, quote_zeigen,
-                             namen = NULL) {
-  quote <- if (quote_zeigen) .siegquote(aufstieg, meister) else ""
+                             namen = NULL, erster = meister,
+                             verzichtet = FALSE) {
+  # Ein Team, das auf den Aufstieg verzichtet, hat nicht "0 %" Chance,
+  # sondern keine: Die Zelle sagt es (#320). Auch die Siegquote entfaellt.
+  quote <- if (quote_zeigen && !verzichtet) .siegquote(aufstieg, erster) else ""
+  aufstieg_zelle <- if (verzichtet) {
+    "verzichtet"
+  } else {
+    as.character(prozent(aufstieg))
+  }
   paste0(
     "<tr><th scope=\"row\">", .kuerzel_html(team, namen), "</th>",
     "<td>", htmltools::htmlEscape(as.character(prozent(meister))), "</td>",
-    "<td>", htmltools::htmlEscape(as.character(prozent(aufstieg))), "</td>",
+    "<td>", htmltools::htmlEscape(aufstieg_zelle), "</td>",
     "<td>", htmltools::htmlEscape(quote), "</td></tr>"
   )
 }
@@ -969,7 +988,8 @@ render_verlauf_page <- function(view, daten, output_dir, now = Sys.time(),
 #' Nur Teams mit einer Meister- ODER Aufstiegschance stehen in der Tabelle.
 #' Achtzehn Zeilen, von denen fuenfzehn "0 0" zeigen, beantworten keine Frage.
 .aufstiegs_tabelle <- function(staffel, titel, meister, aufstieg,
-                               quote_zeigen, namen = NULL) {
+                               quote_zeigen, namen = NULL,
+                               erster = meister, verzichtet = character(0)) {
   teams <- names(meister)
   zeigen <- meister > 0 | aufstieg[teams] > 0
   teams <- teams[zeigen]
@@ -980,7 +1000,8 @@ render_verlauf_page <- function(view, daten, output_dir, now = Sys.time(),
 
   zeilen <- vapply(teams, function(team) {
     .aufstiegs_zeile(team, meister[[team]], aufstieg[[team]], quote_zeigen,
-                     namen)
+                     namen, erster = erster[[team]],
+                     verzichtet = team %in% verzichtet)
   }, character(1))
 
   paste0(
@@ -1015,7 +1036,9 @@ render_verlauf_page <- function(view, daten, output_dir, now = Sys.time(),
     }
     .aufstiegs_tabelle(staffel, daten$titel, daten$meister, daten$aufstieg,
                        quote_zeigen = isTRUE(daten$playoff),
-                       namen = daten$namen)
+                       namen = daten$namen,
+                       erster = daten$erster_berechtigter,
+                       verzichtet = daten$verzichtet)
   }, character(1))
   hat_namen <- any(vapply(aufstiegsdaten, function(d) !is.null(d$namen),
                           logical(1)))
@@ -1033,7 +1056,10 @@ render_verlauf_page <- function(view, daten, output_dir, now = Sys.time(),
     "Drei Staffeln stellen ihren Aufsteiger direkt, die beiden übrigen ",
     "ermitteln den vierten in zwei Aufstiegsspielen gegeneinander. ",
     "<em>Meister</em> ist die Wahrscheinlichkeit, die Staffel zu gewinnen, ",
-    "<em>Aufstieg</em> die, danach auch in der 3. Liga zu stehen. Die ",
+    "<em>Aufstieg</em> die, danach auch in der 3. Liga zu stehen. Beides ",
+    "kann auseinanderfallen: Verzichtet ein Meister oder darf er nicht ",
+    "aufsteigen, rückt der nächste berechtigte Verein nach, und dessen ",
+    "<em>Aufstieg</em> kann höher sein als sein <em>Meister</em>. Die ",
     "<em>Siegquote</em> ist der Anteil davon, also die Chance in den ",
     "Aufstiegsspielen; wo direkt aufgestiegen wird, gibt es sie nicht.</p>\n",
     paste0(tabellen, collapse = ""),
@@ -1223,18 +1249,39 @@ render_verlauf_page <- function(view, daten, output_dir, now = Sys.time(),
     names(meister) <- rownames(prognose)
 
     quelle <- view$top$computed_source
+    # Die Aufstiegsspalte einer Direktstaffel mit Verzicht (#320) steht unter
+    # `aufstieg_source`; ohne Verzicht gibt es sie nicht.
+    direkt_quelle <- view$top$aufstieg_source
+    spalten_objekt <- NULL
     if (is.null(quelle)) {
-      # Direktaufstieg: beide Groessen fallen zusammen. Kein Umweg ueber ein
-      # eigenes Objekt -- er lieferte exakt dieselbe Zahl.
-      aufstieg <- meister
+      if (!is.null(direkt_quelle) &&
+            exists(direkt_quelle, envir = data_env, inherits = FALSE)) {
+        # Direktaufstieg mit Verzicht: P(Aufstieg) = P(erster Berechtigter),
+        # die Meisterchance bleibt die der Tabelle.
+        spalten_objekt <- get(direkt_quelle, envir = data_env)
+        spalte <- .computed_spalten(spalten_objekt, "Aufstieg", ".aufstiegsdaten")
+        aufstieg <- spalte[, "Aufstieg"]
+        names(aufstieg) <- rownames(spalte)
+      } else {
+        # Direktaufstieg: beide Groessen fallen zusammen. Kein Umweg ueber ein
+        # eigenes Objekt -- er lieferte exakt dieselbe Zahl.
+        aufstieg <- meister
+      }
       playoff <- FALSE
     } else {
-      spalte <- .computed_spalten(get(quelle, envir = data_env), "Aufstieg",
-                                  ".aufstiegsdaten")
+      spalten_objekt <- get(quelle, envir = data_env)
+      spalte <- .computed_spalten(spalten_objekt, "Aufstieg", ".aufstiegsdaten")
       aufstieg <- spalte[, "Aufstieg"]
       names(aufstieg) <- rownames(spalte)
       playoff <- TRUE
     }
+    # Nenner der Siegquote: P(erster Berechtigter). Ohne Verzicht ist das
+    # P(Meister).
+    erster <- attr(spalten_objekt, "p_erster_berechtigter")
+    if (is.null(erster)) {
+      erster <- meister
+    }
+    verzichtet <- attr(spalten_objekt, "verzichtet")
 
     fehlend <- setdiff(names(meister), names(aufstieg))
     if (length(fehlend)) {
@@ -1251,6 +1298,8 @@ render_verlauf_page <- function(view, daten, output_dir, now = Sys.time(),
       titel = reg[[key]]$display_name,
       meister = meister,
       aufstieg = aufstieg[names(meister)],
+      erster_berechtigter = erster[names(meister)],
+      verzichtet = if (is.null(verzichtet)) character(0) else verzichtet,
       playoff = playoff,
       # Kuerzel -> Name aus der Ligatabelle DIESER Staffel (Tooltips).
       namen = .teamnamen(league_data[[key]])

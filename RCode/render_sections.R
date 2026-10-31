@@ -220,8 +220,18 @@ rl_zonen <- function(view_key, data_env) {
   }
   teams <- length(platz_abstieg)
 
+  # Verzichtet in dieser Staffel ein Verein (#320), steigt nicht mehr "Platz 1"
+  # auf, sondern der erste Berechtigte, und wer das ist, entscheidet sich
+  # erst am Saisonende. Eine Aufstiegszone an einem festen Platz behauptete
+  # dann etwas anderes als Aufstiegsseite und Panel; sie entfaellt, und die
+  # Fussnote nennt das Nachruecken.
+  verzichtet <- attr(hole(.ergebnis_objektname(paste0(view_key, "_aufstieg"))),
+                     "verzichtet")
+
   aufstieg <- numeric(teams)
-  if (isTRUE(eintrag$promotion_slots >= 1L)) {
+  if (length(verzichtet) > 0L) {
+    # Keine Aufstiegszone.
+  } else if (isTRUE(eintrag$promotion_slots >= 1L)) {
     # Direkter Aufstiegsplatz: keine Wahrscheinlichkeit im Spiel.
     aufstieg[seq_len(min(eintrag$promotion_slots, teams))] <- 1
   } else {
@@ -238,7 +248,8 @@ rl_zonen <- function(view_key, data_env) {
     # NULL statt Nullvektor: "gibt es nicht" und "moeglich, gerade null" sind
     # verschiedene Aussagen -- nur Bayern hat eine Abstiegsrelegation.
     relegation = attr(abstiegsobjekt, "platz_relegation"),
-    aufstieg = aufstieg
+    aufstieg = aufstieg,
+    verzichtet = as.character(verzichtet)
   )
 }
 
@@ -328,7 +339,20 @@ render_zonen_fussnote <- function(zonen, regel) {
     character(0)
   }
 
+  verzichtssatz <- if (length(zonen$verzichtet) > 0L) {
+    paste0(
+      "Keine Aufstiegszone: ",
+      paste(zonen$verzichtet, collapse = ", "),
+      if (length(zonen$verzichtet) > 1L) " verzichten" else " verzichtet",
+      " auf den Aufstieg, der n\u00e4chste berechtigte Verein r\u00fcckt nach ",
+      "(Wahrscheinlichkeiten siehe Aufstiegsseite)."
+    )
+  } else {
+    character(0)
+  }
+
   saetze <- c(
+    verzichtssatz,
     eintrag(zonen$aufstieg, "aufstieg", "Aufstieg"),
     eintrag(zonen$relegation, "relegation", "Relegation"),
     eintrag(zonen$abstieg, "abstieg", "Abstieg")
