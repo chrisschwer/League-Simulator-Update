@@ -70,21 +70,25 @@ Die Kopplung beruht auf dokumentierten Annahmen
         sind ausgelassen.
 \end{itemize}
 
-\subsection{Abstieg eines Zweitligisten und Aufstieg seiner Reserve}
+\subsection{Aufstiegssperre: was nicht abgebildet ist}
 
-Der gleichzeitige Abstieg eines Zweitligisten in die 3.~Liga und Aufstieg
-seiner Zweitvertretung aus der Regionalliga wird bisher nicht
-berücksichtigt. Nach §\,55b Nr.~3.1 der DFB-Spielordnung entfiele das
-Aufstiegsrecht der Zweitvertretung in diesem Fall, weil ihr Verein im
-kommenden Spieljahr schon mit einer Mannschaft in der 3.~Liga spielt. Dann
-wäre der Nächstplatzierte ihrer Staffel aufstiegsberechtigt (ADR~0008).
+Die Sperre einer Reserve durch den Abstieg ihres Zweitligisten ist abgebildet
+(Abschnitt~\ref{sec:malus}). Nicht abgebildet sind drei Folgefälle:
 
-Das Modell rechnet die Regionalligen ohne Malus-Lauf
-(Abschnitt~\ref{sec:malus}). Um den Fall abzubilden, müsste es die
-Simulation der 2.~Bundesliga mit der der Regionalliga koppeln. Die
-Größenordnung ist klein: Nach einer Abschätzung vom 17.~Oktober 2026 liegt
-die Wahrscheinlichkeit bei rund 1~Prozent, und praktisch betrifft sie nur
-Hannover~96~II in der Regionalliga Nord.
+\begin{itemize}
+  \item \emph{Erstmannschaften, die heute in der 3.~Liga spielen.} Ob ihre
+        Reserve aufsteigen darf, hängt dann an Aufstieg, Klassenerhalt oder
+        Abstieg der Erstmannschaft. Die Spalten
+        \code{Erstvertretung\_TeamID} sind dafür vorbereitet, aktuell betrifft
+        es keine aktive Regionalliga-Reserve.
+  \item \emph{Nachrücken.} Das Regelwerk schweigt dazu, ob bei einer Sperre
+        oder einem Verzicht der nächste Berechtigte nachrückt, auch in die
+        Aufstiegsspiele. Das Modell nimmt es an.
+  \item \emph{Abstiegsfolgen.} Dass eine gesperrte oder verzichtende Mannschaft
+        die Zahl der Absteiger verringern kann (zum Beispiel Nordost, A.~Nr.~6),
+        und die Abstiegsfolge für Reserven in Bayern und West sind nicht
+        modelliert.
+\end{itemize}
 
 \subsection{Keine Prognose-Historie}
 

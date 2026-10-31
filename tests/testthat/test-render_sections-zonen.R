@@ -547,3 +547,37 @@ test_that("die Fussnote nennt Verzicht und Nachruecken statt einer Aufstiegslist
   expect_match(html, "rückt nach", fixed = TRUE)
   expect_false(grepl("Aufstieg — Platz", html, fixed = TRUE))
 })
+
+# --- Dynamische Aufstiegssperre (#322): Platz 1 steigt nur auf, wenn der Meister nicht gesperrt ist ---
+
+test_that("die Aufstiegszone von Platz 1 sinkt um die Wahrscheinlichkeit eines gesperrten Meisters", {
+  gen <- source_module("generate_static_site")
+  prognose <- matrix(0, 18, 18, dimnames = list(paste0("T", 1:18), as.character(1:18)))
+  prognose[, 1] <- c(0.5, 0.3, 0.2, numeric(15))   # P(Meister)
+  aufstieg <- mk_aufstieg(18L, 1)
+  attr(aufstieg, "sperr_risiko") <- c(T1 = 0.4, T3 = 0.1)
+
+  env <- new.env()
+  assign("Ergebnis_rl_west", prognose, envir = env)
+  assign("Ergebnis_rl_west_abstieg", mk_abstieg(18L), envir = env)
+  assign("Ergebnis_rl_west_aufstieg", aufstieg, envir = env)
+  zonen <- gen$rl_zonen("rl_west", env)
+
+  # 1 - (0,5 * 0,4 + 0,2 * 0,1) = 0,78
+  expect_equal(zonen$aufstieg[1], 0.78, tolerance = 1e-12)
+  expect_true(all(zonen$aufstieg[-1] == 0))
+  expect_true(zonen$gesperrt)
+
+  html <- gen$render_zonen_fussnote(zonen, "Regel.")
+  expect_match(html, "Platz 1 steigt auf, sofern der Meister nicht", fixed = TRUE)
+  expect_match(html, "78", fixed = TRUE)
+})
+
+test_that("ohne Sperrrisiko bleibt Platz 1 ein sicherer Aufstieg", {
+  gen <- source_module("generate_static_site")
+  env <- new.env()
+  assign("Ergebnis_rl_west_abstieg", mk_abstieg(18L), envir = env)
+  zonen <- gen$rl_zonen("rl_west", env)
+  expect_equal(zonen$aufstieg[1], 1)
+  expect_false(zonen$gesperrt)
+})

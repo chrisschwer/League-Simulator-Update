@@ -323,6 +323,10 @@ Beim Saisonwechsel zu prüfen: Hinspiel-Heimrecht gegen die Spielordnung der neu
 
 Verzichtet ein Verein (TeamList-Spalte `Aufstiegsverzicht`), rückt der **nächste Berechtigte der Abschlusstabelle** nach, auch in die Aufstiegsspiele Nord–Bayern. Das Regelwerk schweigt zum Nachrücken; es ist eine Annahme. **Nicht modelliert:** Ein Verzicht kann die Zahl der Absteiger verringern (Nordost A. Nr. 6); die Abstiegsrechnung ignoriert das.
 
+### 5.10 Dynamische Aufstiegssperre der Reserven — *modelliert, mit Annahmen* (#322)
+
+Eine Regionalliga-Reserve ist gesperrt, wenn ihre Erstmannschaft nächste Saison in der 3. Liga spielt. Für Zweitliga-Erstmannschaften rechnet das Modell die Sperre exakt als Mischung über die gemeinsame Verteilung der abgestiegenen Teams (ADR 0009, Nachtrag). Annahmen: (1) Der Sechzehnte der 2. Bundesliga verliert die Relegation mit der Quote aus 5.8, also mit aktueller ELO. (2) Bei Sperre rückt der nächste Berechtigte nach (siehe 5.9). (3) Nicht modelliert sind Erstmannschaften, die heute in der 3. Liga spielen (keine aktive Reserve betroffen), und die Abstiegsfolgen der Sperre für Reserven in Bayern und West. (4) Die Zuordnung Reserve → Erstmannschaft ist von Hand gepflegt (`Erstvertretung_TeamID`); `load_team_list()` warnt bei Unstimmigkeiten.
+
 ## 6. Beim Saisonwechsel zu prüfen
 
 Diese Werte sind **jahresabhängig** und stehen nicht in einer Ordnung, aus der

@@ -1015,6 +1015,36 @@ render_verlauf_page <- function(view, daten, output_dir, now = Sys.time(),
   )
 }
 
+# Fussnote zur dynamischen Aufstiegssperre (#322): je betroffener Reserve die
+# Wahrscheinlichkeit, dass ihre Erstmannschaft in der 3. Liga spielt und sie
+# deshalb nicht aufsteigen darf. Leer, wenn keine Reserve ein Risiko traegt.
+.sperr_fussnote <- function(aufstiegsdaten) {
+  teile <- character(0)
+  for (daten in aufstiegsdaten) {
+    risiko <- daten$sperr_risiko
+    risiko <- risiko[!is.na(risiko) & risiko > 0]
+    for (team in names(risiko)) {
+      name <- if (!is.null(daten$namen[[team]])) daten$namen[[team]] else team
+      p <- round(100 * risiko[[team]])
+      teile <- c(teile, sprintf(
+        "%s %s", htmltools::htmlEscape(name),
+        if (p < 1) "&lt;1&nbsp;%" else paste0(p, "&nbsp;%")
+      ))
+    }
+  }
+  if (length(teile) == 0L) {
+    return("")
+  }
+  paste0(
+    "<p class=\"legend\">Aufstiegssperre: Eine Reserve darf nicht in die ",
+    "3. Liga aufsteigen, wenn ihre Erstmannschaft dort spielt. Die ",
+    "Aufstiegswerte oben berücksichtigen, dass die Erstmannschaft noch aus der ",
+    "2. Bundesliga absteigen kann (auch über die Relegation). ",
+    "Wahrscheinlichkeit, dass die Reserve gesperrt ist: ",
+    paste(teile, collapse = ", "), ".</p>\n"
+  )
+}
+
 #' Rendert die Seite "Aufstieg in die 3. Liga".
 #'
 #' @param view Die Ansicht aus league_views()[["rl-aufstieg"]].
@@ -1065,6 +1095,7 @@ render_verlauf_page <- function(view, daten, output_dir, now = Sys.time(),
     paste0(tabellen, collapse = ""),
     "<p class=\"legend\">Angaben in Prozent. Leer = in keiner Simulation ",
     "eingetreten, &lt;1 = unter einem Prozent.</p>\n",
+    .sperr_fussnote(aufstiegsdaten),
     "</section>\n",
     .footer_html(mtime), "\n",
     .stale_script, "\n",
@@ -1311,6 +1342,9 @@ render_verlauf_page <- function(view, daten, output_dir, now = Sys.time(),
       aufstieg = aufstieg[names(meister)],
       erster_berechtigter = erster[names(meister)],
       verzichtet = if (is.null(verzichtet)) character(0) else verzichtet,
+      # P(gesperrt) je Reserve, wenn ihre Erstmannschaft in der 2. Bundesliga
+      # spielt und erst der Abstieg die Sperre entscheidet (#322).
+      sperr_risiko = attr(spalten_objekt, "sperr_risiko"),
       playoff = playoff,
       # Kuerzel -> Name aus der Ligatabelle DIESER Staffel (Tooltips).
       namen = .teamnamen(league_data[[key]])

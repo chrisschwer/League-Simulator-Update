@@ -189,6 +189,50 @@ aufstiegswahrscheinlichkeit <- function(p_meister_x, p_meister_y, p_sieg) {
   p
 }
 
+#' Aufstiegswahrscheinlichkeit ueber die Aufstiegsspiele, GEMEINSAM ueber die
+#' Sperr-Masken beider Staffeln.
+#'
+#' Die Staffeln sind unabhaengig, ihre Sperren aber nicht: Nord und Bayern
+#' haengen an derselben 2. Bundesliga (#322). Statt mit den Randverteilungen
+#' des ersten Berechtigten wird je Maskenpaar (jx, jy) gerechnet und mit der
+#' gemeinsamen Wahrscheinlichkeit W[jx, jy] gewichtet:
+#'
+#'   P(x steigt auf) = SUMME_jx,jy W[jx,jy] * P(x erster | jx)
+#'                     * SUMME_y P(y erster | jy) * P(x gewinnt gegen y)
+#'
+#' Mit W = outer(Randverteilungen) ist das die unabhaengige Doppelsumme.
+#'
+#' @param erster_x Matrix Teams x Masken von X: P(Rang 1 unter den
+#'   Berechtigten | Maske), rownames = Teams.
+#' @param erster_y Dito fuer Y.
+#' @param gewichte Matrix (Masken von X) x (Masken von Y), Summe 1.
+#' @param p_sieg Matrix mit dimnames: p_sieg[x, y] = P(x setzt sich durch).
+#' @return Benannter Vektor je Team von X.
+aufstiegswahrscheinlichkeit_gemeinsam <- function(erster_x, erster_y, gewichte,
+                                                  p_sieg) {
+  p_sieg <- as.matrix(p_sieg)
+  if (is.null(rownames(p_sieg)) || is.null(colnames(p_sieg)) ||
+        is.null(rownames(erster_x)) || is.null(rownames(erster_y))) {
+    stop("aufstiegswahrscheinlichkeit_gemeinsam: Zuordnung nur ueber Namen.",
+         call. = FALSE)
+  }
+  if (!all(dim(gewichte) == c(ncol(erster_x), ncol(erster_y)))) {
+    stop("aufstiegswahrscheinlichkeit_gemeinsam: Gewichte passen nicht zu den Masken.",
+         call. = FALSE)
+  }
+  fehlend <- c(setdiff(rownames(erster_x), rownames(p_sieg)),
+               setdiff(rownames(erster_y), colnames(p_sieg)))
+  if (length(fehlend)) {
+    stop(sprintf("aufstiegswahrscheinlichkeit_gemeinsam: keine Quote fuer: %s.",
+                 paste(fehlend, collapse = ", ")), call. = FALSE)
+  }
+  block <- p_sieg[rownames(erster_x), rownames(erster_y), drop = FALSE]
+  gegner <- block %*% erster_y            # Teams x Masken von Y
+  p <- rowSums((erster_x %*% gewichte) * gegner)
+  names(p) <- rownames(erster_x)
+  p
+}
+
 # --- Die ganze Kette -------------------------------------------------------
 
 #' Aufstiegsprognose einer Regionalliga-Staffel.
@@ -211,10 +255,14 @@ aufstiegswahrscheinlichkeit <- function(p_meister_x, p_meister_y, p_sieg) {
 #'   Staffel, b = Teams der spaeteren, dieselbe Orientierung wie p_sieg.
 #'   Ein explizit uebergebenes p_sieg hat Vorrang; liegt beides nicht vor,
 #'   bricht die Funktion ab.
+#' @param sperrgewichte Optional: Matrix der gemeinsamen Gewichte der
+#'   Sperr-Masken, Zeilen = Masken der gefragten Staffel, Spalten = Masken
+#'   des Gegners (rl_sperre.R). Tragen beide Prognosen `erster_je_maske`, wird
+#'   die Doppelsumme gemeinsam gerechnet; sonst mit den Randverteilungen.
 #' @return data.frame mit rownames = Teams und der Spalte "Aufstieg".
 rl_aufstiegsprognose <- function(staffel, prognosen, season, p_sieg = NULL,
                                  rotation = AUFSTIEGSROTATION,
-                                 paarungen = NULL) {
+                                 paarungen = NULL, sperrgewichte = NULL) {
   staffel <- pruefe_staffel(staffel, "rl_aufstiegsprognose")
   modus <- aufstiegsmodus(season, rotation)
 
@@ -306,9 +354,15 @@ rl_aufstiegsprognose <- function(staffel, prognosen, season, p_sieg = NULL,
     p_sieg <- 1 - t(p_sieg)
   }
 
-  p <- aufstiegswahrscheinlichkeit(
-    p_meister, erster_berechtigter(prognose_gegner), p_sieg
-  )
+  erster_x <- attr(prognose, "erster_je_maske")
+  erster_y <- attr(prognose_gegner, "erster_je_maske")
+  p <- if (!is.null(sperrgewichte) && !is.null(erster_x) && !is.null(erster_y)) {
+    aufstiegswahrscheinlichkeit_gemeinsam(erster_x, erster_y, sperrgewichte, p_sieg)
+  } else {
+    aufstiegswahrscheinlichkeit(
+      p_meister, erster_berechtigter(prognose_gegner), p_sieg
+    )
+  }
   .aufstiegsspalte(p, p_meister, prognose)
 }
 
@@ -320,6 +374,8 @@ rl_aufstiegsprognose <- function(staffel, prognosen, season, p_sieg = NULL,
   d <- data.frame(Aufstieg = p, row.names = names(p))
   attr(d, "p_erster_berechtigter") <- p_erster
   attr(d, "verzichtet") <- nicht_berechtigt(prognose)
+  # P(gesperrt) je Reserve der Staffel (dynamische Sperre, #322); NULL ohne.
+  attr(d, "sperr_risiko") <- attr(prognose, "sperr_risiko")
   d
 }
 
@@ -371,6 +427,12 @@ erster_berechtigter <- function(prognose) {
 #' Die Teams ohne Aufstiegsberechtigung: Zeilen ohne jede Masse im Rang unter
 #' den Berechtigten. Leer, wenn die Prognose kein solches Attribut traegt.
 nicht_berechtigt <- function(prognose) {
+  # Nach der Sperrmischung (rl_sperre.R) tragen auch sicher Gesperrte ueberall
+  # null; die Verzichtenden hat mit_sperrmischung() vorher festgehalten.
+  basis <- attr(prognose, "verzichtet_basis")
+  if (!is.null(basis)) {
+    return(basis)
+  }
   rang <- attr(prognose, "eligible_rank_probabilities")
   if (is.null(rang)) {
     return(character(0))
