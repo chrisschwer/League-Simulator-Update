@@ -599,11 +599,12 @@ test_that("update_all_leagues_loop has no machine-specific default output direct
 # leagueSimulatorRust() faellt fuer jede Liga in Registry-Reihenfolge an --
 # genau wie in run_loop_capturing() aus test-update_all_leagues_loop.R. Um einen
 # Aufruf seiner Liga zuzuordnen, wird die Aufrufreihenfolge an
-# active_league_keys() (plus, wo has_promotion_restriction() gilt, ein
-# zweiter Malus-Aufruf direkt danach) ausgerichtet -- leagueSimulatorRust()
-# selbst bekommt keine Liga-ID uebergeben.
+# active_league_keys() ausgerichtet (ein Aufruf je Liga; die Ligen mit
+# Aufstiegssperre tragen seit ADR 0009 eine Berechtigungsmaske im selben Lauf
+# statt eines zweiten Malus-Laufs) -- leagueSimulatorRust() selbst bekommt
+# keine Liga-ID uebergeben.
 
-test_that("das Frauen-Tormodell erreicht beide leagueSimulatorRust-Aufrufe (Liga 82 vs. 78)", {
+test_that("das Frauen-Tormodell erreicht die leagueSimulatorRust-Aufrufe der Frauen-Ligen (82, 1034) und nur diese", {
   reg <- new.env()
   source(file.path("..", "..", "RCode", "league_registry.R"), local = reg)
   liga_keys <- reg$active_league_keys()
@@ -611,16 +612,8 @@ test_that("das Frauen-Tormodell erreicht beide leagueSimulatorRust-Aufrufe (Liga
     vapply(reg$active_leagues(), function(l) l$api_id, character(1)),
     liga_keys
   )
-  hat_malus <- stats::setNames(
-    vapply(liga_ids, reg$has_promotion_restriction, logical(1)),
-    liga_keys
-  )
-
-  # Erwartete Aufrufreihenfolge: je Liga ein Hauptlauf-Call, direkt gefolgt
-  # von einem Malus-Call, wo has_promotion_restriction() TRUE ist.
-  erwartete_reihenfolge <- unlist(lapply(liga_keys, function(k) {
-    if (hat_malus[[k]]) c(k, k) else k
-  }))
+  # Erwartete Aufrufreihenfolge: ein Hauptlauf-Call je Liga.
+  erwartete_reihenfolge <- liga_keys
 
   calls <- list()
   stub(update_all_leagues_loop, "connect_rust_simulator", function() TRUE)
@@ -660,14 +653,14 @@ test_that("das Frauen-Tormodell erreicht beide leagueSimulatorRust-Aufrufe (Liga
   expect_null(herren_call$toreSlope)
   expect_null(herren_call$toreIntercept)
 
-  # 2. Frauen-Bundesliga (1034) hat has_promotion_restriction (ADR 0002-Regel
-  # "Zweitvertretungen duerfen nicht aufsteigen") -- ihr Malus-Lauf
-  # (Aufrufstelle 2, :284) muss dasselbe Tormodell tragen wie ihr Hauptlauf.
+  # 2. Frauen-Bundesliga (1034): ein Lauf, der zugleich die Berechtigungsmaske
+  # traegt -- dasselbe Tormodell wie ihre Hauptprognose.
   zweite_frauen_idx <- which(erwartete_reihenfolge == "zweite_frauen_bundesliga")
-  expect_length(zweite_frauen_idx, 2) # Hauptlauf und Malus-Lauf
+  expect_length(zweite_frauen_idx, 1)
   for (idx in zweite_frauen_idx) {
     expect_equal(calls[[idx]]$toreSlope, 0.0024058833, info = paste("Aufruf", idx))
     expect_equal(calls[[idx]]$toreIntercept, 1.6527603153, info = paste("Aufruf", idx))
+    expect_false(is.null(calls[[idx]]$eligibilityMasks), info = paste("Aufruf", idx))
   }
 })
 
@@ -1024,7 +1017,7 @@ malus_teamlist_datei <- function() {
   pfad
 }
 
-test_that("der Malus folgt der Spalte Promotion, nicht dem Kuerzel-Suffix", {
+test_that("die Berechtigungsmaske folgt der Spalte Promotion, nicht dem Kuerzel-Suffix", {
   teamlist <- malus_teamlist_datei()
   tl <- utils::read.csv(teamlist, sep = ";", stringsAsFactors = FALSE)
   gesehen <- list()
@@ -1051,15 +1044,16 @@ test_that("der Malus folgt der Spalte Promotion, nicht dem Kuerzel-Suffix", {
     df
   })
   stub(update_all_leagues_loop, "leagueSimulatorRust",
-       function(spielplan, n, adjPoints = NULL, ...) {
-         if (!is.null(adjPoints)) {
-           gesehen[[length(gesehen) + 1L]] <<- stats::setNames(
-             as.numeric(adjPoints), names(spielplan)[5:ncol(spielplan)]
-           )
-         }
+       function(spielplan, n, eligibilityMasks = NULL, ...) {
          m <- matrix(1 / length(MALUS_TEAMS),
                      nrow = length(MALUS_TEAMS), ncol = length(MALUS_TEAMS))
          rownames(m) <- names(spielplan)[5:ncol(spielplan)]
+         if (!is.null(eligibilityMasks)) {
+           gesehen[[length(gesehen) + 1L]] <<- stats::setNames(
+             as.logical(eligibilityMasks[[1]]), names(spielplan)[5:ncol(spielplan)]
+           )
+           attr(m, "eligible_rank_probabilities") <- list(m)
+         }
          m
        })
   stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
@@ -1076,15 +1070,15 @@ test_that("der Malus folgt der Spalte Promotion, nicht dem Kuerzel-Suffix", {
   expect_gt(length(gesehen), 0)
   adj <- gesehen[[1]]
 
-  expect_identical(adj[["HOZA"]], -50,
-                   info = "HO2A-Fall: gepflegter Malus ohne '2' am Ende")
-  expect_identical(adj[["TST2"]], 0,
-                   info = "'2'-Suffix ohne gepflegten Malus bleibt ohne Abzug")
-  expect_identical(adj[["AAA"]], 0)
-  expect_identical(adj[["BBB"]], 0)
+  expect_identical(adj[["HOZA"]], FALSE,
+                   info = "HO2A-Fall: gepflegte Sperre ohne '2' am Ende")
+  expect_identical(adj[["TST2"]], TRUE,
+                   info = "'2'-Suffix ohne gepflegte Sperre bleibt berechtigt")
+  expect_identical(adj[["AAA"]], TRUE)
+  expect_identical(adj[["BBB"]], TRUE)
 })
 
-test_that("ein Team ohne Zeile in der TeamList bekommt keinen erfundenen Malus", {
+test_that("ein Team ohne Zeile in der TeamList gilt als berechtigt, nicht als NA", {
   # Die Zuordnung geht ueber den Kurznamen. Findet sie ein Team nicht --
   # eine unvollstaendige TeamList --, bleibt der Abzug 0, statt dass NA in
   # die Payload laeuft und die Engine still etwas anderes rechnet.
@@ -1106,15 +1100,16 @@ test_that("ein Team ohne Zeile in der TeamList bekommt keinen erfundenen Malus",
     df
   })
   stub(update_all_leagues_loop, "leagueSimulatorRust",
-       function(spielplan, n, adjPoints = NULL, ...) {
-         if (!is.null(adjPoints)) {
-           gesehen[[length(gesehen) + 1L]] <<- stats::setNames(
-             as.numeric(adjPoints), names(spielplan)[5:ncol(spielplan)]
-           )
-         }
+       function(spielplan, n, eligibilityMasks = NULL, ...) {
          n_t <- ncol(spielplan) - 4L
          m <- matrix(1 / n_t, nrow = n_t, ncol = n_t)
          rownames(m) <- names(spielplan)[5:ncol(spielplan)]
+         if (!is.null(eligibilityMasks)) {
+           gesehen[[length(gesehen) + 1L]] <<- stats::setNames(
+             as.logical(eligibilityMasks[[1]]), names(spielplan)[5:ncol(spielplan)]
+           )
+           attr(m, "eligible_rank_probabilities") <- list(m)
+         }
          m
        })
   stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
@@ -1130,7 +1125,7 @@ test_that("ein Team ohne Zeile in der TeamList bekommt keinen erfundenen Malus",
 
   adj <- gesehen[[1]]
   expect_false(anyNA(adj))
-  expect_identical(adj[["XXX"]], 0)
+  expect_identical(adj[["XXX"]], TRUE)
 })
 
 # --- Issues 190 und 204: die Wartezeit gehoert JEDER Runde, und sie folgt

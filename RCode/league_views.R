@@ -158,9 +158,9 @@ league_views <- function() {
       plot_source = "Ergebnis_zweite_frauen_bundesliga",
       teams = 14L,
       # Dieselbe Asymmetrie wie in der 3. Liga: Zweitvertretungen duerfen
-      # nicht aufsteigen, die Aufstiegstabelle kommt deshalb aus dem
-      # Sonderlauf mit -50-Malus -- Heatmap und Abstieg aus der regulaeren
-      # Prognose.
+      # nicht aufsteigen, die Aufstiegstabelle ist deshalb der Rang unter den
+      # Berechtigten (Berechtigungsmaske im selben Lauf, ADR 0009) --
+      # Heatmap und Abstieg kommen aus der regulaeren Prognose.
       top = list(
         source = "Ergebnis_zweite_frauen_bundesliga_aufstieg",
         filter_cols = 1:2,

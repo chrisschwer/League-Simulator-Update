@@ -4,6 +4,10 @@ use serde::{Deserialize, Serialize};
 
 /// Server-side ceiling on Monte Carlo iterations (production uses 10,000).
 const MAX_ITERATIONS: usize = 100_000;
+/// Obergrenze fuer Berechtigungsmasken je Anfrage. Der Speicher je Rayon-
+/// Thread waechst mit Masken x Teams^2; 256 Masken bei 20 Teams sind rund
+/// 800 kB. Bedarf liegt bei hoechstens 2^k mit k <= 8 betroffenen Reserven.
+const MAX_ELIGIBILITY_MASKS: usize = 256;
 
 /// Liest das ELO-Neutral-Flag fuer Spiel `i`.
 ///
@@ -99,6 +103,25 @@ fn validate_request(payload: &SimulateRequest) -> Result<(), String> {
             return Err("relegation_places requires group_of_team".to_string());
         }
     }
+    if let Some(masks) = &payload.eligibility_masks {
+        if masks.len() > MAX_ELIGIBILITY_MASKS {
+            return Err(format!(
+                "eligibility_masks must have at most {} masks, got {}",
+                MAX_ELIGIBILITY_MASKS,
+                masks.len()
+            ));
+        }
+        for (i, mask) in masks.iter().enumerate() {
+            if mask.len() != number_teams {
+                return Err(format!(
+                    "eligibility_masks[{}] must have one entry per team: got {}, expected {}",
+                    i,
+                    mask.len(),
+                    number_teams
+                ));
+            }
+        }
+    }
     if let Some(iterations) = payload.iterations {
         if iterations == 0 || iterations > MAX_ITERATIONS {
             return Err(format!(
@@ -179,6 +202,12 @@ pub struct SimulateRequest {
     /// Zahl der Abstiegsplaetze am Tabellenende.
     relegation_places: Option<usize>,
 
+    /// Aufstiegsberechtigung als Masken, je Maske ein bool je Team (parallel
+    /// zu `elo_values`). Loest die Auswertung "Rang unter den Berechtigten"
+    /// aus (Antwortfeld `eligible_rank_probabilities`). Fehlt das Feld,
+    /// aendert sich nichts.
+    eligibility_masks: Option<Vec<Vec<bool>>>,
+
     /// Je Spiel: Ergebnis zaehlt fuer die Tabelle, bewegt aber den ELO-Walk
     /// nicht. Paralleler Vektor zu `schedule` (gleiche Laenge und
     /// Reihenfolge); fehlt das Feld, verhaelt sich alles wie bisher.
@@ -248,6 +277,7 @@ impl From<&SimulateRequest> for SimulationParams {
             group_of_team: payload.group_of_team.clone(),
             relegation_places: payload.relegation_places,
             group_count,
+            eligibility_masks: payload.eligibility_masks.clone(),
             iterations: payload.iterations.unwrap_or(defaults.iterations),
             mod_factor: payload.mod_factor.unwrap_or(defaults.mod_factor),
             home_advantage: payload.home_advantage.unwrap_or(defaults.home_advantage),
@@ -275,6 +305,12 @@ pub struct SimulateResponse {
     /// wenn keine Staffel-Zuordnung uebergeben wurde.
     #[serde(skip_serializing_if = "Option::is_none")]
     relegation_group_counts: Option<Vec<Vec<usize>>>,
+
+    /// Rang unter den Berechtigten je Maske: `[maske][team][rang - 1]`, Teams
+    /// in derselben Reihenfolge wie `probability_matrix`. Fehlt, wenn keine
+    /// Masken uebergeben wurden.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    eligible_rank_probabilities: Option<Vec<Vec<Vec<f64>>>>,
 
     /// Number of simulations actually performed
     simulations_performed: usize,
@@ -319,6 +355,7 @@ pub async fn simulate_league(
 
     Ok(Json(SimulateResponse {
         relegation_group_counts: result.relegation_group_counts.clone(),
+        eligible_rank_probabilities: result.eligible_rank_probabilities.clone(),
         probability_matrix: result.probability_matrix,
         team_names: result.team_names,
         simulations_performed: params.iterations,
@@ -659,6 +696,7 @@ mod tests {
             schedule: vec![[Some(1), Some(2), None, None]],
             group_of_team: None,
             relegation_places: None,
+            eligibility_masks: None,
             elo_neutral: None,
             elo_values: vec![1500.0, 1500.0],
             team_names: None,

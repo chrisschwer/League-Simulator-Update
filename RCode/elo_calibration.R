@@ -470,9 +470,9 @@ assign_short_names <- function(names_df, reserved = character()) {
     if (cand %in% used || nchar(cand) < 3) {
       # Vierte Stelle nur mit Buchstaben. Eine angehaengte "2" waere
       # mehrdeutig: Sie ist im Bestand die LESBARE Markierung fuer
-      # Zweitvertretungen. Massgeblich fuer den -50-Abzug ist sie seit
+      # Zweitvertretungen. Massgeblich fuer die Aufstiegssperre ist sie seit
       # Issue #196 nicht mehr -- der Loop liest die Spalte Promotion
-      # (malus_aus_teamlist()), gerade weil diese Ausweichregel hier
+      # (berechtigung_aus_teamlist()), gerade weil diese Ausweichregel hier
       # Kuerzel wie HO2A und HA2B erzeugt, die auf einen Buchstaben enden.
       #
       # Reicht eine Stelle nicht, wird auf zwei erweitert. Lieber ein

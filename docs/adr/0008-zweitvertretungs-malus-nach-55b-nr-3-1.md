@@ -33,7 +33,7 @@ der Unterschied ist nicht akademisch.
 | Regionalligen (83–87) | **nur**, wenn die Erstvertretung in der 3. Liga spielt | genau der Fall des § 55b Nr. 3.1 |
 
 Umgesetzt (#206): Der Update-Loop liest den Malus seit September 2026 aus der
-Spalte `Promotion` der TeamList (`malus_aus_teamlist()`), nicht mehr aus dem
+Spalte `Promotion` der TeamList (heute `berechtigung_aus_teamlist()`, früher `malus_aus_teamlist()`), nicht mehr aus dem
 Endzeichen des Kurznamens. Welche Ligen überhaupt einen Malus-Lauf bekommen,
 sagt die Registry; **welche Teams** ihn tragen, entscheidet die gepflegte
 Spalte. Der Saisonwechsel schlägt sie nach der Drei-Fälle-Regel oben vor
@@ -118,3 +118,13 @@ Die Spalte `Promotion` der TeamList wird weiter gepflegt. Spielt künftig eine
 Erstvertretung in der 3. Liga, muss über den Malus-Lauf der Regionalligen neu
 entschieden werden. Die Aufstiegsseite bräuchte Meister und Aufstieg dann
 wieder aus einem gemeinsamen Lauf.
+
+## Nachtrag 2026-10-31: kein Malus-Lauf mehr
+
+Der −50-Malus-Lauf der 3. Liga und der 2. Frauen-Bundesliga ist durch eine
+Berechtigungsmaske im Hauptlauf abgelöst ([ADR 0009](0009-aufstiegsberechtigung-als-masken.md)).
+Die Regel bleibt dieselbe, der zweite Lauf entfällt. Die Spalte `Promotion`
+der TeamList trägt weiter die Sperre (`< 0`), wird aber nur noch als
+Aufstiegssperre für die 3. Liga und die 2. Frauen-Bundesliga gelesen, nicht
+mehr als `adj_points`.
+

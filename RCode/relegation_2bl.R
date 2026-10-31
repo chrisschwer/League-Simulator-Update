@@ -25,7 +25,8 @@
 #     Aufstiegsspielen Nord gegen Bayern).
 #   - Ist der Dritte der 3. Liga eine gesperrte Zweitvertretung, tritt der
 #     naechste Berechtigte an: Die Verteilung kommt aus Ergebnis3_Aufstieg,
-#     in dem Zweitvertretungen unten stehen.
+#     dem Rang unter den Berechtigten, in dem Zweitvertretungen Nullzeilen
+#     tragen (ADR 0009).
 #
 # Wie aufstiegsspiele.R kennt diese Datei keine Tormodell-Konstante: Die
 # Tor-Raten holt zweikampf_paarungen_rust() beim Rust-Server (ADR 0002).
@@ -154,8 +155,8 @@ relegation_duell <- function(p_abstiegsplatz, p_aufstiegsplatz,
 #'
 #' @param prognosen Benannte Liste der Prognosematrizen (Teams x Plaetze) mit
 #'   den Schluesseln "bundesliga", "zweite_bundesliga" und "dritte_liga".
-#'   Fuer die 3. Liga ist das die Aufstiegsprognose (Ergebnis3_Aufstieg), in
-#'   der Zweitvertretungen unten stehen.
+#'   Fuer die 3. Liga ist das die Aufstiegsprognose (Ergebnis3_Aufstieg), der
+#'   Rang unter den Berechtigten; Zweitvertretungen tragen dort Nullzeilen.
 #' @param elos Benannte Liste der aktuellen ELO-Vektoren, gleiche Schluessel.
 #' @return Benannte Liste von data.frames, Zeilen = Teams der Liga:
 #'   bundesliga ("Abstieg gesamt"), zweite_bundesliga ("Aufstieg gesamt",

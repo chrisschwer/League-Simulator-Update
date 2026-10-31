@@ -118,6 +118,18 @@ pub struct SimulationParams {
     /// vorgesehen, damit ein Aufrufer die Zahl spaeter explizit setzen
     /// kann, ohne die Signatur zu aendern.
     pub group_count: Option<usize>,
+
+    /// Aufstiegsberechtigung als Masken: `masks[m][team]` ist true, wenn das
+    /// Team in Variante `m` aufsteigen darf (Parallel zu den Teams, 0-basiert).
+    ///
+    /// Zu jeder Maske zaehlt die Engine auf DERSELBEN Abschlusstabelle, auf
+    /// welchem Rang UNTER DEN BERECHTIGTEN jedes berechtigte Team landet. Ein
+    /// gesperrter Meister vererbt damit seinen Aufstieg an den naechsten
+    /// Berechtigten, ohne dass die Liga mehrfach simuliert wird (ADR 0009).
+    ///
+    /// None = keine Auswertung; die Antwort traegt dann kein
+    /// `eligible_rank_probabilities`.
+    pub eligibility_masks: Option<Vec<Vec<bool>>>,
 }
 
 impl Default for SimulationParams {
@@ -135,6 +147,7 @@ impl Default for SimulationParams {
             group_of_team: None,
             relegation_places: None,
             group_count: None,
+            eligibility_masks: None,
         }
     }
 }
@@ -158,4 +171,12 @@ pub struct SimulationResult {
     /// stark negativ korreliert sind. Der Fehler waere strukturell, nicht
     /// numerisch (Erwartungswert 4,12 statt exakt 4,00 bei vier Plaetzen).
     pub relegation_group_counts: Option<Vec<Vec<usize>>>,
+
+    /// Rang unter den Berechtigten je Maske: `[maske][team][rang - 1]` ist die
+    /// Wahrscheinlichkeit, dass das Team in der Abschlusstabelle auf dem
+    /// `rang`-ten Platz UNTER DEN BERECHTIGTEN der Maske steht. Die Teams
+    /// stehen in derselben Reihenfolge wie `probability_matrix`. Nicht
+    /// berechtigte Teams tragen null; je Maske summiert sich jede Rangspalte
+    /// ueber alle Teams auf 1, soweit mindestens `rang` Teams berechtigt sind.
+    pub eligible_rank_probabilities: Option<Vec<Vec<Vec<f64>>>>,
 }

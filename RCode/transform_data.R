@@ -150,52 +150,6 @@ pruefe_kuerzel_vertrag <- function(teams) {
   verstoesse
 }
 
-#' Der Zweitvertretungs-Malus in SPIELPLAN-Reihenfolge, aus der TeamList.
-#'
-#' Die Spalte `Promotion` TRAEGT den Abzug, sie flaggt ihn nicht: In der
-#' TeamList steht dort 0 oder -50, und der Wert geht unveraendert als
-#' `adj_points` an die Engine. Wer hier ein Flag laese und selbst -50
-#' einsetzte, haette eine zweite Stelle, an der die Zahl steht -- und die
-#' Spalte pflegt Christoph von Hand (ADR 0007).
-#'
-#' Bis September 2026 leitete der Loop den Abzug stattdessen aus dem
-#' ENDZEICHEN "2" des Kurznamens ab. Das ist in beide Richtungen falsch
-#' (Issue #196): `HO2A` und `HA2B` tragen den gepflegten Malus, enden aber
-#' auf einen Buchstaben -- und der Mechanismus waechst mit, weil
-#' `assign_short_names()` bei Kollisionen bewusst auf Buchstaben ausweicht
-#' statt auf die "2". Umgekehrt bekaeme jedes Kuerzel auf "2" den Abzug,
-#' auch wenn die Spalte 0 sagt.
-#'
-#' AUF DIE LIGA FILTERN, NICHT DIE GANZE TEAMLIST DURCHSUCHEN: Kurznamen
-#' sind nur innerhalb einer Liga eindeutig ("FCH" = Heidenheim in Liga 79,
-#' Hansa Rostock in Liga 80). Ungefiltert loeste match() still den falschen
-#' Verein auf und gaebe einem Team den Malus eines anderen -- dieselbe
-#' Falle wie bei rl_group_of_team().
-#'
-#' @param spielplan Der Simulations-Data-Frame: vier Spielspalten, dann je
-#'   Team eine ELO-Spalte. Ihre Namen sind die Kurznamen in Spielplan-
-#'   Reihenfolge, und genau dieser Reihenfolge folgt die Engine.
-#' @param teams TeamList mit den Spalten ShortText und Promotion.
-#' @param liga Liga-ID, auf die `teams` gefiltert wird.
-#' @return Numerischer Vektor, so lang wie die Zahl der Teamspalten. Teams
-#'   ohne Zeile in der TeamList bekommen 0 -- kein NA, das die Engine still
-#'   anders rechnen liesse, und kein erfundener Abzug.
-malus_aus_teamlist <- function(spielplan, teams, liga) {
-  kurznamen <- names(spielplan)[5:ncol(spielplan)]
-
-  if (is.null(teams$Promotion)) {
-    return(rep(0, length(kurznamen)))
-  }
-
-  if (!is.null(teams$League)) {
-    teams <- teams[as.character(teams$League) == as.character(liga), ]
-  }
-
-  malus <- as.numeric(teams$Promotion)[match(kurznamen, teams$ShortText)]
-  malus[is.na(malus)] <- 0
-  malus
-}
-
 #' @param file_path Pfad zur TeamList-CSV (Semikolon-getrennt).
 #' @return data.frame der TeamList.
 load_team_list <- function(file_path) {
@@ -432,4 +386,76 @@ transform_data <- function(fixtures, teams) {
   attr(df_final, "elo_neutral") <- sortiert$elo_neutral
 
   return(df_final)
+}
+
+#' Aufstiegsberechtigung je Team in SPIELPLAN-Reihenfolge, aus der TeamList.
+#'
+#' Ein Team ist NICHT berechtigt, wenn es
+#'   - eine Zweitvertretung mit `Promotion < 0` ist und die Liga diese Sperre
+#'     kennt (`mit_sperre = TRUE`: 3. Liga, 2. Frauen-Bundesliga), oder
+#'   - in der Spalte `Aufstiegsverzicht` markiert ist (nur diese Saison; die
+#'     Spalte ist optional, fehlt sie, verzichtet niemand).
+#'
+#' Die Regionalligen rufen mit `mit_sperre = FALSE` auf: Ihre Reserven tragen
+#' zwar `Promotion = -50`, sind 2026/27 aber berechtigt (ADR 0008, Nachtrag
+#' 2026-10-17).
+#'
+#' Das Ergebnis ist die Maske fuer die Engine (eligibility_masks), in der
+#' Reihenfolge der Teamspalten des Spielplans -- genau dieser Reihenfolge folgt
+#' die Engine.
+#'
+#' WER gesperrt ist, sagt die Spalte `Promotion`, nicht das Endzeichen des
+#' Kurznamens (Issue #196): `HO2A` und `HA2B` tragen die gepflegte Sperre,
+#' enden aber auf einen Buchstaben. Die Werte pflegt Christoph von Hand
+#' (ADR 0007); der Loop leitet nichts aus Namen ab.
+#'
+#' AUF DIE LIGA FILTERN, NICHT DIE GANZE TEAMLIST DURCHSUCHEN: Kurznamen sind
+#' nur innerhalb einer Liga eindeutig ("FCH" = Heidenheim in Liga 79, Hansa
+#' Rostock in Liga 80). Ungefiltert loeste match() still den falschen Verein
+#' auf. Teams ohne Zeile gelten als berechtigt.
+#'
+#' @param spielplan Simulations-Data-Frame, Teamspalten ab Spalte 5.
+#' @param teams TeamList mit ShortText, optional Promotion, Aufstiegsverzicht.
+#' @param liga Liga-ID.
+#' @param mit_sperre Ob die Zweitvertretungs-Sperre (Promotion < 0) gilt.
+#' @return Logischer Vektor, so lang wie die Zahl der Teamspalten.
+berechtigung_aus_teamlist <- function(spielplan, teams, liga, mit_sperre = TRUE) {
+  kurznamen <- names(spielplan)[5:ncol(spielplan)]
+  berechtigt <- rep(TRUE, length(kurznamen))
+
+  if (!is.null(teams$League)) {
+    teams <- teams[as.character(teams$League) == as.character(liga), ]
+  }
+  zeile <- match(kurznamen, teams$ShortText)
+
+  if (isTRUE(mit_sperre) && !is.null(teams$Promotion)) {
+    promotion <- as.numeric(teams$Promotion)[zeile]
+    berechtigt <- berechtigt & !(!is.na(promotion) & promotion < 0)
+  }
+
+  if (!is.null(teams$Aufstiegsverzicht)) {
+    verzicht <- .als_wahrheitswert(teams$Aufstiegsverzicht)[zeile]
+    berechtigt <- berechtigt & !(!is.na(verzicht) & verzicht)
+  }
+
+  berechtigt
+}
+
+# Liest ein von Hand gepflegtes Ja/Nein-Feld: 1/0, TRUE/FALSE, ja/nein.
+# Leer und NA gelten als "nein". Alles andere bricht ab -- ein Tippfehler in
+# einem Verzichtsfeld darf nicht lautlos als "kein Verzicht" durchgehen.
+.als_wahrheitswert <- function(x) {
+  roh <- tolower(trimws(as.character(x)))
+  wert <- rep(FALSE, length(roh))
+  ja <- roh %in% c("1", "true", "ja", "wahr", "yes")
+  nein <- is.na(roh) | roh %in% c("", "0", "false", "nein", "falsch", "no", "na")
+  unbekannt <- !(ja | nein)
+  if (any(unbekannt)) {
+    stop(sprintf(
+      "Aufstiegsverzicht: unlesbarer Wert %s. Erlaubt: 1/0, TRUE/FALSE, ja/nein oder leer.",
+      paste(shQuote(unique(roh[unbekannt])), collapse = ", ")
+    ), call. = FALSE)
+  }
+  wert[ja] <- TRUE
+  wert
 }

@@ -64,7 +64,8 @@ simulate_league_rust <- function(schedule, elo_values, team_names,
                                  tore_slope = NULL,
                                  tore_intercept = NULL,
                                  group_of_team = NULL,
-                                 relegation_places = NULL) {
+                                 relegation_places = NULL,
+                                 eligibility_masks = NULL) {
   # Convert schedule matrix to list format for JSON
   schedule_list <- lapply(seq_len(nrow(schedule)), function(i) {
     goals_home <- if (is.na(schedule[i, 3])) NULL else as.integer(schedule[i, 3])
@@ -123,6 +124,14 @@ simulate_league_rust <- function(schedule, elo_values, team_names,
     payload$relegation_places <- as.integer(relegation_places)
   }
 
+  # Aufstiegsberechtigung (ADR 0009): je Maske ein Logikvektor in der
+  # Reihenfolge von `team_names`. Die Engine zaehlt auf derselben
+  # Abschlusstabelle den Rang unter den Berechtigten. Ohne Masken bleibt der
+  # Payload unveraendert.
+  if (!is.null(eligibility_masks) && length(eligibility_masks) > 0L) {
+    payload$eligibility_masks <- lapply(eligibility_masks, as.logical)
+  }
+
   # digits = NA: volle Praezision statt der vier Nachkommastellen, auf die
   # jsonlite sonst rundet. Bei tore_slope (0,0024058833) waeren das 0,245 %
   # Fehler -- der Parameter ist klein genug, dass die Rundung ihn in einer
@@ -167,7 +176,19 @@ simulate_league_rust <- function(schedule, elo_values, team_names,
     time_ms = result$time_ms,
     # Absteiger je Staffel, exakt ausgezaehlt. NULL, wenn keine
     # Staffel-Zuordnung gesendet wurde -- der Regelfall fuer die Altligen.
-    relegation_group_counts = result$relegation_group_counts
+    relegation_group_counts = result$relegation_group_counts,
+    # Rang unter den Berechtigten je Maske: Liste von Matrizen (Teams x
+    # Raenge), Zeilen wie probability_matrix. NULL ohne Masken.
+    eligible_rank_probabilities = if (is.null(result$eligible_rank_probabilities)) {
+      NULL
+    } else {
+      lapply(result$eligible_rank_probabilities, function(m) {
+        mat <- do.call(rbind, lapply(m, as.numeric))
+        rownames(mat) <- result$team_names
+        colnames(mat) <- seq_len(ncol(mat))
+        mat
+      })
+    }
   ))
 }
 
@@ -196,7 +217,8 @@ leagueSimulatorRust <- function(season, n = 10000,
                                 adjGoals = rep_len(0, numberTeams),
                                 adjGoalsAgainst = rep_len(0, numberTeams),
                                 adjGoalDiff = rep_len(0, numberTeams),
-                                groupOfTeam = NULL, relegationPlaces = NULL) {
+                                groupOfTeam = NULL, relegationPlaces = NULL,
+                                eligibilityMasks = NULL) {
   # Caller (update_all_leagues_loop) has already asserted Rust availability.
   # Per-call connection checks were removed in issue #77 Phase 1; a Rust API
   # call failure surfaces via stop() in simulate_league_rust() below.
@@ -255,7 +277,8 @@ leagueSimulatorRust <- function(season, n = 10000,
     tore_slope = toreSlope,
     tore_intercept = toreIntercept,
     group_of_team = groupOfTeam,
-    relegation_places = relegationPlaces
+    relegation_places = relegationPlaces,
+    eligibility_masks = eligibilityMasks
   )
 
   end_time <- Sys.time()
@@ -290,6 +313,16 @@ leagueSimulatorRust <- function(season, n = 10000,
   # falschen Zahl.
   if (!is.null(result$relegation_group_counts)) {
     attr(distribution, "relegation_group_counts") <- result$relegation_group_counts
+  }
+
+  # Rang unter den Berechtigten je Maske, ebenfalls als Attribut (Begruendung
+  # wie oben). Die Zeilen werden ueber die TEAMNAMEN auf die Reihenfolge von
+  # `distribution` gebracht, nicht ueber die Position.
+  if (!is.null(result$eligible_rank_probabilities)) {
+    attr(distribution, "eligible_rank_probabilities") <- lapply(
+      result$eligible_rank_probabilities,
+      function(m) m[rownames(distribution), , drop = FALSE]
+    )
   }
 
   return(distribution)

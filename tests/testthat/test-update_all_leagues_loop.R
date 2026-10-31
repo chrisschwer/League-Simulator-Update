@@ -26,7 +26,13 @@ run_one_loop <- function(build_stub, capture_env) {
   stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) integer(0))
   stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed())
   stub(update_all_leagues_loop, "leagueSimulatorRust",
-       function(...) matrix(1 / 18, nrow = 18, ncol = 18))
+       function(..., eligibilityMasks = NULL) {
+         m <- matrix(1 / 18, nrow = 18, ncol = 18)
+         # Mit Maske liefert die Engine zusaetzlich den Rang unter den
+         # Berechtigten (ADR 0009); der Loop legt ihn als Aufstiegstabelle ab.
+         if (!is.null(eligibilityMasks)) attr(m, "eligible_rank_probabilities") <- list(m)
+         m
+       })
   stub(update_all_leagues_loop, "build_league_page_data", build_stub)
   stub(update_all_leagues_loop, "generate_static_site", function(...) {
     capture_env$site_calls <- capture_env$site_calls + 1
@@ -126,9 +132,11 @@ run_loop_capturing <- function() {
   })
   stub(update_all_leagues_loop, "retrieveLiveFixtures", function(...) integer(0))
   stub(update_all_leagues_loop, "transform_data", function(...) fake_transformed_min())
-  stub(update_all_leagues_loop, "leagueSimulatorRust", function(...) {
+  stub(update_all_leagues_loop, "leagueSimulatorRust", function(..., eligibilityMasks = NULL) {
     cap$sim_frames <- cap$sim_frames + 1L
-    matrix(1 / 18, nrow = 18, ncol = 18)
+    m <- matrix(1 / 18, nrow = 18, ncol = 18)
+    if (!is.null(eligibilityMasks)) attr(m, "eligible_rank_probabilities") <- list(m)
+    m
   })
   stub(update_all_leagues_loop, "build_league_page_data", function(...) NULL)
   stub(update_all_leagues_loop, "generate_static_site", function(...) {
@@ -164,8 +172,8 @@ test_that("der Loop uebergibt die Ergebnisse als benannte Liste", {
   cap <- run_loop_capturing()
 
   expect_type(cap$ergebnisse, "list")
-  # Je aktive Liga ein Eintrag, plus ein Aufstiegslauf je Liga, aus der
-  # Zweitvertretungen nicht aufsteigen duerfen.
+  # Je aktive Liga ein Eintrag, plus eine Aufstiegstabelle je Liga, aus der
+  # Zweitvertretungen nicht aufsteigen duerfen (Rang unter den Berechtigten).
   #
   # ANGEPASST in Phase 5 und wieder mit #291: Der Lauf heisst "<key>_aufstieg"
   # -- dort liest die View das obere Panel. Den Ausweichnamen
@@ -202,16 +210,17 @@ test_that("league_data behaelt seine Schluessel und Reihenfolge", {
   expect_equal(names(cap$league_data), reg$active_league_keys())
 })
 
-test_that("Loop 1 simuliert jede Liga plus den Aufstiegslauf", {
-  # Je Liga eine Simulation plus je Aufstiegsrestriktion ein Lauf; die Zahl
-  # folgt der Registry, nicht einer festen Annahme --
-  # test-update_all_leagues_loop-gating.R pinnt sie als 4 bzw. 8.
+test_that("Loop 1 simuliert jede Liga genau einmal", {
+  # Je Liga eine Simulation. Die Aufstiegstabelle der Ligen mit
+  # Aufstiegssperre kommt aus einer Maske im selben Lauf, nicht mehr aus einem
+  # zweiten (ADR 0009). Die Zahl folgt der Registry, nicht einer festen
+  # Annahme.
   cap <- run_loop_capturing()
 
   reg <- new.env()
   source(test_path("..", "..", "RCode", "league_registry.R"), local = reg)
   ids <- reg$league_ids()
-  erwartet <- length(ids) + sum(vapply(ids, reg$has_promotion_restriction, logical(1)))
+  erwartet <- length(ids)
 
   expect_equal(cap$sim_frames, erwartet)
 })
