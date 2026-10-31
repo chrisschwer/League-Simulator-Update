@@ -16,7 +16,7 @@ Das löst den bisherigen zweiten Simulationslauf mit −50 Punkten ab (3. Liga, 
 
 - **Gemeinsame Simulation aller Ligen, je Iteration konkret ausgelesen.** Verworfen: 2. Bundesliga, 3. Liga und die Regionalligen teilen kein einziges Spiel. Ihre Ergebnisse sind unabhängig, also gilt exakt `P(Aufstieg) = Σ_S P(S) · M_S` mit den Gewichten `P(S)` der Sperr-Kombinationen. Eine gemeinsame Simulation wäre langsamer und nicht genauer. Sie bleibt als langsamer Referenztest für Schritt 3 vorgesehen (#322).
 - **Ein Lauf je Sperr-Kombination.** Verworfen: bis zu 2^k Läufe je Staffel mit je 10.000 Iterationen, und die Zufallsunschärfe zwischen den Läufen käme zurück. Die Masken laufen auf *einer* Tabelle.
-- **Malus-Lauf behalten.** Verworfen: Der Malus ändert die Tabelle (die Gesperrten rutschen nach unten), die Maske nicht. Der Rang der Berechtigten ist in beiden Fällen gleich, die Maske aber ohne zweiten Lauf zu haben.
+- **Malus-Lauf behalten.** Verworfen: Der Malus ändert die Tabelle, die Maske nicht. Der Rang der Berechtigten ist nur dann in beiden Fällen gleich, wenn die Gesperrten mit −50 Punkten hinter allen Berechtigten landen. Das ist bei 38 Spielen nicht garantiert: Eine starke Reserve mit 70 Punkten stünde trotz Abzug noch vor einem schwachen Berechtigten mit 20 und nähme ihm im Malus-Lauf den Rang. Die Maske kennt diesen Randfall nicht, sie ist also nicht nur schneller, sondern in ihm auch richtiger. (Der exakte Rust-Test oben nutzt deshalb eine Liga, in der −50 sicher das Tabellenende bedeutet.)
 
 ## Folgen
 
