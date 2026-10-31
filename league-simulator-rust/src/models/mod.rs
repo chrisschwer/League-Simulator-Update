@@ -130,6 +130,31 @@ pub struct SimulationParams {
     /// None = keine Auswertung; die Antwort traegt dann kein
     /// `eligible_rank_probabilities`.
     pub eligibility_masks: Option<Vec<Vec<bool>>>,
+
+    /// Verfolgte Teams (0-basierte Indizes, parallel zu den Teams): Die
+    /// Engine zaehlt je Iteration, in welcher Tabellenklasse jedes dieser
+    /// Teams endet, und liefert die Haeufigkeit jedes GEMEINSAMEN
+    /// Klassenvektors (`tracked_class_patterns`). Gebraucht fuer die
+    /// dynamische Aufstiegssperre (#322): Ob die Reserve einer Regionalliga
+    /// aufsteigen darf, haengt davon ab, ob ihre Erstmannschaft aus der
+    /// 2. Bundesliga absteigt -- und dafuer zaehlt die gemeinsame Verteilung,
+    /// nicht die Randverteilung je Team (hoechstens `tracked_direct_places`
+    /// Teams steigen direkt ab, die Teams sind also negativ korreliert).
+    ///
+    /// Klassen: 0 = sonst, 1 = direkter Abstiegsplatz (die letzten
+    /// `tracked_direct_places` Plaetze), 2 = Relegationsplatz (die
+    /// `tracked_playoff_places` Plaetze darueber).
+    ///
+    /// None = keine Auszaehlung; die Antwort traegt dann kein
+    /// `tracked_class_patterns`.
+    pub tracked_teams: Option<Vec<usize>>,
+
+    /// Zahl der direkten Abstiegsplaetze am Tabellenende (Klasse 1).
+    pub tracked_direct_places: Option<usize>,
+
+    /// Zahl der Relegationsplaetze direkt ueber den direkten Abstiegsplaetzen
+    /// (Klasse 2). Fehlt der Wert, gibt es keine Klasse 2.
+    pub tracked_playoff_places: Option<usize>,
 }
 
 impl Default for SimulationParams {
@@ -148,6 +173,9 @@ impl Default for SimulationParams {
             relegation_places: None,
             group_count: None,
             eligibility_masks: None,
+            tracked_teams: None,
+            tracked_direct_places: None,
+            tracked_playoff_places: None,
         }
     }
 }
@@ -179,4 +207,18 @@ pub struct SimulationResult {
     /// berechtigte Teams tragen null; je Maske summiert sich jede Rangspalte
     /// ueber alle Teams auf 1, soweit mindestens `rang` Teams berechtigt sind.
     pub eligible_rank_probabilities: Option<Vec<Vec<Vec<f64>>>>,
+
+    /// Gemeinsame Klassenvektoren der verfolgten Teams, absteigend nach
+    /// Klassencode sortiert (deterministische Reihenfolge). Die Haeufigkeiten
+    /// summieren sich auf die Iterationszahl. `classes[i]` gehoert zum i-ten
+    /// Eintrag von `tracked_teams` -- in der Reihenfolge der ANFRAGE, nicht
+    /// der sortierten Prognosematrix.
+    pub tracked_class_patterns: Option<Vec<ClassPattern>>,
+}
+
+/// Ein Klassenvektor der verfolgten Teams und wie oft er vorkam.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClassPattern {
+    pub classes: Vec<u8>,
+    pub count: usize,
 }

@@ -1219,3 +1219,80 @@ async fn simulate_without_masks_has_no_eligible_rank_probabilities() {
             || body["eligible_rank_probabilities"].is_null()
     );
 }
+
+// --- tracked_class_patterns: gemeinsame Klassenvektoren (#322) --------------
+
+fn tracked_payload(iterations: usize, extra: Value) -> Value {
+    let mut payload = relegation_payload(iterations);
+    let obj = payload.as_object_mut().unwrap();
+    obj.remove("group_of_team");
+    obj.remove("relegation_places");
+    for (k, v) in extra.as_object().unwrap() {
+        obj.insert(k.clone(), v.clone());
+    }
+    payload
+}
+
+#[tokio::test]
+async fn tracked_patterns_are_returned_and_sum_to_iterations() {
+    let payload = tracked_payload(
+        500,
+        json!({"tracked_teams": [0, 3], "tracked_direct_places": 1, "tracked_playoff_places": 1}),
+    );
+    let (status, body) = send(post_simulate_json(payload)).await;
+    assert_eq!(status, StatusCode::OK);
+    let muster = body["tracked_class_patterns"].as_array().unwrap();
+    let summe: u64 = muster.iter().map(|m| m["count"].as_u64().unwrap()).sum();
+    assert_eq!(summe, 500);
+    assert!(muster
+        .iter()
+        .all(|m| m["classes"].as_array().unwrap().len() == 2));
+}
+
+#[tokio::test]
+async fn simulate_without_tracked_teams_has_no_patterns() {
+    let (status, body) = send(post_simulate_json(relegation_payload(100))).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.get("tracked_class_patterns").is_none());
+}
+
+#[tokio::test]
+async fn tracked_teams_validation_rejects_bad_input() {
+    for (extra, fehler) in [
+        (
+            json!({"tracked_teams": [0]}),
+            "tracked_teams requires tracked_direct_places",
+        ),
+        (
+            json!({"tracked_direct_places": 1}),
+            "tracked_direct_places requires tracked_teams",
+        ),
+        (
+            json!({"tracked_playoff_places": 1}),
+            "tracked_playoff_places requires tracked_teams",
+        ),
+        (
+            json!({"tracked_teams": [9], "tracked_direct_places": 1}),
+            "out of range",
+        ),
+        (
+            json!({"tracked_teams": [1, 1], "tracked_direct_places": 1}),
+            "twice",
+        ),
+        (
+            json!({"tracked_teams": [], "tracked_direct_places": 1}),
+            "between 1 and",
+        ),
+        (
+            json!({"tracked_teams": [0], "tracked_direct_places": 0}),
+            "tracked_direct_places",
+        ),
+        (
+            json!({"tracked_teams": [0], "tracked_direct_places": 3, "tracked_playoff_places": 2}),
+            "tracked_direct_places",
+        ),
+    ] {
+        let (status, body) = send(post_simulate_json(tracked_payload(100, extra))).await;
+        assert_bad_request(status, &body, fehler);
+    }
+}

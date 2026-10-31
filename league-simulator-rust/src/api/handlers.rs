@@ -8,6 +8,10 @@ const MAX_ITERATIONS: usize = 100_000;
 /// Thread waechst mit Masken x Teams^2; 256 Masken bei 20 Teams sind rund
 /// 800 kB. Bedarf liegt bei hoechstens 2^k mit k <= 8 betroffenen Reserven.
 const MAX_ELIGIBILITY_MASKS: usize = 256;
+/// Obergrenze fuer verfolgte Teams je Anfrage. Die Zahl der verschiedenen
+/// Klassenvektoren ist durch die Abstiegsplaetze begrenzt, nicht durch diese
+/// Zahl; sie schuetzt nur vor unsinnig langen Vektoren.
+const MAX_TRACKED_TEAMS: usize = 64;
 
 /// Liest das ELO-Neutral-Flag fuer Spiel `i`.
 ///
@@ -101,6 +105,47 @@ fn validate_request(payload: &SimulateRequest) -> Result<(), String> {
         }
         (None, Some(_)) => {
             return Err("relegation_places requires group_of_team".to_string());
+        }
+    }
+    match (&payload.tracked_teams, payload.tracked_direct_places) {
+        (Some(teams), Some(direct)) => {
+            if teams.is_empty() || teams.len() > MAX_TRACKED_TEAMS {
+                return Err(format!(
+                    "tracked_teams must have between 1 and {} entries, got {}",
+                    MAX_TRACKED_TEAMS,
+                    teams.len()
+                ));
+            }
+            let mut gesehen = std::collections::HashSet::new();
+            for &t in teams {
+                if t >= number_teams {
+                    return Err(format!(
+                        "tracked_teams entry {} is out of range (0..{})",
+                        t, number_teams
+                    ));
+                }
+                if !gesehen.insert(t) {
+                    return Err(format!("tracked_teams contains {} twice", t));
+                }
+            }
+            let playoff = payload.tracked_playoff_places.unwrap_or(0);
+            if direct == 0 || direct + playoff > number_teams {
+                return Err(format!(
+                    "tracked_direct_places ({}) must be at least 1 and, with tracked_playoff_places ({}), at most {}",
+                    direct, playoff, number_teams
+                ));
+            }
+        }
+        (None, None) => {
+            if payload.tracked_playoff_places.is_some() {
+                return Err("tracked_playoff_places requires tracked_teams".to_string());
+            }
+        }
+        (Some(_), None) => {
+            return Err("tracked_teams requires tracked_direct_places".to_string());
+        }
+        (None, Some(_)) => {
+            return Err("tracked_direct_places requires tracked_teams".to_string());
         }
     }
     if let Some(masks) = &payload.eligibility_masks {
@@ -208,6 +253,18 @@ pub struct SimulateRequest {
     /// aendert sich nichts.
     eligibility_masks: Option<Vec<Vec<bool>>>,
 
+    /// Verfolgte Teams (0-basierte Indizes, parallel zu `elo_values`). Nur
+    /// zusammen mit `tracked_direct_places` gueltig; loest die Auszaehlung
+    /// der gemeinsamen Tabellenklassen aus (Antwortfeld
+    /// `tracked_class_patterns`, #322).
+    tracked_teams: Option<Vec<usize>>,
+
+    /// Direkte Abstiegsplaetze am Tabellenende (Klasse 1).
+    tracked_direct_places: Option<usize>,
+
+    /// Relegationsplaetze direkt darueber (Klasse 2); fehlt = keine.
+    tracked_playoff_places: Option<usize>,
+
     /// Je Spiel: Ergebnis zaehlt fuer die Tabelle, bewegt aber den ELO-Walk
     /// nicht. Paralleler Vektor zu `schedule` (gleiche Laenge und
     /// Reihenfolge); fehlt das Feld, verhaelt sich alles wie bisher.
@@ -278,6 +335,9 @@ impl From<&SimulateRequest> for SimulationParams {
             relegation_places: payload.relegation_places,
             group_count,
             eligibility_masks: payload.eligibility_masks.clone(),
+            tracked_teams: payload.tracked_teams.clone(),
+            tracked_direct_places: payload.tracked_direct_places,
+            tracked_playoff_places: payload.tracked_playoff_places,
             iterations: payload.iterations.unwrap_or(defaults.iterations),
             mod_factor: payload.mod_factor.unwrap_or(defaults.mod_factor),
             home_advantage: payload.home_advantage.unwrap_or(defaults.home_advantage),
@@ -311,6 +371,13 @@ pub struct SimulateResponse {
     /// Masken uebergeben wurden.
     #[serde(skip_serializing_if = "Option::is_none")]
     eligible_rank_probabilities: Option<Vec<Vec<Vec<f64>>>>,
+
+    /// Gemeinsame Klassenvektoren der verfolgten Teams (`classes[i]` gehoert
+    /// zu `tracked_teams[i]`; 0 = sonst, 1 = direkter Abstieg, 2 =
+    /// Relegation) mit ihrer Haeufigkeit. Fehlt, wenn keine verfolgten Teams
+    /// uebergeben wurden.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tracked_class_patterns: Option<Vec<crate::models::ClassPattern>>,
 
     /// Number of simulations actually performed
     simulations_performed: usize,
@@ -356,6 +423,7 @@ pub async fn simulate_league(
     Ok(Json(SimulateResponse {
         relegation_group_counts: result.relegation_group_counts.clone(),
         eligible_rank_probabilities: result.eligible_rank_probabilities.clone(),
+        tracked_class_patterns: result.tracked_class_patterns.clone(),
         probability_matrix: result.probability_matrix,
         team_names: result.team_names,
         simulations_performed: params.iterations,
@@ -697,6 +765,9 @@ mod tests {
             group_of_team: None,
             relegation_places: None,
             eligibility_masks: None,
+            tracked_teams: None,
+            tracked_direct_places: None,
+            tracked_playoff_places: None,
             elo_neutral: None,
             elo_values: vec![1500.0, 1500.0],
             team_names: None,

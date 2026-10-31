@@ -385,3 +385,135 @@ fn eligibility_mask_equals_minus_50_run_exactly_with_fixed_seed() {
         assert!(rang[zeile].iter().all(|&p| p == 0.0), "{team}");
     }
 }
+
+// --- tracked_class_patterns: gemeinsame Klassenvektoren (#322) --------------
+
+fn tracked_params(teams: Vec<usize>, direct: usize, playoff: usize) -> SimulationParams {
+    SimulationParams {
+        iterations: 4000,
+        tracked_teams: Some(teams),
+        tracked_direct_places: Some(direct),
+        tracked_playoff_places: Some(playoff),
+        ..SimulationParams::default()
+    }
+}
+
+#[test]
+fn tracked_patterns_sum_to_iterations_and_respect_place_counts() {
+    // Vier Teams, zwei direkte Abstiegsplaetze (3, 4), ein Relegationsplatz (2).
+    let season = double_round_robin_open();
+    let names: Vec<String> = ["AAA", "BBB", "CCC", "DDD"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    let params = tracked_params(vec![0, 1, 2, 3], 2, 1);
+    let r = run_monte_carlo_simulation_seeded(&season, &params, names, 11);
+    let muster = r.tracked_class_patterns.as_ref().unwrap();
+
+    assert_eq!(muster.iter().map(|m| m.count).sum::<usize>(), 4000);
+    for m in muster {
+        // Genau zwei Teams direkt abgestiegen, eines in der Relegation, eines sicher.
+        assert_eq!(m.classes.iter().filter(|&&c| c == 1).count(), 2, "{m:?}");
+        assert_eq!(m.classes.iter().filter(|&&c| c == 2).count(), 1, "{m:?}");
+        assert_eq!(m.classes.iter().filter(|&&c| c == 0).count(), 1, "{m:?}");
+    }
+    // Sortiert und ohne Dopplung.
+    assert!(muster.windows(2).all(|w| w[0].classes < w[1].classes));
+}
+
+#[test]
+fn tracked_patterns_agree_with_the_marginals_of_the_probability_matrix() {
+    // Die Randverteilung eines Teams aus den Mustern muss exakt der
+    // Prognosematrix entsprechen: dieselben Iterationen, dieselbe Tabelle.
+    let season = double_round_robin_open();
+    let names: Vec<String> = ["AAA", "BBB", "CCC", "DDD"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    let params = tracked_params(vec![0, 1, 2, 3], 2, 1);
+    let r = run_monte_carlo_simulation_seeded(&season, &params, names, 11);
+    let muster = r.tracked_class_patterns.as_ref().unwrap();
+
+    for (i, name) in ["AAA", "BBB", "CCC", "DDD"].iter().enumerate() {
+        let zeile = r.team_names.iter().position(|n| n == name).unwrap();
+        let direkt: usize = muster
+            .iter()
+            .filter(|m| m.classes[i] == 1)
+            .map(|m| m.count)
+            .sum();
+        let p_matrix = r.probability_matrix[zeile][2] + r.probability_matrix[zeile][3];
+        assert!((direkt as f64 / 4000.0 - p_matrix).abs() < 1e-12, "{name}");
+        let relegation: usize = muster
+            .iter()
+            .filter(|m| m.classes[i] == 2)
+            .map(|m| m.count)
+            .sum();
+        assert!(
+            (relegation as f64 / 4000.0 - r.probability_matrix[zeile][1]).abs() < 1e-12,
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn tracked_patterns_keep_the_request_order_and_subset() {
+    // Nur zwei Teams, in umgekehrter Reihenfolge: classes[0] gehoert zu Team 3.
+    let season = double_round_robin_open();
+    let names: Vec<String> = ["AAA", "BBB", "CCC", "DDD"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    let r = run_monte_carlo_simulation_seeded(&season, &tracked_params(vec![3, 0], 2, 0), names, 5);
+    let muster = r.tracked_class_patterns.as_ref().unwrap();
+    assert!(muster.iter().all(|m| m.classes.len() == 2));
+    // DDD (schwaechstes Team) steigt haeufiger direkt ab als AAA (staerkstes).
+    let ddd: usize = muster
+        .iter()
+        .filter(|m| m.classes[0] == 1)
+        .map(|m| m.count)
+        .sum();
+    let aaa: usize = muster
+        .iter()
+        .filter(|m| m.classes[1] == 1)
+        .map(|m| m.count)
+        .sum();
+    assert!(ddd > aaa);
+    // Ohne Relegationsplaetze gibt es keine Klasse 2.
+    assert!(muster.iter().all(|m| m.classes.iter().all(|&c| c <= 1)));
+}
+
+#[test]
+fn without_tracked_teams_there_are_no_patterns() {
+    let season = double_round_robin_open();
+    let names: Vec<String> = ["AAA", "BBB", "CCC", "DDD"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    let params = SimulationParams {
+        iterations: 100,
+        ..SimulationParams::default()
+    };
+    let r = run_monte_carlo_simulation_seeded(&season, &params, names, 1);
+    assert!(r.tracked_class_patterns.is_none());
+}
+
+#[test]
+fn tracked_counting_does_not_change_the_probability_matrix() {
+    // Dieselbe Seed, mit und ohne Zaehlung: die Prognose bleibt bitgleich.
+    let season = double_round_robin_open();
+    let names: Vec<String> = ["AAA", "BBB", "CCC", "DDD"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    let ohne = SimulationParams {
+        iterations: 2000,
+        ..SimulationParams::default()
+    };
+    let mit = SimulationParams {
+        iterations: 2000,
+        ..tracked_params(vec![1, 2], 2, 1)
+    };
+    let a = run_monte_carlo_simulation_seeded(&season, &ohne, names.clone(), 9);
+    let b = run_monte_carlo_simulation_seeded(&season, &mit, names, 9);
+    assert_eq!(a.probability_matrix, b.probability_matrix);
+}
