@@ -130,3 +130,17 @@ test_that("scheitert die Auswahl als Ganzes, entsteht die Seite mit Hinweis stat
   expect_match(html, "Auswahl derzeit nicht verfügbar", fixed = TRUE)
   expect_match(html, '<nav aria-label="Ligen">', fixed = TRUE)
 })
+
+test_that("ein laufendes Spiel traegt das Label \"Läuft gerade\", ein offenes nicht", {
+  out <- withr::local_tempdir()
+  ld <- gsh_league_data(2L)
+  ld$bundesliga$matches$status[1] <- "1H"
+  ld$bundesliga$matches$kickoff[1] <- as.POSIXct("2026-10-31 09:30", tz = "UTC")
+
+  html <- gsh_zyklus(out, ld)
+
+  expect_equal(lengths(regmatches(html, gregexpr('class="hg-live"', html))), 1)
+  expect_match(html, '<span class="hg-live">Läuft gerade</span>', fixed = TRUE)
+  expect_equal(lengths(regmatches(html, gregexpr('class="hg-live-hinweis"', html))), 1)
+  expect_match(html, "Prognose vor Anpfiff", fixed = TRUE)
+})
