@@ -141,4 +141,6 @@ test_that("ein laufendes Spiel traegt das Label \"Läuft gerade\", ein offenes n
 
   expect_equal(lengths(regmatches(html, gregexpr('class="hg-live"', html))), 1)
   expect_match(html, '<span class="hg-live">Läuft gerade</span>', fixed = TRUE)
+  expect_equal(lengths(regmatches(html, gregexpr('class="hg-live-hinweis"', html))), 1)
+  expect_match(html, "Prognose vor Anpfiff", fixed = TRUE)
 })

@@ -257,10 +257,13 @@ test_that("offene und laufende Spiele zaehlen; offene Anstosszeit bleibt drin", 
   expect_true(k$zeit_offen[k$fixture_id == 4])
 })
 
-test_that("ein laufendes Spiel zaehlt auch nach Mitternacht, ein haengengebliebenes nicht", {
+test_that("laufend heisst: spielt und vor hoechstens vier Stunden angepfiffen", {
   ld <- list(bundesliga = hg_league_data(list(
-    hg_spiel(1, "2026-10-30 22:30", 1, 2, status = "2H"),   # gestern angepfiffen
-    hg_spiel(2, "2026-10-20 15:30", 3, 4, status = "LIVE")  # Altlast
+    hg_spiel(1, "2026-10-31 06:30", 1, 2, status = "2H"),    # 3,5 h her: laeuft noch
+    hg_spiel(2, "2026-10-31 05:30", 3, 4, status = "LIVE"),  # 4,5 h her: Altlast
+    hg_spiel(3, "2026-10-31 09:00", 5, 6, status = "SUSP"),  # ausgesetzt
+    hg_spiel(4, "2026-10-31 09:00", 7, 8, status = "INT"),   # unterbrochen
+    hg_spiel(5, "2026-10-31 11:00", 9, 10, status = "1H")    # Anstoss in der Zukunft
   )))
 
   k <- hg$hingucker_kandidaten(hg_views("bundesliga"), hg_env_bundesliga(), ld,

@@ -42,6 +42,11 @@ if (!exists("STATUS_LIVE")) {
 # Kalendertage ab und inklusive heute (Berliner Zeit): heute bis heute + 6.
 HINGUCKER_TAGE <- 7L
 HINGUCKER_ANZAHL <- 5L
+# Laufend heisst: Anstoss hoechstens so viele Stunden her (Verlaengerung und
+# Elfmeterschiessen eingerechnet) und Status ohne SUSP/INT -- ein ausgesetztes
+# Spiel laeuft nicht.
+HINGUCKER_LIVE_STUNDEN <- 4
+HINGUCKER_LIVE_STATUS <- setdiff(STATUS_LIVE, c("SUSP", "INT"))
 
 # Nullen und Rundungsreste tragen zur Summe nichts bei; p muss nicht auf 1
 # normiert hereinkommen.
@@ -204,13 +209,14 @@ liga_ausgaenge <- function(view, data_env) {
 # Ergebnisobjekte des Zyklus, `league_data`: build_league_page_data() je Liga.
 #
 # Im Rennen sind offene Spiele ("NS") im Fenster -- ein Spiel mit offener
-# Anstosszeit (`zeit_offen`) bleibt drin -- und LAUFENDE Spiele (STATUS_LIVE),
-# unabhaengig vom Fenster: Das spannendste Spiel soll nicht verpasst werden,
-# nur weil es schon angepfiffen ist. Sie tragen `laeuft = TRUE`. Das Ergebnis
-# eines laufenden Spiels fliesst nicht ein; die Prognose gilt vor Anpfiff, wie
-# die Simulation das Spiel bis zum Abpfiff als offen behandelt. Beendete und
-# verlegte Spiele fallen heraus. Ein laufendes Spiel, dessen Anstoss mehr als
-# einen Kalendertag zurueckliegt (haengengebliebener Status), zaehlt nicht.
+# Anstosszeit (`zeit_offen`) bleibt drin -- und LAUFENDE Spiele, unabhaengig
+# vom Fenster: Das spannendste Spiel soll nicht verpasst werden, nur weil es
+# schon angepfiffen ist. Sie tragen `laeuft = TRUE`. Das Ergebnis eines
+# laufenden Spiels fliesst nicht ein; die Prognose gilt vor Anpfiff, wie die
+# Simulation das Spiel bis zum Abpfiff als offen behandelt. Als laufend zaehlt
+# nur, was spielt (nicht ausgesetzt oder unterbrochen) und vor hoechstens
+# HINGUCKER_LIVE_STUNDEN angepfiffen wurde; ein haengengebliebener Status
+# soll keinen Platz belegen. Beendete und verlegte Spiele fallen heraus.
 hingucker_kandidaten <- function(views, data_env, league_data, now = Sys.time(),
                                  tage = HINGUCKER_TAGE) {
   heute <- .hg_berliner_tag(now)
@@ -220,7 +226,7 @@ hingucker_kandidaten <- function(views, data_env, league_data, now = Sys.time(),
   # Rennen. Ein Fehler in der Auswahl soll keine ganze Seite kosten.
   je_liga <- lapply(names(views), function(key) {
     tryCatch(
-      .hg_liga_kandidaten(key, views[[key]], league_data[[key]], data_env, heute, letzter),
+      .hg_liga_kandidaten(key, views[[key]], league_data[[key]], data_env, heute, letzter, now),
       error = function(e) {
         warning(sprintf("hingucker_kandidaten: Liga %s uebersprungen: %s",
                         key, conditionMessage(e)), call. = FALSE)
@@ -241,7 +247,7 @@ hingucker_kandidaten <- function(views, data_env, league_data, now = Sys.time(),
 # Die Kandidaten EINER Liga; NULL, wenn sie keine hat. Liest `matches` so, wie
 # build_league_page_data() es im Betrieb liefert (siehe test-hingucker.R,
 # "Betriebsdaten"): alle Spiele der Liga mit den Endpunktspalten.
-.hg_liga_kandidaten <- function(key, view, eintrag, data_env, heute, letzter) {
+.hg_liga_kandidaten <- function(key, view, eintrag, data_env, heute, letzter, now) {
   spalten <- c("fixture_id", "round", "kickoff", "status", "zeit_offen",
                "nachholspiel", "home_name", "away_name", "p_home_win",
                "p_draw", "p_away_win", "score_matrix", "laeuft")
@@ -256,7 +262,9 @@ hingucker_kandidaten <- function(views, data_env, league_data, now = Sys.time(),
 
   m <- eintrag$matches
   tag <- .hg_berliner_tag(m$kickoff)
-  laeuft <- m$status %in% STATUS_LIVE & !is.na(tag) & tag >= heute - 1L
+  seit_anstoss <- as.numeric(difftime(now, m$kickoff, units = "hours"))
+  laeuft <- m$status %in% HINGUCKER_LIVE_STATUS & !is.na(seit_anstoss) &
+    seit_anstoss >= 0 & seit_anstoss <= HINGUCKER_LIVE_STUNDEN
   im_fenster <- laeuft |
     (m$status == "NS" & !is.na(tag) & tag >= heute & tag <= letzter)
   if (!any(im_fenster)) {

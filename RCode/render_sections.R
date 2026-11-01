@@ -701,7 +701,11 @@ render_ausblick <- function(ausblick, runde) {
                  "</span><span class=\"hg-liga\">",
                  htmltools::htmlEscape(row$liga_label), "</span>",
                  if (isTRUE(row$laeuft)) "<span class=\"hg-live\">Läuft gerade</span>",
-                 "</p>\n")
+                 "</p>\n",
+                 if (isTRUE(row$laeuft)) {
+                   paste0("<p class=\"hg-live-hinweis\">Prognose vor Anpfiff; ",
+                          "sie wird während des Spiels nicht aktualisiert.</p>\n")
+                 })
   index <- paste0(
     "<details class=\"hg-index\"><summary>Wie der Hingucker-Wert entsteht</summary>",
     "<p>Spielausgang ", .komma(row$d_spiel, 1), " × ",

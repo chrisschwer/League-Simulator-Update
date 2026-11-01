@@ -1136,8 +1136,8 @@ render_verlauf_page <- function(view, daten, output_dir, now = Sys.time(),
   invisible(out_path)
 }
 
-# Die Seite "Hingucker der Woche": die fuenf interessantesten offenen Spiele
-# der naechsten sieben Tage ueber alle gerenderten Ligen (siehe hingucker.R).
+# Die Seite "Hingucker der Woche": die fuenf interessantesten Spiele
+# der naechsten sieben Tage (offene und laufende) ueber alle gerenderten Ligen (siehe hingucker.R).
 # Sie entsteht in jedem Zyklus, auch ohne Spiele oder ohne league_data -- die
 # Navigation verlinkt sie immer, und eine Leermeldung ist besser als ein 404.
 .render_hingucker_page <- function(output_dir, views, data_env, league_data,
