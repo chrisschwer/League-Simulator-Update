@@ -13,7 +13,7 @@ Beide Eigenschaften misst derselbe Index, der Inverse Simpson-Index `D = 1 / Σ 
 - `D_Spiel` aus (Sieg Heim, Remis, Sieg Gast), Wertebereich 1 bis 3.
 - `D_Team` aus den **Saisonausgängen** des Teams, Wertebereich 1 bis zur Zahl der Zonen der Liga.
 
-`Hingucker-Wert = D_Spiel × D_Heim × D_Gast`. Das Fenster sind die Berliner Kalendertage heute bis heute + 6; nur offene Spiele (`NS`) zählen.
+`Hingucker-Wert = D_Spiel × D_Heim × D_Gast`. Das Fenster sind die Berliner Kalendertage heute bis heute + 6; offene Spiele (`NS`) im Fenster zählen, dazu laufende Spiele (`STATUS_LIVE`) unabhängig vom Fenster — sie tragen das Label „Läuft gerade“, damit das spannendste Spiel nicht verpasst wird, nur weil es schon angepfiffen ist. Der Spielstand fließt nicht ein; die Prognose gilt wie vor Anpfiff.
 
 Saisonausgänge sind die Zonen, die `league_views()` für die Panels der Seite führt (Meister, CL, EL, …, Relegation, Abstieg), dazu „Mittelfeld“ als Rest. Sie müssen disjunkt sein und sich auf 1 summieren:
 

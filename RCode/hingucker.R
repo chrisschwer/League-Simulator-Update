@@ -34,6 +34,10 @@
 
 source(file.path(.hg_dir, "render_helpers.R"), local = TRUE)
 source(file.path(.hg_dir, "league_registry.R"), local = TRUE)
+# STATUS_LIVE: welche Spiele gerade laufen.
+if (!exists("STATUS_LIVE")) {
+  source(file.path(.hg_dir, "league_details.R"), local = TRUE)
+}
 
 # Kalendertage ab und inklusive heute (Berliner Zeit): heute bis heute + 6.
 HINGUCKER_TAGE <- 7L
@@ -199,9 +203,14 @@ liga_ausgaenge <- function(view, data_env) {
 # `views`: league_views() (nur die gerenderten Ligen), `data_env`: die
 # Ergebnisobjekte des Zyklus, `league_data`: build_league_page_data() je Liga.
 #
-# Gespielt wird nur, was "NS" ist (offen). Ein heute schon angepfiffenes oder
-# beendetes Spiel faellt ueber den Status heraus, auch wenn sein Anstoss heute
-# liegt; ein Spiel mit offener Anstosszeit (`zeit_offen`) bleibt drin.
+# Im Rennen sind offene Spiele ("NS") im Fenster -- ein Spiel mit offener
+# Anstosszeit (`zeit_offen`) bleibt drin -- und LAUFENDE Spiele (STATUS_LIVE),
+# unabhaengig vom Fenster: Das spannendste Spiel soll nicht verpasst werden,
+# nur weil es schon angepfiffen ist. Sie tragen `laeuft = TRUE`. Das Ergebnis
+# eines laufenden Spiels fliesst nicht ein; die Prognose gilt vor Anpfiff, wie
+# die Simulation das Spiel bis zum Abpfiff als offen behandelt. Beendete und
+# verlegte Spiele fallen heraus. Ein laufendes Spiel, dessen Anstoss mehr als
+# einen Kalendertag zurueckliegt (haengengebliebener Status), zaehlt nicht.
 hingucker_kandidaten <- function(views, data_env, league_data, now = Sys.time(),
                                  tage = HINGUCKER_TAGE) {
   heute <- .hg_berliner_tag(now)
@@ -235,7 +244,7 @@ hingucker_kandidaten <- function(views, data_env, league_data, now = Sys.time(),
 .hg_liga_kandidaten <- function(key, view, eintrag, data_env, heute, letzter) {
   spalten <- c("fixture_id", "round", "kickoff", "status", "zeit_offen",
                "nachholspiel", "home_name", "away_name", "p_home_win",
-               "p_draw", "p_away_win", "score_matrix")
+               "p_draw", "p_away_win", "score_matrix", "laeuft")
 
   if (is.null(eintrag) || is.null(eintrag$matches) || nrow(eintrag$matches) == 0L) {
     return(NULL)
@@ -247,10 +256,13 @@ hingucker_kandidaten <- function(views, data_env, league_data, now = Sys.time(),
 
   m <- eintrag$matches
   tag <- .hg_berliner_tag(m$kickoff)
-  im_fenster <- m$status == "NS" & !is.na(tag) & tag >= heute & tag <= letzter
+  laeuft <- m$status %in% STATUS_LIVE & !is.na(tag) & tag >= heute - 1L
+  im_fenster <- laeuft |
+    (m$status == "NS" & !is.na(tag) & tag >= heute & tag <= letzter)
   if (!any(im_fenster)) {
     return(NULL)
   }
+  m$laeuft <- laeuft
   m <- m[im_fenster, , drop = FALSE]
 
   kuerzel <- stats::setNames(as.character(eintrag$teams$ShortText),

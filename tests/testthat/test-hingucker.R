@@ -240,7 +240,7 @@ test_that("das Fenster reicht von heute (inklusive) sieben Berliner Kalendertage
   expect_setequal(k$fixture_id, c(1, 2))
 })
 
-test_that("nur offene Spiele zaehlen; offene Anstosszeit bleibt drin", {
+test_that("offene und laufende Spiele zaehlen; offene Anstosszeit bleibt drin", {
   ld <- list(bundesliga = hg_league_data(list(
     hg_spiel(1, "2026-10-31 09:00", 1, 2, status = "FT"),     # heute schon gespielt
     hg_spiel(2, "2026-10-31 09:30", 3, 4, status = "1H"),     # laeuft
@@ -251,8 +251,23 @@ test_that("nur offene Spiele zaehlen; offene Anstosszeit bleibt drin", {
   k <- hg$hingucker_kandidaten(hg_views("bundesliga"), hg_env_bundesliga(), ld,
                                now = hg_jetzt)
 
-  expect_equal(k$fixture_id, 4)
-  expect_true(k$zeit_offen)
+  expect_setequal(k$fixture_id, c(2, 4))
+  expect_true(k$laeuft[k$fixture_id == 2])
+  expect_false(k$laeuft[k$fixture_id == 4])
+  expect_true(k$zeit_offen[k$fixture_id == 4])
+})
+
+test_that("ein laufendes Spiel zaehlt auch nach Mitternacht, ein haengengebliebenes nicht", {
+  ld <- list(bundesliga = hg_league_data(list(
+    hg_spiel(1, "2026-10-30 22:30", 1, 2, status = "2H"),   # gestern angepfiffen
+    hg_spiel(2, "2026-10-20 15:30", 3, 4, status = "LIVE")  # Altlast
+  )))
+
+  k <- hg$hingucker_kandidaten(hg_views("bundesliga"), hg_env_bundesliga(), ld,
+                               now = hg_jetzt)
+
+  expect_equal(k$fixture_id, 1)
+  expect_true(k$laeuft)
 })
 
 test_that("Score ist das Produkt aus Spiel-, Heim- und Gast-Index", {

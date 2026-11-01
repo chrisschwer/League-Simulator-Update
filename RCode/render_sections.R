@@ -699,7 +699,9 @@ render_ausblick <- function(ausblick, runde) {
 .hingucker_spiel <- function(row, rang) {
   kopf <- paste0("<p class=\"hg-kopf\"><span class=\"hg-rang\">", rang,
                  "</span><span class=\"hg-liga\">",
-                 htmltools::htmlEscape(row$liga_label), "</span></p>\n")
+                 htmltools::htmlEscape(row$liga_label), "</span>",
+                 if (isTRUE(row$laeuft)) "<span class=\"hg-live\">Läuft gerade</span>",
+                 "</p>\n")
   index <- paste0(
     "<details class=\"hg-index\"><summary>Wie der Hingucker-Wert entsteht</summary>",
     "<p>Spielausgang ", .komma(row$d_spiel, 1), " × ",
