@@ -35,7 +35,7 @@ COPY league-simulator-rust/test_data/ ./test_data/
 RUN cargo build --release --locked && strip target/release/league-simulator-rust
 
 # ---- Stage 2: Build R library (binary packages from P3M) ----
-FROM rocker/r-ver:4.6.1 AS r-builder
+FROM rocker/r-ver:4.6.2 AS r-builder
 
 # Keine -dev-Bibliotheken und kein build-essential mehr: Aus P3M kommen
 # Binaerpakete, kompiliert wird nichts. Faellt ein Paket doch auf eine
@@ -59,7 +59,7 @@ RUN R --slave --no-restore -e " \
     if (!all(ok)) stop('Pakete nicht installierbar: ', paste(pkgs[!ok], collapse = ', '))"
 
 # ---- Stage 3: Runtime (no compilers, non-root) ----
-FROM rocker/r-ver:4.6.1
+FROM rocker/r-ver:4.6.2
 
 # Derselbe P3M-Snapshot wie im Build-Stage, damit Nachinstallationen im Image
 # (Test-Pakete der CI, scripts/ci/testthat_ci.R) dieselben Binaerpakete ziehen.
