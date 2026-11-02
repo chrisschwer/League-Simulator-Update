@@ -4,7 +4,7 @@ The League Simulator runs as a single Docker container that combines the Rust si
 
 ## Stack
 
-- **`Dockerfile`** — multi-stage build: `rust:1.98-alpine` compiles the simulation binary in stage 1; `rocker/r-ver:4.6.1` runs the R scheduler in stage 2. (CI's advisory `r-lint` job still pins R 4.3.1 for `lintr` — see `.github/workflows/ci.yml` — that pin is independent of the image the container actually ships.)
+- **`Dockerfile`** — multi-stage build: `rust:1.98-alpine` compiles the simulation binary in stage 1; `rocker/r-ver:4.6.2` runs the R scheduler in stage 2. (CI's advisory `r-lint` job still pins R 4.3.1 for `lintr` — see `.github/workflows/ci.yml` — that pin is independent of the image the container actually ships.)
 - **`docker-compose.yml`** — single service `scheduler` (container `fussball-scheduler`). The Rust API stays container-internal; the generated static site is written to the external named volume `fussball-site`.
 - **`docker-start.sh`** — container entrypoint. Starts the Rust server on `localhost:8080`, waits for it to be healthy, then runs `Rscript RCode/updateScheduler.R` with retry logic.
 - **`RCode/updateScheduler.R`** — the R scheduler. Wakes at 11:00 Berlin time, polls api-football, calls the in-process Rust server when new fixtures arrive, renders the static site (see [`static-site.md`](static-site.md)).
@@ -60,9 +60,9 @@ Abhängigkeiten des Images kommen aus drei Quellen, und nur zwei davon pflegt De
 |---|---|
 | Cargo-Crates, GitHub Actions, `FROM`-Tags | Dependabot-PRs |
 | R-Pakete (`ARG P3M_SNAPSHOT` im `Dockerfile`, fester Snapshot des Posit Package Manager) | `.github/workflows/p3m-snapshot.yml` |
-| Neubauten desselben Basis-Tags (`rocker/r-ver:4.6.1` mit Sicherheitsupdates) und apt-Schichten (libcurl, openssl, libxml2) | ebenfalls über den Snapshot-PR, weil dessen CI ohne Cache baut |
+| Neubauten desselben Basis-Tags (`rocker/r-ver:4.6.2` mit Sicherheitsupdates) und apt-Schichten (libcurl, openssl, libxml2) | ebenfalls über den Snapshot-PR, weil dessen CI ohne Cache baut |
 
-**Ablauf des Snapshot-Workflows:** Am ersten Montag im Monat (05:17 UTC) setzt er den Snapshot auf das Datum von vor sieben Tagen, prüft, dass `https://p3m.dev/cran/__linux__/noble/<datum>/src/contrib/PACKAGES` einen Index liefert, ersetzt das Datum in der ARG-Zeile und öffnet den PR `deps/p3m-snapshot-<datum>` mit den Labels `dependencies` und (falls vorhanden) `docker`. Ist schon ein solcher PR offen oder ist der Snapshot nicht älter, tut er nichts. Für Branches `deps/p3m-snapshot-*` baut die CI mit `no-cache` und `pull: true`, also Basis-Image, apt, R-Pakete und Rust komplett frisch.
+**Ablauf des Snapshot-Workflows:** Am ersten Montag im Monat (05:17 UTC) setzt er den Snapshot auf das Datum von vor sieben Tagen, prüft, dass `https://p3m.dev/cran/__linux__/resolute/<datum>/src/contrib/PACKAGES` einen Index liefert, ersetzt das Datum in der ARG-Zeile und öffnet den PR `deps/p3m-snapshot-<datum>` mit den Labels `dependencies` und (falls vorhanden) `docker`. Ist schon ein solcher PR offen oder ist der Snapshot nicht älter, tut er nichts. Für Branches `deps/p3m-snapshot-*` baut die CI mit `no-cache` und `pull: true`, also Basis-Image, apt, R-Pakete und Rust komplett frisch.
 
 **Manuell auslösen:** `gh workflow run p3m-snapshot.yml` (oder Actions → „P3M snapshot bump“ → Run workflow). Die Prüfung „erster Montag“ gilt nur für den Zeitplan.
 

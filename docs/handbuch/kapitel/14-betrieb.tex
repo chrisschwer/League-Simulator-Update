@@ -58,9 +58,9 @@ Das Produktions-Image (\datei{Dockerfile}) wird in drei Stufen gebaut:
 
 \begin{enumerate}
   \item \code{rust:1.98-alpine} kompiliert den Rust-Server.
-  \item \code{rocker/r-ver:4.6.1} installiert die R-Pakete mit allen
+  \item \code{rocker/r-ver:4.6.2} installiert die R-Pakete mit allen
         Entwicklungsbibliotheken.
-  \item Das Laufzeit-Image \code{rocker/r-ver:4.6.1} enthält nur die nötigen
+  \item Das Laufzeit-Image \code{rocker/r-ver:4.6.2} enthält nur die nötigen
         Bibliotheken, die R-Pakete, das Rust-Programm und \datei{RCode/}.
         Es läuft als Benutzer \code{appuser} (uid 1001), nicht als root.
 \end{enumerate}
