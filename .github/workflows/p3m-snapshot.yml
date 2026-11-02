@@ -28,7 +28,7 @@ concurrency:
 jobs:
   gate:
     name: Erster Montag im Monat?
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     outputs:
       run: ${{ steps.check.outputs.run }}
     steps:
@@ -50,7 +50,7 @@ jobs:
     name: Snapshot anheben und PR oeffnen
     needs: gate
     if: needs.gate.outputs.run == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: write        # Branch deps/p3m-snapshot-<datum> pushen
       pull-requests: write   # PR oeffnen
@@ -99,7 +99,7 @@ jobs:
             exit 0
           fi
 
-          INDEX_URL="https://p3m.dev/cran/__linux__/noble/${NEW}/src/contrib/PACKAGES"
+          INDEX_URL="https://p3m.dev/cran/__linux__/resolute/${NEW}/src/contrib/PACKAGES"
           if ! curl -fsS --retry 3 --retry-delay 10 -o /tmp/PACKAGES "$INDEX_URL"; then
             echo "::error::P3M-Snapshot $NEW antwortet nicht ($INDEX_URL)."
             exit 1
@@ -150,7 +150,7 @@ jobs:
           Geaenderte Dateien: ${FILES[*]}
 
           ## Verifikation
-          Die CI dieses PRs baut das Image **ohne Build-Cache** und mit frisch gezogenem Basis-Image (\`no-cache\` fuer Branches \`deps/p3m-snapshot-*\`, siehe \`ci.yml\`). Damit kommen neue R-Paketversionen, Sicherheitsupdates von \`rocker/r-ver:4.6.1\` und die apt-Schichten (libcurl, openssl, libxml2) gemeinsam durch Build und testthat.
+          Die CI dieses PRs baut das Image **ohne Build-Cache** und mit frisch gezogenem Basis-Image (\`no-cache\` fuer Branches \`deps/p3m-snapshot-*\`, siehe \`ci.yml\`). Damit kommen neue R-Paketversionen, Sicherheitsupdates von \`rocker/r-ver:4.6.2\` und die apt-Schichten (libcurl, openssl, libxml2) gemeinsam durch Build und testthat.
 
           ${CI_HINWEIS}
 

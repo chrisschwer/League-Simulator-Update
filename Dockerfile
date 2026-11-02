@@ -11,8 +11,8 @@
 #   13.10.2026). Angehoben wird per PR: monatlich automatisch durch
 #   .github/workflows/p3m-snapshot.yml, dessen CI ohne Cache baut.
 #   Das Datum nur in der ARG-Zeile unten pflegen, der Workflow ersetzt dort.
-# URL-Form /cran/__linux__/<ubuntu-codename>/<datum>: rocker/r-ver:4.6.1 ist
-# Ubuntu 24.04 "noble". Binaerpakete liefert P3M nur bei passendem
+# URL-Form /cran/__linux__/<ubuntu-codename>/<datum>: rocker/r-ver:4.6.2 ist
+# Ubuntu 26.04 "resolute". Binaerpakete liefert P3M nur bei passendem
 # HTTPUserAgent; den setzt rocker in Rprofile.site, der Bau prueft das.
 ARG P3M_SNAPSHOT=2026-10-26
 
@@ -35,14 +35,14 @@ COPY league-simulator-rust/test_data/ ./test_data/
 RUN cargo build --release --locked && strip target/release/league-simulator-rust
 
 # ---- Stage 2: Build R library (binary packages from P3M) ----
-FROM rocker/r-ver:4.6.1 AS r-builder
+FROM rocker/r-ver:4.6.2 AS r-builder
 
 # Keine -dev-Bibliotheken und kein build-essential mehr: Aus P3M kommen
 # Binaerpakete, kompiliert wird nichts. Faellt ein Paket doch auf eine
 # Quellversion zurueck und braucht Systemheader, scheitert der Bau laut
 # (Pruefung unten) statt still.
 ARG P3M_SNAPSHOT
-ENV CRAN=https://p3m.dev/cran/__linux__/noble/${P3M_SNAPSHOT}
+ENV CRAN=https://p3m.dev/cran/__linux__/resolute/${P3M_SNAPSHOT}
 RUN grep -q HTTPUserAgent /usr/local/lib/R/etc/Rprofile.site \
     && echo "options(repos = c(CRAN = '${CRAN}'))" >> /usr/local/lib/R/etc/Rprofile.site
 
@@ -59,23 +59,24 @@ RUN R --slave --no-restore -e " \
     if (!all(ok)) stop('Pakete nicht installierbar: ', paste(pkgs[!ok], collapse = ', '))"
 
 # ---- Stage 3: Runtime (no compilers, non-root) ----
-FROM rocker/r-ver:4.6.1
+FROM rocker/r-ver:4.6.2
 
 # Derselbe P3M-Snapshot wie im Build-Stage, damit Nachinstallationen im Image
 # (Test-Pakete der CI, scripts/ci/testthat_ci.R) dieselben Binaerpakete ziehen.
 ARG P3M_SNAPSHOT
-ENV CRAN=https://p3m.dev/cran/__linux__/noble/${P3M_SNAPSHOT}
+ENV CRAN=https://p3m.dev/cran/__linux__/resolute/${P3M_SNAPSHOT}
 RUN grep -q HTTPUserAgent /usr/local/lib/R/etc/Rprofile.site \
     && echo "options(repos = c(CRAN = '${CRAN}'))" >> /usr/local/lib/R/etc/Rprofile.site
 
 # Runtime (non -dev) libraries for the compiled R packages + curl for healthchecks.
-# rocker/r-ver:4.6.1 is Ubuntu 24.04 (Noble); several libs use the 64-bit-time_t
-# ("t64") package names introduced in Noble, verified via:
-#   docker run --rm rocker/r-ver:4.6.1 bash -c "apt-get update -qq && apt-cache policy <pkg>"
+# rocker/r-ver:4.6.2 is Ubuntu 26.04 (Resolute); several libs use the 64-bit-time_t
+# ("t64") package names introduced in Noble (24.04); libxml2 is libxml2-16
+# since Resolute (SONAME bump). Verified via:
+#   docker run --rm rocker/r-ver:4.6.2 bash -c "apt-get update -qq && apt-cache policy <pkg>"
 RUN apt-get update && apt-get install -y \
     libcurl4t64 \
     libssl3t64 \
-    libxml2 \
+    libxml2-16 \
     curl \
     tzdata \
     libuv1t64 \
