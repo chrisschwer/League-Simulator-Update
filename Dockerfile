@@ -14,7 +14,7 @@
 # URL-Form /cran/__linux__/<ubuntu-codename>/<datum>: rocker/r-ver:4.6.1 ist
 # Ubuntu 24.04 "noble". Binaerpakete liefert P3M nur bei passendem
 # HTTPUserAgent; den setzt rocker in Rprofile.site, der Bau prueft das.
-ARG P3M_SNAPSHOT=2026-10-12
+ARG P3M_SNAPSHOT=2026-10-26
 
 # ---- Stage 1: Build Rust binary ----
 FROM rust:1.99-alpine AS rust-builder
