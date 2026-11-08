@@ -64,6 +64,18 @@ test_that("die Hingucker-Seite zeigt die fuenf besten von mehr Spielen im Fenste
   expect_match(html, "Wie der Hingucker-Wert entsteht", fixed = TRUE)
 })
 
+test_that("die Rechnung zum Hingucker-Wert nennt den Liga-Median und erklaert ihn", {
+  out <- withr::local_tempdir()
+
+  html <- gsh_zyklus(out, gsh_league_data(1L))
+
+  # Gleichverteilte Bundesliga: D_Team = Median = 324 / 98 = 3,3, Faktor je Team 1,0.
+  expect_match(html, "Team 1 3,3 ÷ 3,3", fixed = TRUE)
+  expect_match(html, "Team 2 3,3 ÷ 3,3", fixed = TRUE)
+  expect_match(html, "Median", fixed = TRUE)
+  expect_match(html, "typischen Teams der Liga", fixed = TRUE)
+})
+
 test_that("jedes Team nennt, worum es geht", {
   out <- withr::local_tempdir()
 
