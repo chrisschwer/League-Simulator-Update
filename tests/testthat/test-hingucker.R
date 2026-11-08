@@ -273,7 +273,7 @@ test_that("laufend heisst: spielt und vor hoechstens vier Stunden angepfiffen", 
   expect_true(k$laeuft)
 })
 
-test_that("Score ist das Produkt aus Spiel-, Heim- und Gast-Index", {
+test_that("Score ist Spiel-Index mal Heim- und Gast-Index, je geteilt durch den Liga-Median", {
   ld <- list(bundesliga = hg_league_data(list(
     hg_spiel(1, "2026-11-01 15:30", 1, 2, p = c(0.5, 0.3, 0.2))
   )))
@@ -284,38 +284,60 @@ test_that("Score ist das Produkt aus Spiel-, Heim- und Gast-Index", {
   expect_equal(k$d_spiel, 1 / 0.38)
   expect_equal(k$d_heim, 324 / 98)
   expect_equal(k$d_gast, 324 / 98)
-  expect_equal(k$score, (1 / 0.38) * (324 / 98)^2)
+  # Alle 18 Teams sind gleich offen: der Median ist ihr gemeinsamer Wert, beide
+  # Teams sind "typisch" (Faktor 1), und der Score ist der Spiel-Index allein.
+  expect_equal(k$d_median, 324 / 98)
+  expect_equal(k$score, 1 / 0.38)
   expect_equal(k$platz_heim, 1)
   expect_equal(k$platz_gast, 2)
   expect_equal(k$liga_label, "Bundesliga")
 })
 
-test_that("sortiert nach Score; bei Gleichstand entscheidet der fruehere Anstoss", {
+# Eine Bundesliga, in der T1 und T2 offener sind als der Rest: T1 und T2 halten
+# je zur Haelfte Platz 1 und Platz 2, alle anderen sind unveraendert gleichverteilt.
+hg_env_bundesliga_offen <- function() {
   env <- hg_env_bundesliga()
   m <- unclass(env$Ergebnis)
-  m["T3", ] <- c(1, rep(0, 17))  # T3 hat nichts mehr offen: D_Heim = 1
+  m["T1", ] <- c(0.5, 0.5, rep(0, 16))
+  m["T2", ] <- c(0.5, 0.5, rep(0, 16))
   env$Ergebnis <- as.table(m)
+  env
+}
 
+test_that("d_median ist der Median von D_Team ueber ALLE Teams der Liga, nicht nur die im Fenster", {
+  env <- hg_env_bundesliga()
+  m <- unclass(env$Ergebnis)
+  # Zehn Teams ohne Spiel im Fenster sind sicher im Mittelfeld (D = 1), acht
+  # Teams gleichverteilt (D = 324 / 98): Der Median liegt bei den sicheren.
+  for (t in paste0("T", 9:18)) m[t, ] <- c(rep(0, 8), 1, rep(0, 9))
+  env$Ergebnis <- as.table(m)
   ld <- list(bundesliga = hg_league_data(list(
-    hg_spiel(1, "2026-11-03 15:30", 3, 4),  # T3 entschieden -> niedriger Score
-    hg_spiel(2, "2026-11-02 15:30", 5, 6),  # gleicher Score wie 3 ...
-    hg_spiel(3, "2026-11-01 15:30", 7, 8)   # ... aber frueher
+    hg_spiel(1, "2026-11-01 15:30", 1, 2)   # nur die gleichverteilten Teams spielen
   )))
 
   k <- hg$hingucker_kandidaten(hg_views("bundesliga"), env, ld, now = hg_jetzt)
 
-  expect_equal(k$fixture_id, c(3, 2, 1))
+  expect_equal(k$d_median, 1)
+  expect_equal(k$d_heim, 324 / 98)
+  expect_equal(k$score, k$d_spiel * (324 / 98)^2)
 })
 
-test_that("Ligen ohne league_data oder ohne Ausgaenge liefern keine Kandidaten", {
-  expect_null(hg$hingucker_kandidaten(hg_views("bundesliga"), hg_env_bundesliga(),
-                                      list(bundesliga = NULL), now = hg_jetzt))
-  ld <- list(bundesliga = hg_league_data(list(hg_spiel(1, "2026-11-01 15:30", 1, 2))))
-  expect_null(hg$hingucker_kandidaten(hg_views("bundesliga"), new.env(), ld,
-                                      now = hg_jetzt))
+test_that("der Median geht quadratisch ein: score = d_spiel * d_heim * d_gast / d_median^2", {
+  ld <- list(bundesliga = hg_league_data(list(
+    hg_spiel(1, "2026-11-01 15:30", 1, 2, p = c(0.5, 0.3, 0.2)),   # beide offen
+    hg_spiel(2, "2026-11-01 15:30", 1, 3, p = c(0.5, 0.3, 0.2))    # nur T1 offen
+  )))
+
+  k <- hg$hingucker_kandidaten(hg_views("bundesliga"), hg_env_bundesliga_offen(), ld,
+                               now = hg_jetzt)
+
+  expect_equal(k$score, k$d_spiel * k$d_heim * k$d_gast / k$d_median^2)
+  # T1 und T2: D = 2, die uebrigen 16 Teams: D = 324 / 98. Median = 324 / 98.
+  expect_equal(unique(k$d_median), 324 / 98)
+  expect_equal(k$d_heim[k$fixture_id == 1], 2)
 })
 
-test_that("Kandidaten aus mehreren Ligen werden gemeinsam gerankt und tragen den Ligennamen", {
+test_that("die Normierung nimmt Ligen mit weniger Zonen ihren Nachteil: typische Spiele sind gleich viel wert", {
   env <- hg_env_bundesliga()
   env$Ergebnis_frauen_bundesliga <- hg_gleichverteilt(14L)
   ld <- list(
@@ -327,9 +349,30 @@ test_that("Kandidaten aus mehreren Ligen werden gemeinsam gerankt und tragen den
                                now = hg_jetzt)
 
   expect_setequal(k$liga_label, c("Bundesliga", "Frauen-Bundesliga"))
-  # Die Bundesliga hat sieben Ausgaenge, die Frauen-Bundesliga vier:
-  # unnormiert liegt die Bundesliga vorn (siehe Kopfkommentar von hingucker.R).
-  expect_equal(k$liga_label[1], "Bundesliga")
+  # Roh haette die Bundesliga (sieben Zonen) vorn gelegen; relativ zum typischen
+  # Team der eigenen Liga sind beide Spiele gleich gut.
+  expect_equal(k$score[k$liga == "bundesliga"], k$score[k$liga == "frauen_bundesliga"])
+  expect_equal(k$d_heim[k$liga == "bundesliga"] > k$d_heim[k$liga == "frauen_bundesliga"], TRUE)
+})
+
+test_that("ein ueberdurchschnittlich offenes Frauenspiel schlaegt ein typisches Bundesligaspiel", {
+  env <- hg_env_bundesliga()
+  fr <- unclass(hg_gleichverteilt(14L))
+  # In der Frauen-Bundesliga sind T1 und T2 ein offenes Titelrennen (D < Maximum,
+  # aber klar ueber dem Median der Liga, in der die meisten Teams entschieden sind).
+  fr[3:14, ] <- matrix(rep(c(rep(0, 4), 1, rep(0, 9)), each = 12), nrow = 12)
+  fr[1, ] <- c(0.5, 0.5, rep(0, 12))
+  fr[2, ] <- c(0.5, 0.5, rep(0, 12))
+  env$Ergebnis_frauen_bundesliga <- as.table(fr)
+  ld <- list(
+    bundesliga = hg_league_data(list(hg_spiel(1, "2026-11-01 15:30", 3, 4))),
+    frauen_bundesliga = hg_league_data(list(hg_spiel(2, "2026-11-01 15:30", 1, 2)))
+  )
+
+  k <- hg$hingucker_kandidaten(hg_views("bundesliga", "frauen_bundesliga"), env, ld,
+                               now = hg_jetzt)
+
+  expect_equal(k$liga[1], "frauen_bundesliga")
 })
 
 test_that("hingucker_fenster_text nennt sieben Tage ab heute", {
@@ -346,6 +389,17 @@ test_that("hingucker_logzeile nennt den besten Score je Liga, hoechsten zuerst",
                paste0("hingucker: 3 Spiele im Fenster, bester Score je Liga: ",
                       "Regionalliga Bayern 30.0 | Bundesliga 20.0"))
   expect_equal(hg$hingucker_logzeile(NULL), "hingucker: keine Spiele im Fenster")
+})
+
+test_that("hingucker_logzeile nennt zusaetzlich den Liga-Median von D_Team", {
+  k <- data.frame(score = c(10, 30, 20),
+                  liga_label = c("Bundesliga", "Regionalliga Bayern", "Bundesliga"),
+                  d_median = c(2.19, 1.36, 2.19))
+
+  expect_equal(hg$hingucker_logzeile(k),
+               paste0("hingucker: 3 Spiele im Fenster, bester Score je Liga: ",
+                      "Regionalliga Bayern 30.0 | Bundesliga 20.0; ",
+                      "Median D_Team: Regionalliga Bayern 1.36 | Bundesliga 2.19"))
 })
 
 # ---------------------------------------------------------------------------

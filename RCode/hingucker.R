@@ -10,13 +10,21 @@
 #   D_Team    aus den Ausgaengen der Saison (Meister, CL,   1 .. k
 #             EL, ..., Mittelfeld, Relegation, Abstieg)
 #
-# Der Hingucker-Wert ist das Produkt aus D_Spiel, D_Heim und D_Gast.
+# Der Hingucker-Wert ist das Produkt aus D_Spiel, D_Heim und D_Gast, geteilt
+# durch das Quadrat des Medians M von D_Team ueber ALLE Teams der Liga:
 #
-# Das Produkt ist bewusst einfach. D_Team misst, wie OFFEN die Saison eines
-# Teams noch ist -- nicht, ob gerade dieses Spiel etwas daran aendert. Und das
-# Maximum von D_Team haengt an der Zahl der Ausgaenge einer Liga (Bundesliga:
-# sieben, Regionalliga: drei). Ob das eine Normierung braucht, zeigt erst der
-# Blick auf echte Wochen; hingucker_logzeile() schreibt ihn je Zyklus ins Log.
+#   Hingucker-Wert = D_Spiel * (D_Heim / M) * (D_Gast / M)
+#
+# D_Team misst, wie OFFEN die Saison eines Teams noch ist -- nicht, ob gerade
+# dieses Spiel etwas daran aendert. Und sein Niveau haengt an der Liga: Die
+# Bundesliga hat sieben Ausgaenge, die Frauen-Bundesliga vier, und in ihr sind
+# die meisten Saisons frueh entschieden. Ohne Normierung gewinnt die Bundesliga
+# fast jede Woche. M macht aus D_Team die Frage "wie offen ist dieses Team im
+# Vergleich zum typischen Team SEINER Liga". D_Spiel (1 bis 3) liegt in jeder
+# Liga auf derselben Skala und wird nicht normiert. Begruendung und Vergleich
+# der Alternativen: ADR 0010.
+#
+# hingucker_logzeile() schreibt den besten Score und M je Liga ins Log.
 #
 # Diese Einheit rechnet nur. Das Markup steht in render_sections.R
 # (render_hingucker), die Seite in generate_static_site.R.
@@ -259,6 +267,10 @@ hingucker_kandidaten <- function(views, data_env, league_data, now = Sys.time(),
   if (is.null(ausgaenge)) {
     return(NULL)
   }
+  # Referenz: das typische Team der Liga, gemessen an ALLEN Teams (nicht nur den
+  # Teams mit Spiel im Fenster). Jede Zeile summiert auf 1 (Rest = Mittelfeld),
+  # D_Team ist also immer mindestens 1 und der Median nie null.
+  d_median <- stats::median(apply(ausgaenge, 1, inverse_simpson))
 
   m <- eintrag$matches
   tag <- .hg_berliner_tag(m$kickoff)
@@ -303,7 +315,8 @@ hingucker_kandidaten <- function(views, data_env, league_data, now = Sys.time(),
   out$d_spiel <- unname(d_spiel)
   out$d_heim <- unname(d_heim)
   out$d_gast <- unname(d_gast)
-  out$score <- out$d_spiel * out$d_heim * out$d_gast
+  out$d_median <- d_median
+  out$score <- out$d_spiel * (out$d_heim / d_median) * (out$d_gast / d_median)
   out$ausgaenge_heim <- lapply(heim, function(k) ausgaenge[k, ])
   out$ausgaenge_gast <- lapply(gast, function(k) ausgaenge[k, ])
   out
@@ -318,17 +331,26 @@ hingucker_fenster_text <- function(now = Sys.time(), tage = HINGUCKER_TAGE) {
   paste0(tag(heute), " – ", tag(heute + tage - 1L))
 }
 
-# Eine Logzeile je Zyklus: Zahl der Spiele im Fenster und der beste Score je
-# Liga. Damit laesst sich ueber Wochen im Container-Log beobachten, ob einzelne
-# Ligen wegen ihrer Zonenzahl systematisch vorn oder hinten landen -- ohne dass
-# league_data dafuer auf die Platte muss.
+# Eine Logzeile je Zyklus: Zahl der Spiele im Fenster, der beste Score je Liga
+# und -- wenn die Kandidaten ihn tragen -- der Median von D_Team je Liga. Damit
+# laesst sich ueber Wochen im Container-Log beobachten, ob einzelne Ligen trotz
+# der Normierung systematisch vorn oder hinten landen -- ohne dass league_data
+# dafuer auf die Platte muss.
 hingucker_logzeile <- function(kandidaten) {
   if (is.null(kandidaten) || nrow(kandidaten) == 0L) {
     return("hingucker: keine Spiele im Fenster")
   }
   bester <- tapply(kandidaten$score, kandidaten$liga_label, max)
   bester <- sort(bester, decreasing = TRUE)
-  paste0("hingucker: ", nrow(kandidaten), " Spiele im Fenster, bester Score je Liga: ",
-         paste0(names(bester), " ", formatC(bester, digits = 1, format = "f"),
-                collapse = " | "))
+  zeile <- paste0("hingucker: ", nrow(kandidaten), " Spiele im Fenster, bester Score je Liga: ",
+                  paste0(names(bester), " ", formatC(bester, digits = 1, format = "f"),
+                         collapse = " | "))
+  if ("d_median" %in% names(kandidaten)) {
+    median_je_liga <- tapply(kandidaten$d_median, kandidaten$liga_label, max)[names(bester)]
+    zeile <- paste0(zeile, "; Median D_Team: ",
+                    paste0(names(median_je_liga), " ",
+                           formatC(median_je_liga, digits = 2, format = "f"),
+                           collapse = " | "))
+  }
+  zeile
 }

@@ -32,3 +32,35 @@ Saisonausgänge sind die Zonen, die `league_views()` für die Panels der Seite f
 - Die Seite wird in jedem Zyklus geschrieben, auch ohne `league_data` oder ohne Spiele im Fenster (Leermeldung): Die Navigation verlinkt sie immer.
 - `hingucker_kandidaten()` liefert alle Spiele im Fenster; die Auswahl der fünf trifft erst der Renderer.
 - Die Seitenzahl steigt von 22 auf 23.
+
+## Nachtrag 2026-11-08: Normierung auf den Liga-Median
+
+Das Log zeigte, was der Abschnitt „Keine Normierung je Liga – zunächst" vermutet hatte: Die Bundesliga mit sieben Zonen gewinnt fast jede Woche, die Frauen-Ligen (vier bzw. drei Zonen, früh entschiedene Saisons) und die Regionalligen kommen kaum vor. Eine Woche ohne ein einziges Frauenspiel auf der Seite war der Anlass.
+
+**Entscheidung.** `D_Team` wird durch den Median `M` von `D_Team` über *alle* Teams der Liga geteilt (nicht nur über die Teams mit Spiel im Fenster):
+
+`Hingucker-Wert = D_Spiel × (D_Heim / M) × (D_Gast / M) = D_Spiel × D_Heim × D_Gast / M²`
+
+`D_Team` fragt jetzt: Wie offen ist die Saison dieses Teams im Vergleich zum typischen Team seiner Liga? Die Interessantesten *jeder* Liga werden gefiltert; dass klar entschiedene Ligen dabei seltener vorn liegen, bleibt, weil ihre wenigen offenen Teams weit über dem Median liegen müssen. `D_Spiel` (1 bis 3) liegt in jeder Liga auf derselben Skala und bleibt unnormiert. Das Log nennt `M` je Liga.
+
+**Verglichen** (stilisierte Simulation: zehn Ligen mit den Zonen aus `league_views()`, 400 Spielwochen, Anteil an den fünf Plätzen). Keine Betriebsdaten; die Frauen-Anteile hängen an der angenommenen Ungleichheit der Teams.
+
+| Variante | Bundesliga | Frauen-Ligen | Regionalligen | ≥ 1 Frauenspiel |
+|---|---|---|---|---|
+| ungleichmäßig (bisher) | 58 % | 3 % | 6 % | 13 % |
+| `/ D_ref²` (Inverser Simpson der Zonenbreiten) | 2 % | 3 % | 67 % | 15 % |
+| Zonenbreite als Gewicht der Wahrscheinlichkeiten (`p / w`) | 57 % | 0 % | 0 % | 0 % |
+| Median der Spiel-Scores je Liga | 18 % | 16 % | 44 % | 59 % |
+| **Median von `D_Team` je Liga (gewählt)** | 11 % | 9 % | 53 % | 39 % |
+
+Kandidatenanteile: Bundesliga 10 %, Frauen-Ligen 16 %, Regionalligen 52 %.
+
+**Verworfen.**
+- *Referenz aus den Zonenbreiten* (`D_ref`): Die Regionalligen mit ihrem kleinen `D_ref` (≈ 1,7) übernehmen die Seite.
+- *Wahrscheinlichkeiten durch die Zonenbreite teilen*: schmale Zonen (Meister) übertönen das Mittelfeld, ein 50/50-Meisterschaftsrennen wirkt fast entschieden; die Bundesliga mit ihren vielen schmalen Zonen gewinnt noch deutlicher.
+- *Median der Spiel-Scores*: gleicht am stärksten aus, entkoppelt aber vom absoluten Niveau — jede Liga stellt jede Woche ihre Besten, auch wenn alle Spiele unbedeutend sind.
+
+**Folgen.**
+- `hingucker_kandidaten()` liefert zusätzlich `d_median`; `d_heim`/`d_gast` bleiben die Rohwerte und werden mit dem Median auf der Seite gezeigt.
+- Die Rechnung steht in der Aufklappzeile je Spiel und im Einleitungstext der Seite.
+- Offen: Die Simulation ersetzt keine echte Wochen. Die Logzeile (`Median D_Team: …`) zeigt über einige Zyklen, ob die Frauen-Ligen und Regionalligen angemessen vorkommen.

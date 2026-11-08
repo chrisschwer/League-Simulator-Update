@@ -709,9 +709,15 @@ render_ausblick <- function(ausblick, runde) {
   index <- paste0(
     "<details class=\"hg-index\"><summary>Wie der Hingucker-Wert entsteht</summary>",
     "<p>Spielausgang ", .komma(row$d_spiel, 1), " × ",
-    htmltools::htmlEscape(row$home_name), " ", .komma(row$d_heim, 1), " × ",
+    htmltools::htmlEscape(row$home_name), " ", .komma(row$d_heim, 1),
+    " ÷ ", .komma(row$d_median, 1), " × ",
     htmltools::htmlEscape(row$away_name), " ", .komma(row$d_gast, 1),
-    " = <b>", .komma(row$score, 1), "</b></p></details>\n"
+    " ÷ ", .komma(row$d_median, 1),
+    " = <b>", .komma(row$score, 1), "</b></p>",
+    "<p>Der Median (", .komma(row$d_median, 1), ") ist die Offenheit des ",
+    "typischen Teams der Liga. Er macht Ligen vergleichbar: Eine Liga mit ",
+    "wenigen Zonen oder früh entschiedenen Saisons wird nicht schon deshalb ",
+    "übergangen.</p></details>\n"
   )
   paste0(
     "<article class=\"hingucker-spiel\">\n", kopf,
@@ -760,7 +766,9 @@ render_hingucker <- function(kandidaten, fenster, anzahl = 5L, fehler = FALSE) {
     "umso interessanter, je knapper sein Ausgang ist und je offener die ",
     "Saison beider Teams noch ist. Gemessen wird beides als effektive Zahl ",
     "möglicher Ausgänge (Inverser Simpson-Index); der Hingucker-Wert ist ihr ",
-    "Produkt.</p>\n",
+    "Produkt. Die Offenheit eines Teams wird dabei an der typischen Offenheit ",
+    "seiner Liga gemessen (Median über alle Teams), damit Ligen mit weniger ",
+    "Zonen oder klareren Saisons nicht untergehen.</p>\n",
     "<p class=\"oddslegend\">Balken: <span class=\"chip h\"></span><b>Sieg Heim</b>",
     "<span class=\"chip x\"></span><b>Remis</b>",
     "<span class=\"chip a\"></span><b>Sieg Gast</b> — Angaben in Prozent</p>\n",
