@@ -13,7 +13,7 @@
 # Der Hingucker-Wert ist das Produkt aus D_Spiel, D_Heim und D_Gast, geteilt
 # durch das Quadrat des Medians M von D_Team ueber ALLE Teams der Liga:
 #
-#   Hingucker-Wert = D_Spiel * (D_Heim / M) * (D_Gast / M)
+#   Hingucker-Wert: D_Spiel mal (D_Heim durch M) mal (D_Gast durch M)
 #
 # D_Team misst, wie OFFEN die Saison eines Teams noch ist -- nicht, ob gerade
 # dieses Spiel etwas daran aendert. Und sein Niveau haengt an der Liga: Die
