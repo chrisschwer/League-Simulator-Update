@@ -18,8 +18,8 @@ Beide Eigenschaften misst derselbe Index, der Inverse Simpson-Index `D = 1 / Σ 
 Saisonausgänge sind die Zonen, die `league_views()` für die Panels der Seite führt (Meister, CL, EL, …, Relegation, Abstieg), dazu „Mittelfeld“ als Rest. Sie müssen disjunkt sein und sich auf 1 summieren:
 
 - **3. Liga, 2. Frauen-Bundesliga:** Das obere Panel ist der Rang unter den Berechtigten (`Ergebnis3_Aufstieg`, [ADR 0009](0009-aufstiegsberechtigung-als-masken.md); gesperrte Zweitvertretungen tragen null), das untere der Tabellenplatz. Beide stammen aus demselben Lauf, und der Rang unter den Berechtigten ist höchstens der Tabellenplatz. Die Zonen überlappen also nicht; eine Normierung auf Zeilensumme 1 fängt nur Rundung und entartete Eingaben ab.
-- **Regionalliga Nord und Bayern:** Aufstieg ist ein Teil der Meisterschaft (nur der Sieger der Aufstiegsspiele steigt auf). Neben „Aufstieg“ steht deshalb „Aufstiegsspiele verloren“ (P(spielt) − P(Aufstieg)). P(spielt) ist die Wahrscheinlichkeit, erster Berechtigter zu sein (`p_erster_berechtigter`); wer verzichtet, spielt nicht und trägt null.
-- **Regionalliga Nordost, West, SüdWest:** Gibt es einen Aufstiegsverzicht, ist „Aufstieg“ P(erster Berechtigter) aus `aufstieg_source` statt P(Platz 1), wie auf der Ligaseite.
+- **Regionalliga Nord und Bayern:** Die Saison des ersten Berechtigten entscheidet sich daran, dass er die Aufstiegsspiele bestreitet; ob er sie gewinnt, entscheidet sich danach. Der Ausgang heißt deshalb „Aufstiegsspiele“ (`p_erster_berechtigter`, ohne Verzicht der Meister) und ersetzt „Meister“ und „Aufstieg“; wer verzichtet, spielt nicht und trägt null. Keine zweite Zone „verloren“.
+- **Regionalliga Nordost, West, SüdWest:** Der erste Ausgang ist der erste Berechtigte, nicht der Meister. Gibt es einen Aufstiegsverzicht, ist „Aufstieg“ P(erster Berechtigter) aus `aufstieg_source` statt P(Platz 1), wie auf der Ligaseite.
 - **Zusatzzahlen** (`computed_optional`, etwa „Abstieg gesamt“) zählen nicht mit.
 
 ## Warum so einfach
@@ -64,3 +64,7 @@ Kandidatenanteile: Bundesliga 10 %, Frauen-Ligen 16 %, Regionalligen 52 %.
 - `hingucker_kandidaten()` liefert zusätzlich `d_median`; `d_heim`/`d_gast` bleiben die Rohwerte und werden mit dem Median auf der Seite gezeigt.
 - Die Rechnung steht in der Aufklappzeile je Spiel und im Einleitungstext der Seite.
 - Offen: Die Simulation ersetzt keine echte Wochen. Die Logzeile (`Median D_Team: …`) zeigt über einige Zyklen, ob die Frauen-Ligen und Regionalligen angemessen vorkommen.
+
+## Nachtrag 2026-11-09: Aufstiegsspiele als eine Zone
+
+Vorher standen in Nord und Bayern „Aufstieg“ und „Aufstiegsspiele verloren“ als zwei Ausgänge nebeneinander. Das teilte die Zone der Spitzenteams in zwei Hälften und senkte `D_Team` künstlich: Oldenburg (Nord) hatte etwa 17 % Aufstieg und 13 % verloren statt 30 % Teilnahme. Entscheidend für ein Spiel zweier Spitzenteams ist, ob beide in der Zone der Teilnehmer landen. Jetzt ist es eine Zone: Teilnahme an den Aufstiegsspielen.

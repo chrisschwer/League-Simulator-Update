@@ -136,11 +136,10 @@ test_that("Regionalliga Bayern: Aufstiegsspiele und Abstieg kommen aus den berec
 
   aus <- hg$liga_ausgaenge(hg_views("rl_bayern")$rl_bayern, env)
 
-  expect_equal(colnames(aus),
-               c("Aufstieg", "Aufstiegsspiele verloren", "Mittelfeld", "Relegation", "Abstieg"))
-  expect_equal(unname(aus["T1", "Aufstieg"]), 0.02)
-  # Meister (1/19) minus Aufstieg: die Ueberlappung zaehlt nur einmal.
-  expect_equal(unname(aus["T1", "Aufstiegsspiele verloren"]), 1 / 19 - 0.02)
+  # Eine Zone "Aufstiegsspiele" (erster Berechtigter = hier der Meister, 1/19),
+  # kein Aufstieg und kein "verloren": Teilnahme zaehlt, nicht der Ausgang.
+  expect_equal(colnames(aus), c("Aufstiegsspiele", "Mittelfeld", "Relegation", "Abstieg"))
+  expect_equal(unname(aus["T1", "Aufstiegsspiele"]), 1 / 19)
   expect_equal(unname(rowSums(aus)), rep(1, 19))
 })
 
@@ -158,12 +157,11 @@ test_that("Verzicht in Nord oder Bayern: wer verzichtet, spielt keine Aufstiegss
 
   aus <- hg$liga_ausgaenge(hg_views("rl_bayern")$rl_bayern, env)
 
-  expect_equal(unname(aus["T1", "Aufstieg"]), 0)
-  expect_equal(unname(aus["T1", "Aufstiegsspiele verloren"]), 0)
+  expect_equal(unname(aus["T1", "Aufstiegsspiele"]), 0)
   # Das Meisterplus von T1 (1/19) fliesst ins Mittelfeld, nicht in Aufstiegsspiele.
   expect_equal(unname(aus["T1", "Mittelfeld"]), 0.8)
-  # T2 spielt mit 10 %, davon steigt 4 % auf.
-  expect_equal(unname(aus["T2", "Aufstiegsspiele verloren"]), 0.06)
+  # T2 spielt mit 10 %; ob es die Spiele gewinnt, zaehlt hier nicht.
+  expect_equal(unname(aus["T2", "Aufstiegsspiele"]), 0.1)
   expect_equal(unname(rowSums(aus)), rep(1, 19))
 })
 

@@ -148,11 +148,17 @@ inverse_simpson <- function(p) {
 # Die Ausgaenge sind die Zonen aus league_views() -- dieselben, die Panels und
 # Tabelle zeigen --, der Rest ist "Mittelfeld".
 #
-# Regionalliga Nord und Bayern: Der Meister (bei Verzicht: der erste
-# Berechtigte) spielt Aufstiegsspiele, nur der Sieger steigt auf. Damit sich
-# Aufstieg und Aufstiegsspiele nicht ueberlappen, steht dort neben "Aufstieg"
-# der Ausgang "Aufstiegsspiele verloren" (P(spielt) minus P(Aufstieg)). Wer
-# verzichtet, spielt nicht: P(spielt) ist null, der Ausgang entfaellt.
+# Regionalliga Nord und Bayern: Der erste Berechtigte (ohne Verzicht der
+# Meister) bestreitet die Aufstiegsspiele. Die Saison dieses Teams entscheidet
+# sich daran, DASS es dort antritt; ob es die Spiele gewinnt, ist eine zweite
+# Frage nach dem Ende der Saison. Der Ausgang heisst deshalb "Aufstiegsspiele"
+# (P(erster Berechtigter), Attribut des Aufstiegsobjekts) und ersetzt Meister
+# und Aufstieg: keine Ueberlappung, keine eigene Zone "verloren". Wer
+# verzichtet, spielt nicht: P ist null.
+#
+# Direktstaffeln (West, Nordost, SuedWest): "Aufstieg" ist P(erster
+# Berechtigter) -- mit Verzicht oder Sperre aus dem Aufstiegsobjekt, sonst ist
+# der erste Berechtigte der Meister (Platz 1).
 #
 # 3. Liga und 2. Frauen-Bundesliga: Das obere Panel ist der Rang unter den
 # Berechtigten (Ergebnis3_Aufstieg, ADR 0009; gesperrte Zweitvertretungen
@@ -178,17 +184,14 @@ liga_ausgaenge <- function(view, data_env) {
 
   if (all(c("Meister", "Aufstieg") %in% names(oben))) {
     meister <- oben[["Meister"]]
-    aufstieg <- oben[["Aufstieg"]][names(meister)]
-    aufstieg[is.na(aufstieg)] <- 0
     # Wer die Aufstiegsspiele bestreitet: der erste Berechtigte (Attribut des
     # Aufstiegsobjekts); ohne das Attribut verzichtet niemand, dann der Meister.
     erster <- attr(.hg_hole(view$top$computed_source, data_env), "p_erster_berechtigter")
     spielt <- if (is.null(erster)) meister else unname(erster[names(meister)])
     spielt[is.na(spielt)] <- 0
     oben[["Meister"]] <- NULL
-    # pmax() verwirft die Namen; die Zuordnung unten laeuft ueber sie.
-    oben[["Aufstiegsspiele verloren"]] <-
-      stats::setNames(pmax(0, spielt - aufstieg), names(meister))
+    oben[["Aufstieg"]] <- NULL
+    oben <- c(list(Aufstiegsspiele = stats::setNames(spielt, names(meister))), oben)
   }
 
   je_team <- function(spalte) {
