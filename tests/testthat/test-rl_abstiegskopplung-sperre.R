@@ -10,8 +10,7 @@ library(testthat)
 # Gewicht), nicht aus derselben Formel: Fuer jede Welt wird die Tabelle von
 # Hand umgebaut (Gesperrte ans Ende) und abgelesen, wer absteigt.
 
-env <- source_module("league_registry", "staffel_zuordnung",
-                     "rl_abstiegskopplung", "rl_sperre")
+env <- source_module("league_registry", "staffel_zuordnung", "rl_abstiegskopplung", "rl_sperre")
 
 # Prognosematrix bzw. Rangmatrix (Teams x Plaetze) aus Welten: je Welt die
 # Abschlusstabelle als Vektor der Kurznamen (Platz 1 zuerst) und ihr Gewicht.
@@ -73,7 +72,7 @@ zaehlung_k0 <- function(staffel) {
 }
 
 # Zwei Welten mit sechs Teams, Reserve R mal Dritter, mal Vierter.
-toy_welten <- function() {
+sperr_welten <- function() {
   list(
     list(w = 0.6, tabelle = c("A", "B", "R", "C", "D", "E")),
     list(w = 0.4, tabelle = c("B", "A", "C", "R", "E", "D"))
@@ -81,7 +80,7 @@ toy_welten <- function() {
 }
 
 test_that("Maske 0 allein ist bitgleich mit der Rechnung ohne Sperre", {
-  welten <- toy_welten()
+  welten <- sperr_welten()
   prognose <- matrix_aus_welten(welten)
   w <- c(0, 0, 0, 0, 1, 1)
   sperre <- list(rang = rang_je_maske(welten, "R"), gewichte = c(1, 0), reserven = "R")
@@ -106,14 +105,14 @@ test_that("Maske 0 allein ist bitgleich mit der Rechnung ohne Sperre", {
 })
 
 test_that("ohne sperrbare Reserve (sperre = NULL) bleibt alles wie bisher", {
-  prognose <- matrix_aus_welten(toy_welten())
+  prognose <- matrix_aus_welten(sperr_welten())
   a <- env$rl_abstiegsprognose("West", prognose, zaehlung_k0("West"))
   b <- env$rl_abstiegsprognose("West", prognose, zaehlung_k0("West"), sperre = NULL)
   expect_identical(a, b)
 })
 
 test_that("je Maske bleibt die Summe der Abstiegswahrscheinlichkeiten sum(w), wenn die letzten Plaetze sicher sind", {
-  welten <- toy_welten()
+  welten <- sperr_welten()
   prognose <- matrix_aus_welten(welten)
   rang <- rang_je_maske(welten, "R")
   w <- c(0, 0, 0, 0.3, 1, 1)   # Platz 4 unsicher, 5 und 6 sicher
@@ -179,7 +178,7 @@ test_that("Nordost-Randfall: k = 0 und beide Reserven gesperrt -- beide 100 %, a
 })
 
 test_that("die Mischung ueber die Masken ist die gewichtete Summe der Einzelfaelle", {
-  welten <- toy_welten()
+  welten <- sperr_welten()
   prognose <- matrix_aus_welten(welten)
   rang <- rang_je_maske(welten, "R")
   w <- c(0, 0, 0, 0, 1, 1)
@@ -227,7 +226,7 @@ test_that("Nord: die Kopplung an den eigenen Meisteraufstieg bleibt im Platzvekt
 })
 
 test_that("Rangmatrizen mit weniger Spalten als Plaetzen werden mit null aufgefuellt", {
-  welten <- toy_welten()
+  welten <- sperr_welten()
   prognose <- matrix_aus_welten(welten)
   rang <- rang_je_maske(welten, "R")
   rang[[2]] <- rang[[2]][, 1:5]   # fuenf Nicht-Gesperrte, fuenf Raenge
@@ -242,7 +241,7 @@ test_that("Rangmatrizen mit weniger Spalten als Plaetzen werden mit null aufgefu
 })
 
 test_that("Aufruferfehler brechen ab statt still zu rechnen", {
-  welten <- toy_welten()
+  welten <- sperr_welten()
   prognose <- matrix_aus_welten(welten)
   rang <- rang_je_maske(welten, "R")
   w <- c(0, 0, 0, 0, 1, 1)
