@@ -256,6 +256,12 @@ rl_zonen <- function(view_key, data_env) {
     }
   }
 
+  # Abstiegsfolge der Sperre (#331): P(gesperrt) je Reserve der Staffel, wie
+  # rl_abstiegsprognose() es anhaengt. Die Linien bleiben die Regel OHNE
+  # Sperre (der Platzvektor oben); die Fussnote nennt die Reserve.
+  abstieg_sperre <- attr(abstiegsobjekt, "sperr_risiko")
+  abstieg_sperre <- abstieg_sperre[!is.na(abstieg_sperre) & abstieg_sperre > 0]
+
   list(
     abstieg = platz_abstieg,
     # NULL statt Nullvektor: "gibt es nicht" und "moeglich, gerade null" sind
@@ -263,7 +269,8 @@ rl_zonen <- function(view_key, data_env) {
     relegation = attr(abstiegsobjekt, "platz_relegation"),
     aufstieg = aufstieg,
     verzichtet = as.character(verzichtet),
-    gesperrt = isTRUE(gesperrt)
+    gesperrt = isTRUE(gesperrt),
+    abstieg_sperre = if (length(abstieg_sperre) > 0L) abstieg_sperre else NULL
   )
 }
 
@@ -321,7 +328,22 @@ absteigerzahl_verteilung <- function(platz_abstieg) {
   stats::setNames(p, as.character(zahlen))
 }
 
-render_zonen_fussnote <- function(zonen, regel) {
+#' @param namen Benannter Vektor Kuerzel -> Vereinsname der Seite
+#'   (.teamnamen()); NULL, wenn die Seite keine Ligatabelle hat. Mit Namen
+#'   stehen Vereine in der Fussnote wie in der Tabelle: Name mit dem Kuerzel
+#'   als Tooltip. Ohne bleibt es beim Kuerzel.
+render_zonen_fussnote <- function(zonen, regel, namen = NULL) {
+  # Ein Verein, wie die Ligatabelle ihn schreibt (.tooltip_html in
+  # render_liga_tabelle()), damit Fussnote und Tabelle denselben Namen tragen.
+  vereinsname <- function(kurz) {
+    name <- if (is.null(namen)) NA_character_ else unname(namen[kurz])
+    if (is.na(name) || !nzchar(name)) {
+      htmltools::htmlEscape(kurz)
+    } else {
+      .tooltip_html(name, kurz)
+    }
+  }
+
   # Nur Plaetze MIT Risiko. Alle 18 aufzuzaehlen hiesse, 16-mal "0 %" zu
   # schreiben -- das verdeckt die drei Zahlen, auf die es ankommt.
   eintrag <- function(vektor, klasse, wort) {
@@ -356,7 +378,7 @@ render_zonen_fussnote <- function(zonen, regel) {
   verzichtssatz <- if (length(zonen$verzichtet) > 0L) {
     paste0(
       "Keine Aufstiegszone: ",
-      paste(zonen$verzichtet, collapse = ", "),
+      paste(vapply(zonen$verzichtet, vereinsname, character(1)), collapse = ", "),
       if (length(zonen$verzichtet) > 1L) " verzichten" else " verzichtet",
       " auf den Aufstieg, der n\u00e4chste berechtigte Verein r\u00fcckt nach ",
       "(Wahrscheinlichkeiten siehe Aufstiegsseite)."
@@ -373,9 +395,33 @@ render_zonen_fussnote <- function(zonen, regel) {
     character(0)
   }
 
+  # Abstiegsfolge der Sperre (#331): Die Linien zeigen die Regel ohne
+  # Sperre; dass eine gesperrte Reserve ans Tabellenende rueckt, steckt in
+  # den Abstiegswerten je Verein, nicht in den Zonen. Ohne diesen Satz
+  # widerspraeche ein Wert dem Platz, auf dem der Verein steht.
+  abstiegssperrsatz <- if (length(zonen$abstieg_sperre) > 0L) {
+    teile <- vapply(names(zonen$abstieg_sperre), function(team) {
+      p <- zonen$abstieg_sperre[[team]]
+      # Kein Haekchen fuer eine sichere Sperre: Hier steht eine Zahl, kein Platz.
+      sprintf("%s %s", vereinsname(team),
+              if (p >= 1) "100\u00a0%" else .zone_prozent(p))
+    }, character(1))
+    paste0(
+      "Abstiegssperre: Steigt die Erstmannschaft einer Reserve aus der ",
+      "2. Bundesliga in die 3. Liga ab, rückt die Reserve ans ",
+      "Tabellenende und steigt ab; die übrigen rücken auf. Die ",
+      "Abstiegswerte je Verein berücksichtigen das, die Zonen zeigen die ",
+      "Regel ohne diesen Fall. Wahrscheinlichkeit, dass die Reserve gesperrt ",
+      "ist: ", paste(teile, collapse = ", "), "."
+    )
+  } else {
+    character(0)
+  }
+
   saetze <- c(
     verzichtssatz,
     sperrsatz,
+    abstiegssperrsatz,
     eintrag(zonen$aufstieg, "aufstieg", "Aufstieg"),
     eintrag(zonen$relegation, "relegation", "Relegation"),
     eintrag(zonen$abstieg, "abstieg", "Abstieg")

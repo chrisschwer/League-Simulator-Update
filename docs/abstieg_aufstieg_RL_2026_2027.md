@@ -436,7 +436,9 @@ gemischt über die Aufstiegswahrscheinlichkeit, nicht als Fallunterscheidung.
 Für die Simulation ist der Unterschied wesentlich: Bei SüdWest, Nordost und Nord
 verschiebt ein Drittliga-Absteiger die **Abstiegsgrenze nach oben** (mehr Teams
 steigen ab); bei West und Bayern bleibt die Grenze, aber ein Platz ist
-vorbelegt.
+vorbelegt. Der vorbelegte Platz — die Reserve eines in die 3. Liga abgestiegenen
+Lizenzvereins — ist seit #331 für alle fünf Staffeln modelliert, Wortlaute in
+Abschnitt 3.5.
 
 **Nur Bayern kennt eine Abstiegsrelegation.** In den anderen vier Staffeln steht
 der Abstieg rein tabellarisch fest — bei Nord erst seit 2024/25, seit die frühere
@@ -502,6 +504,113 @@ Aufstiegslogik konfigurierbar statt fest verdrahtet zu halten.
 
 ---
 
+### 3.5 Reserve eines in die 3. Liga abgestiegenen Lizenzvereins
+
+Recherchiert am 01.11.2026 (#331), jeweils die neueste auffindbare Fassung.
+Gefragt war: Was passiert mit der Reserve in der Regionalliga, wenn die erste
+Mannschaft aus der 2. Bundesliga in die 3. Liga absteigt, und sinkt dadurch die
+Zahl der übrigen Absteiger?
+
+| Staffel | Reserve muss absteigen? | Zahl der übrigen Absteiger sinkt? |
+|---|---|---|
+| **West** | Ja, ausdrücklich: rückt an den Schluss der Tabelle | **Ja, ausdrücklich** |
+| **Bayern** | Ja, ausdrücklich: letzter Platz, gilt als erster Absteiger | Nicht ausdrücklich (rechnerisch naheliegend: „Die Tabelle ändert sich entsprechend") |
+| **Nordost** | Ja, sinngemäß: gilt als Absteiger | Für diesen Fall nicht geregelt |
+| **Südwest** | Sinngemäß: nicht teilnahmeberechtigt | Nicht geregelt |
+| **Nord** | Nur Teilnahmeverbot, keine Folgeregel | Nicht geregelt |
+
+**West** (Q17, § 16 Statut, Ziffer 4):
+
+> „Kommt ein Verein/eine Mannschaft aus den Lizenzligen in die 3. Liga, steigt
+> die in der Regionalliga West spielende zweite Mannschaft dieses Vereins ab
+> und rückt an den Schluss der Tabelle. Die Anzahl der Absteiger verringert
+> sich entsprechend. Bei Abstieg einer Lizenzmannschaft in die Regionalliga
+> West gilt deren dort spielende zweite Mannschaft als Absteiger und
+> verringert die Anzahl der Absteiger entsprechend."
+
+Aufstiegsregelung Ziffer 3: Zweite Mannschaften von Drittligisten und dritte
+Mannschaften von Lizenzvereinen sind nicht teilnahmeberechtigt. Q17 ist die
+Fassung 2024/25; eine Fassung für 2026/27 mit diesem Wortlaut wurde nicht
+gefunden (Q5 ist die A&A-Regelung 2026/27 ohne den Statutstext).
+
+**Bayern** (Q18, Regionalligaordnung Stand 01.07.2026, § 2 Nr. 2 und 3):
+
+> „Zweite Mannschaften von Drittligisten (auch wenn sie ein anerkanntes
+> Nachwuchs-Leistungszentrum haben), dritte Mannschaften von Lizenzvereinen
+> sowie zweite Mannschaften von Amateurvereinen sind in der Regionalliga Bayern
+> nicht teilnahmeberechtigt."
+>
+> „Steigt ein Lizenzverein in die dritte Liga ab, so wird seine in der
+> Regionalliga spielende zweite Mannschaft nach dem letzten Spieltag an den
+> letzten Platz der Tabelle gesetzt und gilt als erster Absteiger. Die Tabelle
+> ändert sich entsprechend."
+
+Die A&A-Regelung 2026/27 (Q2, I Abs. 1) nennt grundsätzlich zwei Absteiger. Ob
+die Reserve davon einen Platz belegt, steht nicht im Text; da sie „als erster
+Absteiger" ans Tabellenende rückt und die Tabelle sich ändert, bleibt
+rechnerisch nur ein sportlicher Direktabsteiger (Schlussfolgerung, nicht
+belegt).
+
+**Nordost** (Q19, NOFV-Spielordnung § 5 Nr. 2 und 4; Q20, A. Nr. 5, 5.1, 6):
+
+> „Steigt eine Mannschaft eines Vereins in eine Spielklasse des NOFV ab, gilt
+> die dort bereits spielende Mannschaft des Vereins als Absteiger."
+> (§ 5 Nr. 4 SpO)
+>
+> „Am Spielbetrieb der Herren-Regionalliga sind untere Mannschaften von
+> Vereinen der 3. Liga nicht teilnahmeberechtigt." (§ 5 Nr. 2 SpO)
+
+Die Zahl der Absteiger richtet sich nach dem Abstieg von NOFV-Mannschaften aus
+der 3. Liga und dem Aufstieg in die 3. Liga, begrenzt auf vier (A. Nr. 5, 5.1).
+Eine Verringerung ist ausdrücklich nur für die **Nichtteilnahme** geregelt:
+„Erklärt ein Verein, der für die Regionalliga qualifiziert ist, seine
+Nichtteilnahme am Spielbetrieb der Regionalliga, so wird er gemäß SpO § 5 (5)
+in die Herren-Oberliga des NOFV eingegliedert. Die Anzahl der Absteiger
+reduziert sich entsprechend." (A. Nr. 6; ähnlich § 5 Nr. 6 SpO). Das betrifft
+die Teilnahme an der Regionalliga, **nicht** den Aufstiegsverzicht in die
+3. Liga. Für die Reserve eines Drittliga-Absteigers steht eine Verringerung
+nicht im Text.
+
+**Südwest** (Q6, § 47 Nr. 1, 6, 7):
+
+> „In der Regionalliga Südwest kann nur eine Mannschaft eines Vereins spielen.
+> Steigt die Mannschaft eines Vereins einer höheren Spielklasse in die
+> Regionalliga ab, gilt eine dort bereits spielende Mannschaft des gleichen
+> Vereins unabhängig vom erreichten Tabellenplatz als erster Absteiger. Zweite
+> Mannschaften von Vereinen, die in der 3. Liga am Spielbetrieb teilnehmen,
+> sind in der Regionalliga nicht teilnahmeberechtigt." (Nr. 7)
+
+Nr. 1: mindestens drei Absteiger, erhöht um die Absteiger aus der 3. Liga.
+Nr. 6: Die Zahl sinkt, wenn zu wenige Aufsteiger aus den nachgeordneten Ligen
+kommen. Eine Klausel für den Abstieg der Profis aus der 2. in die 3. Liga
+fehlt; die „erster Absteiger"-Regel in Nr. 7 betrifft den Abstieg *in* die
+Regionalliga.
+
+**Nord** (Q7 § 6 Abs. 3 und 4; Q12, Anhang 1 Nr. 1.2):
+
+> „Zweite Mannschaften von Drittligisten, dritte Mannschaften von
+> Lizenzvereinen sowie zweite Mannschaften von Amateurvereinen sind in der RLN
+> nicht teilnahmeberechtigt."
+
+§ 6 Abs. 3: grundsätzlich drei Absteiger. Eine Regel, die den
+Reserve-Zwangsabstieg auf die Absteigerzahl anrechnet, wurde nicht gefunden;
+§ 6 Abs. 12 („erster Regelabsteiger", Abschnitt 2.1) regelt den Abstieg *in*
+eine NFV-Liga. Eigene Durchführungsbestimmungen für die Herren-Regionalliga
+Nord gibt es laut Regelwerk-Seite offenbar nicht. Offen, ob der Fall im
+Einzelfall entschieden wird.
+
+**Entscheidung für das Modell (2026-11-14, #331):** Alle fünf Staffeln wie
+West — die gesperrte Reserve rückt ans Tabellenende und steigt ab, die übrigen
+rücken auf, die Zahl der Absteiger bleibt gleich. Für Nord, Nordost und SüdWest
+ist das eine Annahme; siehe
+[`modellannahmen-rl-kopplung.md`](modellannahmen-rl-kopplung.md), 5.10.
+
+Einschränkungen der Recherche: Die Durchführungsbestimmungen des RLSW und
+weitere Anlagen der Verbände wurden nicht geprüft; Seitenangaben fehlen, die
+Paragraphen sind angegeben.
+
+---
+
 ## 4. Quellen
 
 Alle Primärquellen wurden im Volltext ausgewertet (Abruf: 2026-09-06).
@@ -526,6 +635,10 @@ Alle Primärquellen wurden im Volltext ausgewertet (Abruf: 2026-09-06).
 | Q14 | NOFV, Übersicht Auf-/Abstiegsregelungen und Durchführungsbestimmungen (Einstieg zu Q4) | laufend | https://www.nofv-online.de/index.php/durchfuehrungsbestimmungen.html |
 | Q15 | RLSW, Statut-Übersicht (Einstieg zu Q6) | laufend | https://www.regionalliga-suedwest.de/Statut/ |
 | Q16 | NFV, Regularien Herren-Regionalliga Nord (Einstieg zu Q7/Q8) | laufend | https://www.nordfv.de/spielbetrieb/ligen/herren-regionalliga-nord/regularien |
+| Q17 | **WDFV, Auf- und Abstiegsregelung Regionalliga West 2024/25** (§ 16 Statut Ziffer 3 und 4 — Reserve eines Drittliga-Absteigers) | 2024/25 | https://wdfv.de/media/downloads/23_auf-abstiegsregelung_2024_2025.pdf |
+| Q18 | **BFV, Regionalligaordnung, Stand 01.07.2026** (§ 2 Nr. 2 und 3) | 01.07.2026 | https://www.bfv.de/binaries/content/assets/inhalt/der-bfv/satzung-richtlinien-amtliches/ordnungen/regionalligaordnung-ab-01.07.2026.pdf |
+| Q19 | **NOFV, Spielordnung** (§ 5 Nr. 2, 4, 5, 6) | laufend | https://nofv-online.de/files/Inhalt/Downloads/satzungen%20und%20ordnungen/Spielordnung.pdf |
+| Q20 | **NOFV, Auf- und Abstiegsregelung Herren 2025/26** (A. Nr. 5, 5.1, 6) | 2025/26 | https://nofv-online.de/files/Inhalt/Downloads/Auf-_und_Abstiegsregelungen,%20Durchfuehrungsbestimmungen/07_Auf_und_Ab_Herren%202025_26.pdf |
 
 ### Sekundärquellen (nur für Kontext, nicht für Regelaussagen)
 

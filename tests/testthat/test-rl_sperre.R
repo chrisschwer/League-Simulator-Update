@@ -253,3 +253,59 @@ test_that("eine veraltete Relegationsquote 0 bricht ab statt die Reserve fuer si
   expect_error(sperrverteilung(toy_muster(), c(A = 0.5, B = 0, C = 0.8)),
                "veraltete Relegationsquote")
 })
+
+# --- Abstiegsfolge der Sperre (#331) ---------------------------------------
+
+test_that("sperr_masken_beide sendet ohne Verzicht einen Satz, mit Verzicht einen zweiten ohne Verzichts-Basis", {
+  kurz <- c("T1", "R1", "T2", "T3")
+  ohne <- sperr_masken_beide(rep(TRUE, 4), kurz, "R1")
+  expect_false(ohne$abstieg_eigen)
+  expect_identical(ohne$masken, sperr_masken(rep(TRUE, 4), kurz, "R1"))
+
+  basis <- c(TRUE, TRUE, TRUE, FALSE)   # T3 verzichtet
+  mit <- sperr_masken_beide(basis, kurz, "R1")
+  expect_true(mit$abstieg_eigen)
+  expect_length(mit$masken, 4L)
+  # Aufstieg: T3 in jeder Maske ausgeblendet. Abstieg: T3 bleibt drin, nur
+  # die Reserve wechselt -- ein Verzichtender rueckt nicht ans Tabellenende.
+  expect_identical(mit$masken[[1]], c(TRUE, TRUE, TRUE, FALSE))
+  expect_identical(mit$masken[[2]], c(TRUE, FALSE, TRUE, FALSE))
+  expect_identical(mit$masken[[3]], c(TRUE, TRUE, TRUE, TRUE))
+  expect_identical(mit$masken[[4]], c(TRUE, FALSE, TRUE, TRUE))
+})
+
+test_that("sperr_masken_trennen teilt die Rangmatrizen in Aufstieg und Abstieg", {
+  prog <- matrix(1, 2, 2, dimnames = list(c("R1", "T"), c("1", "2")))
+  m <- function(x) matrix(x, 2, 2, dimnames = dimnames(prog))
+  # Ohne eigenen Abstiegssatz: beide zeigen auf dieselben Matrizen.
+  attr(prog, "eligible_rank_probabilities") <- list(m(1), m(2))
+  p <- sperr_masken_trennen(prog, 1L, FALSE)
+  expect_identical(attr(p, "eligible_rank_probabilities"), list(m(1), m(2)))
+  expect_identical(attr(p, "sperr_abstieg_rang"), list(m(1), m(2)))
+  # Mit eigenem Satz: die zweite Haelfte ist der Abstieg.
+  attr(prog, "eligible_rank_probabilities") <- list(m(1), m(2), m(3), m(4))
+  p <- sperr_masken_trennen(prog, 1L, TRUE)
+  expect_identical(attr(p, "eligible_rank_probabilities"), list(m(1), m(2)))
+  expect_identical(attr(p, "sperr_abstieg_rang"), list(m(3), m(4)))
+  # Die Zahl der Matrizen muss zu den gesendeten Masken passen.
+  expect_error(sperr_masken_trennen(prog, 1L, FALSE), "Rangmatrizen")
+  expect_error(sperr_masken_trennen(prog, 2L, TRUE), "Rangmatrizen")
+})
+
+test_that("sperre_fuer_abstieg liefert Rang, Gewichte, Reserven und Risiko -- oder NULL", {
+  v <- sperrverteilung(toy_muster(), toy_pniederlage)
+  prog <- matrix(1, 2, 2, dimnames = list(c("RA", "T"), c("1", "2")))
+  expect_null(sperre_fuer_abstieg(prog, v))              # keine sperrbare Reserve
+  attr(prog, "sperr_reserven") <- "RA"
+  attr(prog, "sperr_erst") <- "A"
+  expect_null(sperre_fuer_abstieg(prog, v))              # keine Abstiegsmasken
+  rang <- list(unclass(prog)[, ], unclass(prog)[, ])
+  attr(prog, "sperr_abstieg_rang") <- rang
+  expect_null(sperre_fuer_abstieg(prog, NULL))           # keine Verteilung
+  s <- sperre_fuer_abstieg(prog, v)
+  expect_identical(s$rang, rang)
+  expect_identical(s$reserven, "RA")
+  expect_equal(s$gewichte, sperr_gewichte(v, "A"))
+  expect_equal(s$risiko, sperr_risiko(v, "RA", "A"))
+  expect_equal(s$gewichte[[2]], s$risiko[["RA"]])
+})

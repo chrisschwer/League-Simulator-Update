@@ -48,13 +48,20 @@
 #'   West      konstant 4               (WDFV Abstieg Nr. 1) -- ENTKOPPELT.
 #'                                       Nr. 3 haengt an den Oberligen, Nr. 5
 #'                                       an der Lizenzierung; nur Nr. 4
-#'                                       beruehrt die 3. Liga, und der Fall
-#'                                       (Zweitvertretung eines absteigenden
-#'                                       Lizenzvereins) kann 2026/27 nicht
+#'                                       beruehrt die 3. Liga. Ihr ZWEITER
+#'                                       Satz (Lizenzmannschaft steigt bis in
+#'                                       die RL West ab) kann 2026/27 nicht
 #'                                       eintreten: Die Erstvertretungen
 #'                                       aller West-Zweitvertretungen spielen
-#'                                       in Liga 78/79 und koennen in einer
-#'                                       Saison nicht bis in die RL fallen.
+#'                                       in Liga 78/79. Ihr ERSTER Satz
+#'                                       (Lizenzverein steigt in die 3. Liga
+#'                                       ab, seine Reserve rueckt ans
+#'                                       Tabellenende) kann eintreten -- BOC2,
+#'                                       Bochum spielt in Liga 79. Er aendert
+#'                                       die ZAHL der Absteiger nicht, nur
+#'                                       WER absteigt; das rechnet
+#'                                       abstiegswahrscheinlichkeit_mit_sperre()
+#'                                       (#331).
 #'   Bayern    konstant 2               (BFV A&A II. Nr. 1) -- koppelt gar
 #'                                       nicht; die Relegation (II. Nr. 3) ist
 #'                                       eine eigene Groesse, s. unten
@@ -404,6 +411,110 @@ abstiegswahrscheinlichkeit <- function(prognose, gewichte) {
   p
 }
 
+#' Abstiegswahrscheinlichkeit je Team UNTER der Sperre (#331).
+#'
+#' Eine gesperrte Reserve (Erstmannschaft steigt aus der 2. Bundesliga in die
+#' 3. Liga ab) rueckt ans Tabellenende und steigt ab; die uebrigen ruecken
+#' auf, die Zahl der Absteiger bleibt gleich. Je Sperr-Kombination j ist die
+#' "geaenderte Tabelle" genau der Rang unter den Nicht-Gesperrten, den die
+#' Engine als Maske liefert (ADR 0009): Nicht-Gesperrte auf Rang 1 bis n - s,
+#' die s Gesperrten dahinter. Also
+#'
+#'   P(Abstieg | j) = SUMME_r  R_j[t, r] * w[r]     fuer ein nicht gesperrtes t
+#'   P(Abstieg | j) = `gesperrt`                   fuer eine gesperrte Reserve
+#'   P(Abstieg)     = SUMME_j  g_j * P(Abstieg | j)
+#'
+#' mit dem Platzvektor w aus platz_gewichte() -- die Regel je Staffel (Nord-
+#' Kopplung, Nordost-Deckel) bleibt dort, neu ist nur, dass sie auf den Rang
+#' statt auf den Tabellenplatz wirkt. Der Wert der Gesperrten wird GESETZT,
+#' nicht aus w gelesen: In Nordost kann es bei k = 0 nur einen Abstiegsplatz,
+#' aber zwei gesperrte Reserven geben. Fuer Bayerns Relegationsspalte ist er
+#' 0 (eine Gesperrte steigt direkt ab, sie spielt keine Relegation).
+#'
+#' NAEHERUNG, klein und benannt: g_j haengt ueber die Relegationsquote des
+#' Zweitliga-Sechzehnten am Dritten der 3. Liga, w an den Absteigern der
+#' 3. Liga. Beides stammt aus derselben Drittliga-Simulation, das Produkt
+#' ist hier also nicht streng exakt (Modellannahmen 5.10). Die Mischung
+#' ueber die Masken selbst ist exakt wie beim Aufstieg (ADR 0009).
+#'
+#' Maske 0 (niemand gesperrt) ohne Verzicht ist der Tabellenplatz selbst;
+#' mit g = (1, 0, ...) kommt deshalb exakt die Rechnung ohne Sperre heraus.
+#'
+#' @param prognose Prognosematrix Teams x Plaetze (fuer die Zeilennamen und
+#'   die Platzzahl).
+#' @param gewichte Platzvektor, Laenge = Zahl der Plaetze.
+#' @param sperre list(rang = Liste der 2^k Rangmatrizen, gewichte = Vektor
+#'   der Laenge 2^k, reserven = Kurznamen der k Reserven in Maskenreihenfolge)
+#'   -- sperre_fuer_abstieg() in rl_sperre.R baut sie.
+#' @param gesperrt Wert einer gesperrten Reserve: 1 fuer den Abstieg, 0 fuer
+#'   die Relegation.
+#' @return Benannter numerischer Vektor je Team.
+abstiegswahrscheinlichkeit_mit_sperre <- function(prognose, gewichte, sperre,
+                                                  gesperrt = 1) {
+  prognose <- as.matrix(prognose)
+  namen <- rownames(prognose)
+  k <- length(sperre$reserven)
+  n_masken <- 2L^k
+
+  if (length(sperre$rang) != n_masken || length(sperre$gewichte) != n_masken) {
+    stop(sprintf(
+      paste0(
+        "abstiegswahrscheinlichkeit_mit_sperre: %d Reserven verlangen %d ",
+        "Masken, es gibt %d Rangmatrizen und %d Gewichte."
+      ),
+      k, n_masken, length(sperre$rang), length(sperre$gewichte)
+    ), call. = FALSE)
+  }
+  if (!isTRUE(all.equal(sum(sperre$gewichte), 1, tolerance = 1e-9))) {
+    stop(sprintf(
+      "abstiegswahrscheinlichkeit_mit_sperre: die Sperrgewichte summieren zu %s statt 1.",
+      format(sum(sperre$gewichte))
+    ), call. = FALSE)
+  }
+  fehlend <- setdiff(sperre$reserven, namen)
+  if (length(fehlend)) {
+    stop(sprintf(
+      "abstiegswahrscheinlichkeit_mit_sperre: die Prognose kennt die Reserve(n) %s nicht.",
+      paste(fehlend, collapse = ", ")
+    ), call. = FALSE)
+  }
+
+  p <- stats::setNames(numeric(length(namen)), namen)
+  for (j in seq_len(n_masken)) {
+    g <- sperre$gewichte[[j]]
+    # Eine Maske ohne Gewicht traegt nichts bei -- und wird uebersprungen,
+    # statt mit 0 multipliziert: So ist g = (1, 0, ...) BITGLEICH mit der
+    # Rechnung ohne Sperre, nicht nur bis auf Rundung.
+    if (g == 0) {
+      next
+    }
+    # Zuordnung ueber die Teamnamen, nicht ueber die Position.
+    m <- as.matrix(sperre$rang[[j]])
+    fehlend <- setdiff(namen, rownames(m))
+    if (length(fehlend)) {
+      stop(sprintf(
+        "abstiegswahrscheinlichkeit_mit_sperre: Maske %d kennt nicht: %s.",
+        j - 1L, paste(fehlend, collapse = ", ")
+      ), call. = FALSE)
+    }
+    m <- m[namen, , drop = FALSE]
+    # Die Engine liefert einen Rang je Platz; faende sie weniger Spalten,
+    # sind die fehlenden Raenge unmoeglich (Masse 0). Mehr Spalten als
+    # Plaetze waeren dagegen ein Defekt -- den faengt die Laengenpruefung
+    # in abstiegswahrscheinlichkeit().
+    if (ncol(m) < length(gewichte)) {
+      m <- cbind(m, matrix(0, nrow(m), length(gewichte) - ncol(m)))
+    }
+    p_j <- abstiegswahrscheinlichkeit(m, gewichte)
+    # Maske j (0-basiert) sperrt die Reserven, deren Bit gesetzt ist --
+    # dieselbe Bitordnung wie sperr_masken() in rl_sperre.R.
+    bits <- bitwAnd(j - 1L, 2L^(seq_len(k) - 1L)) > 0L
+    p_j[sperre$reserven[bits]] <- gesperrt
+    p <- p + g * p_j
+  }
+  p
+}
+
 # --- Die ganze Kette -------------------------------------------------------
 
 #' Abstiegsprognose einer Regionalliga-Staffel.
@@ -415,10 +526,15 @@ abstiegswahrscheinlichkeit <- function(prognose, gewichte) {
 #'   auf), eine Zahl in [0, 1]. Wirkt nur auf Nord (s. platz_gewichte()).
 #'   Wird als fertige Zahl hereingereicht und NICHT intern aus rl_aufstieg.R
 #'   geholt: Das haelt die Module getrennt und die Zahl im Test setzbar.
+#' @param sperre Optional die dynamische Sperre der Reserven dieser Staffel
+#'   (sperre_fuer_abstieg() in rl_sperre.R): Gesperrte ruecken ans
+#'   Tabellenende und steigen ab (#331). NULL = Rechnung wie ohne Sperre,
+#'   bitgleich zum Stand davor.
 #' @return data.frame mit rownames = Teams. Spalte "Abstieg"; fuer Bayern die
-#'   zwei Spalten "Relegation" und "Abstieg".
+#'   zwei Spalten "Relegation" und "Abstieg". Mit Sperre traegt es das
+#'   Attribut `sperr_risiko` (P(gesperrt) je Reserve, fuer die Fussnote).
 rl_abstiegsprognose <- function(staffel, prognose, relegation_group_counts,
-                                p_meister_aufstieg = 0) {
+                                p_meister_aufstieg = 0, sperre = NULL) {
   staffel <- pruefe_staffel(staffel, "rl_abstiegsprognose")
   # Vor der teuren Auszaehlung geprueft, damit ein Aufruferfehler nicht erst
   # nach der Verteilungsrechnung auffaellt.
@@ -429,7 +545,17 @@ rl_abstiegsprognose <- function(staffel, prognose, relegation_group_counts,
   verteilung <- absteiger_verteilung(relegation_group_counts)
   gewichte <- platz_gewichte(staffel, verteilung, teams,
                              p_meister_aufstieg = p_meister_aufstieg)
-  abstieg <- abstiegswahrscheinlichkeit(prognose, gewichte)
+  # Mit Sperre wirkt derselbe Platzvektor auf den Rang unter den
+  # Nicht-Gesperrten statt auf den Tabellenplatz; der Vektor selbst (und
+  # damit die Zonenlinie, s. unten) bleibt die Regel ohne Sperre.
+  rechne <- function(w, gesperrt) {
+    if (is.null(sperre)) {
+      abstiegswahrscheinlichkeit(prognose, w)
+    } else {
+      abstiegswahrscheinlichkeit_mit_sperre(prognose, w, sperre, gesperrt = gesperrt)
+    }
+  }
+  abstieg <- rechne(gewichte, gesperrt = 1)
 
   if (!identical(staffel, "Bayern")) {
     ergebnis <- data.frame(Abstieg = abstieg, row.names = rownames(prognose))
@@ -441,7 +567,14 @@ rl_abstiegsprognose <- function(staffel, prognose, relegation_group_counts,
     # Er wird hier nur DURCHGEREICHT, nicht neu gerechnet: Eine zweite
     # Herleitung im Renderer koennte von dieser abweichen, und dann
     # widerspraechen sich Linie und Team-Prozentzahl auf derselben Seite.
+    #
+    # Unter der Sperre ist "Platz p ist Abstiegsplatz" keine reine
+    # Platzeigenschaft mehr -- sie haengt davon ab, wo die Reserve steht.
+    # Der Vektor bleibt trotzdem die Regel OHNE Sperre, und die Fussnote
+    # nennt die betroffene Reserve mit P(gesperrt) (#331). Eine zweite,
+    # abweichende Herleitung im Renderer gibt es nicht.
     attr(ergebnis, "platz_abstieg") <- gewichte
+    attr(ergebnis, "sperr_risiko") <- sperre$risiko
     return(ergebnis)
   }
 
@@ -460,7 +593,9 @@ rl_abstiegsprognose <- function(staffel, prognose, relegation_group_counts,
   relegations_plaetze <- c(teams - 3L, teams - 2L)
   relegations_plaetze <- relegations_plaetze[relegations_plaetze >= 1L]
   relegations_gewichte[relegations_plaetze] <- 1
-  relegation <- abstiegswahrscheinlichkeit(prognose, relegations_gewichte)
+  # Eine gesperrte Reserve steigt direkt ab und spielt keine Relegation (0);
+  # die uebrigen lesen beide Plaetze auf der geaenderten Tabelle.
+  relegation <- rechne(relegations_gewichte, gesperrt = 0)
 
   ergebnis <- data.frame(
     Relegation = relegation,
@@ -475,5 +610,6 @@ rl_abstiegsprognose <- function(staffel, prognose, relegation_group_counts,
   # Renderer koennte sie sonst nicht unterscheiden.
   attr(ergebnis, "platz_abstieg") <- gewichte
   attr(ergebnis, "platz_relegation") <- relegations_gewichte
+  attr(ergebnis, "sperr_risiko") <- sperre$risiko
   ergebnis
 }

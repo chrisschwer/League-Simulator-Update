@@ -596,7 +596,7 @@ render_league_page <- function(view, data_env, output_dir,
   zonen <- if (!is.null(view_key)) rl_zonen(view_key, data_env) else NULL
   zonen_fussnote <- if (!is.null(zonen)) {
     regel <- league_registry()[[view_key]]$relegation_regel
-    if (is.null(regel)) "" else render_zonen_fussnote(zonen, regel)
+    if (is.null(regel)) "" else render_zonen_fussnote(zonen, regel, namen = namen)
   } else {
     ""
   }
