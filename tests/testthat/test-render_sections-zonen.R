@@ -613,3 +613,21 @@ test_that("ohne Sperrrisiko am Abstiegsobjekt gibt es den Satz nicht", {
   zonen <- gen$rl_zonen("rl_west", mk_env(Ergebnis_rl_west_abstieg = abstieg))
   expect_null(zonen$abstieg_sperre)
 })
+
+test_that("mit Teamnamen schreibt die Fussnote den Verein wie die Tabelle: Name mit Kuerzel-Tooltip", {
+  gen <- source_module("generate_static_site")
+  abstieg <- mk_abstieg(18L, platz_abstieg = c(numeric(14), 1, 1, 1, 1))
+  attr(abstieg, "sperr_risiko") <- c(T05 = 0.3)
+  zonen <- gen$rl_zonen("rl_west", mk_env(Ergebnis_rl_west_abstieg = abstieg))
+  zonen$verzichtet <- "T01"
+  namen <- c(T01 = "Verein Eins", T05 = "Bochum II")
+
+  html <- gen$render_zonen_fussnote(zonen, "Regel.", namen = namen)
+  expect_match(html, "<abbr class=\"kz\" title=\"T05\" tabindex=\"0\">Bochum II</abbr> 30\u00a0%", fixed = TRUE)
+  expect_match(html, "Aufstiegszone: <abbr class=\"kz\" title=\"T01\" tabindex=\"0\">Verein Eins</abbr> verzichtet",
+               fixed = TRUE)
+  # Ein Kuerzel ohne Namen bleibt Kuerzel; ohne Namen alles wie bisher.
+  zonen$verzichtet <- "T09"
+  expect_match(gen$render_zonen_fussnote(zonen, "Regel.", namen = namen), "Aufstiegszone: T09 verzichtet", fixed = TRUE)
+  expect_match(gen$render_zonen_fussnote(zonen, "Regel."), "T05 30\u00a0%", fixed = TRUE)
+})

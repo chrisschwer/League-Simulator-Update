@@ -328,7 +328,22 @@ absteigerzahl_verteilung <- function(platz_abstieg) {
   stats::setNames(p, as.character(zahlen))
 }
 
-render_zonen_fussnote <- function(zonen, regel) {
+#' @param namen Benannter Vektor Kuerzel -> Vereinsname der Seite
+#'   (.teamnamen()); NULL, wenn die Seite keine Ligatabelle hat. Mit Namen
+#'   stehen Vereine in der Fussnote wie in der Tabelle: Name mit dem Kuerzel
+#'   als Tooltip. Ohne bleibt es beim Kuerzel.
+render_zonen_fussnote <- function(zonen, regel, namen = NULL) {
+  # Ein Verein, wie die Ligatabelle ihn schreibt (.tooltip_html in
+  # render_liga_tabelle()), damit Fussnote und Tabelle denselben Namen tragen.
+  vereinsname <- function(kurz) {
+    name <- if (is.null(namen)) NA_character_ else unname(namen[kurz])
+    if (is.na(name) || !nzchar(name)) {
+      htmltools::htmlEscape(kurz)
+    } else {
+      .tooltip_html(name, kurz)
+    }
+  }
+
   # Nur Plaetze MIT Risiko. Alle 18 aufzuzaehlen hiesse, 16-mal "0 %" zu
   # schreiben -- das verdeckt die drei Zahlen, auf die es ankommt.
   eintrag <- function(vektor, klasse, wort) {
@@ -363,7 +378,7 @@ render_zonen_fussnote <- function(zonen, regel) {
   verzichtssatz <- if (length(zonen$verzichtet) > 0L) {
     paste0(
       "Keine Aufstiegszone: ",
-      paste(zonen$verzichtet, collapse = ", "),
+      paste(vapply(zonen$verzichtet, vereinsname, character(1)), collapse = ", "),
       if (length(zonen$verzichtet) > 1L) " verzichten" else " verzichtet",
       " auf den Aufstieg, der n\u00e4chste berechtigte Verein r\u00fcckt nach ",
       "(Wahrscheinlichkeiten siehe Aufstiegsseite)."
@@ -388,7 +403,7 @@ render_zonen_fussnote <- function(zonen, regel) {
     teile <- vapply(names(zonen$abstieg_sperre), function(team) {
       p <- zonen$abstieg_sperre[[team]]
       # Kein Haekchen fuer eine sichere Sperre: Hier steht eine Zahl, kein Platz.
-      sprintf("%s %s", htmltools::htmlEscape(team),
+      sprintf("%s %s", vereinsname(team),
               if (p >= 1) "100\u00a0%" else .zone_prozent(p))
     }, character(1))
     paste0(
