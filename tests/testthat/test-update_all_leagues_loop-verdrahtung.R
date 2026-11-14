@@ -610,7 +610,7 @@ modell <- function() {
   env <- new.env()
   for (f in c("league_registry.R", "league_views.R", "staffel_zuordnung.R",
               "rl_abstiegskopplung.R", "aufstiegsspiele.R", "rl_aufstieg.R",
-              "rust_integration.R")) {
+              "rl_sperre.R", "rust_integration.R")) {
     source(rcode(f), local = env)
   }
   fake <- rust_fake()
@@ -1036,6 +1036,100 @@ test_that("eine Reserve mit Erstmannschaft in der 2. BL bekommt die gemischte Au
   expect_equal(sum(spalte$Aufstieg), 1, tolerance = 1e-9)
   # Die Heatmap-Matrix bleibt die des Hauptlaufs.
   expect_null(attr(erg[["rl_west"]], "sperr_gewichte"))
+
+  # Abstiegsfolge der Sperre (#331): Die Abstiegsspalte liest dieselben
+  # Masken (ohne Verzicht derselbe Satz) und mischt mit denselben Gewichten.
+  # Sollwert aus den Modulen, gefuettert mit dem, was der Fake geliefert hat.
+  m <- modell()
+  verteilung <- m$sperrverteilung(
+    attr(erg[["zweite_bundesliga"]], "tracked_class_patterns"),
+    attr(erg[["zweite_bundesliga_gesamt"]], "p_abstieg_niederlage")
+  )
+  expect_identical(attr(erg[["rl_west"]], "sperr_abstieg_rang"), roh)
+  sperre_west <- m$sperre_fuer_abstieg(erg[["rl_west"]], verteilung)
+  expect_identical(sperre_west$reserven, reserve)
+  expect_gleich(
+    erg[["rl_west_abstieg"]],
+    m$rl_abstiegsprognose("West", erg[["rl_west"]], COUNTS_REGULAER, sperre = sperre_west),
+    "Ergebnis_rl_west_abstieg (mit Sperre)"
+  )
+  # ... und zwar anders als ohne Sperre: Die Reserve traegt P(gesperrt) als
+  # sicheren Abstieg, die Zonenlinie bleibt die Regel ohne Sperre.
+  ohne <- m$rl_abstiegsprognose("West", erg[["rl_west"]], COUNTS_REGULAER)
+  abstieg <- erg[["rl_west_abstieg"]]
+  expect_gt(abstieg[reserve, "Abstieg"], ohne[reserve, "Abstieg"])
+  expect_gte(abstieg[reserve, "Abstieg"], risiko[[reserve]])
+  expect_equal(attr(abstieg, "platz_abstieg"), attr(ohne, "platz_abstieg"))
+  expect_equal(attr(abstieg, "sperr_risiko"), risiko)
+  expect_equal(sum(abstieg$Abstieg), 4, tolerance = 1e-9)
+  # Die Staffeln ohne sperrbare Reserve rechnen wie bisher.
+  for (key in c("rl_nordost", "rl_suedwest")) {
+    expect_null(attr(erg[[paste0(key, "_abstieg")]], "sperr_risiko"), info = key)
+  }
+})
+
+test_that("Verzicht und Sperre in einer Staffel: eigene Abstiegsmasken, der Verzichtende steigt sportlich ab", {
+  tl <- teamlist_df(character(0))
+  reg_id <- function(key) registry_env()$league_registry()[[key]]$api_id
+  verzichter <- teams_von("rl_west")[[1]]
+  reserve <- teams_von("rl_west")[[2]]
+  erst <- teams_von("zweite_bundesliga")[[3]]
+  tl$Aufstiegsverzicht <- ifelse(tl$ShortText == verzichter & tl$League == reg_id("rl_west"), "ja", "")
+  tl$Erstvertretung_TeamID <- NA_integer_
+  tl$Erstvertretung_ShortText <- ""
+  zeile_reserve <- tl$ShortText == reserve & tl$League == reg_id("rl_west")
+  zeile_erst <- tl$ShortText == erst & tl$League == reg_id("zweite_bundesliga")
+  tl$Erstvertretung_TeamID[zeile_reserve] <- tl$TeamID[zeile_erst]
+  tl$Erstvertretung_ShortText[zeile_reserve] <- erst
+  pfad <- tempfile("TeamList_verzicht_sperre_", fileext = ".csv")
+  utils::write.table(tl, pfad, sep = ";", quote = FALSE, row.names = FALSE)
+
+  lauf <- lauf_ausfuehren(teamlist = pfad)
+  erg <- lauf$ergebnisse[[1]]
+
+  # Vier Masken: zwei fuer den Aufstieg (Verzichtender ueberall ausgeblendet),
+  # zwei fuer den Abstieg (Verzichtender drin, nur die Reserve wechselt).
+  west <- Filter(function(p) setequal(as.character(p$team_names), teams_von("rl_west")),
+                 lauf$simulate)[[1]]
+  masken <- west$eligibility_masks
+  if (!is.matrix(masken)) masken <- do.call(rbind, masken)
+  namen <- as.character(west$team_names)
+  expect_identical(NROW(masken), 4L)
+  expect_identical(unname(masken[, match(verzichter, namen)]), c(FALSE, FALSE, TRUE, TRUE))
+  expect_identical(unname(masken[, match(reserve, namen)]), c(TRUE, FALSE, TRUE, FALSE))
+
+  # Die Rohprognose traegt beide Saetze getrennt.
+  roh <- erg[["rl_west"]]
+  expect_length(attr(roh, "eligible_rank_probabilities"), 2L)
+  expect_length(attr(roh, "sperr_abstieg_rang"), 2L)
+  expect_equal(sum(attr(roh, "eligible_rank_probabilities")[[1]][verzichter, ]), 0)
+  expect_equal(sum(attr(roh, "sperr_abstieg_rang")[[1]][verzichter, ]), 1, tolerance = 1e-9)
+
+  # Aufstieg: Verzichtender null und als verzichtet gekennzeichnet, nicht
+  # die Reserve.
+  aufstieg <- erg[["rl_west_aufstieg"]]
+  expect_equal(aufstieg[verzichter, "Aufstieg"], 0)
+  expect_identical(attr(aufstieg, "verzichtet"), verzichter)
+
+  # Abstieg: aus den Abstiegsmasken, Sollwert aus den Modulen. Der
+  # Verzichtende steht NICHT am Tabellenende, seine Abstiegswahrscheinlichkeit
+  # ist die sportliche aus der Maske -- groesser als null.
+  m <- modell()
+  verteilung <- m$sperrverteilung(
+    attr(erg[["zweite_bundesliga"]], "tracked_class_patterns"),
+    attr(erg[["zweite_bundesliga_gesamt"]], "p_abstieg_niederlage")
+  )
+  sperre_west <- m$sperre_fuer_abstieg(roh, verteilung)
+  abstieg <- erg[["rl_west_abstieg"]]
+  expect_gleich(
+    abstieg,
+    m$rl_abstiegsprognose("West", roh, COUNTS_REGULAER, sperre = sperre_west),
+    "Ergebnis_rl_west_abstieg (Verzicht + Sperre)"
+  )
+  expect_gt(abstieg[verzichter, "Abstieg"], 0)
+  expect_lt(abstieg[verzichter, "Abstieg"], 1)
+  expect_equal(sum(abstieg$Abstieg), 4, tolerance = 1e-9)
+  expect_false(any(grepl("fehlgeschlagen|uebersprungen", lauf$msgs)))
 })
 
 # --- #291: Meister und Aufstieg aus EINEM Lauf -----------------------------

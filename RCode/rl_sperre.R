@@ -245,3 +245,82 @@ mit_sperrmischung <- function(prognose, gewichte, risiko = NULL) {
   attr(prognose, "eligible_rank_probabilities") <- list(gemischt)
   prognose
 }
+
+# --- Abstiegsfolge der Sperre (#331) ---------------------------------------
+#
+# Ist eine Reserve gesperrt, rueckt sie ans Tabellenende und steigt ab; die
+# uebrigen ruecken auf, die Zahl der Absteiger bleibt gleich (WDFV Par. 16
+# Statut Ziffer 4, BFV RO Par. 2 Nr. 3; fuer Nord, Nordost und SuedWest eine
+# ANNAHME, Modellannahmen 5.10). Die "geaenderte Tabelle" ist genau der Rang
+# unter den Nicht-Gesperrten, den die Engine je Maske schon liefert -- die
+# Abstiegsrechnung (rl_abstiegskopplung.R) wendet den Platzvektor auf diesen
+# Rang an statt auf den Tabellenplatz, und mischt mit denselben Gewichten
+# P(S) wie der Aufstieg.
+#
+# VERZICHT UND SPERRE IN DERSELBEN STAFFEL: Die Aufstiegsmasken bauen auf der
+# Verzichts-Basis auf -- wer verzichtet, ist in jeder Maske ausgeblendet.
+# Fuer den Abstieg darf er aber nicht ans Tabellenende ruecken; er behaelt
+# seine sportliche Abstiegswahrscheinlichkeit. Deshalb bekommt der Abstieg
+# in diesem Fall einen zweiten Satz von 2^k Masken ohne Verzichts-Basis.
+# Ohne Verzicht sind beide Saetze identisch, und es wird nur einer gesendet.
+
+#' Die Masken einer Staffel fuer Aufstieg und Abstieg zusammen.
+#'
+#' @inheritParams sperr_masken
+#' @return list(masken = alle zu sendenden Masken (2^k oder 2 * 2^k),
+#'   abstieg_eigen = TRUE, wenn der Abstieg einen eigenen Satz hat).
+sperr_masken_beide <- function(basis, kurznamen, reserven) {
+  aufstieg <- sperr_masken(basis, kurznamen, reserven)
+  if (all(basis)) {
+    return(list(masken = aufstieg, abstieg_eigen = FALSE))
+  }
+  abstieg <- sperr_masken(rep(TRUE, length(kurznamen)), kurznamen, reserven)
+  list(masken = c(aufstieg, abstieg), abstieg_eigen = TRUE)
+}
+
+#' Trennt die Masken-Ergebnisse der Engine in Aufstieg und Abstieg.
+#'
+#' Haengt `sperr_abstieg_rang` (Liste der 2^k Matrizen fuer den Abstieg) an
+#' die Prognose und kuerzt `eligible_rank_probabilities` auf die 2^k Masken
+#' des Aufstiegs, damit mit_sperrmischung() unveraendert weiterrechnet.
+#'
+#' @param prognose Prognosematrix mit Attribut eligible_rank_probabilities.
+#' @param k Zahl der sperrbaren Reserven.
+#' @param abstieg_eigen Ergebnis von sperr_masken_beide()$abstieg_eigen.
+sperr_masken_trennen <- function(prognose, k, abstieg_eigen) {
+  rang <- attr(prognose, "eligible_rank_probabilities")
+  n <- 2L^k
+  soll <- n * (1L + as.integer(isTRUE(abstieg_eigen)))
+  if (length(rang) != soll) {
+    stop(sprintf(
+      "sperr_masken_trennen: %d Masken gesendet, aber die Engine lieferte %d Rangmatrizen.",
+      soll, length(rang)
+    ), call. = FALSE)
+  }
+  attr(prognose, "eligible_rank_probabilities") <- rang[seq_len(n)]
+  attr(prognose, "sperr_abstieg_rang") <- rang[length(rang) - n + seq_len(n)]
+  prognose
+}
+
+#' Die Sperre, wie rl_abstiegsprognose() sie braucht.
+#'
+#' @param prognose Rohprognose einer Staffel (NICHT die gemischte: sie
+#'   traegt `sperr_reserven`, `sperr_erst` und `sperr_abstieg_rang`).
+#' @param verteilung Ergebnis von sperrverteilung(); NULL, wenn es keine gibt.
+#' @return NULL, wenn die Staffel keine sperrbare Reserve hat oder die
+#'   Verteilung fehlt -- dann rechnet der Abstieg wie ohne Sperre. Sonst
+#'   list(rang, gewichte, reserven, risiko).
+sperre_fuer_abstieg <- function(prognose, verteilung) {
+  reserven <- attr(prognose, "sperr_reserven")
+  rang <- attr(prognose, "sperr_abstieg_rang")
+  if (is.null(verteilung) || is.null(reserven) || is.null(rang)) {
+    return(NULL)
+  }
+  erst <- attr(prognose, "sperr_erst")
+  list(
+    rang = rang,
+    gewichte = sperr_gewichte(verteilung, erst),
+    reserven = reserven,
+    risiko = sperr_risiko(verteilung, reserven, erst)
+  )
+}

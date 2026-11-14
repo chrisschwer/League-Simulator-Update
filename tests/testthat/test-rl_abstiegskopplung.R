@@ -30,12 +30,13 @@ library(testthat)
 #   Nord      Basis 3, +1 je Drittliga-Absteiger, kein Deckel (NFV-SpO Par. 6 Abs. 4)
 #   West      ENTKOPPELT: feste 4, unabhaengig von k (WDFV Abstieg Nr. 1).
 #             Die Verminderungsgruende Nr. 3 (weniger Oberliga-Aufsteiger)
-#             und Nr. 5 (Nichtlizenzierung) haengen NICHT an der 3. Liga;
-#             Nr. 4 (Zweitvertretung eines absteigenden Lizenzvereins rueckt
-#             ans Tabellenende) kann 2026/27 nicht eintreten -- die
-#             Erstvertretungen aller West-Zweitvertretungen spielen in Liga
-#             78/79 und koennen in einer Saison nicht bis in die RL
-#             durchfallen.
+#             und Nr. 5 (Nichtlizenzierung) haengen NICHT an der 3. Liga.
+#             Nr. 4 (Zweitvertretung eines in die 3. Liga absteigenden
+#             Lizenzvereins rueckt ans Tabellenende) aendert die ZAHL der
+#             Absteiger nicht, nur wer absteigt -- das rechnet die Sperre
+#             (#331, test-rl_abstiegskopplung-sperre.R). Ihr zweiter Satz
+#             (Lizenzmannschaft faellt bis in die RL) kann 2026/27 nicht
+#             eintreten: Alle Erstvertretungen spielen in Liga 78/79.
 #   Bayern    Zahl aendert sich NICHT: 2 Direktabsteiger (die zwei Letzten)
 #             und 2 Relegationsteilnehmer (die zwei davor). Die Relegation
 #             wird NICHT aufgeloest -- Bayernligisten werden nicht
