@@ -321,11 +321,23 @@ Beim Saisonwechsel zu prüfen: Hinspiel-Heimrecht gegen die Spielordnung der neu
 
 ### 5.9 Aufstiegsverzicht in den Regionalligen — *modelliert, mit Annahmen* (#320)
 
-Verzichtet ein Verein (TeamList-Spalte `Aufstiegsverzicht`), rückt der **nächste Berechtigte der Abschlusstabelle** nach, auch in die Aufstiegsspiele Nord–Bayern. Das Regelwerk schweigt zum Nachrücken; es ist eine Annahme. **Nicht modelliert:** Ein Verzicht kann die Zahl der Absteiger verringern (Nordost A. Nr. 6); die Abstiegsrechnung ignoriert das.
+Verzichtet ein Verein (TeamList-Spalte `Aufstiegsverzicht`), rückt der **nächste Berechtigte der Abschlusstabelle** nach, auch in die Aufstiegsspiele Nord–Bayern. Das Regelwerk schweigt zum Nachrücken; es ist eine Annahme. Die Zahl der Absteiger ändert ein Aufstiegsverzicht **nicht**: Es rückt ein anderer auf, die Zahl der Abgänge aus der Staffel bleibt gleich, es gibt nichts zu modellieren. (Bis #331 stand hier, Nordost A. Nr. 6 könne die Absteigerzahl senken. Diese Klausel betrifft die erklärte *Nichtteilnahme an der Regionalliga* mit Eingliederung in die Oberliga, nicht den Aufstiegsverzicht in die 3. Liga; die Nichtteilnahme bleibt bewusst ausgelassen, siehe 5.7.)
 
 ### 5.10 Dynamische Aufstiegssperre der Reserven — *modelliert, mit Annahmen* (#322)
 
-Eine Regionalliga-Reserve ist gesperrt, wenn ihre Erstmannschaft nächste Saison in der 3. Liga spielt. Für Zweitliga-Erstmannschaften rechnet das Modell die Sperre exakt als Mischung über die gemeinsame Verteilung der abgestiegenen Teams (ADR 0009, Nachtrag). Annahmen: (1) Der Sechzehnte der 2. Bundesliga verliert die Relegation mit der Quote aus 5.8, also mit aktueller ELO. (2) Bei Sperre rückt der nächste Berechtigte nach (siehe 5.9). (3) Nicht modelliert sind Erstmannschaften, die heute in der 3. Liga spielen (keine aktive Reserve betroffen), und die Abstiegsfolgen der Sperre für Reserven in Bayern und West. (4) Die Zuordnung Reserve → Erstmannschaft ist von Hand gepflegt (`Erstvertretung_TeamID`); `load_team_list()` warnt bei Unstimmigkeiten.
+Eine Regionalliga-Reserve ist gesperrt, wenn ihre Erstmannschaft nächste Saison in der 3. Liga spielt. Für Zweitliga-Erstmannschaften rechnet das Modell die Sperre exakt als Mischung über die gemeinsame Verteilung der abgestiegenen Teams (ADR 0009, Nachtrag). Annahmen: (1) Der Sechzehnte der 2. Bundesliga verliert die Relegation mit der Quote aus 5.8, also mit aktueller ELO. (2) Bei Sperre rückt der nächste Berechtigte nach (siehe 5.9). (3) Nicht modelliert sind Erstmannschaften, die heute in der 3. Liga spielen. In der TeamList 2026 stehen zwar zwei solche Reserven (FO2/F95, HA2B/FCH), beide spielen aber 2026/27 nicht in ihrer Regionalliga; es ist also keine aktive Reserve betroffen. (4) Die Zuordnung Reserve → Erstmannschaft ist von Hand gepflegt (`Erstvertretung_TeamID`); `load_team_list()` warnt bei Unstimmigkeiten.
+
+**Abstiegsfolge der Sperre (#331, entschieden 2026-11-14).** Ist eine Reserve gesperrt, rückt sie **ans Tabellenende und steigt ab**; die übrigen Mannschaften rücken auf, die Zahl der Absteiger bleibt gleich. Die Reserve ersetzt also einen sportlichen Absteiger. Gerechnet wird das auf dem Rang unter den Nicht-Gesperrten je Sperr-Kombination (dieselben Masken wie beim Aufstieg), gemischt mit denselben Gewichten `P(S)`; der Platzvektor je Staffel (Nord-Kopplung, Nordost-Deckel, West konstant, Bayern mit Relegation) bleibt unverändert und wirkt auf den Rang statt auf den Tabellenplatz. Eine gesperrte Reserve trägt Abstieg 1 und in Bayern Relegation 0. Regel für alle fünf Staffeln gleich, mit unterschiedlicher Belegqualität:
+
+| Staffel | Abstiegsfolge der Reserve | Zahl der übrigen Absteiger | Stand |
+|---|---|---|---|
+| West | rückt an den Schluss der Tabelle, steigt ab | sinkt um eins (ausdrücklich) | **belegt**, § 16 Statut Ziffer 4 |
+| Bayern | letzter Platz, „gilt als erster Absteiger", „die Tabelle ändert sich entsprechend" | nicht ausdrücklich; aus der geänderten Tabelle folgt es rechnerisch | **belegt** (Folge), RO § 2 Nr. 3 |
+| Nordost | „gilt als Absteiger" (SpO § 5 Nr. 4, für den Abstieg *in* eine NOFV-Liga formuliert); Teilnahmeverbot SpO § 5 Nr. 2 | nicht geregelt | **Annahme** |
+| SüdWest | nicht teilnahmeberechtigt (SpO § 47 Nr. 7); „erster Absteiger" dort nur für den Abstieg *in* die RL | nicht geregelt | **Annahme** |
+| Nord | nur Teilnahmeverbot (Regionalliga-Statut Anhang 1 Nr. 1.2); § 6 Abs. 12 SpO („erster Regelabsteiger") gilt für den Abstieg *in* eine NFV-Liga | nicht geregelt | **Annahme** |
+
+Wortlaute und Fundstellen: [`abstieg_aufstieg_RL_2026_2027.md`](abstieg_aufstieg_RL_2026_2027.md), Abschnitt 3.5. **Näherung:** `P(S)` hängt über die Relegationsquote des Zweitliga-Sechzehnten am Dritten der 3. Liga, der Platzvektor an den Absteigern der 3. Liga; beides stammt aus derselben Drittliga-Simulation, das Produkt ist also nicht streng exakt. Die Quote geht schon als Randgröße ein (Annahme 1), der Fehler ist klein. **Anzeige:** Die Zonenlinie der Ligatabelle bleibt die Regel ohne Sperre („Platz p ist Abstiegsplatz" ist unter der Sperre keine Platzeigenschaft mehr); die Fußnote nennt je betroffener Reserve `P(gesperrt)`. **Nicht modelliert** bleibt der Fall, dass eine *Lizenzmannschaft* bis in die Regionalliga durchfällt (zweiter Satz der West-Klausel, NFV § 6 Abs. 12): 2026/27 nicht möglich, alle Erstmannschaften der RL-Reserven spielen in Liga 78/79.
 
 ## 6. Beim Saisonwechsel zu prüfen
 
@@ -351,6 +363,14 @@ man sie einmalig ableiten könnte:
    für 2026/27 und mangels Beschluss auch 2027/28 gilt der heutige Modus. Es
    kursieren Darstellungen, die „vier Direktaufsteiger ab 2028/29" als
    feststehend behaupten — das ist nach dem DFB-Statement nicht der Fall.
+5. **Sperrbare Reserven je Staffel** (5.10): Reserven im Spielplan, deren
+   Erstmannschaft in der 2. Bundesliga spielt. 2026/27 nach TeamList und
+   Live-Spielplan (Stand 2026-11-14): Bayern FCN2, SGF2; Nord H962, STP2;
+   Nordost BSC2, FCM2; SüdWest FCK2; West BOC2. Die TeamList führt weitere
+   Reserven mit Zweitliga-Erstmannschaft, die 2026/27 **nicht** in ihrer
+   Regionalliga spielen (Nord HO2A, WO2) — sie bleiben wirkungslos, weil nur
+   Teams des Spielplans sperrbar sind. Beim Saisonwechsel neu ablesen: Wer
+   auf- oder absteigt, wechselt die Gruppe.
 
 ---
 

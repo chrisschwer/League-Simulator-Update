@@ -38,3 +38,17 @@ Die Aufstiegssperre einer Regionalliga-Reserve hängt am Abstieg ihrer Erstmanns
 - Anzeige: Die Aufstiegsseite nennt je betroffener Reserve `P(gesperrt)`. Die Aufstiegszone an Platz 1 einer Direktstaffel sinkt auf `1 − Σ_r P(r Meister)·P(r gesperrt)`, exakt, weil die Sperre vom Staffelverlauf unabhängig ist.
 
 Nicht modelliert: Erstmannschaften, die heute in der 3. Liga spielen, und die Abstiegsfolgen der Sperre (Handbuch Kap. 6).
+
+## Nachtrag: Abstiegsfolge der Sperre (#331, 2026-11-14)
+
+Eine gesperrte Reserve steigt nicht nur nicht auf, sie **steigt ab**: Sie rückt ans Tabellenende, die übrigen rücken auf, die Zahl der Absteiger bleibt gleich. West regelt das ausdrücklich (§ 16 Statut Ziffer 4), Bayern setzt die Reserve als „ersten Absteiger" an den letzten Platz und ändert die Tabelle entsprechend (RO § 2 Nr. 3); für Nord, Nordost und SüdWest ist nur das Teilnahmeverbot belegt, die Abstiegsfolge ist dort eine **Annahme** (Modellannahmen 5.10, Regeldoku 3.5).
+
+Keine Änderung an der Engine. Die „geänderte Tabelle" ist genau der Rang unter den Nicht-Gesperrten, den die Masken schon liefern: Nicht-Gesperrte auf Rang 1 bis n − s, die s Gesperrten dahinter. `rl_abstiegsprognose()` wendet den Platzvektor je Staffel deshalb je Maske auf diesen Rang an statt auf den Tabellenplatz (`abstiegswahrscheinlichkeit_mit_sperre()`), setzt für Gesperrte Abstieg 1 (Bayern: Relegation 0) und mischt mit denselben Gewichten `P(S)` wie der Aufstieg. Mit Gewicht 1 auf Maske 0 ist das Ergebnis bitgleich zur Rechnung ohne Sperre.
+
+- **Verzicht und Sperre in derselben Staffel:** Die Aufstiegsmasken bauen auf der Verzichts-Basis auf, ein Verzichtender ist in jeder Maske ausgeblendet. Für den Abstieg darf er nicht ans Tabellenende rücken. Hat eine Staffel beides, sendet der Loop 2 · 2^k Masken: 2^k auf der Verzichts-Basis für den Aufstieg, 2^k ohne sie für den Abstieg (`sperr_masken_beide()`, `sperr_masken_trennen()`). Ohne Verzicht sind beide Sätze identisch, es bleibt bei 2^k.
+- **Rohprognose statt Mischung:** Die Abstiegsrechnung liest die Liste der 2^k Rangmatrizen (`sperr_abstieg_rang`) aus der Rohprognose in `ergebnisse`, nicht die gemischte Matrix, die `mit_sperrmischung()` dem Aufstieg hinterlässt.
+- **Fehlt die Sperrverteilung,** rechnet der Abstieg wie bisher, mit derselben Meldung im Log wie der Aufstieg.
+- **Anzeige:** Das Attribut `platz_abstieg` (Zonenlinie) bleibt die Regel ohne Sperre, denn „Platz p ist Abstiegsplatz" hängt unter der Sperre davon ab, wo die Reserve steht. Die Zonen-Fußnote der Ligaseite nennt je betroffener Reserve `P(gesperrt)` (Attribut `sperr_risiko` am Abstiegsobjekt). Es gibt keine zweite Herleitung des Platzvektors im Renderer.
+- **Näherung, benannt:** `P(S)` hängt über die Relegationsquote des Sechzehnten am Dritten der 3. Liga, der Platzvektor an den Absteigern der 3. Liga — beides aus derselben Drittliga-Simulation. Das Produkt ist hier nicht streng exakt; die Quote geht schon heute als Randgröße ein.
+
+Nicht modelliert bleiben Erstmannschaften, die heute in der 3. Liga spielen (keine aktive Reserve betroffen, Modellannahmen 5.10 (3)), und der Durchfall einer Lizenzmannschaft bis in die Regionalliga.

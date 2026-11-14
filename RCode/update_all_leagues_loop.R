@@ -656,6 +656,7 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
           # nicht das Endzeichen des Kurznamens (Issue #196, ADR 0007).
           masken <- NULL
           sperrbar <- NULL
+          abstieg_eigen <- FALSE
           if (has_promotion_restriction(liga_ids[[key]])) {
             masken <- list(berechtigung_aus_teamlist(spielplan, TeamList,
                                                      liga_ids[[key]]))
@@ -676,6 +677,9 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
             # 2. Bundesliga spielt. Die Engine wertet dieselbe Tabelle unter
             # ALLEN 2^k Sperr-Kombinationen aus; welche Kombination wie
             # wahrscheinlich ist, mischt der RL-Block unten (rl_sperre.R).
+            # Dieselben Masken tragen die Abstiegsfolge der Sperre (#331):
+            # Verzichtet zusaetzlich jemand, bekommt der Abstieg einen
+            # zweiten Satz ohne Verzichts-Basis (sperr_masken_beide()).
             kurznamen <- names(spielplan)[5:ncol(spielplan)]
             sperrbar <- sperrbare_reserven(erst_zuordnung, kurznamen, liga_ids[[key]])
             if (nrow(sperrbar) > 0L) {
@@ -683,7 +687,9 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
                 stop("mehr als 8 sperrbare Reserven in einer Staffel: ",
                      paste(sperrbar$reserve, collapse = ", "))
               }
-              masken <- sperr_masken(berechtigt, kurznamen, sperrbar$reserve)
+              beide <- sperr_masken_beide(berechtigt, kurznamen, sperrbar$reserve)
+              masken <- beide$masken
+              abstieg_eigen <- beide$abstieg_eigen
             } else {
               sperrbar <- NULL
             }
@@ -710,6 +716,11 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
             trackedPlayoffPlaces = if (is.null(verfolgt)) NULL else 1L
           )
           if (!is.null(sperrbar)) {
+            # Aufstiegs- und Abstiegsmasken auseinandernehmen (#331); ohne
+            # Verzicht sind es dieselben 2^k Matrizen.
+            ergebnisse[[key]] <- sperr_masken_trennen(
+              ergebnisse[[key]], nrow(sperrbar), abstieg_eigen
+            )
             # Welche Reserven in welcher Reihenfolge hinter den Masken stehen:
             # bleibt an der Prognose, weil sie Runden ueberlebt, in denen die
             # Staffel nicht neu simuliert wird.
@@ -972,6 +983,20 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
               if (is.null(eigene)) next
               p_meister <- sum(eigene$Aufstieg)
             }
+            # Abstiegsfolge der Sperre (#331): Gesperrte Reserven ruecken ans
+            # Tabellenende. Aus der ROHPROGNOSE gelesen (Liste der 2^k
+            # Masken), nicht aus der gemischten. Fehlt die Sperrverteilung,
+            # rechnet die Staffel wie ohne Sperre -- die Meldung dazu steht
+            # schon oben; ein Fehler hier faellt genauso zurueck wie beim
+            # Aufstieg.
+            sperre_k <- tryCatch(
+              sperre_fuer_abstieg(prognose, sperre$verteilung),
+              error = function(e) {
+                message(sprintf("Loop %d: Sperre fuer %s uebersprungen: %s", i, k,
+                                conditionMessage(e)))
+                NULL
+              }
+            )
             # An dieser Stelle sind die Voraussetzungen bereits geprueft:
             # Zaehlung vorhanden, Prognose vorhanden, Staffel bekannt. Ein
             # Fehler ist hier also KEIN erwartbarer Zustand (wie eine
@@ -981,7 +1006,8 @@ update_all_leagues_loop <- function(duration = 480, loops = 31, initial_wait = 0
             # stoppen; aber der Grund steht im Log.
             spalte <- tryCatch(
               rl_abstiegsprognose(rl_staffel[[k]], prognose, drittliga_zaehlung,
-                                  p_meister_aufstieg = p_meister),
+                                  p_meister_aufstieg = p_meister,
+                                  sperre = sperre_k),
               error = function(e) {
                 message(sprintf(
                   "Abstiegskopplung %s uebersprungen: %s",

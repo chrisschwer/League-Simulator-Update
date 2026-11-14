@@ -205,3 +205,22 @@ eines Nachrückers.
 Welche Erstmannschaft zu welcher Reserve gehört, steht in den TeamList-Spalten
 \code{Erstvertretung\_TeamID} und \code{Erstvertretung\_ShortText}; die API
 liefert diese Zuordnung nicht.
+
+\paragraph{Abstiegsfolge der Sperre.}
+Eine gesperrte Reserve steigt nicht nur nicht auf, sie steigt ab: Sie rückt ans
+Tabellenende, die übrigen Mannschaften rücken auf, die Zahl der Absteiger
+bleibt gleich (West §~16 Statut Ziffer~4, Bayern RO §~2 Nr.~3; für Nord,
+Nordost und SüdWest eine Annahme, Kapitel~\ref{kap:grenzen}). Die geänderte
+Tabelle ist genau der Rang unter den Nicht-Gesperrten, den die Maske liefert.
+Der Platzvektor $w$ einer Staffel wirkt deshalb je Sperr-Kombination $S$ auf
+diesen Rang statt auf den Tabellenplatz:
+\begin{equation}
+  P(\text{Abstieg}) = \sum_S P(S)\,\Bigl[\,\sum_r R_S[t, r]\, w_r\Bigr]
+  \qquad\text{für nicht gesperrte } t,
+\end{equation}
+eine gesperrte Reserve trägt in jeder Kombination, in der sie gesperrt ist,
+den Wert~1 (in Bayerns Relegationsspalte~0). Mit Gewicht~1 auf
+\enquote{niemand gesperrt} ist das bitgleich die Rechnung ohne Sperre. Die
+Abstiegszonen der Ligatabelle zeigen weiter die Regel ohne Sperre, weil
+\enquote{Platz $p$ ist Abstiegsplatz} dann keine Eigenschaft des Platzes mehr
+ist; die Fußnote nennt die betroffene Reserve mit ihrer Sperrwahrscheinlichkeit.
