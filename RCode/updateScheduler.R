@@ -24,6 +24,14 @@ options(warn = 1)
 SCHEDULE_START_MINUTES <- 11 * 60
 SCHEDULE_END_MINUTES <- 23 * 60
 
+# Der Frueh-Lauf: EIN Komplettzyklus (alle Ligen abrufen, simulieren, Seite
+# rendern) um 00:30 Berliner Zeit, vor dem regulaeren Fenster. Grund ist der
+# Ausblick (Hingucker der Woche): Er rechnet auf die naechsten sieben Tage
+# ab `now` und waere sonst bis 11:00 auf dem Stand des Vorabends -- das Spiel
+# von heute stuende noch als "morgen" da. Kein Dauerbetrieb: eine Runde, dann
+# Schlaf bis 11:00.
+SCHEDULE_EARLY_MINUTES <- 30
+
 # "11:00" / "23:00" fuer Meldungstexte, aus den Konstanten abgeleitet.
 .format_schedule_time <- function(minutes) {
   sprintf("%02d:%02d", minutes %/% 60, minutes %% 60)
@@ -157,6 +165,30 @@ plane_fenster <- function(jetzt,
   }
 }
 
+# Ob dieser Prozess vor dem regulaeren Fensterstart einen Frueh-Lauf einlegt
+# -- reine Rechnung wie plane_fenster().
+#
+# Ja, ausser im Fenster (11:00-23:00): Vor 00:30 wartet er bis 00:30, ab 00:30
+# bis 11:00 (Neustart nach Absturz oder Deploy) laeuft der Frueh-Lauf sofort,
+# nach dem Fensterende (Abendneustart) am naechsten 00:30. Keine Schleife: Der
+# Lauf geschieht im selben Prozess, der danach bis 11:00 schlaeft; nur ein
+# Neustart in der Nacht holt ihn nach.
+plane_frueh_lauf <- function(jetzt,
+                             frueh = SCHEDULE_EARLY_MINUTES,
+                             start = SCHEDULE_START_MINUTES,
+                             tz = "Europe/Berlin") {
+  nein <- list(aktiv = FALSE, wartezeit_s = 0)
+  if (length(frueh) != 1L || is.na(frueh) || frueh >= start) return(nein)
+  zweig <- plane_fenster(jetzt, start = start, tz = tz)$zweig
+  if (zweig == "im") return(nein)
+  lokal <- as.POSIXlt(jetzt, tz = tz)
+  if (zweig == "vor" && lokal$hour * 60 + lokal$min >= frueh) {
+    return(list(aktiv = TRUE, wartezeit_s = 0))
+  }
+  ziel <- naechster_fensterstart(jetzt, start = frueh, tz = tz)
+  list(aktiv = TRUE, wartezeit_s = as.numeric(difftime(ziel, jetzt, units = "secs")))
+}
+
 # Huelle um plane_fenster: schlafen, melden, Kontingent fragen. `jetzt`/
 # `schlafen` sind nur fuer Tests injizierbar, main() ruft ohne Argumente.
 calculate_loops <- function(jetzt = Sys.time(), schlafen = Sys.sleep) {
@@ -214,6 +246,27 @@ main <- function() {
       "Rust simulator not available at %s. Start the Rust server before invoking this scheduler.",
       RUST_API_URL
     ))
+  }
+
+  # Frueh-Lauf (00:30): ein Komplettzyklus, damit der Ausblick frueh am Tag
+  # aktuell ist. Ein Fehler hier darf den Tag nicht kosten -- der regulaere
+  # Lauf ab 11:00 laeuft in jedem Fall.
+  frueh <- plane_frueh_lauf(Sys.time())
+  if (frueh$aktiv) {
+    message(sprintf("Frueh-Lauf (ab %s) - waiting %.1f hours",
+                    .format_schedule_time(SCHEDULE_EARLY_MINUTES),
+                    frueh$wartezeit_s / 3600))
+    if (frueh$wartezeit_s > 0) Sys.sleep(frueh$wartezeit_s)
+    tryCatch(
+      update_all_leagues_loop(
+        duration = 0, loops = 1, initial_wait = 0, n = 10000,
+        saison = SEASON, TeamList_file = team_list_file
+      ),
+      error = function(e) {
+        message(sprintf("ERROR im Frueh-Lauf (weiter mit dem regulaeren Tag): %s",
+                        conditionMessage(e)))
+      }
+    )
   }
 
   # Calculate optimal number of loops

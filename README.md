@@ -6,7 +6,7 @@ Live site: <https://fussball.csdatascience.de>
 
 ## What it does
 
-- Polls [api-football](https://rapidapi.com/api-sports/api/api-football) every two minutes between 11:00 and 23:00 Berlin time; a cheap live poll gates the expensive full fetch, so idle loops cost one request.
+- Polls [api-football](https://rapidapi.com/api-sports/api/api-football) every two minutes between 11:00 and 23:00 Berlin time, plus one full early run at 00:30 so the Ausblick is current early in the day; a cheap live poll gates the expensive full fetch, so idle loops cost one request.
 - Runs 10,000 Monte Carlo simulations through the rest of the season for each league after each match-day update.
 - Produces a probability matrix per league (each team × each final position) and renders it to 22 static HTML pages — twelve prognosis pages (ten league pages, the Regionalliga promotion page, and Methodik) plus one ELO-Verlauf page per league (see `docs/deployment/static-site.md`).
 - Re-runs ELO updates after every match.

@@ -481,3 +481,48 @@ test_that("calculate_loops: Huelle meldet den gewaehlten Zweig", {
     "After 23:00"
   )
 })
+
+# --- Frueh-Lauf 00:30 --------------------------------------------------------
+
+test_that("plane_frueh_lauf: Abendneustart und Nachtstart planen den 00:30-Lauf", {
+  withr::local_envvar(c(DURATION = ""))
+  env <- source_scheduler()
+  b <- function(x) as.POSIXct(x, tz = "Europe/Berlin")
+
+  abend <- env$plane_frueh_lauf(b("2026-11-15 23:00:20"))
+  expect_true(abend$aktiv)
+  expect_equal(abend$wartezeit_s, 90 * 60 - 20)
+
+  nacht <- env$plane_frueh_lauf(b("2026-11-16 00:10:00"))
+  expect_true(nacht$aktiv)
+  expect_equal(nacht$wartezeit_s, 20 * 60)
+})
+
+test_that("plane_frueh_lauf: Neustart zwischen 00:30 und 11:00 laeuft sofort, im Fenster nie", {
+  withr::local_envvar(c(DURATION = ""))
+  env <- source_scheduler()
+  b <- function(x) as.POSIXct(x, tz = "Europe/Berlin")
+
+  for (zeit in c("2026-11-16 00:30:00", "2026-11-16 00:31:10",
+                 "2026-11-16 08:00:00", "2026-11-16 10:59:00")) {
+    plan <- env$plane_frueh_lauf(b(zeit))
+    expect_true(plan$aktiv, info = zeit)
+    expect_equal(plan$wartezeit_s, 0, info = zeit)
+  }
+  for (zeit in c("2026-11-16 11:00:00", "2026-11-16 15:00:00")) {
+    expect_false(env$plane_frueh_lauf(b(zeit))$aktiv, info = zeit)
+  }
+})
+
+test_that("plane_frueh_lauf: Zeitumstellung verschiebt den Termin nicht", {
+  withr::local_envvar(c(DURATION = ""))
+  env <- source_scheduler()
+  b <- function(x) as.POSIXct(x, tz = "Europe/Berlin")
+
+  # Herbst: die Nacht hat 25 Stunden, 23:00 -> 00:30 sind 1,5 h Wanduhr.
+  plan <- env$plane_frueh_lauf(b("2026-10-24 23:00:00"))
+  expect_true(plan$aktiv)
+  expect_equal(format(b("2026-10-24 23:00:00") + plan$wartezeit_s,
+                      tz = "Europe/Berlin", "%Y-%m-%d %H:%M:%S"),
+               "2026-10-25 00:30:00")
+})
