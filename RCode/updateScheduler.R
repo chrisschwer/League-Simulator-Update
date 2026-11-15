@@ -229,9 +229,13 @@ fruehlauf_marker_lesen <- function(pfad = FRUEHLAUF_MARKER) {
   as.POSIXct(wert, origin = "1970-01-01", tz = "UTC")
 }
 fruehlauf_marker_schreiben <- function(zeit, pfad = FRUEHLAUF_MARKER) {
-  tryCatch(writeLines(format(as.numeric(zeit), scientific = FALSE), pfad),
-           error = function(e) message(sprintf(
-             "WARNUNG: Frueh-Lauf-Marker nicht schreibbar (%s)", conditionMessage(e))))
+  tryCatch(
+    writeLines(format(as.numeric(zeit), scientific = FALSE), pfad),
+    error = function(e) {
+      message(sprintf("WARNUNG: Frueh-Lauf-Marker nicht schreibbar (%s)",
+                      conditionMessage(e)))
+    }
+  )
 }
 
 # Der eine Aufruf des Loops, geteilt von Frueh-Lauf und Tageslauf: Aendert
