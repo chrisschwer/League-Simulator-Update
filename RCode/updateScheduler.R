@@ -32,6 +32,22 @@ SCHEDULE_END_MINUTES <- 23 * 60
 # Schlaf bis 11:00.
 SCHEDULE_EARLY_MINUTES <- 30
 
+# Budget: Der Frueh-Lauf liegt ausserhalb des Fensters, das der Regler
+# (rate_limit_takt.R, "die Nacht kann keine Runden aufnehmen", #224) plant --
+# er kostet ~11 Requests (1 Probe + 1 Vollabruf je Liga), die
+# nicht im Tagesbudget stehen. Das Kontingent ist ein ROLLIERENDES Fenster
+# (rate_limit_takt.R: gemessen, nicht Mitternacht), der Reset-Zeitpunkt also
+# nicht bekannt. Deshalb prueft der Lauf vorher das Kontingent
+# (checkAPILimits) und faellt bei erschoepftem Kontingent aus; 12 von 7.500
+# Requests sind gegenueber dem Tagesbudget vernachlaessigbar.
+
+# Marker des letzten Frueh-Laufs (Epochensekunden), im persistenten
+# Site-Volume. Er verhindert Wiederholungen bei Neustarts (Deploy, Absturz,
+# OOM-Kill): Geschrieben wird VOR dem Lauf, ein Absturz mitten im Zyklus fuehrt
+# also nicht zur Schleife.
+FRUEHLAUF_MARKER <- file.path(Sys.getenv("STATIC_SITE_DIR", "ShinyApp/public"),
+                              ".fruehlauf")
+
 # "11:00" / "23:00" fuer Meldungstexte, aus den Konstanten abgeleitet.
 .format_schedule_time <- function(minutes) {
   sprintf("%02d:%02d", minutes %/% 60, minutes %% 60)
@@ -165,28 +181,104 @@ plane_fenster <- function(jetzt,
   }
 }
 
+# Der letzte Frueh-Termin (00:30) an oder vor `jetzt`, in Berliner Zeit.
+letzter_fruehtermin <- function(jetzt, frueh = SCHEDULE_EARLY_MINUTES,
+                                tz = "Europe/Berlin") {
+  uhrzeit <- sprintf("%02d:%02d:00", frueh %/% 60, frueh %% 60)
+  tag <- as.Date(format(jetzt, tz = tz, "%Y-%m-%d"))
+  ziel <- as.POSIXct(paste(tag, uhrzeit), tz = tz)
+  if (ziel > jetzt) ziel <- as.POSIXct(paste(tag - 1, uhrzeit), tz = tz)
+  ziel
+}
+
 # Ob dieser Prozess vor dem regulaeren Fensterstart einen Frueh-Lauf einlegt
 # -- reine Rechnung wie plane_fenster().
 #
 # Ja, ausser im Fenster (11:00-23:00): Vor 00:30 wartet er bis 00:30, ab 00:30
 # bis 11:00 (Neustart nach Absturz oder Deploy) laeuft der Frueh-Lauf sofort,
-# nach dem Fensterende (Abendneustart) am naechsten 00:30. Keine Schleife: Der
-# Lauf geschieht im selben Prozess, der danach bis 11:00 schlaeft; nur ein
-# Neustart in der Nacht holt ihn nach.
+# nach dem Fensterende (Abendneustart) am naechsten 00:30 -- es sei denn,
+# `letzter_lauf` (Zeitpunkt des Markers) liegt schon an oder nach dem heutigen
+# Termin: dann ist er gelaufen, und ein Neustart wiederholt ihn nicht.
 plane_frueh_lauf <- function(jetzt,
                              frueh = SCHEDULE_EARLY_MINUTES,
                              start = SCHEDULE_START_MINUTES,
-                             tz = "Europe/Berlin") {
+                             tz = "Europe/Berlin",
+                             letzter_lauf = NULL) {
   nein <- list(aktiv = FALSE, wartezeit_s = 0)
   if (length(frueh) != 1L || is.na(frueh) || frueh >= start) return(nein)
   zweig <- plane_fenster(jetzt, start = start, tz = tz)$zweig
   if (zweig == "im") return(nein)
   lokal <- as.POSIXlt(jetzt, tz = tz)
   if (zweig == "vor" && lokal$hour * 60 + lokal$min >= frueh) {
+    if (length(letzter_lauf) == 1L && !is.na(letzter_lauf) &&
+          letzter_lauf >= letzter_fruehtermin(jetzt, frueh, tz)) {
+      return(nein)
+    }
     return(list(aktiv = TRUE, wartezeit_s = 0))
   }
   ziel <- naechster_fensterstart(jetzt, start = frueh, tz = tz)
   list(aktiv = TRUE, wartezeit_s = as.numeric(difftime(ziel, jetzt, units = "secs")))
+}
+
+# Marker lesen/schreiben (Epochensekunden). Fehlt oder zerfaellt die Datei,
+# gilt der Frueh-Lauf als nicht gelaufen.
+fruehlauf_marker_lesen <- function(pfad = FRUEHLAUF_MARKER) {
+  wert <- tryCatch(suppressWarnings(as.numeric(readLines(pfad, n = 1L, warn = FALSE))),
+                   error = function(e) NA_real_)
+  if (length(wert) != 1L || is.na(wert)) return(NULL)
+  as.POSIXct(wert, origin = "1970-01-01", tz = "UTC")
+}
+fruehlauf_marker_schreiben <- function(zeit, pfad = FRUEHLAUF_MARKER) {
+  tryCatch(writeLines(format(as.numeric(zeit), scientific = FALSE), pfad),
+           error = function(e) message(sprintf(
+             "WARNUNG: Frueh-Lauf-Marker nicht schreibbar (%s)", conditionMessage(e))))
+}
+
+# Der eine Aufruf des Loops, geteilt von Frueh-Lauf und Tageslauf: Aendert
+# sich ein gemeinsames Argument (n, Saison, Teamliste), aendert es sich
+# an einer Stelle.
+starte_loop <- function(...) {
+  update_all_leagues_loop(n = 10000, saison = SEASON,
+                          TeamList_file = team_list_file, ...)
+}
+
+# Der Frueh-Lauf als Ganzes: planen, warten, Marker setzen, Kontingent
+# pruefen, EINEN Zyklus fahren. Fehler (R-Fehler) kosten den Tag nicht.
+# Alles Aeussere injizierbar, damit die Abfolge testbar ist.
+fuehre_fruehlauf_aus <- function(jetzt = Sys.time(), schlafen = Sys.sleep,
+                                 lauf = starte_loop, kontingent = checkAPILimits,
+                                 marker = FRUEHLAUF_MARKER) {
+  plan <- plane_frueh_lauf(jetzt, letzter_lauf = fruehlauf_marker_lesen(marker))
+  if (!plan$aktiv) return(invisible("uebersprungen"))
+
+  message(sprintf("Frueh-Lauf (ab %s) - waiting %.1f hours",
+                  .format_schedule_time(SCHEDULE_EARLY_MINUTES),
+                  plan$wartezeit_s / 3600))
+  if (plan$wartezeit_s > 0) schlafen(plan$wartezeit_s)
+
+  # VOR dem Lauf: Ein Absturz mitten im Zyklus (OOM, Segfault) soll nicht in
+  # eine Neustart-Schleife fuehren.
+  fruehlauf_marker_schreiben(jetzt + plan$wartezeit_s, marker)
+
+  # Mit den Kosten eines Vollzyklus (Probe + ein Abruf je Liga) rechnen,
+  # nicht mit dem Halbwert der Tagesplanung -- sonst gaelte die Pruefung
+  # schon ab 7 verbleibenden Requests.
+  kosten <- 1 + length(league_ids())
+  sicher <- tryCatch(kontingent(1, avg_calls_per_loop = kosten) >= 1,
+                     error = function(e) TRUE)
+  if (!isTRUE(sicher)) {
+    message("Frueh-Lauf uebersprungen: Kontingent erschoepft.")
+    return(invisible("kontingent"))
+  }
+
+  tryCatch(
+    lauf(duration = 0, loops = 1, initial_wait = 0),
+    error = function(e) {
+      message(sprintf("ERROR im Frueh-Lauf (weiter mit dem regulaeren Tag): %s",
+                      conditionMessage(e)))
+    }
+  )
+  invisible("gelaufen")
 }
 
 # Huelle um plane_fenster: schlafen, melden, Kontingent fragen. `jetzt`/
@@ -249,37 +341,17 @@ main <- function() {
   }
 
   # Frueh-Lauf (00:30): ein Komplettzyklus, damit der Ausblick frueh am Tag
-  # aktuell ist. Ein Fehler hier darf den Tag nicht kosten -- der regulaere
-  # Lauf ab 11:00 laeuft in jedem Fall.
-  frueh <- plane_frueh_lauf(Sys.time())
-  if (frueh$aktiv) {
-    message(sprintf("Frueh-Lauf (ab %s) - waiting %.1f hours",
-                    .format_schedule_time(SCHEDULE_EARLY_MINUTES),
-                    frueh$wartezeit_s / 3600))
-    if (frueh$wartezeit_s > 0) Sys.sleep(frueh$wartezeit_s)
-    tryCatch(
-      update_all_leagues_loop(
-        duration = 0, loops = 1, initial_wait = 0, n = 10000,
-        saison = SEASON, TeamList_file = team_list_file
-      ),
-      error = function(e) {
-        message(sprintf("ERROR im Frueh-Lauf (weiter mit dem regulaeren Tag): %s",
-                        conditionMessage(e)))
-      }
-    )
-  }
+  # aktuell ist (Details und Absicherung: fuehre_fruehlauf_aus).
+  fuehre_fruehlauf_aus()
 
   # Calculate optimal number of loops
   loop_config <- calculate_loops()
 
   # Run the update loop. Rust availability has already been asserted above.
-  update_all_leagues_loop(
+  starte_loop(
     duration = loop_config$duration, # Use actual time remaining, not DURATION
     loops = loop_config$loops,
     initial_wait = loop_config$initial_wait,
-    n = 10000,
-    saison = SEASON,
-    TeamList_file = team_list_file,
     # Kam die Rundenzahl aus einem Fallback (fehlender Header, Probe im
     # Timeout), darf der Loop auf Normaltakt zurueckschalten, sobald die
     # Header doch noch eintreffen -- und dann begrenzt die Uhr den Tag,

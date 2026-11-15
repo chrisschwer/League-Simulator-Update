@@ -526,3 +526,87 @@ test_that("plane_frueh_lauf: Zeitumstellung verschiebt den Termin nicht", {
                       tz = "Europe/Berlin", "%Y-%m-%d %H:%M:%S"),
                "2026-10-25 00:30:00")
 })
+
+test_that("plane_frueh_lauf: ein Marker ab dem heutigen Termin verhindert die Wiederholung", {
+  withr::local_envvar(c(DURATION = ""))
+  env <- source_scheduler()
+  b <- function(x) as.POSIXct(x, tz = "Europe/Berlin")
+
+  jetzt <- b("2026-11-16 08:00:00")
+  expect_false(env$plane_frueh_lauf(jetzt, letzter_lauf = b("2026-11-16 00:30:05"))$aktiv)
+  expect_true(env$plane_frueh_lauf(jetzt, letzter_lauf = b("2026-11-15 00:30:05"))$aktiv)
+  expect_true(env$plane_frueh_lauf(jetzt, letzter_lauf = NULL)$aktiv)
+})
+
+test_that("plane_frueh_lauf: Start nach 03:00 in den Umstellungsnaechten laeuft sofort", {
+  withr::local_envvar(c(DURATION = ""))
+  env <- source_scheduler()
+  b <- function(x) as.POSIXct(x, tz = "Europe/Berlin")
+
+  for (zeit in c("2026-10-25 04:00:00", "2027-03-28 03:30:00")) {
+    plan <- env$plane_frueh_lauf(b(zeit))
+    expect_true(plan$aktiv, info = zeit)
+    expect_equal(plan$wartezeit_s, 0, info = zeit)
+  }
+  # Abend vor der Fruehjahrsumstellung: 23:00 -> 00:30 liegt vor der
+  # Springstelle, also 90 Minuten.
+  expect_equal(env$plane_frueh_lauf(b("2027-03-27 23:00:00"))$wartezeit_s, 90 * 60)
+  # Abend vor der Herbstumstellung: ebenso (die 25. Stunde folgt erst um 03:00).
+  expect_equal(env$plane_frueh_lauf(b("2026-10-24 23:00:00"))$wartezeit_s, 90 * 60)
+})
+
+# --- fuehre_fruehlauf_aus: Abfolge ------------------------------------------
+
+fruehlauf_probe <- function(env, jetzt, kontingent = function(n, ...) n, lauf_fehler = FALSE,
+                            marker = tempfile()) {
+  ereignisse <- character()
+  lauf <- function(...) {
+    ereignisse <<- c(ereignisse, "lauf")
+    if (lauf_fehler) stop("kaputt")
+  }
+  schlafen <- function(s) ereignisse <<- c(ereignisse, sprintf("schlaf:%d", s))
+  kont <- function(n, ...) { ereignisse <<- c(ereignisse, "probe"); kontingent(n, ...) }
+  ergebnis <- env$fuehre_fruehlauf_aus(jetzt = jetzt, schlafen = schlafen,
+                                       lauf = lauf, kontingent = kont, marker = marker)
+  list(ergebnis = ergebnis, ereignisse = ereignisse, marker = marker)
+}
+
+test_that("fuehre_fruehlauf_aus: schlaeft bis 00:30, prueft Kontingent, laeuft, setzt den Marker", {
+  withr::local_envvar(c(DURATION = ""))
+  env <- source_scheduler()
+  p <- fruehlauf_probe(env, as.POSIXct("2026-11-16 00:10:00", tz = "Europe/Berlin"))
+  expect_equal(p$ereignisse, c("schlaf:1200", "probe", "lauf"))
+  expect_equal(p$ergebnis, "gelaufen")
+  expect_false(is.null(env$fruehlauf_marker_lesen(p$marker)))
+})
+
+test_that("fuehre_fruehlauf_aus: erschoepftes Kontingent -> kein Lauf; Wiederholung -> uebersprungen", {
+  withr::local_envvar(c(DURATION = ""))
+  env <- source_scheduler()
+  jetzt <- as.POSIXct("2026-11-16 08:00:00", tz = "Europe/Berlin")
+  p <- fruehlauf_probe(env, jetzt, kontingent = function(n, ...) 0)
+  expect_equal(p$ereignisse, "probe")
+  expect_equal(p$ergebnis, "kontingent")
+
+  # Der Marker steht (auch nach dem Kontingent-Ausfall): ein Neustart
+  # probiert nicht erneut.
+  p2 <- fruehlauf_probe(env, jetzt + 60, marker = p$marker)
+  expect_equal(p2$ereignisse, character())
+  expect_equal(p2$ergebnis, "uebersprungen")
+})
+
+test_that("fuehre_fruehlauf_aus: ein Fehler im Lauf wird geschluckt, der Marker steht", {
+  withr::local_envvar(c(DURATION = ""))
+  env <- source_scheduler()
+  p <- fruehlauf_probe(env, as.POSIXct("2026-11-16 08:00:00", tz = "Europe/Berlin"),
+                       lauf_fehler = TRUE)
+  expect_equal(p$ereignisse, c("probe", "lauf"))
+  expect_false(is.null(env$fruehlauf_marker_lesen(p$marker)))
+})
+
+test_that("fuehre_fruehlauf_aus: im Fenster passiert nichts", {
+  withr::local_envvar(c(DURATION = ""))
+  env <- source_scheduler()
+  p <- fruehlauf_probe(env, as.POSIXct("2026-11-16 15:00:00", tz = "Europe/Berlin"))
+  expect_equal(p$ereignisse, character())
+})

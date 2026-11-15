@@ -8,11 +8,12 @@
 # sollte, statt einen eigenen Probe-Request auszugeben. Der Zweig war in
 # Produktion unerreichbar:
 #
-#   updateScheduler.R:189  loop_config <- calculate_loops()  -> checkAPILimits()
-#   updateScheduler.R:192  update_all_leagues_loop(...)      -> retrieveResults()
+#   updateScheduler.R main(): calculate_loops()      -> checkAPILimits()
+#   updateScheduler.R main(): starte_loop(...)       -> retrieveResults()
 #
-# calculate_loops() ist der einzige Aufrufer und laeuft genau einmal je
-# Prozess -- es gibt keine Schleife, die zurueckspringt. Der Cache
+# calculate_loops() ruft sie fuer den Tagesplan genau einmal je Prozess auf
+# (dazu kommt seit dem Frueh-Lauf eine Probe aus fuehre_fruehlauf_aus()) --
+# es gibt keine Schleife, die zurueckspringt. Der Cache
 # (.api_rate_limit, gefuellt in retrieveResults.R:19-27) wird also erst NACH
 # der einzigen Abfrage beschrieben und ist bei ihr immer leer; der
 # Probe-Request ging ohnehin jedes Mal hinaus. Entscheidung Christoph: Zweig

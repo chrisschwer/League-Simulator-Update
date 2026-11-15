@@ -111,12 +111,17 @@ volumes:
 ```caddyfile
 fussball.example.org {
     root * /srv/fussball
-    file_server
+    file_server {
+        hide .*          # Betriebszustand (.fruehlauf) nicht ausliefern
+    }
     encode zstd gzip
     header /assets/* Cache-Control "public, max-age=300"
     header *.html Cache-Control "no-cache"
 }
 ```
+
+`hide .*` matters: the scheduler keeps its early-run marker `.fruehlauf` in the
+site volume, which must not be served publicly.
 
 Restart Caddy after adding the volume (`docker compose up -d caddy`) and
 validate with `docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile`.
