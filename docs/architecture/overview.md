@@ -61,7 +61,8 @@ Automated scheduling system for regular updates.
 - Polling: every two minutes; a cheap live poll gates the expensive full
   fetch, so idle loops cost one request (see `update_all_leagues_loop.R`).
   The fixed update times listed here previously were retired with that gating.
-- Outside the window the scheduler sleeps until the next 11:00 (12 hours)
+- Early run: one full cycle at 00:30 (Ausblick/Hingucker fresh early in the day); skipped if the quota is exhausted or it already ran today (marker `.fruehlauf` in the site volume)
+- Outside the window the scheduler otherwise sleeps until the next 11:00
 
 **Features:**
 - Timezone-aware scheduling

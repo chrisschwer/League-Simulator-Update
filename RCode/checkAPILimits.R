@@ -79,10 +79,14 @@ checkAPILimits <- function(ideal_loops,
   # Ein eigener Probe-Request, bewusst (Issue #129, Punkt 1): Hier stand ein
   # Zweig, der die von retrieveResults() aufgezeichneten Header
   # (.api_rate_limit, 10-Minuten-Frist) wiederverwenden sollte. Er war in
-  # Produktion unerreichbar -- calculate_loops() ist der einzige Aufrufer,
-  # laeuft genau einmal je Prozess (updateScheduler.R:189) und damit VOR dem
-  # ersten retrieveResults() (:192). Der Cache war bei der einzigen Abfrage
+  # Produktion unerreichbar -- calculate_loops() ist der Aufrufer des
+  # Tagesplans, genau einmal je Prozess (updateScheduler.R, main()) und damit VOR dem
+  # ersten retrieveResults() des Tageslaufs. Der Cache war bei der einzigen Abfrage
   # immer leer, der Request ging ohnehin jedes Mal hinaus.
+  #
+  # (Seit dem Frueh-Lauf ruft auch fuehre_fruehlauf_aus() die Funktion auf --
+  # zwei Proben je Prozess. Am Grund aendert das nichts: Der Cache-Zweig ist
+  # entfernt, jede Probe geht hinaus.)
   #
   # Ein Request pro Tag gegen 7.500 ist der ehrlichere Preis: Toter Code,
   # der nach Funktion aussieht, kostet mehr -- er laesst kuenftige Leser
