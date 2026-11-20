@@ -83,3 +83,19 @@ tests/testthat/_baseline/
 
 # Node-Abhaengigkeiten der Client-JS-Tests (Stufe 4.6, #212): npm ci
 node_modules/
+
+# R-Grafikgeraet-Reste (Rscript ohne Ausgabedatei)
+Rplots.pdf
+
+# LaTeX-Build-Artefakte der Berichte (enthalten lokale Pfade)
+docs/reports/**/build/
+*.aux
+*.fdb_latexmk
+*.fls
+
+# Prognosegueteberichte 2025/26: Arbeitsstand (Daten, Abbildungen, Build) liegt
+# nur lokal, bis der Bericht mit seinen Skripten
+# (scripts/analyze_forecast_quality.R, scripts/evaluate_forecast_quality.R)
+# fertig ist. Zum Einchecken bewusst: git add -f <Pfad>.
+# Er rutschte zweimal ueber `git add docs` in Commits (#342, #346).
+docs/reports/2026-10-11-prognoseguete-2025-26/
