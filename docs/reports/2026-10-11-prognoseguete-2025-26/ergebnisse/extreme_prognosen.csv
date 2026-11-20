@@ -1,0 +1,4 @@
+"kategorie","prognosen","eingetreten","erwartet"
+"p = 0 (in keiner Simulation)",7888,0,0
+"p = 1 (in jeder Simulation)",15,15,15
+"0 < p < 2 %",8396,44,52.2968000000007

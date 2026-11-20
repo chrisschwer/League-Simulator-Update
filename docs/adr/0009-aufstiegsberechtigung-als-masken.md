@@ -37,7 +37,7 @@ Die Aufstiegssperre einer Regionalliga-Reserve hängt am Abstieg ihrer Erstmanns
 - Die Rohprognose in `ergebnisse` (Liste der Masken, Heatmap, Meister) bleibt unberührt; gemischt wird in jedem Render neu, weil sich `P(S)` mit der 2. Bundesliga und der 3. Liga ändert. Fehlt die Abstiegsverteilung oder die Relegationsquote, rechnen die Staffeln ohne die Sperre (Meldung im Log).
 - Anzeige: Die Aufstiegsseite nennt je betroffener Reserve `P(gesperrt)`. Die Aufstiegszone an Platz 1 einer Direktstaffel sinkt auf `1 − Σ_r P(r Meister)·P(r gesperrt)`, exakt, weil die Sperre vom Staffelverlauf unabhängig ist.
 
-Nicht modelliert: die Abstiegsfolgen der Sperre (Handbuch Kap. 6). Erstmannschaften, die heute in der 3. Liga spielen, sind keine Lücke: Ihre Reserve darf nicht in der Regionalliga stehen (ADR 0008, Nachtrag 2026-11-20).
+Nicht modelliert war die Abstiegsfolge der Sperre; sie ist seit #331 umgesetzt (siehe Nachtrag unten, Handbuch Kap. 6). Erstmannschaften, die heute in der 3. Liga spielen, sind keine Lücke: Ihre Reserve darf nicht in der Regionalliga stehen (ADR 0008, Nachtrag 2026-11-20).
 
 ## Nachtrag: Abstiegsfolge der Sperre (#331, 2026-11-14)
 
@@ -51,4 +51,4 @@ Keine Änderung an der Engine. Die „geänderte Tabelle" ist genau der Rang unt
 - **Anzeige:** Das Attribut `platz_abstieg` (Zonenlinie) bleibt die Regel ohne Sperre, denn „Platz p ist Abstiegsplatz" hängt unter der Sperre davon ab, wo die Reserve steht. Die Zonen-Fußnote der Ligaseite nennt je betroffener Reserve `P(gesperrt)` (Attribut `sperr_risiko` am Abstiegsobjekt). Es gibt keine zweite Herleitung des Platzvektors im Renderer.
 - **Näherung, benannt:** `P(S)` hängt über die Relegationsquote des Sechzehnten am Dritten der 3. Liga, der Platzvektor an den Absteigern der 3. Liga — beides aus derselben Drittliga-Simulation. Das Produkt ist hier nicht streng exakt; die Quote geht schon heute als Randgröße ein.
 
-Nicht modelliert bleibt der Durchfall einer Lizenzmannschaft bis in die Regionalliga. Erstmannschaften, die heute in der 3. Liga spielen, sind keine Lücke, sondern regelwidrig: Ihre Reserve gehört nicht in die Regionalliga (ADR 0008, Nachtrag 2026-11-20; Modellannahmen 5.10 (3) führt sie noch als Lücke).
+Nicht modelliert bleibt der Durchfall einer Lizenzmannschaft bis in die Regionalliga. Erstmannschaften, die heute in der 3. Liga spielen, sind keine Lücke, sondern regelwidrig: Ihre Reserve gehört nicht in die Regionalliga (ADR 0008, Nachtrag 2026-11-20).

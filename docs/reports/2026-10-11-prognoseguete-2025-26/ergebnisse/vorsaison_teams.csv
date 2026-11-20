@@ -1,0 +1,57 @@
+"league","name","short","elo_start","prev_league","prev_rank","naive_prev_rank","expected_rank","model_rank","final_rank","final_points"
+"Bundesliga","Bayern München","FCB",1969.32428619061,78,1,1,2.2175,1,1,89
+"Bundesliga","Borussia Dortmund","BVB",1818.54564726202,78,4,4,5.2266,3,2,73
+"Bundesliga","RB Leipzig","RBL",1756.81135852262,78,7,7,6.9761,5,3,65
+"Bundesliga","VfB Stuttgart","STU",1753.2191395997,78,9,9,7.2483,6,4,62
+"Bundesliga","1899 Hoffenheim","HOF",1599.68074074587,78,15,15,11.9178,14,5,61
+"Bundesliga","Bayer Leverkusen","B04",1912.97848509498,78,2,2,3.0927,2,6,59
+"Bundesliga","SC Freiburg","SCF",1689.29861493263,78,5,5,9.0836,8,7,47
+"Bundesliga","Eintracht Frankfurt","SGE",1763.24343677236,78,3,3,6.8188,4,8,44
+"Bundesliga","FC Augsburg","FCA",1613.10382216218,78,12,12,11.5418,12,9,43
+"Bundesliga","FSV Mainz 05","M05",1714.42387083943,78,6,6,8.3022,7,10,40
+"Bundesliga","Union Berlin","FCU",1606.70145590193,78,13,13,11.7243,13,11,39
+"Bundesliga","Borussia Mönchengladbach","BMG",1621.80116542982,78,10,10,11.2611,11,12,38
+"Bundesliga","Hamburger SV","HSV",1525.18610820616,79,2,18,14.2307,18,13,38
+"Bundesliga","1. FC Köln","KOE",1521.12257185695,79,1,17,14.2271,17,14,32
+"Bundesliga","Werder Bremen","BRE",1678.97752473925,78,8,8,9.4753,9,15,32
+"Bundesliga","VfL Wolfsburg","WOB",1644.4940564543,78,11,11,10.5434,10,16,29
+"Bundesliga","1. FC Heidenheim","HDH",1541.61988471713,78,16,16,13.7494,16,17,26
+"Bundesliga","FC St. Pauli","STP",1553.04235418508,78,14,14,13.3633,15,18,26
+"2. Bundesliga","FC Schalke 04","S04",1339.680813042,79,14,14,11.5232,13,1,70
+"2. Bundesliga","SV Elversberg","ELV",1452.23175295366,79,3,3,7.3987,4,2,62
+"2. Bundesliga","SC Paderborn 07","SCP",1447.12069569855,79,4,4,7.5886,5,3,62
+"2. Bundesliga","Hannover 96","H96",1427.79457838825,79,9,9,8.306,7,4,60
+"2. Bundesliga","SV Darmstadt 98","D98",1387.82877282987,79,12,12,9.726,11,5,52
+"2. Bundesliga","1. FC Kaiserslautern","FCK",1397.15393024478,79,7,7,9.413,10,6,52
+"2. Bundesliga","Hertha BSC","BSC",1398.38965008223,79,11,11,9.4088,9,7,51
+"2. Bundesliga","1. FC Nürnberg","FCN",1365.38002312514,79,10,10,10.5783,12,8,46
+"2. Bundesliga","VfL Bochum","BOC",1489.71489418802,78,18,2,6.1453,2,9,44
+"2. Bundesliga","Karlsruher SC","KSC",1438.8809339486,79,8,8,7.8377,6,10,44
+"2. Bundesliga","Dynamo Dresden","SGD",1297.98227373306,80,2,18,12.9583,18,11,41
+"2. Bundesliga","Holstein Kiel","KIE",1500.42370856815,78,17,1,5.9081,1,12,41
+"2. Bundesliga","Arminia Bielefeld","DSC",1325.27518131755,80,1,17,12.0476,15,13,39
+"2. Bundesliga","1. FC Magdeburg","FCM",1402.74107175447,79,5,5,9.3123,8,14,39
+"2. Bundesliga","Eintracht Braunschweig","EBS",1319.94999435376,79,16,16,12.1309,16,15,37
+"2. Bundesliga","SpVgg Greuther Fürth","SGF",1337.43249429802,79,13,13,11.5479,14,16,37
+"2. Bundesliga","Fortuna Düsseldorf","F95",1466.17960508047,79,6,6,6.9834,3,17,37
+"2. Bundesliga","Preußen Münster","PMS",1319.24541488265,79,15,15,12.1859,17,18,30
+"3. Liga","VfL Osnabrück","OSN",1175.07396601458,80,14,14,10.1831,10,1,80
+"3. Liga","Energie Cottbus","FCE",1153.84085095974,80,4,4,10.9877,12,2,72
+"3. Liga","Rot-Weiß Essen","RWE",1209.91322204752,80,8,8,8.6716,6,3,70
+"3. Liga","MSV Duisburg","MSV",1064.08417327717,87,1,17,14.4987,20,4,68
+"3. Liga","Hansa Rostock","ROS",1229.07844022903,80,5,5,7.9668,3,5,67
+"3. Liga","Verl","SCV",1214.41359417102,80,7,7,8.5049,4,6,64
+"3. Liga","Alemannia Aachen","AAC",1147.72689040636,80,12,12,11.1513,14,7,64
+"3. Liga","TSV 1860 München","M60",1173.31044391202,80,11,11,10.255,11,8,56
+"3. Liga","SV Wehen","WW",1191.36319150705,80,9,9,9.4202,9,9,53
+"3. Liga","Waldhof Mannheim","SVW",1149.83902319286,80,16,16,11.1417,13,10,52
+"3. Liga","FC Viktoria Köln","VIK",1195.69843763929,80,6,6,9.198,8,11,51
+"3. Liga","FC Ingolstadt 04","FCI",1196.3020642118,80,10,10,9.0783,7,12,49
+"3. Liga","SSV Jahn Regensburg","REG",1212.60059257419,79,18,2,8.5462,5,13,49
+"3. Liga","Stuttgart II","ST2",1120.37558517845,80,15,15,12.3193,16,14,46
+"3. Liga","FC Saarbrücken","FCS",1246.47178903556,80,3,3,7.306,2,15,44
+"3. Liga","Hoffenheim II","HO2",1064.08417327717,86,1,18,14.4457,19,16,43
+"3. Liga","Havelse","HAV",1064.08417327717,84,1,19,14.3607,17,17,35
+"3. Liga","Erzgebirge Aue","AUE",1134.91242133804,80,13,13,11.6736,15,18,34
+"3. Liga","SSV Ulm 1846","ULM",1282.76248237155,79,17,1,5.916,1,19,33
+"3. Liga","FC Schweinfurt 05","S05",1064.08417327717,83,1,20,14.3752,18,20,21
