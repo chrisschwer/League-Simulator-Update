@@ -565,10 +565,19 @@ fruehlauf_probe <- function(env, jetzt, kontingent = function(n, ...) n, lauf_fe
     if (lauf_fehler) stop("kaputt")
   }
   schlafen <- function(s) ereignisse <<- c(ereignisse, sprintf("schlaf:%d", s))
-  kont <- function(n, ...) { ereignisse <<- c(ereignisse, "probe"); kontingent(n, ...) }
+  kont_args <- list()
+  kont <- function(...) {
+    ereignisse <<- c(ereignisse, "probe")
+    # Gegen die Signatur von checkAPILimits() abgleichen: Ob der Aufrufer das
+    # Argument benannt oder positional uebergibt, landet es unter demselben Namen.
+    abgeglichen <- match.call(checkAPILimits, as.call(c(quote(checkAPILimits), list(...))))
+    kont_args <<- c(kont_args, list(as.list(abgeglichen)[-1]))
+    kontingent(...)
+  }
   ergebnis <- env$fuehre_fruehlauf_aus(jetzt = jetzt, schlafen = schlafen,
                                        lauf = lauf, kontingent = kont, marker = marker)
-  list(ergebnis = ergebnis, ereignisse = ereignisse, marker = marker)
+  list(ergebnis = ergebnis, ereignisse = ereignisse, marker = marker,
+       kont_args = kont_args)
 }
 
 test_that("fuehre_fruehlauf_aus: schlaeft bis 00:30, prueft Kontingent, laeuft, setzt den Marker", {
@@ -609,4 +618,16 @@ test_that("fuehre_fruehlauf_aus: im Fenster passiert nichts", {
   env <- source_scheduler()
   p <- fruehlauf_probe(env, as.POSIXct("2026-11-16 15:00:00", tz = "Europe/Berlin"))
   expect_equal(p$ereignisse, character())
+})
+
+test_that("fuehre_fruehlauf_aus: die Kontingent-Pruefung rechnet mit den Kosten eines Vollzyklus", {
+  # Ohne avg_calls_per_loop galte der Default der Tagesplanung (1 + n/2 = 6):
+  # die Pruefung bestuende schon ab 7 verbleibenden Requests, der Lauf
+  # kostet aber 1 Probe + 1 Abruf je Liga.
+  withr::local_envvar(c(DURATION = ""))
+  env <- source_scheduler()
+  p <- fruehlauf_probe(env, as.POSIXct("2026-11-16 08:00:00", tz = "Europe/Berlin"))
+  expect_length(p$kont_args, 1L)
+  expect_equal(p$kont_args[[1]]$ideal_loops, 1)
+  expect_equal(p$kont_args[[1]]$avg_calls_per_loop, 1 + length(league_ids()))
 })
