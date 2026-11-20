@@ -17,7 +17,7 @@
 ARG P3M_SNAPSHOT=2026-10-26
 
 # ---- Stage 1: Build Rust binary ----
-FROM rust:1.99-alpine AS rust-builder
+FROM rust:1.100-alpine AS rust-builder
 
 RUN apk add --no-cache musl-dev
 
