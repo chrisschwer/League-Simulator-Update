@@ -128,3 +128,22 @@ der TeamList trägt weiter die Sperre (`< 0`), wird aber nur noch als
 Aufstiegssperre für die 3. Liga und die 2. Frauen-Bundesliga gelesen, nicht
 mehr als `adj_points`.
 
+## Nachtrag 2026-11-20: „Erstvertretung heute in der 3. Liga“ ist regelwidrig, nicht unmodelliert
+
+Der Nachtrag vom 17.10.2026 führte den Fall, dass die Erstvertretung heute in der
+3. Liga spielt, als Lücke (#332). Er ist keine: Ein Verein darf nicht zugleich
+mit einer Mannschaft in der 3. Liga und einer zweiten Mannschaft in der
+Regionalliga spielen, die Reserve eines Drittligisten gehört in die Oberliga
+(Beispiel: Ingolstadt II in der Bayernliga, während der FCI in der 3. Liga steht).
+Eine Regionalliga-Reserve mit Erstvertretung in der 3. Liga gibt es also nicht,
+und es bleibt nichts zu modellieren. HA2B (Hansa Rostock II) und FO2 (Fortuna
+Düsseldorf II) stehen nur noch als inaktive Zeilen in der TeamList.
+
+Bleibt der Übergangsfall, dass der Zweitligist absteigt, während seine Reserve in
+der Regionalliga Meister wird (Hannover 96 II): Er ist über #322 und ADR 0009
+abgedeckt.
+
+**Einschränkung:** Der Wortlaut der Spielordnung (§ 55b) wurde nicht im Original
+gelesen (dfb.de lieferte 403); die Regel stützt sich auf DFB-Hinweise zu zweiten
+Mannschaften und Presseberichte. Wird eine Regionalliga-Reserve mit Erstvertretung
+in der 3. Liga tatsächlich aktiv, ist #332 neu zu öffnen.
