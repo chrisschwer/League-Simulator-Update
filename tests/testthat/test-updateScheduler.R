@@ -566,10 +566,13 @@ fruehlauf_probe <- function(env, jetzt, kontingent = function(n, ...) n, lauf_fe
   }
   schlafen <- function(s) ereignisse <<- c(ereignisse, sprintf("schlaf:%d", s))
   kont_args <- list()
-  kont <- function(n, ...) {
+  kont <- function(...) {
     ereignisse <<- c(ereignisse, "probe")
-    kont_args <<- c(kont_args, list(list(n = n, ...)))
-    kontingent(n, ...)
+    # Gegen die Signatur von checkAPILimits() abgleichen: Ob der Aufrufer das
+    # Argument benannt oder positional uebergibt, landet es unter demselben Namen.
+    abgeglichen <- match.call(checkAPILimits, as.call(c(quote(checkAPILimits), list(...))))
+    kont_args <<- c(kont_args, list(as.list(abgeglichen)[-1]))
+    kontingent(...)
   }
   ergebnis <- env$fuehre_fruehlauf_aus(jetzt = jetzt, schlafen = schlafen,
                                        lauf = lauf, kontingent = kont, marker = marker)
@@ -625,6 +628,6 @@ test_that("fuehre_fruehlauf_aus: die Kontingent-Pruefung rechnet mit den Kosten 
   env <- source_scheduler()
   p <- fruehlauf_probe(env, as.POSIXct("2026-11-16 08:00:00", tz = "Europe/Berlin"))
   expect_length(p$kont_args, 1L)
-  expect_equal(p$kont_args[[1]]$n, 1)
+  expect_equal(p$kont_args[[1]]$ideal_loops, 1)
   expect_equal(p$kont_args[[1]]$avg_calls_per_loop, 1 + length(league_ids()))
 })
